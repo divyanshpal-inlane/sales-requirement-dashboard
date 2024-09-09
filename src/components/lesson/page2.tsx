@@ -1,6 +1,3 @@
-import PurpleGradient from "@/components/layout/purple";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowLeft,
   Lightbulb,
@@ -10,6 +7,10 @@ import {
   User2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+
+import PurpleGradient from "@/components/layout/purple";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LessonPage2() {
   return (
@@ -46,11 +47,11 @@ export default function LessonPage2() {
               },
             ].map((item, index) => (
               <div key={index} className="flex items-center space-x-4">
-                <div className="bg-accent-purple/50 flex h-12 w-12 items-center justify-center rounded-full text-2xl">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-purple/50 text-2xl">
                   {item.icon}
                 </div>
                 <div>
-                  <h3 className="text-accent-purple font-semibold">
+                  <h3 className="font-semibold text-accent-purple">
                     {item.title}
                   </h3>
                   <p className="text-sm">{item.description}</p>

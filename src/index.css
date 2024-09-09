@@ -69,3 +69,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+.dot-date::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 100%;
+  background-color: hsl(var(--primary));
+}
