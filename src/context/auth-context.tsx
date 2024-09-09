@@ -1,11 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
-import {
+import React, {
   createContext,
   ReactNode,
   useContext,
   useEffect,
   useState,
 } from "react";
+import { Navigate } from "react-router";
+
+import { useLearner } from "@/queries/learner";
 
 type AuthContextType = {
   user: any;
@@ -16,13 +19,15 @@ type AuthContextType = {
 
 const supabaseUrl = "https://csnzgfzxnscumvjefpon.supabase.co";
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const { data, isLoading, error } = useLearner(user?.phone);
 
   useEffect(() => {
     // Check active session and sets the user
@@ -79,8 +84,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth should be used inside AuthProvider");
   return context;
-};
+}
+
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+
+  if (!user) return <Navigate to="/login" />;
+  return { children };
+}

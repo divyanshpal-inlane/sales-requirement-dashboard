@@ -19,7 +19,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="h-full">
+    <div className="h-full w-full">
       <div className="relative h-64 bg-primary">
         <svg
           className="absolute bottom-0 h-16 w-full"

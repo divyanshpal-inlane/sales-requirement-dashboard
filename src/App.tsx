@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   BrowserRouter,
   Navigate,
@@ -18,37 +18,30 @@ import MainLayout from "@/components/layout/main-layout";
 import Plam from "@/components/lesson/plan";
 import { AuthProvider } from "@/context/auth-context";
 
-export default function App() {
-  const [count, setCount] = useState(0);
+const queryClient = new QueryClient();
 
+export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Page />} />
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Navigate to="/home" replace />} />
-            <Route path="home" element={<Home />} />
-            <Route path="prep" element={<Prep />} />
-            <Route path="schedule" element={<Schedule />} />
-          </Route>
-          <Route
-            path="/"
-            element={
-              <div className="flex h-screen grow items-center justify-center">
-                <div className="mx-auto flex h-full max-h-[1000px] w-full max-w-md overflow-hidden rounded-lg bg-white shadow-lg">
-                  <Outlet />
-                </div>
-              </div>
-            }
-          >
-            <Route path="birthday" element={<Birthday />} />
-            <Route path="aadhar" element={<Aadhar />} />
-            <Route path="bookLL" element={<BookLL />} />
-            <Route path="lesson/:lessonId" element={<Plam />} />
-          </Route>
-        </Routes>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Page />} />
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Navigate to="/home" replace />} />
+              <Route path="home" element={<Home />} />
+              <Route path="prep" element={<Prep />} />
+              <Route path="schedule" element={<Schedule />} />
+            </Route>
+            <Route path="/" element={<Outlet />}>
+              <Route path="birthday" element={<Birthday />} />
+              <Route path="aadhar" element={<Aadhar />} />
+              <Route path="bookLL" element={<BookLL />} />
+              <Route path="lesson/:lessonId" element={<Plam />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   );
 }

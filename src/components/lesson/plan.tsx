@@ -1,9 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import TriviaCard from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
 
 export default function Plam() {
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [isReturningToMenu, setIsReturningToMenu] = useState(false);
@@ -19,15 +23,18 @@ export default function Plam() {
       title: "lesson plan car meet & greet",
       icon: "🚗",
       color: "bg-purple-400",
-      content:
-        "Review your lesson plan and prepare for your car meet & greet session.",
+      content: <TriviaCard />,
     },
     {
       title: "car command center",
       icon: "🚨",
       color: "bg-indigo-500",
-      content:
-        "Access the car command center for advanced driving controls and information.",
+      content: (
+        <video className="h-full w-full" autoPlay muted playsInline>
+          <source src="/assets/parallel-parking.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      ),
     },
   ];
 
@@ -43,28 +50,28 @@ export default function Plam() {
 
   return (
     <div className="relative h-full w-full overflow-hidden text-foreground">
-      <video
+      <img
         className="absolute inset-0 h-full w-full object-cover"
-        autoPlay
-        muted
-        playsInline
-      >
-        <source src="/assets/parallel-parking.mp4" type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+        src="/assets/lesson1-hero.png"
+        alt="Parallel Parking"
+      />
 
-      {/* Overlay for better text visibility */}
       {(isMenuOpen || selectedCard !== null) && (
         <div className="absolute inset-0 bg-black bg-opacity-50" />
       )}
 
-      {/* Content container */}
       <div className="relative z-10 flex h-full w-full flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between p-4">
-          {/* Logo */}
-          <div className="text-4xl font-bold">LANE</div>
-          {/* Menu button */}
+          <div className="flex flex-row items-center gap-2 text-4xl font-bold">
+            <Button
+              size={"icon"}
+              variant={"ghost"}
+              onClick={() => navigate("/schedule")}
+            >
+              <ArrowLeft />
+            </Button>
+            <p>LANE</p>
+          </div>
           {selectedCard === null && (
             <Button
               className="bg-white text-black"
@@ -75,10 +82,8 @@ export default function Plam() {
           )}
         </div>
 
-        {/* Spacer to push menu to bottom */}
         <div className="flex-grow" />
 
-        {/* Animated menu cards */}
         <AnimatePresence>
           {isMenuOpen && selectedCard === null && (
             <motion.div
@@ -104,7 +109,6 @@ export default function Plam() {
             </motion.div>
           )}
 
-          {/* Selected card content */}
           {selectedCard !== null && (
             <motion.div
               initial={{ y: "100%" }}
@@ -120,7 +124,15 @@ export default function Plam() {
               <h2 className="mb-4 text-4xl font-bold">
                 {menuItems[selectedCard].title}
               </h2>
-              <p className="mb-8 text-xl">{menuItems[selectedCard].content}</p>
+              <p className="mb-8 h-full w-full text-xl">
+                {menuItems[selectedCard].content}
+              </p>
+              {/* <iframe
+                width={"100%"}
+                height={"100%"}
+                src="https://staging.da3uvaik39s3z.amplifyapp.com/"
+                title="Embedded Content"
+              ></iframe> */}
               <Button
                 className="mt-auto self-start bg-white text-black"
                 onClick={handleBackClick}

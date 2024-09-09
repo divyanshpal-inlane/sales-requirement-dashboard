@@ -1,4 +1,5 @@
 import { addDays } from "date-fns";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -37,7 +38,9 @@ export default function Schedule() {
                 <span>10th Sept</span>
                 <span>9:00 AM</span>
               </p>
-              <Button variant={"secondary"}>Know your car</Button>
+              <Button variant={"secondary"} asChild>
+                <Link to="/lesson/1">Go to lesson</Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
