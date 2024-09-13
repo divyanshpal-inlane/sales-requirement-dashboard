@@ -9,6 +9,7 @@ import React, {
 import { Navigate } from "react-router";
 
 import { useLearner } from "@/queries/learner";
+import { Database } from "@/types/database.types";
 
 type AuthContextType = {
   user: any;
@@ -19,7 +20,7 @@ type AuthContextType = {
 
 const supabaseUrl = "https://csnzgfzxnscumvjefpon.supabase.co";
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, login, logout, signUp }}>
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center font-glancyr">
         <div className="mx-auto flex aspect-[9/16] h-full max-h-[1000px] overflow-hidden rounded-lg bg-white shadow-lg">
           {children}
         </div>
@@ -95,4 +96,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Navigate to="/login" />;
   return { children };
+}
+
+export function useUser() {
+  const { user } = useAuth();
+  if (!user) {
+    throw new Error("user is required");
+  }
+  return user;
 }

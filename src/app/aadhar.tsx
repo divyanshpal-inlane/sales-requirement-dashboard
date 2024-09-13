@@ -1,3 +1,7 @@
+import { ArrowLeft } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router";
+
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -7,9 +11,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import { useUser } from "@/context/auth-context";
+import { useLearnerUpdate } from "@/queries/learner";
 
 export default function Aadhar() {
+  const { phone } = useUser();
+  const [selectedState, setSelectedState] = useState<string>("");
+  const { mutate, isPending } = useLearnerUpdate();
+  const navigate = useNavigate();
+
+  const handleContinueClick = useCallback(() => {
+    if (!selectedState) {
+      alert("No selected state");
+      return;
+    }
+    mutate(
+      {
+        phone,
+        data: {
+          aadhar_state: selectedState,
+        },
+      },
+      {
+        onSuccess: () => navigate("/onboard/aadhar"),
+      },
+    );
+  }, [selectedState]);
+
   return (
     <div className="flex h-full w-full flex-col rounded-md">
       <div className="flex flex-col rounded-b-[40px] bg-primary">
@@ -30,13 +58,16 @@ export default function Aadhar() {
             Where is your aadhar regitered?
           </h1>
           <p className="text">
-            We use this for the learner's license application
+            We use this for the learner&apos;s license application
           </p>
         </div>
       </div>
       <div className="flex grow flex-col justify-between bg-white p-6">
         <div className="mt-8 space-y-4">
-          <Select>
+          <Select
+            value={selectedState}
+            onValueChange={(val) => setSelectedState(val)}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select state" />
             </SelectTrigger>
@@ -91,7 +122,9 @@ export default function Aadhar() {
             </SelectContent>
           </Select>
         </div>
-        <Button className="w-full">Continue</Button>
+        <Button onClick={handleContinueClick} className="w-full">
+          Continue
+        </Button>
       </div>
     </div>
   );

@@ -1,48 +1,24 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 
-import { InteractiveImageQuiz } from "@/components/lesson/quiz";
 import { Button } from "@/components/ui/button";
 import { PaintedText } from "@/components/ui/paint-text";
 
-export const GAMES = [
-  {
-    mapAreas: [
-      { x: 15.65625, y: 69, width: 93, height: 84, id: 1 },
-      { x: 142.65625, y: 55, width: 78, height: 77, id: 2 },
-      { x: 221.65625, y: 10, width: 89, height: 125, id: 3 },
-    ],
-    correctAnswer: 3,
-    imageSrc: "/assets/ThreePedal.png",
-  },
-  {
-    mapAreas: [{ x: 203.15625, y: 65, width: 40, height: 24, id: 1 }],
-    correctAnswer: 1,
-    imageSrc: "/assets/SteeringWheel.png",
-  },
-  {
-    correctAnswer: 1,
-  },
-];
-
-const TriviaCard = ({
+const TriviaQuestion = ({
   finishGame,
   game,
 }: {
   finishGame: () => void;
-  game: any;
+  game: { question: string; answers: string[]; correctAnswer: number }[];
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState<number | undefined>(
     undefined,
   );
   const [gameIndex, setGameIndex] = useState(0);
-  const question = "While reversing, how can we maintain control of the car?";
-  const answers = [
-    "Just use the mirror",
-    "Use the clutch and brake pedals to control speed, and look back",
-  ];
+  const question = game[gameIndex].question;
+  const answers = game[gameIndex].answers;
 
-  const isCorrect = selectedAnswer === GAMES[gameIndex].correctAnswer;
+  const isCorrect = selectedAnswer === game[gameIndex].correctAnswer;
 
   return (
     <div className="flex h-full w-full items-center justify-center">
@@ -57,7 +33,7 @@ const TriviaCard = ({
           15 secs <span className="text-2xl">⏰</span>
         </PaintedText>
         <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
-          {/* <h3 className="mb-4 text-lg font-bold text-accent-purple">
+          <h3 className="mb-4 text-lg font-bold text-accent-purple">
             {question}
           </h3>
           {answers.map((answer, index) => (
@@ -74,7 +50,7 @@ const TriviaCard = ({
               <PaintedText
                 variant={
                   selectedAnswer && selectedAnswer - 1 === index
-                    ? selectedAnswer === GAMES[gameIndex].correctAnswer
+                    ? selectedAnswer === game[gameIndex].correctAnswer
                       ? "green"
                       : "red"
                     : null
@@ -83,13 +59,8 @@ const TriviaCard = ({
                 {answer}
               </PaintedText>
             </label>
-          ))} */}
+          ))}
 
-          <InteractiveImageQuiz
-            key={GAMES[gameIndex].imageSrc}
-            setAnswer={setSelectedAnswer}
-            {...GAMES[gameIndex]}
-          />
           <AnimatePresence>
             {selectedAnswer && (
               <motion.div
@@ -131,4 +102,4 @@ const TriviaCard = ({
   );
 };
 
-export default TriviaCard;
+export default TriviaQuestion;

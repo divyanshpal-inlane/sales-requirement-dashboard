@@ -296,14 +296,14 @@ export default function Home() {
           {/* text when user passed the LL_test */}
           {LLResult === true ? (
             <p className="mt-4">
-              Yayy! 🎉 Let's get you ready for your first practical lesson!
+              Yayy! 🎉 Let&apos;s get you ready for your first practical lesson!
             </p>
           ) : null}
 
           {/* text when user failed the LL_test */}
           {LLResult === false ? (
             <p className="mt-4">
-              Don't worry! 🤗 You can try again after 7 days.
+              Don&apos;t worry! 🤗 You can try again after 7 days.
             </p>
           ) : null}
         </div>

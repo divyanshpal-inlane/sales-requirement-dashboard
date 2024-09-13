@@ -17,6 +17,10 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        glancyr: ["Glancyr", "sans-serif"],
+        brico: ["Bricolage Grotesque", "sans-serif"],
+      },
       content: {
         dot: 'url("/assets/dot.svg")',
       },

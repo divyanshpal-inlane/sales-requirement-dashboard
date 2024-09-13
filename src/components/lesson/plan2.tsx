@@ -12,14 +12,14 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import TriviaCard from "@/components/lesson/trivia";
+import TriviaQuestion from "@/components/lesson/triviaQuestion";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-export default function Plam() {
+export default function Plan2() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [isInfoCardOpen, setIsInfoCardOpen] = useState(true);
   const [isSessionDetailsMinimized, setIsSessionDetailsMinimized] =
     useState(true);
@@ -35,24 +35,26 @@ export default function Plam() {
         icon: "🤖",
         color: "bg-purple-400",
         content: (
-          <TriviaCard
+          <TriviaQuestion
             finishGame={finishGame}
             game={[
               {
-                mapAreas: [
-                  { x: 15.65625, y: 69, width: 93, height: 84, id: 1 },
-                  { x: 142.65625, y: 55, width: 78, height: 77, id: 2 },
-                  { x: 221.65625, y: 10, width: 89, height: 125, id: 3 },
+                question:
+                  "While reversing, how can we maintain control of the car?",
+                answers: [
+                  "Just use the mirror",
+                  "Use the clutch and brake pedals to control speed, and look back",
                 ],
-                correctAnswer: 3,
-                imageSrc: "/assets/ThreePedal.png",
+                correctAnswer: 2,
               },
               {
-                mapAreas: [
-                  { x: 203.15625, y: 65, width: 40, height: 24, id: 1 },
+                question:
+                  "While reversing, how can we maintain control of the car?",
+                answers: [
+                  "Just use the mirror",
+                  "Use the clutch and brake pedals to control speed, and look back",
                 ],
                 correctAnswer: 1,
-                imageSrc: "/assets/SteeringWheel.png",
               },
             ]}
           />
@@ -109,17 +111,17 @@ export default function Plam() {
               size={"icon"}
               variant={"ghost"}
               className="text-white"
-              onClick={() => navigate("/schedule")}
+              onClick={() => navigate("/lesson/1")}
             >
               <ArrowLeft />
             </Button>
 
-            <p className="text-white">Lesson 1</p>
+            <p className="text-white">Lesson 2</p>
             <Button
               size={"icon"}
               variant={"ghost"}
               className="text-white"
-              onClick={() => navigate("/lesson/2")}
+              onClick={() => navigate("/lesson/3")}
             >
               <ArrowRight />
             </Button>
@@ -164,7 +166,7 @@ export default function Plam() {
                   <div className="flex w-full flex-row gap-4">
                     <div className="flex w-full flex-col gap-0">
                       <p className="text-sm font-light">Date, Time</p>
-                      <p className="text-base">Mon 12th Sept, 9:00AM</p>
+                      <p className="text-base">Mon 13th Sept, 9:00AM</p>
                     </div>
                     <div className="flex w-full flex-col gap-0">
                       <p className="text-sm font-light">Instructor Name</p>
@@ -196,7 +198,7 @@ export default function Plam() {
                   exit={{ opacity: 0 }}
                   className="text-sm font-light"
                 >
-                  Date, Time: Mon 12th Sept, 9:00AM
+                  Date, Time: Mon 13th Sept, 9:00AM
                 </motion.p>
               )}
             </motion.div>

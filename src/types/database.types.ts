@@ -1,0 +1,514 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export type Database = {
+  public: {
+    Tables: {
+      Courses: {
+        Row: {
+          code: number | null;
+          created_at: string;
+          duration: number | null;
+          enabled: boolean | null;
+          id: string;
+          name: string | null;
+          price: number | null;
+          total_lessons: number | null;
+        };
+        Insert: {
+          code?: number | null;
+          created_at?: string;
+          duration?: number | null;
+          enabled?: boolean | null;
+          id?: string;
+          name?: string | null;
+          price?: number | null;
+          total_lessons?: number | null;
+        };
+        Update: {
+          code?: number | null;
+          created_at?: string;
+          duration?: number | null;
+          enabled?: boolean | null;
+          id?: string;
+          name?: string | null;
+          price?: number | null;
+          total_lessons?: number | null;
+        };
+        Relationships: [];
+      };
+      Enrolment: {
+        Row: {
+          course_id: string | null;
+          created_at: string;
+          enabled: boolean | null;
+          end_date: string | null;
+          id: number;
+          learner_id: string | null;
+          payment_status: boolean | null;
+          start_date: string | null;
+        };
+        Insert: {
+          course_id?: string | null;
+          created_at?: string;
+          enabled?: boolean | null;
+          end_date?: string | null;
+          id?: number;
+          learner_id?: string | null;
+          payment_status?: boolean | null;
+          start_date?: string | null;
+        };
+        Update: {
+          course_id?: string | null;
+          created_at?: string;
+          enabled?: boolean | null;
+          end_date?: string | null;
+          id?: number;
+          learner_id?: string | null;
+          payment_status?: boolean | null;
+          start_date?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "Enrolment_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "Courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "Enrolment_learner_id_fkey";
+            columns: ["learner_id"];
+            isOneToOne: false;
+            referencedRelation: "Learner";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      Instructor: {
+        Row: {
+          car_license: string | null;
+          car_make: string | null;
+          car_mode: string | null;
+          created_at: string;
+          DL_number: string | null;
+          email: string | null;
+          enabled: boolean | null;
+          experience: number | null;
+          id_instructor: string;
+          name: string | null;
+          password: string | null;
+          phone: number | null;
+        };
+        Insert: {
+          car_license?: string | null;
+          car_make?: string | null;
+          car_mode?: string | null;
+          created_at?: string;
+          DL_number?: string | null;
+          email?: string | null;
+          enabled?: boolean | null;
+          experience?: number | null;
+          id_instructor?: string;
+          name?: string | null;
+          password?: string | null;
+          phone?: number | null;
+        };
+        Update: {
+          car_license?: string | null;
+          car_make?: string | null;
+          car_mode?: string | null;
+          created_at?: string;
+          DL_number?: string | null;
+          email?: string | null;
+          enabled?: boolean | null;
+          experience?: number | null;
+          id_instructor?: string;
+          name?: string | null;
+          password?: string | null;
+          phone?: number | null;
+        };
+        Relationships: [];
+      };
+      "Instructor Unavailability": {
+        Row: {
+          booked_date: string | null;
+          booked_end_time: string | null;
+          booked_start_time: string | null;
+          instructor_id: string;
+        };
+        Insert: {
+          booked_date?: string | null;
+          booked_end_time?: string | null;
+          booked_start_time?: string | null;
+          instructor_id: string;
+        };
+        Update: {
+          booked_date?: string | null;
+          booked_end_time?: string | null;
+          booked_start_time?: string | null;
+          instructor_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "Instructor Unavailability_instructor_id_fkey";
+            columns: ["instructor_id"];
+            isOneToOne: true;
+            referencedRelation: "Instructor";
+            referencedColumns: ["id_instructor"];
+          },
+        ];
+      };
+      Learner: {
+        Row: {
+          city: string | null;
+          created_at: string;
+          DL_id: string | null;
+          DL_result: boolean | null;
+          DL_test_date: string | null;
+          dob: string | null;
+          email: string | null;
+          enabled: boolean | null;
+          has_a_DL: boolean | null;
+          id: string;
+          LL_id: string | null;
+          LL_result: boolean | null;
+          LL_test_date: string | null;
+          name: string | null;
+          password: string | null;
+          phone: string;
+          pick_up_location: string | null;
+          signed_up: string | null;
+          start_date: string | null;
+          unavailability: Json | null;
+        };
+        Insert: {
+          city?: string | null;
+          created_at?: string;
+          DL_id?: string | null;
+          DL_result?: boolean | null;
+          DL_test_date?: string | null;
+          dob?: string | null;
+          email?: string | null;
+          enabled?: boolean | null;
+          has_a_DL?: boolean | null;
+          id: string;
+          LL_id?: string | null;
+          LL_result?: boolean | null;
+          LL_test_date?: string | null;
+          name?: string | null;
+          password?: string | null;
+          phone: string;
+          pick_up_location?: string | null;
+          signed_up?: string | null;
+          start_date?: string | null;
+          unavailability?: Json | null;
+        };
+        Update: {
+          city?: string | null;
+          created_at?: string;
+          DL_id?: string | null;
+          DL_result?: boolean | null;
+          DL_test_date?: string | null;
+          dob?: string | null;
+          email?: string | null;
+          enabled?: boolean | null;
+          has_a_DL?: boolean | null;
+          id?: string;
+          LL_id?: string | null;
+          LL_result?: boolean | null;
+          LL_test_date?: string | null;
+          name?: string | null;
+          password?: string | null;
+          phone?: string;
+          pick_up_location?: string | null;
+          signed_up?: string | null;
+          start_date?: string | null;
+          unavailability?: Json | null;
+        };
+        Relationships: [];
+      };
+      "Learner Availability": {
+        Row: {
+          day_of_the_week: string | null;
+          learner_id: string;
+          list_of_available_timeslots: Json | null;
+        };
+        Insert: {
+          day_of_the_week?: string | null;
+          learner_id: string;
+          list_of_available_timeslots?: Json | null;
+        };
+        Update: {
+          day_of_the_week?: string | null;
+          learner_id?: string;
+          list_of_available_timeslots?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "Learner Availability_learner_id_fkey";
+            columns: ["learner_id"];
+            isOneToOne: true;
+            referencedRelation: "Learner";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      Lesson: {
+        Row: {
+          course_id: string | null;
+          created_at: string;
+          description: string | null;
+          duration: number | null;
+          enabled: boolean | null;
+          id: string;
+        };
+        Insert: {
+          course_id?: string | null;
+          created_at?: string;
+          description?: string | null;
+          duration?: number | null;
+          enabled?: boolean | null;
+          id?: string;
+        };
+        Update: {
+          course_id?: string | null;
+          created_at?: string;
+          description?: string | null;
+          duration?: number | null;
+          enabled?: boolean | null;
+          id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "Lesson_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "Courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      Payment: {
+        Row: {
+          amount: number | null;
+          created_at: string;
+          enabled: boolean | null;
+          id: number;
+          "⁠learner_id": string | null;
+          payment_date: string | null;
+          pmt_ref: string | null;
+          product: string | null;
+          "⁠psp_ref": string | null;
+          status: boolean | null;
+          transaction_id: string | null;
+        };
+        Insert: {
+          amount?: number | null;
+          created_at?: string;
+          enabled?: boolean | null;
+          id?: number;
+          "⁠learner_id"?: string | null;
+          payment_date?: string | null;
+          pmt_ref?: string | null;
+          product?: string | null;
+          "⁠psp_ref"?: string | null;
+          status?: boolean | null;
+          transaction_id?: string | null;
+        };
+        Update: {
+          amount?: number | null;
+          created_at?: string;
+          enabled?: boolean | null;
+          id?: number;
+          "⁠learner_id"?: string | null;
+          payment_date?: string | null;
+          pmt_ref?: string | null;
+          product?: string | null;
+          "⁠psp_ref"?: string | null;
+          status?: boolean | null;
+          transaction_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "Payment_⁠learner_id_fkey";
+            columns: ["⁠learner_id"];
+            isOneToOne: false;
+            referencedRelation: "Learner";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      Schedule: {
+        Row: {
+          course_id: string | null;
+          created_at: string;
+          date: string | null;
+          enabled: boolean | null;
+          end_time: string | null;
+          id: number;
+          instructor_id: string | null;
+          learner_id: string | null;
+          lesson_id: string | null;
+          start_time: string | null;
+          status: string | null;
+        };
+        Insert: {
+          course_id?: string | null;
+          created_at?: string;
+          date?: string | null;
+          enabled?: boolean | null;
+          end_time?: string | null;
+          id?: number;
+          instructor_id?: string | null;
+          learner_id?: string | null;
+          lesson_id?: string | null;
+          start_time?: string | null;
+          status?: string | null;
+        };
+        Update: {
+          course_id?: string | null;
+          created_at?: string;
+          date?: string | null;
+          enabled?: boolean | null;
+          end_time?: string | null;
+          id?: number;
+          instructor_id?: string | null;
+          learner_id?: string | null;
+          lesson_id?: string | null;
+          start_time?: string | null;
+          status?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "Schedule_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "Courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "Schedule_instructor_id_fkey";
+            columns: ["instructor_id"];
+            isOneToOne: false;
+            referencedRelation: "Instructor";
+            referencedColumns: ["id_instructor"];
+          },
+          {
+            foreignKeyName: "Schedule_learner_id_fkey";
+            columns: ["learner_id"];
+            isOneToOne: false;
+            referencedRelation: "Learner";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "Schedule_lesson_id_fkey";
+            columns: ["lesson_id"];
+            isOneToOne: false;
+            referencedRelation: "Lesson";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+};
+
+type PublicSchema = Database[Extract<keyof Database, "public">];
+
+export type Tables<
+  PublicTableNameOrOptions extends
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (
+      & Database[PublicTableNameOrOptions["schema"]]["Tables"]
+      & Database[PublicTableNameOrOptions["schema"]]["Views"]
+    )
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database } ? (
+    & Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    & Database[PublicTableNameOrOptions["schema"]]["Views"]
+  )[TableName] extends {
+    Row: infer R;
+  } ? R
+  : never
+  : PublicTableNameOrOptions extends keyof (
+    & PublicSchema["Tables"]
+    & PublicSchema["Views"]
+  ) ? (
+      & PublicSchema["Tables"]
+      & PublicSchema["Views"]
+    )[PublicTableNameOrOptions] extends {
+      Row: infer R;
+    } ? R
+    : never
+  : never;
+
+export type TablesInsert<
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Insert: infer I;
+  } ? I
+  : never
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+      Insert: infer I;
+    } ? I
+    : never
+  : never;
+
+export type TablesUpdate<
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Update: infer U;
+  } ? U
+  : never
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+      Update: infer U;
+    } ? U
+    : never
+  : never;
+
+export type Enums<
+  PublicEnumNameOrOptions extends
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+  : never;
