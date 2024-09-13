@@ -231,7 +231,12 @@ export default function Home() {
       data[0].LL_result != true &&
       isDateGreaterThanToday(data[0].LL_test_date) ? (
         <div className="mt-4 flex flex-col justify-center">
-          <Button className="mt-auto w-full">Start Learning</Button>
+          <Button
+            onClick={() => (window.location.href = "/prep")}
+            className="mt-auto w-full"
+          >
+            Start Learning
+          </Button>
           <p className="text-center">or should we say, Gaminggg...</p>
           <Card className="mt-6">
             <CardHeader>

@@ -17,7 +17,7 @@ import TriviaCard, { Game } from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-const LESSON_IDS = ["1", "2"] as const;
+const LESSON_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 
 const LESSON_CONTENT: Record<
   (typeof LESSON_IDS)[number],
@@ -32,7 +32,41 @@ const LESSON_CONTENT: Record<
   "1": {
     id: "1",
     content: {
-      remember: [{ icon: "😊", text: "dumm text" }],
+      remember: [
+        { icon: "😊", text: "Think of your car as your best buddy " },
+        {
+          icon: "👨🏻‍💼",
+          text: "Every pro driver has good control of the car - drive slowly ",
+        },
+      ],
+      pointers: [
+        { title: "You will be good at Starting & Stopping the Car" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Car Intro:",
+              desc: "Dash, gears, controls",
+            },
+            {
+              icons: "😎",
+              header: "Get Comfy:",
+              desc: "Adjust seat, mirrors, steering",
+            },
+            {
+              icons: "😎",
+              header: "Start Up:",
+              desc: "Clutch, neutral, start button",
+            },
+            {
+              icons: "😎",
+              header: "Move Forward:",
+              desc: "Balance clutch & accelerator",
+            },
+            { icons: "😎", header: "Stop Smoothly:", desc: "Brake, clutch" },
+          ],
+        },
+      ],
       game: {
         type: "image",
         games: [
@@ -57,7 +91,38 @@ const LESSON_CONTENT: Record<
   "2": {
     id: "2",
     content: {
-      remember: [{ icon: "😊", text: "dumm text" }],
+      remember: [
+        { icon: "🏎", text: "Keep it chill, under 20 km/h" },
+        { icon: "🚧", text: "Distance - Give obstacles some personal space" },
+        { icon: "😊", text: "Treat your car like your best buddy" },
+      ],
+      pointers: [
+        { title: "You will start getting the hang of balancing the pedals" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Pedal Fun:",
+              desc: "Drive forward & back on a straight road",
+            },
+            {
+              icons: "😎",
+              header: "Stop & Go:",
+              desc: "Quick stops, smooth moves (emergency stops)",
+            },
+            {
+              icons: "😎",
+              header: "Slope Magic:",
+              desc: "Balancing pedals on slopes",
+            },
+            {
+              icons: "😎",
+              header: "Mirror Magic:",
+              desc: "Grasping the surrounding",
+            },
+          ],
+        },
+      ],
       game: {
         type: "question",
         games: [
@@ -77,6 +142,481 @@ const LESSON_CONTENT: Record<
               "Skip first gear and go straight to second",
             ],
             correctAnswer: 1,
+          },
+        ],
+      },
+    },
+  },
+  "3": {
+    id: "3",
+    content: {
+      remember: [
+        {
+          icon: "🍫",
+          text: "Find the Sweet Spot - Nail the clutch biting point",
+        },
+        {
+          icon: "🚘",
+          text: "Slow pace - To sharpen steering skills",
+        },
+        {
+          icon: "💡",
+          text: "Use indicators before turns",
+        },
+      ],
+      pointers: [
+        { title: "You will start changing gears and practicing turns" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Gearbox Magic:",
+              desc: "Nail the clutch and shift gears smoothly",
+            },
+            {
+              icons: "😎",
+              header: "Get Comfy:",
+              desc: "Adjust seat, mirrors, steering",
+            },
+            {
+              icons: "😎",
+              header: "Steering Skills:",
+              desc: "Hold the wheel right, move smoothly",
+            },
+            {
+              icons: "😎",
+              header: "Turn Tricks:",
+              desc: "Slow down, signal, and check mirrors",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question:
+              "What should you do before shifting gears in a manual car?",
+            answers: [
+              "Press the clutch pedal fully",
+              "Press the brake pedal fully",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "Which gear should you use when driving uphill in a manual car?",
+            answers: [
+              "First or second gear for more power and torque, essential for going uphill",
+              "Fifth gear for cruising at higher speeds.",
+            ],
+            correctAnswer: 1,
+          },
+        ],
+      },
+    },
+  },
+  "4": {
+    id: "4",
+    content: {
+      remember: [
+        {
+          icon: "🅿️",
+          text: "Be slow while parking - check mirrors & signals",
+        },
+        {
+          icon: "⚙️",
+          text: "Steer smoothly",
+        },
+        {
+          icon: "🚗",
+          text: "Press the clutch completely - release slow & accelerate",
+        },
+      ],
+      pointers: [
+        { title: "You will find parking not so tough anymore" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Find Your Fit:",
+              desc: "Spot spaces and align perfectly",
+            },
+            {
+              icons: "😎",
+              header: "Mirror Magic:",
+              desc: "Judge distance and avoid bumper kisses",
+            },
+            {
+              icons: "😎",
+              header: "Slow Steering:",
+              desc: "Navigate tight spots with ease",
+            },
+            {
+              icons: "😎",
+              header: "Park and Exit:",
+              desc: "Right gear & safely open doors",
+            },
+            {
+              icons: "😎",
+              header: "Gear Up:",
+              desc: "Balance pedals and gear in slow movements",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question:
+              "What’s the best way to check your car’s position while parking?",
+            answers: [
+              "Look at the side mirrors regularly to monitor distance from nearby objects",
+              "Open the door and check manually",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "What is the safest practice when exiting a parallel parking spot?",
+            answers: [
+              "Start moving when the coast looks clear",
+              "Check your blind spots and signal before pulling out.",
+            ],
+            correctAnswer: 2,
+          },
+        ],
+      },
+    },
+  },
+  "5": {
+    id: "5",
+    content: {
+      remember: [
+        {
+          icon: "🛣",
+          text: "Adjust speed to road conditions",
+        },
+        {
+          icon: "🎛",
+          text: "Gear Guru - Shift by engine sound or RPM",
+        },
+        {
+          icon: "⚙️",
+          text: "Release clutch slowly with gentle acceleration",
+        },
+      ],
+      pointers: [
+        { title: "You will drive on main roads for the first time" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Steady Speed:",
+              desc: "1. On straight roads & turns \n 2. Speed control using brakes",
+            },
+            {
+              icons: "😎",
+              header: "Gear Shifting:",
+              desc: "Without looking",
+            },
+            {
+              icons: "😎",
+              header: "Parking Pro:",
+              desc: "Parallel park SLIDE!",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question: "How do you maintain a steady speed while making turns?",
+            answers: [
+              "Slow down before the turn and accelerate smoothly through it",
+              "Maintain the same speed throughout the turn",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "How do you maintain steady speed, if you see traffic slowing ahead?",
+            answers: [
+              "Slam on the brakes",
+              "Gradually ease off the accelerator",
+            ],
+            correctAnswer: 2,
+          },
+        ],
+      },
+    },
+  },
+  "6": {
+    id: "6",
+    content: {
+      remember: [
+        {
+          icon: "💡",
+          text: "Use indicators for lane changes",
+        },
+        {
+          icon: "🚥",
+          text: "Traffic Ninja - Keep an eye on the traffic at all times",
+        },
+        {
+          icon: "🚗",
+          text: "Speed Maestro - Adjust speed to match conditions",
+        },
+      ],
+      pointers: [
+        { title: "You will start to drive at steady speeds on main roads" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Mirror Magic:",
+              desc: "Anticipating others actions ",
+            },
+            {
+              icons: "😎",
+              header: "Safe Gaps:",
+              desc: "Keep a safe distance from other vehicles",
+            },
+            {
+              icons: "😎",
+              header: "Sign Savvy:",
+              desc: "Know your traffic signs",
+            },
+            {
+              icons: "😎",
+              header: "Blinker Sense:",
+              desc: "Use indicators to communicate",
+            },
+            {
+              icons: "😎",
+              header: "Lane Loyalty:",
+              desc: "Maintain your lane",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question:
+              "Why is it important to maintain your lane while driving?",
+            answers: [
+              "It prevents accidents by ensuring predictable movements",
+              "It saves fuel",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question: "How often should you check your mirrors while driving?",
+            answers: ["Every 5-8 seconds", "Only when changing lanes"],
+            correctAnswer: 2,
+          },
+        ],
+      },
+    },
+  },
+  "7": {
+    id: "7",
+    content: {
+      remember: [
+        {
+          icon: "🚥",
+          text: "Keep a sharp eye on traffic, pedestrians, and surprises",
+        },
+        {
+          icon: "🚨",
+          text: "Use signals early to keep everyone aware",
+        },
+        {
+          icon: "⚙️",
+          text: "Anticipate gear changes in time",
+        },
+      ],
+      pointers: [
+        { title: "You will begin to enjoy driving on city roads" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Smooth Moves:",
+              desc: "Stop & start at traffic signals",
+            },
+            {
+              icons: "😎",
+              header: "Speed Sense:",
+              desc: "Judge and keep the right speed and distance",
+            },
+            {
+              icons: "😎",
+              header: "City Maze:",
+              desc: "Roundabouts & Intersections Know who goes first",
+            },
+            {
+              icons: "😎",
+              header: "Signal Master:",
+              desc: "Use indicators to communicate",
+            },
+            {
+              icons: "😎",
+              header: "Slope Savvy:",
+              desc: "Low gear more power & control",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question: "What's the golden rule when entering a roundabout?",
+            answers: [
+              "Yield to traffic already in the roundabout",
+              "Speed up to merge quickly",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question: "How should you signal your exit from a roundabout?",
+            answers: [
+              "Use your turn signal just before you exit",
+              "Use your turn signal at all times",
+            ],
+            correctAnswer: 1,
+          },
+        ],
+      },
+    },
+  },
+  "8": {
+    id: "8",
+    content: {
+      remember: [
+        {
+          icon: "🛣",
+          text: "All eyes on the road - zero distraction",
+        },
+        {
+          icon: "💡",
+          text: "Don’t forget to use indicator and horn to let others know of your action",
+        },
+      ],
+      pointers: [
+        { title: "You will start believing in your driving skills" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Evening Traffic Tamer:",
+              desc: "Maintain speeds and distances to handle evening traffic with ease",
+            },
+            {
+              icons: "😎",
+              header: "Using indicator at night:",
+              desc: "Communicate well with others",
+            },
+            {
+              icons: "😎",
+              header: "Night-time Parking Pro:",
+              desc: "Learn to park in dim light",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question:
+              "How can you signal to another driver that you are about to overtake them at night?",
+            answers: [
+              "Flash your high beams briefly to communicate your intention",
+              "Honk your horn repeatedly",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "What is the best practice for parking at night in a poorly lit area?",
+            answers: [
+              "Use your hazard lights to increase visibility while parking",
+              "Park quickly without using additional lights",
+            ],
+            correctAnswer: 1,
+          },
+        ],
+      },
+    },
+  },
+  "9": {
+    id: "9",
+    content: {
+      remember: [
+        {
+          icon: "🏎",
+          text: "Drive at consistent speeds",
+        },
+        {
+          icon: "👨🏻‍💼",
+          text: "Every pro driver has good control of the car - drive slowly",
+        },
+        {
+          icon: "😊",
+          text: "Treat your car like your best buddy",
+        },
+      ],
+      pointers: [
+        { title: "You will drive at consistent speeds on a flyover" },
+        {
+          points: [
+            {
+              icons: "😎",
+              header: "Flyover Flow:",
+              desc: "Merge and exit at the right speeds",
+            },
+            {
+              icons: "😎",
+              header: "Lane Glider:",
+              desc: "Signal, check, and change lanes smoothly",
+            },
+            {
+              icons: "😎",
+              header: "Flyover Traffic:",
+              desc: "Become comfortable in driving on flyover traffic",
+            },
+            {
+              icons: "😎",
+              header: "Tech-Savvy Driver:",
+              desc: "Using GPS without distractions",
+            },
+          ],
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question: "What’s key to driving safely on a flyover?",
+            answers: [
+              "Maintaining steady speed and lane discipline",
+              "Driving faster to avoid traffic",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question: "What should you do when merging or exiting a flyover?",
+            answers: [
+              "Adjust your speed to match traffic and signal in advance",
+              "Brake suddenly and exit quickly",
+            ],
+            correctAnswer: 2,
           },
         ],
       },
@@ -173,7 +713,11 @@ export default function Plan() {
               size={"icon"}
               variant={"ghost"}
               className="text-white"
-              onClick={() => navigate("/lesson/2")}
+              onClick={() =>
+                navigate(
+                  `/lesson/${Number(lessonId) < 10 ? Number(lessonId) + 1 : lessonId + 1}`,
+                )
+              }
             >
               <ArrowRight />
             </Button>
