@@ -1,3 +1,4 @@
+// DatePickerDemo.tsx
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { format } from "date-fns";
 import * as React from "react";
@@ -11,9 +12,14 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export function DatePickerDemo() {
-  const [date, setDate] = React.useState<Date>();
-
+// Accepting date and setDate as props
+export function DatePickerDemo({
+  date,
+  setDate,
+}: {
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
+}) {
   return (
     <Popover>
       <PopoverTrigger asChild>

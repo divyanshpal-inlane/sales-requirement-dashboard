@@ -7,33 +7,27 @@ export default function Prep() {
   const games = [
     {
       image: "/assets/hazard-hero.png",
-      title: "Sharpen your reflexes",
+      title: "Sharpen your reflexes:",
       description: "Spot hazards while driving",
+      link: "https://staging.d2faprkm3jkt4j.amplifyapp.com/",
     },
     {
-      image: "/assets/hazard-hero.png",
+      image: "/assets/master-the-roads.png",
       title: "Crush it:",
       description: "Know your road signs",
+      link: "https://staging.dlv8h2fl9238x.amplifyapp.com/",
     },
     {
-      image: "/assets/hazard-hero.png",
+      image: "/assets/crush-it.jpg",
       title: "Speed Test:",
       description: "How fast can you spot road signs",
+      link: "https://staging.d3dib7h5q2vkq4.amplifyapp.com/",
     },
     {
-      image: "/assets/hazard-hero.png",
-      title: "Lane Learning Game Club",
+      image: "/assets/speed-test.png",
+      title: "Lane Learning Game Club:",
       description: "Sharpen your reflexes: Spot hazards while driving",
-    },
-    {
-      image: "/assets/hazard-hero.png",
-      title: "Lane Learning Game Club",
-      description: "Sharpen your reflexes: Spot hazards while driving",
-    },
-    {
-      image: "/assets/hazard-hero.png",
-      title: "Lane Learning Game Club",
-      description: "Sharpen your reflexes: Spot hazards while driving",
+      link: "https://staging.d2hisid6yp5sd9.amplifyapp.com/",
     },
   ];
   return (
@@ -64,13 +58,28 @@ export default function Prep() {
   );
 }
 
-const GameCard = ({ image, title, description }) => (
+const GameCard = ({
+  image,
+  title,
+  description,
+  link,
+}: {
+  image: string;
+  title: string;
+  description: string;
+  link: string;
+}) => (
   <div className="flex border-t border-border pt-4">
     <img src={image} alt={title} className="h-48 w-32 shrink-0 object-cover" />
-    <div className="flex flex-col justify-end px-4">
+    <div className="flex flex-col justify-center px-4">
       <h3 className="text-sm font-bold text-primary-foreground/70">{title}</h3>
       <p className="mb-2 text-primary-foreground">{description}</p>
-      <Button size={"sm"} className="w-fit" variant={"secondary"}>
+      <Button
+        onClick={() => window.open(link || "https://inlane.in", "_blank")}
+        size={"sm"}
+        className="w-fit"
+        variant={"secondary"}
+      >
         Play now
       </Button>
     </div>
