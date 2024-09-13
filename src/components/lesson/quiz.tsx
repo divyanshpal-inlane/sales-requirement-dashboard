@@ -1,21 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+
+import { ImageGame, QuestionGame } from "@/components/lesson/trivia";
+import { PaintedText } from "@/components/ui/paint-text";
 interface InteractiveImageQuizProps {
-  imageSrc: string;
-  mapAreas: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    id: number;
-  }[];
-  correctArea: number;
-  setAnswer: (answer: number) => void;
+  game: ImageGame["games"][number];
+  selectedAnswer: number;
+  setSelectedAnswer: (answer: number) => void;
 }
 
 export const InteractiveImageQuiz = ({
-  imageSrc,
-  mapAreas,
-  setAnswer,
+  game: { imageSrc, mapAreas },
+  setSelectedAnswer,
 }: InteractiveImageQuizProps) => {
   type CanvasSize = { width: number; height: number };
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({
@@ -110,7 +105,7 @@ export const InteractiveImageQuiz = ({
     });
 
     if (clickedArea) {
-      setAnswer(clickedArea.id);
+      setSelectedAnswer(clickedArea.id);
     }
     console.log(clickedArea, "CLICKED");
   };
@@ -127,3 +122,45 @@ export const InteractiveImageQuiz = ({
     </div>
   );
 };
+
+export function QuestionQuiz({
+  game,
+  selectedAnswer,
+  setSelectedAnswer,
+}: {
+  game: QuestionGame["games"][number];
+  selectedAnswer: number;
+  setSelectedAnswer: (answer: number) => void;
+}) {
+  const answers = game.answers;
+  const question = game.question;
+  return (
+    <>
+      <h3 className="mb-4 text-lg font-bold text-accent-purple">{question}</h3>
+      {answers.map((answer, index) => (
+        <label
+          key={index}
+          className={`mb-3 flex w-full items-center text-left font-semibold`}
+        >
+          <input
+            type="radio"
+            checked={selectedAnswer ? selectedAnswer - 1 === index : false}
+            onChange={() => setSelectedAnswer(index + 1)}
+            className="mr-3"
+          />
+          <PaintedText
+            variant={
+              selectedAnswer && selectedAnswer - 1 === index
+                ? selectedAnswer === game.correctAnswer
+                  ? "green"
+                  : "red"
+                : null
+            }
+          >
+            {answer}
+          </PaintedText>
+        </label>
+      ))}
+    </>
+  );
+}

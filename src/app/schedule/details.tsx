@@ -19,7 +19,10 @@ export default function ScheduleDetails() {
 
   const onContinue = useCallback(() => {
     updateLearner(
-      { pincode: pinCode, location: address, phone: user?.phone },
+      {
+        data: { city: pinCode, pick_up_location: address },
+        phone: user?.phone,
+      },
       {
         onSuccess: () => {
           navigate("/createSchedule/slots");

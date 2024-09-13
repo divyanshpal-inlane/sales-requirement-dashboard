@@ -19,8 +19,7 @@ import ScheduleDetails from "@/app/schedule/details";
 import ScheduleSlots from "@/app/schedule/slots";
 import UploadLL from "@/app/schedule/uploadLL";
 import MainLayout from "@/components/layout/main-layout";
-import Plam from "@/components/lesson/plan";
-import Plan2 from "@/components/lesson/plan2";
+import Plan from "@/components/lesson/plan";
 import { AuthProvider } from "@/context/auth-context";
 import Login from "@/routes/login";
 import Start from "@/routes/start";
@@ -66,15 +65,11 @@ export default function App() {
               <Route path="bookLL-1" element={<LL_test_booking_1 />} />
               <Route path="bookLL-2/:navId" element={<LL_test_booking_2 />} />
               <Route path="bookLL-3" element={<LL_test_booking_3 />} />
-              <Route path="lesson/:lessonId" element={<Plam />} />
               <Route path="/OTP/:lessonId" element={<OTP />} />
               <Route path="/timer" element={<TimerAndEmergency />} />
               <Route path="/lesson-review" element={<LessonReview />} />
             </Route>
-            <Route path="/lesson" element={<Outlet />}>
-              <Route path="1" element={<Plam />} />
-              <Route path="2" element={<Plan2 />} />
-            </Route>
+            <Route path="/lesson/:lessonId" element={<Plan />} />
           </Routes>
         </AuthProvider>
       </QueryClientProvider>

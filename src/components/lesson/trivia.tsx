@@ -1,49 +1,56 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 
-import { InteractiveImageQuiz } from "@/components/lesson/quiz";
+import { InteractiveImageQuiz, QuestionQuiz } from "@/components/lesson/quiz";
 import { Button } from "@/components/ui/button";
 import { PaintedText } from "@/components/ui/paint-text";
 
-export const GAMES = [
-  {
-    mapAreas: [
-      { x: 15.65625, y: 69, width: 93, height: 84, id: 1 },
-      { x: 142.65625, y: 55, width: 78, height: 77, id: 2 },
-      { x: 221.65625, y: 10, width: 89, height: 125, id: 3 },
-    ],
-    correctAnswer: 3,
-    imageSrc: "/assets/ThreePedal.png",
-  },
-  {
-    mapAreas: [{ x: 203.15625, y: 65, width: 40, height: 24, id: 1 }],
-    correctAnswer: 1,
-    imageSrc: "/assets/SteeringWheel.png",
-  },
-  {
-    correctAnswer: 1,
-  },
-];
+export type ImageGame = {
+  type: "image";
+  games: {
+    mapAreas: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      id: number;
+    }[];
+    correctAnswer: number;
+    imageSrc: string;
+  }[];
+};
+
+export type QuestionGame = {
+  type: "question";
+  games: {
+    question: string;
+    answers: string[];
+    correctAnswer: number;
+  }[];
+};
+
+export type Game = ImageGame | QuestionGame;
+export type GameType = Game["type"];
+
+const gameToTriviaMap: Record<GameType, any> = {
+  image: InteractiveImageQuiz,
+  question: QuestionQuiz,
+};
 
 const TriviaCard = ({
   finishGame,
-  game,
+  game: { type: gameType, games: game },
 }: {
   finishGame: () => void;
-  game: any;
+  game: Game;
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState<number | undefined>(
     undefined,
   );
   const [gameIndex, setGameIndex] = useState(0);
-  const question = "While reversing, how can we maintain control of the car?";
-  const answers = [
-    "Just use the mirror",
-    "Use the clutch and brake pedals to control speed, and look back",
-  ];
+  const isCorrect = selectedAnswer === game[gameIndex].correctAnswer;
 
-  const isCorrect = selectedAnswer === GAMES[gameIndex].correctAnswer;
-
+  const Comp = gameToTriviaMap[gameType];
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div className="relative flex aspect-[2/3] w-full max-w-sm flex-col justify-center rounded-[30px] bg-white p-2 shadow-[0_10px_20px_rgba(0,0,0,0.19),_0_6px_6px_rgba(0,0,0,0.23)] transition-all duration-300 hover:shadow-[0_14px_28px_rgba(0,0,0,0.25),_0_10px_10px_rgba(0,0,0,0.22)]">
@@ -57,38 +64,11 @@ const TriviaCard = ({
           15 secs <span className="text-2xl">⏰</span>
         </PaintedText>
         <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
-          {/* <h3 className="mb-4 text-lg font-bold text-accent-purple">
-            {question}
-          </h3>
-          {answers.map((answer, index) => (
-            <label
-              key={index}
-              className={`mb-3 flex w-full items-center text-left font-semibold`}
-            >
-              <input
-                type="radio"
-                checked={selectedAnswer ? selectedAnswer - 1 === index : false}
-                onChange={() => setSelectedAnswer(index + 1)}
-                className="mr-3"
-              />
-              <PaintedText
-                variant={
-                  selectedAnswer && selectedAnswer - 1 === index
-                    ? selectedAnswer === GAMES[gameIndex].correctAnswer
-                      ? "green"
-                      : "red"
-                    : null
-                }
-              >
-                {answer}
-              </PaintedText>
-            </label>
-          ))} */}
-
-          <InteractiveImageQuiz
-            key={GAMES[gameIndex].imageSrc}
-            setAnswer={setSelectedAnswer}
-            {...GAMES[gameIndex]}
+          <Comp
+            key={game[gameIndex].imageSrc}
+            setSelectedAnswer={setSelectedAnswer}
+            selectedAnswer={selectedAnswer}
+            game={game[gameIndex]}
           />
           <AnimatePresence>
             {selectedAnswer && (
@@ -111,9 +91,9 @@ const TriviaCard = ({
                 <Button
                   onClick={() => {
                     if (!isCorrect) return;
-                    if (gameIndex + 1 === game.length) {
+                    if (gameIndex + 1 >= game.length) {
                       finishGame();
-                    } else setGameIndex((gameIndex) => (gameIndex + 1) % 2);
+                    } else setGameIndex((gameIndex) => gameIndex + 1);
 
                     setSelectedAnswer(undefined);
                   }}

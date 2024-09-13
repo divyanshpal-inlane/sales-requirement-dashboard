@@ -10,13 +10,86 @@ import {
   TowerControl,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import invariant from "tiny-invariant";
 
-import TriviaCard from "@/components/lesson/trivia";
+import TriviaCard, { Game } from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-export default function Plam() {
+const LESSON_IDS = ["1", "2"] as const;
+
+const LESSON_CONTENT: Record<
+  (typeof LESSON_IDS)[number],
+  {
+    id: string;
+    content: {
+      game: Game;
+      remember: { icon: React.ReactNode; text: string }[];
+    };
+  }
+> = {
+  "1": {
+    id: "1",
+    content: {
+      remember: [{ icon: "😊", text: "dumm text" }],
+      game: {
+        type: "image",
+        games: [
+          {
+            mapAreas: [
+              { x: 15.65625, y: 69, width: 93, height: 84, id: 1 },
+              { x: 142.65625, y: 55, width: 78, height: 77, id: 2 },
+              { x: 221.65625, y: 10, width: 89, height: 125, id: 3 },
+            ],
+            correctAnswer: 3,
+            imageSrc: "/assets/ThreePedal.png",
+          },
+          {
+            mapAreas: [{ x: 203.15625, y: 65, width: 40, height: 24, id: 1 }],
+            correctAnswer: 1,
+            imageSrc: "/assets/SteeringWheel.png",
+          },
+        ],
+      },
+    },
+  },
+  "2": {
+    id: "2",
+    content: {
+      remember: [{ icon: "😊", text: "dumm text" }],
+      game: {
+        type: "question",
+        games: [
+          {
+            question:
+              "While reversing, how can we maintain control of the car?",
+            answers: [
+              "Just use the mirror",
+              "Use the clutch and brake pedals to control speed, and look back",
+            ],
+            correctAnswer: 2,
+          },
+          {
+            question: "To start driving in a manual car, you should",
+            answers: [
+              "Press the clutch, shift into first gear, slowly release the clutch while pressing the accelerator",
+              "Skip first gear and go straight to second",
+            ],
+            correctAnswer: 1,
+          },
+        ],
+      },
+    },
+  },
+};
+
+export default function Plan() {
+  const { lessonId } = useParams();
+  invariant(typeof lessonId === "string", "LessonID is required");
+  const {
+    content: { game, remember },
+  } = LESSON_CONTENT[lessonId as keyof typeof LESSON_CONTENT];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
@@ -34,29 +107,7 @@ export default function Plam() {
         title: "you drove into a quiz",
         icon: "🤖",
         color: "bg-purple-400",
-        content: (
-          <TriviaCard
-            finishGame={finishGame}
-            game={[
-              {
-                mapAreas: [
-                  { x: 15.65625, y: 69, width: 93, height: 84, id: 1 },
-                  { x: 142.65625, y: 55, width: 78, height: 77, id: 2 },
-                  { x: 221.65625, y: 10, width: 89, height: 125, id: 3 },
-                ],
-                correctAnswer: 3,
-                imageSrc: "/assets/ThreePedal.png",
-              },
-              {
-                mapAreas: [
-                  { x: 203.15625, y: 65, width: 40, height: 24, id: 1 },
-                ],
-                correctAnswer: 1,
-                imageSrc: "/assets/SteeringWheel.png",
-              },
-            ]}
-          />
-        ),
+        content: <TriviaCard finishGame={finishGame} game={game} />,
       },
       {
         title: "car command center",
@@ -75,7 +126,7 @@ export default function Plam() {
         ),
       },
     ],
-    [],
+    [game, finishGame],
   );
 
   const handleCardClick = (index: number) => {
@@ -93,7 +144,10 @@ export default function Plam() {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden text-foreground">
+    <div
+      key={lessonId}
+      className="relative h-full w-full overflow-hidden text-foreground"
+    >
       <img
         className="absolute inset-0 h-full w-full object-cover"
         src="/assets/lesson1-hero.png"
@@ -114,7 +168,7 @@ export default function Plam() {
               <ArrowLeft />
             </Button>
 
-            <p className="text-white">Lesson 1</p>
+            <p className="text-white">Lesson {lessonId}</p>
             <Button
               size={"icon"}
               variant={"ghost"}
@@ -306,7 +360,16 @@ export default function Plam() {
                       Things to remember
                     </h4>
                     <div className="flex flex-col gap-2">
-                      <p className="flex flex-row items-center gap-2">
+                      {remember.map(({ icon, text }) => (
+                        <p
+                          key={text}
+                          className="flex flex-row items-center gap-2"
+                        >
+                          <span className="text-2xl">{icon}</span>
+                          <span className="text-sm">{text}</span>
+                        </p>
+                      ))}
+                      {/* <p className="flex flex-row items-center gap-2">
                         <span className="text-2xl">😊</span>
                         <span className="text-sm">
                           Think of your car as your best buddy
@@ -318,7 +381,7 @@ export default function Plam() {
                           Every car driver has good control of the car - drive
                           slowly
                         </span>
-                      </p>
+                      </p> */}
                     </div>
                   </div>
                 </div>
