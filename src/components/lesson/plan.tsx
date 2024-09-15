@@ -1,12 +1,9 @@
-import { GearIcon } from "@radix-ui/react-icons";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
   ChevronUp,
-  Clock,
-  StopCircleIcon,
   TowerControl,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -25,6 +22,8 @@ const LESSON_CONTENT: Record<
     id: string;
     content: {
       game: Game;
+      title: string;
+      points: { icon: React.ReactNode; header: string; desc: string }[];
       remember: { icon: React.ReactNode; text: string }[];
     };
   }
@@ -39,33 +38,29 @@ const LESSON_CONTENT: Record<
           text: "Every pro driver has good control of the car - drive slowly ",
         },
       ],
-      pointers: [
-        { title: "You will be good at Starting & Stopping the Car" },
+      title: "You will be good at Starting & Stopping the Car",
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Car Intro:",
-              desc: "Dash, gears, controls",
-            },
-            {
-              icons: "😎",
-              header: "Get Comfy:",
-              desc: "Adjust seat, mirrors, steering",
-            },
-            {
-              icons: "😎",
-              header: "Start Up:",
-              desc: "Clutch, neutral, start button",
-            },
-            {
-              icons: "😎",
-              header: "Move Forward:",
-              desc: "Balance clutch & accelerator",
-            },
-            { icons: "😎", header: "Stop Smoothly:", desc: "Brake, clutch" },
-          ],
+          icon: "😎",
+          header: "Car Intro:",
+          desc: "Dash, gears, controls",
         },
+        {
+          icon: "😎",
+          header: "Get Comfy:",
+          desc: "Adjust seat, mirrors, steering",
+        },
+        {
+          icon: "😎",
+          header: "Start Up:",
+          desc: "Clutch, neutral, start button",
+        },
+        {
+          icon: "😎",
+          header: "Move Forward:",
+          desc: "Balance clutch & accelerator",
+        },
+        { icon: "😎", header: "Stop Smoothly:", desc: "Brake, clutch" },
       ],
       game: {
         type: "image",
@@ -96,33 +91,31 @@ const LESSON_CONTENT: Record<
         { icon: "🚧", text: "Distance - Give obstacles some personal space" },
         { icon: "😊", text: "Treat your car like your best buddy" },
       ],
-      pointers: [
-        { title: "You will start getting the hang of balancing the pedals" },
+      title: "You will start getting the hang of balancing the pedals",
+
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Pedal Fun:",
-              desc: "Drive forward & back on a straight road",
-            },
-            {
-              icons: "😎",
-              header: "Stop & Go:",
-              desc: "Quick stops, smooth moves (emergency stops)",
-            },
-            {
-              icons: "😎",
-              header: "Slope Magic:",
-              desc: "Balancing pedals on slopes",
-            },
-            {
-              icons: "😎",
-              header: "Mirror Magic:",
-              desc: "Grasping the surrounding",
-            },
-          ],
+          icon: "😎",
+          header: "Pedal Fun:",
+          desc: "Drive forward & back on a straight road",
+        },
+        {
+          icon: "😎",
+          header: "Stop & Go:",
+          desc: "Quick stops, smooth moves (emergency stops)",
+        },
+        {
+          icon: "😎",
+          header: "Slope Magic:",
+          desc: "Balancing pedals on slopes",
+        },
+        {
+          icon: "😎",
+          header: "Mirror Magic:",
+          desc: "Grasping the surrounding",
         },
       ],
+
       game: {
         type: "question",
         games: [
@@ -164,31 +157,27 @@ const LESSON_CONTENT: Record<
           text: "Use indicators before turns",
         },
       ],
-      pointers: [
-        { title: "You will start changing gears and practicing turns" },
+      title: "You will start changing gears and practicing turns",
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Gearbox Magic:",
-              desc: "Nail the clutch and shift gears smoothly",
-            },
-            {
-              icons: "😎",
-              header: "Get Comfy:",
-              desc: "Adjust seat, mirrors, steering",
-            },
-            {
-              icons: "😎",
-              header: "Steering Skills:",
-              desc: "Hold the wheel right, move smoothly",
-            },
-            {
-              icons: "😎",
-              header: "Turn Tricks:",
-              desc: "Slow down, signal, and check mirrors",
-            },
-          ],
+          icon: "😎",
+          header: "Gearbox Magic:",
+          desc: "Nail the clutch and shift gears smoothly",
+        },
+        {
+          icon: "😎",
+          header: "Get Comfy:",
+          desc: "Adjust seat, mirrors, steering",
+        },
+        {
+          icon: "😎",
+          header: "Steering Skills:",
+          desc: "Hold the wheel right, move smoothly",
+        },
+        {
+          icon: "😎",
+          header: "Turn Tricks:",
+          desc: "Slow down, signal, and check mirrors",
         },
       ],
       game: {
@@ -233,36 +222,33 @@ const LESSON_CONTENT: Record<
           text: "Press the clutch completely - release slow & accelerate",
         },
       ],
-      pointers: [
-        { title: "You will find parking not so tough anymore" },
+      title: "You will find parking not so tough anymore",
+
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Find Your Fit:",
-              desc: "Spot spaces and align perfectly",
-            },
-            {
-              icons: "😎",
-              header: "Mirror Magic:",
-              desc: "Judge distance and avoid bumper kisses",
-            },
-            {
-              icons: "😎",
-              header: "Slow Steering:",
-              desc: "Navigate tight spots with ease",
-            },
-            {
-              icons: "😎",
-              header: "Park and Exit:",
-              desc: "Right gear & safely open doors",
-            },
-            {
-              icons: "😎",
-              header: "Gear Up:",
-              desc: "Balance pedals and gear in slow movements",
-            },
-          ],
+          icon: "😎",
+          header: "Find Your Fit:",
+          desc: "Spot spaces and align perfectly",
+        },
+        {
+          icon: "😎",
+          header: "Mirror Magic:",
+          desc: "Judge distance and avoid bumper kisses",
+        },
+        {
+          icon: "😎",
+          header: "Slow Steering:",
+          desc: "Navigate tight spots with ease",
+        },
+        {
+          icon: "😎",
+          header: "Park and Exit:",
+          desc: "Right gear & safely open doors",
+        },
+        {
+          icon: "😎",
+          header: "Gear Up:",
+          desc: "Balance pedals and gear in slow movements",
         },
       ],
       game: {
@@ -307,26 +293,23 @@ const LESSON_CONTENT: Record<
           text: "Release clutch slowly with gentle acceleration",
         },
       ],
-      pointers: [
-        { title: "You will drive on main roads for the first time" },
+      title: "You will drive on main roads for the first time",
+
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Steady Speed:",
-              desc: "1. On straight roads & turns \n 2. Speed control using brakes",
-            },
-            {
-              icons: "😎",
-              header: "Gear Shifting:",
-              desc: "Without looking",
-            },
-            {
-              icons: "😎",
-              header: "Parking Pro:",
-              desc: "Parallel park SLIDE!",
-            },
-          ],
+          icon: "😎",
+          header: "Steady Speed:",
+          desc: "1. On straight roads & turns \n 2. Speed control using brakes",
+        },
+        {
+          icon: "😎",
+          header: "Gear Shifting:",
+          desc: "Without looking",
+        },
+        {
+          icon: "😎",
+          header: "Parking Pro:",
+          desc: "Parallel park SLIDE!",
         },
       ],
       game: {
@@ -370,36 +353,33 @@ const LESSON_CONTENT: Record<
           text: "Speed Maestro - Adjust speed to match conditions",
         },
       ],
-      pointers: [
-        { title: "You will start to drive at steady speeds on main roads" },
+      title: "You will start to drive at steady speeds on main roads",
+
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Mirror Magic:",
-              desc: "Anticipating others actions ",
-            },
-            {
-              icons: "😎",
-              header: "Safe Gaps:",
-              desc: "Keep a safe distance from other vehicles",
-            },
-            {
-              icons: "😎",
-              header: "Sign Savvy:",
-              desc: "Know your traffic signs",
-            },
-            {
-              icons: "😎",
-              header: "Blinker Sense:",
-              desc: "Use indicators to communicate",
-            },
-            {
-              icons: "😎",
-              header: "Lane Loyalty:",
-              desc: "Maintain your lane",
-            },
-          ],
+          icon: "😎",
+          header: "Mirror Magic:",
+          desc: "Anticipating others actions ",
+        },
+        {
+          icon: "😎",
+          header: "Safe Gaps:",
+          desc: "Keep a safe distance from other vehicles",
+        },
+        {
+          icon: "😎",
+          header: "Sign Savvy:",
+          desc: "Know your traffic signs",
+        },
+        {
+          icon: "😎",
+          header: "Blinker Sense:",
+          desc: "Use indicators to communicate",
+        },
+        {
+          icon: "😎",
+          header: "Lane Loyalty:",
+          desc: "Maintain your lane",
         },
       ],
       game: {
@@ -440,38 +420,36 @@ const LESSON_CONTENT: Record<
           text: "Anticipate gear changes in time",
         },
       ],
-      pointers: [
-        { title: "You will begin to enjoy driving on city roads" },
+      title: "You will begin to enjoy driving on city roads",
+
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Smooth Moves:",
-              desc: "Stop & start at traffic signals",
-            },
-            {
-              icons: "😎",
-              header: "Speed Sense:",
-              desc: "Judge and keep the right speed and distance",
-            },
-            {
-              icons: "😎",
-              header: "City Maze:",
-              desc: "Roundabouts & Intersections Know who goes first",
-            },
-            {
-              icons: "😎",
-              header: "Signal Master:",
-              desc: "Use indicators to communicate",
-            },
-            {
-              icons: "😎",
-              header: "Slope Savvy:",
-              desc: "Low gear more power & control",
-            },
-          ],
+          icon: "😎",
+          header: "Smooth Moves:",
+          desc: "Stop & start at traffic signals",
+        },
+        {
+          icon: "😎",
+          header: "Speed Sense:",
+          desc: "Judge and keep the right speed and distance",
+        },
+        {
+          icon: "😎",
+          header: "City Maze:",
+          desc: "Roundabouts & Intersections Know who goes first",
+        },
+        {
+          icon: "😎",
+          header: "Signal Master:",
+          desc: "Use indicators to communicate",
+        },
+        {
+          icon: "😎",
+          header: "Slope Savvy:",
+          desc: "Low gear more power & control",
         },
       ],
+
       game: {
         type: "question",
         games: [
@@ -508,26 +486,23 @@ const LESSON_CONTENT: Record<
           text: "Don’t forget to use indicator and horn to let others know of your action",
         },
       ],
-      pointers: [
-        { title: "You will start believing in your driving skills" },
+      title: "You will start believing in your driving skills",
+
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Evening Traffic Tamer:",
-              desc: "Maintain speeds and distances to handle evening traffic with ease",
-            },
-            {
-              icons: "😎",
-              header: "Using indicator at night:",
-              desc: "Communicate well with others",
-            },
-            {
-              icons: "😎",
-              header: "Night-time Parking Pro:",
-              desc: "Learn to park in dim light",
-            },
-          ],
+          icon: "😎",
+          header: "Evening Traffic Tamer:",
+          desc: "Maintain speeds and distances to handle evening traffic with ease",
+        },
+        {
+          icon: "😎",
+          header: "Using indicator at night:",
+          desc: "Communicate well with others",
+        },
+        {
+          icon: "😎",
+          header: "Night-time Parking Pro:",
+          desc: "Learn to park in dim light",
         },
       ],
       game: {
@@ -572,31 +547,27 @@ const LESSON_CONTENT: Record<
           text: "Treat your car like your best buddy",
         },
       ],
-      pointers: [
-        { title: "You will drive at consistent speeds on a flyover" },
+      title: "You will drive at consistent speeds on a flyover",
+      points: [
         {
-          points: [
-            {
-              icons: "😎",
-              header: "Flyover Flow:",
-              desc: "Merge and exit at the right speeds",
-            },
-            {
-              icons: "😎",
-              header: "Lane Glider:",
-              desc: "Signal, check, and change lanes smoothly",
-            },
-            {
-              icons: "😎",
-              header: "Flyover Traffic:",
-              desc: "Become comfortable in driving on flyover traffic",
-            },
-            {
-              icons: "😎",
-              header: "Tech-Savvy Driver:",
-              desc: "Using GPS without distractions",
-            },
-          ],
+          icon: "😎",
+          header: "Flyover Flow:",
+          desc: "Merge and exit at the right speeds",
+        },
+        {
+          icon: "😎",
+          header: "Lane Glider:",
+          desc: "Signal, check, and change lanes smoothly",
+        },
+        {
+          icon: "😎",
+          header: "Flyover Traffic:",
+          desc: "Become comfortable in driving on flyover traffic",
+        },
+        {
+          icon: "😎",
+          header: "Tech-Savvy Driver:",
+          desc: "Using GPS without distractions",
         },
       ],
       game: {
@@ -626,13 +597,18 @@ const LESSON_CONTENT: Record<
 
 export default function Plan() {
   const { lessonId } = useParams();
-  invariant(typeof lessonId === "string", "LessonID is required");
+  invariant(typeof lessonId === "string", "lessonId is required");
+  return <LessonPlan lessonId={lessonId} key={lessonId} />;
+}
+
+export function LessonPlan({ lessonId }: { lessonId: string }) {
   const {
-    content: { game, remember },
+    content: { game, remember, title, points },
+    id,
   } = LESSON_CONTENT[lessonId as keyof typeof LESSON_CONTENT];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [isInfoCardOpen, setIsInfoCardOpen] = useState(true);
   const [isSessionDetailsMinimized, setIsSessionDetailsMinimized] =
     useState(true);
@@ -848,55 +824,21 @@ export default function Plan() {
                     </Button>
                   </div>
                   <div className="mt-4">
-                    <h3 className="mb-4 text-lg font-semibold">
-                      You will be good at starting & stopping the car
-                    </h3>
+                    <h3 className="mb-4 text-lg font-semibold">{title}</h3>
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <TowerControl className="h-6 w-6" />
-                        <div>
-                          <p className="font-medium text-accent-purple">
-                            Car Intro
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Dash, gears and controls
-                          </p>
+                      {points.map(({ icon, desc, header }) => (
+                        <div key={header} className="flex items-center gap-2">
+                          <TowerControl className="h-6 w-6" />
+                          <div>
+                            <p className="font-medium text-accent-purple">
+                              {desc}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {header}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-6 w-6" />
-                        <div>
-                          <p className="font-medium text-accent-purple">
-                            Get comfy
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Adjust seat, mirrors, steering
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <GearIcon className="h-6 w-6" />
-                        <div>
-                          <p className="font-medium text-accent-purple">
-                            Start Up
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Clutch, neutral, start button
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <StopCircleIcon className="h-6 w-6" />
-                        <div>
-                          <p className="font-medium text-accent-purple">
-                            Stop smoothly
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Brake, clutch
-                          </p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                   <div className="mt-4 rounded-lg bg-black bg-opacity-10 p-4 backdrop-blur-sm">
@@ -913,19 +855,6 @@ export default function Plan() {
                           <span className="text-sm">{text}</span>
                         </p>
                       ))}
-                      {/* <p className="flex flex-row items-center gap-2">
-                        <span className="text-2xl">😊</span>
-                        <span className="text-sm">
-                          Think of your car as your best buddy
-                        </span>
-                      </p>
-                      <p className="flex flex-row items-center gap-2">
-                        <span className="text-2xl">👨🏻‍💼</span>
-                        <span className="text-sm">
-                          Every car driver has good control of the car - drive
-                          slowly
-                        </span>
-                      </p> */}
                     </div>
                   </div>
                 </div>
