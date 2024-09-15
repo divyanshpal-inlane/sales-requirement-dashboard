@@ -71,19 +71,46 @@ export default function Schedule() {
               />
             </CardContent>
           </Card>
-          <Card className="mt-6">
-            <CardContent className="flex h-full items-center justify-between gap-2 py-4">
-              <p className="flex h-full flex-col justify-center gap-1 text-sm">
+
+          {/* upcoming lesson's card */}
+
+          <Card className="mt-6 bg-gray-50">
+            <CardContent className="flex h-full items-center justify-between gap-8 py-4">
+              <p className="flex h-full w-2/5 flex-col justify-center gap-1 text-sm">
                 <span className="text-accent-purple">Lesson 1</span>
                 <span>10th Sept</span>
                 <span>9:00 AM</span>
               </p>
-              <Button variant={"secondary"} asChild>
-                <Link to="/lesson/1">Go to lesson</Link>
-              </Button>
+              <div className="flex flex-row gap-6 rounded-md bg-white p-2.5">
+                <Link
+                  to={`/lesson/1`}
+                  className="text-md mt-1.5 flex flex-col justify-between"
+                >
+                  <p>Get to know your car</p>
+                </Link>
+                {/* image container */}
+                <div className="relative flex justify-end">
+                  <img
+                    className="h-full"
+                    src="/assets/lesson-pic-1.png"
+                    alt="Lesson-pic"
+                  />
+                  <div className="absolute -bottom-1.5 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
+                    <Link to={`/lesson/1`} className="text-xs text-primary">
+                      More details
+                    </Link>
+                    <ChevronRight
+                      color="white"
+                      className="rounded-full bg-primary"
+                      size={16}
+                    />
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="lesson" className="flex h-full flex-col">
           <div className="h-full grow">
             <div className="flex h-[95%] w-full flex-col gap-2 overflow-y-auto">

@@ -63,7 +63,7 @@ const TriviaCard = ({
         <PaintedText className="absolute right-6 top-14 text-lg text-black">
           15 secs <span className="text-2xl">⏰</span>
         </PaintedText>
-        <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
+        <div className="font-brico relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 shadow-inner">
           <Comp
             key={game[gameIndex].imageSrc}
             setSelectedAnswer={setSelectedAnswer}
@@ -77,7 +77,7 @@ const TriviaCard = ({
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`absolute bottom-0 left-0 right-0 p-4 font-glancyr ${
+                className={`font-glancyr absolute bottom-0 left-0 right-0 p-4 ${
                   isCorrect
                     ? "bg-primary/30 text-primary"
                     : "bg-destructive/30 text-destructive"
