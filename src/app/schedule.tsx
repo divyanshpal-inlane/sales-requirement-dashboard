@@ -81,7 +81,7 @@ export default function Schedule() {
                 <span>10th Sept</span>
                 <span>9:00 AM</span>
               </p>
-              <div className="flex flex-row gap-6 rounded-md bg-white p-2.5">
+              <div className="flex flex-row gap-6 rounded-md bg-white p-2.5 shadow-sm">
                 <Link
                   to={`/lesson/1`}
                   className="text-md mt-1.5 flex flex-col justify-between"
@@ -114,7 +114,7 @@ export default function Schedule() {
         <TabsContent value="lesson" className="flex h-full flex-col">
           <div className="h-full grow">
             <div className="flex h-[95%] w-full flex-col gap-2 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="mb-4 grid grid-cols-2 gap-4">
                 {lessonIds.map((lesson) => (
                   <div
                     key={lesson.id}

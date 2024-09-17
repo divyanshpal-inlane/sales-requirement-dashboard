@@ -26,10 +26,34 @@ const LESSON_CONTENT: Record<
       points: { icon: React.ReactNode; header: string; desc: string }[];
       remember: { icon: React.ReactNode; text: string }[];
     };
+    menu?: {
+      trivia: { title: string; icon: string; color: string };
+      video: {
+        title: string;
+        icon: string;
+        color: string;
+        video_path: string;
+      }[];
+    };
   }
 > = {
   "1": {
     id: "1",
+    menu: {
+      trivia: {
+        title: "You drove into a quiz",
+        icon: "🤖",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "Car command center",
+          icon: "🚨",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         { icon: "😊", text: "Think of your car as your best buddy " },
@@ -85,6 +109,21 @@ const LESSON_CONTENT: Record<
   },
   "2": {
     id: "2",
+    menu: {
+      trivia: {
+        title: "You drove into a quiz",
+        icon: "🤖",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "3 seconds is all it takes",
+          icon: "⏰",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         { icon: "🏎", text: "Keep it chill, under 20 km/h" },
@@ -142,6 +181,21 @@ const LESSON_CONTENT: Record<
   },
   "3": {
     id: "3",
+    menu: {
+      trivia: {
+        title: "clueless about gears",
+        icon: "🤔",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "Turn Like a Champ!",
+          icon: "↩️",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -207,6 +261,21 @@ const LESSON_CONTENT: Record<
   },
   "4": {
     id: "4",
+    menu: {
+      trivia: {
+        title: "let’s brake for trivia!",
+        icon: "⚙️",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "watch this before parking ",
+          icon: "👀",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -278,6 +347,21 @@ const LESSON_CONTENT: Record<
   },
   "5": {
     id: "5",
+    menu: {
+      trivia: {
+        title: "screen time, before drive time",
+        icon: "🤖",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "pause, bump, then go!",
+          icon: "🛑",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -338,6 +422,21 @@ const LESSON_CONTENT: Record<
   },
   "6": {
     id: "6",
+    menu: {
+      trivia: {
+        title: "lane change challenge",
+        icon: "🤓",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "signal, check, then move!",
+          icon: "🛣️",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -405,6 +504,21 @@ const LESSON_CONTENT: Record<
   },
   "7": {
     id: "7",
+    menu: {
+      trivia: {
+        title: "test your know-how",
+        icon: "🍀",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "take a sneak peak",
+          icon: "📷",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -475,6 +589,21 @@ const LESSON_CONTENT: Record<
   },
   "8": {
     id: "8",
+    menu: {
+      trivia: {
+        title: "twilight trivia time",
+        icon: "🌅",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "Car command center",
+          icon: "🔥",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -532,6 +661,21 @@ const LESSON_CONTENT: Record<
   },
   "9": {
     id: "9",
+    menu: {
+      trivia: {
+        title: "flyover flow facts",
+        icon: "⚙️",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "pass like a pro",
+          icon: "👀",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
     content: {
       remember: [
         {
@@ -603,6 +747,7 @@ export default function Plan() {
 
 export function LessonPlan({ lessonId }: { lessonId: string }) {
   const {
+    menu,
     content: { game, remember, title, points },
     id,
   } = LESSON_CONTENT[lessonId as keyof typeof LESSON_CONTENT];
@@ -620,15 +765,15 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
   const menuItems = useMemo(
     () => [
       {
-        title: "you drove into a quiz",
-        icon: "🤖",
-        color: "bg-purple-400",
+        title: menu?.trivia.title ?? "",
+        icon: menu?.trivia.icon ?? "",
+        color: menu?.trivia.color ?? "",
         content: <TriviaCard finishGame={finishGame} game={game} />,
       },
       {
-        title: "car command center",
-        icon: "🚨",
-        color: "bg-indigo-500",
+        title: menu?.video[0].title ?? "",
+        icon: menu?.video[0].icon ?? "",
+        color: menu?.video[0].color ?? "",
         content: (
           <video
             className="w-80 overflow-hidden rounded-lg"
@@ -636,7 +781,7 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
             muted
             playsInline
           >
-            <source src="/assets/parallel-parking.mp4" type="video/mp4" />
+            <source src={menu?.video[0].video_path} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         ),
