@@ -1,27 +1,35 @@
 import { ArrowLeft, Calendar } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { LESSON_CONTENT } from "@/constants/Lesson";
 import { useAuth } from "@/context/auth-context";
 import {
   useLearner,
   useSetLLResult,
   useSetLLTestDate,
+  useUpcomingLesson,
 } from "@/queries/learner";
 
 export default function Home() {
   const { user } = useAuth();
   const { data, isLoading, error } = useLearner(user?.phone);
+  const {
+    data: LessonData,
+    isLoading: LessonIsLoading,
+    error: LessonError,
+  } = useUpcomingLesson(user?.phone);
   const [LLResult, setLLResult] = useState<boolean | null>(null);
-  const [key, setKey] = useState(0);
+  const navigate = useNavigate();
 
   const setLLResultMutation = useSetLLResult();
   const setLLTestDateMutation = useSetLLTestDate();
@@ -37,7 +45,7 @@ export default function Home() {
     const inputDate = new Date(dateString);
     const today = new Date();
     const formattedToday = today.toISOString().split("T")[0];
-    return inputDate.toISOString().split("T")[0] === formattedToday;
+    return inputDate.toISOString().split("T")[0] <= formattedToday;
   }
 
   function getDateDifference(inputDate: string): { MM: string; DD: string } {
@@ -168,151 +176,329 @@ export default function Home() {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  function formatTimeTo12Hour(time: string): string {
+    // Validate input time format
+    const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+    if (!regex.test(time)) {
+      throw new Error("Invalid time format. Expected format is HH:MM:SS.");
+    }
+
+    // Split the time into hours, minutes, and seconds
+    const [hours, minutes] = time.split(":").map(Number);
+
+    // Determine AM or PM
+    const period = hours < 12 ? "AM" : "PM";
+
+    // Convert hours to 12-hour format
+    const hours12 = hours % 12 || 12;
+
+    // Format the time string
+    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+  }
+
   async function LLTestPassed() {
     setLLResult(true);
-    await delay(1000);
+    await delay(5000);
     setLLResultMutation.mutate({ phone: user?.phone, LL_result: true });
     setLLTestDateMutation.mutate({
       phone: user?.phone,
-      testDate: data && data[0]?.LL_test_date,
+      LL_test_date: data && data[0]?.LL_test_date,
     });
-    setKey((prevKey: number) => prevKey + 1);
+    navigate(0);
   }
 
   async function LLTestFailed() {
     setLLResult(false);
-    await delay(1000);
+    await delay(5000);
     setLLResultMutation.mutate({ phone: user?.phone, LL_result: false });
-    setLLTestDateMutation.mutate({ phone: user?.phone, testDate: null });
-    setKey(key + 1);
+    setLLTestDateMutation.mutate({ phone: user?.phone, LL_test_date: null });
+    navigate(0);
   }
+
+  if (isLoading || LessonIsLoading) return <div>Loading...</div>;
+  if (error || LessonError)
+    return <p>Error: {error?.message || LessonError?.message}</p>;
 
   console.log(data && data[0]);
 
   return (
-    <div className="flex h-full flex-col overflow-x-auto p-6 pb-20">
-      <div className="mb-6 flex items-center justify-between">
-        <Button variant="ghost" size="icon" className="text-primary-foreground">
-          <ArrowLeft className="h-6 w-6" />
-        </Button>
-        <h1 className="text-xl">Test Date</h1>
-        <div className="w-6" />
-      </div>
-
-      <div className="mb-6 h-48 w-full rounded-3xl bg-white shadow-lg">
-        <img
-          src="/assets/laptop-typing.png"
-          alt="Person using laptop"
-          className="object-fit h-48 w-full"
-        />
-      </div>
-
-      {/* when both LL_test_date and LL_test_result is null */}
-      {data && data[0].LL_test_date == null && data[0].LL_result != true ? (
-        <div className="flex flex-col justify-center">
-          <Label className="mb-4 text-center text-xl">
-            Let’s get your Learners License!
-          </Label>
-
-          <div className="flex flex-row justify-center gap-4">
-            <Link to="/bookll-1">
-              <Button className="mt-auto w-full">Book now</Button>
-            </Link>
-            <Link to="/bookll-3">
-              <Button className="mt-auto w-full">Submit Test Date</Button>
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
-      {/* user's LL_test_date count-down */}
-      {data &&
-      data[0].LL_test_date != null &&
-      data[0].LL_result != true &&
-      isDateGreaterThanToday(data[0].LL_test_date) ? (
-        <div className="mt-4 flex flex-col justify-center">
-          <Button
-            onClick={() => (window.location.href = "/prep")}
-            className="mt-auto w-full"
-          >
-            Start Learning
-          </Button>
-          <p className="text-center">or should we say, Gaminggg...</p>
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="mb-4 text-center">
-                <p className="flex items-center justify-center gap-3">
-                  <Calendar color="gray" size={24} />
-                  <span className="text-gray-500">
-                    {formatDate(data[0].LL_test_date)}
-                  </span>
-                </p>
-              </CardTitle>
-              <div className="flex flex-row gap-x-12">
-                <CardDescription className="text-md w-1/2 border-r-4 border-gray-400 pr-4">
-                  <span className="text-xl">
-                    {getDateDifference(data[0].LL_test_date).MM}
-                  </span>
-                  <span> Month(s) and</span>
-                  <br></br>
-                  <span className="text-xl">
-                    {getDateDifference(data[0].LL_test_date).DD}
-                  </span>
-                  <span> Day(s) to go</span>
-                </CardDescription>
-                <CardDescription className="text-md w-1/3 self-center text-center">
-                  <span className="text-xl">
-                    {getTotalDaysDifference(data[0].LL_test_date).DD}
-                  </span>
-                  <span> Day(s) Remaining</span>
-                </CardDescription>
+    <div>
+      {data && data[0].LL_result === true ? (
+        <div className="relative flex h-screen flex-col gap-4 overflow-y-auto">
+          {/* Image and LessonInfo */}
+          <div className="relative h-2/5 w-full">
+            <img
+              src="/assets/lesson1.png"
+              alt="Car dashboard"
+              className="h-full w-full object-fill"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-50">
+              <div className="flex h-full w-fit flex-col gap-2 bg-[#636363] bg-opacity-70 p-4 text-white">
+                <Button
+                  variant={"ghost"}
+                  size="icon"
+                  className="text-primary-foreground"
+                >
+                  <ArrowLeft />
+                </Button>
+                <div className="my-auto flex flex-col gap-2">
+                  <h1 className="mb-2 text-lg font-semibold">
+                    Lesson {LessonData?.upcomingLesson.number}
+                  </h1>
+                  <div className="flex flex-col gap-0 text-xs">
+                    <p className="text-sm">Date, Time</p>
+                    <p className="font-extralight">
+                      {formatDate(LessonData?.upcomingSchedule?.date)}
+                    </p>
+                    <p className="font-extralight">
+                      <span>
+                        {formatTimeTo12Hour(
+                          LessonData?.upcomingSchedule?.start_time,
+                        )}
+                      </span>
+                      {" - "}
+                      <span>
+                        {formatTimeTo12Hour(
+                          LessonData?.upcomingSchedule?.end_time,
+                        )}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex flex-col justify-between gap-0">
+                    <p className="text-sm">Instructor Name</p>
+                    <p className="text-xs font-extralight">
+                      {LessonData?.instructor?.name}
+                    </p>
+                  </div>
+                  <div className="flex flex-col justify-between gap-0">
+                    <p className="text-sm">Pick Up location</p>
+                    <p className="text-xs font-extralight">
+                      {data[0].pick_up_location}
+                    </p>
+                  </div>
+                  <div className="flex flex-col justify-between gap-0">
+                    <p className="text-sm">Car Model</p>
+                    <p className="text-xs font-extralight">
+                      {LessonData?.instructor?.car_make}
+                    </p>
+                  </div>
+                  <div className="flex flex-col justify-between gap-0">
+                    <p className="text-sm">Car Number</p>
+                    <p className="text-xs font-extralight">
+                      {LessonData?.instructor?.car_number}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </CardHeader>
-          </Card>
-        </div>
-      ) : null}
-
-      {/* user's Test result */}
-      {data &&
-      isDateEqualToToday(data[0].LL_test_date) &&
-      data[0].LL_test_date != null ? (
-        <div key={key} className="flex flex-col justify-center">
-          <Label className="text-center text-xl">Every step is progress!</Label>
-          <Label className="mb-4 text-center text-xl">
-            How did your LL test go?
-          </Label>
-
-          <div className="flex flex-row gap-4">
-            <Button
-              className="mt-auto w-full border-2 border-primary"
-              variant={`${LLResult === true ? "default" : "outline"}`}
-              onClick={() => LLTestPassed()}
-            >
-              Nailed it
-            </Button>
-            <Button
-              className="mt-auto w-full border-2 border-primary"
-              variant={`${LLResult === false ? "default" : "outline"}`}
-              onClick={() => LLTestFailed()}
-            >
-              One more shot
-            </Button>
+            </div>
           </div>
-          {/* text when user passed the LL_test */}
-          {LLResult === true ? (
-            <p className="mt-4">
-              Yayy! 🎉 Let&apos;s get you ready for your first practical lesson!
-            </p>
+
+          <div className="flex grow flex-col gap-2 px-6 pb-6">
+            {/* title */}
+            <h2 className="text-xl font-semibold">
+              You will be good at Starting &amp; Stopping the Car
+            </h2>
+
+            {/* points */}
+            <div className="space-y-4">
+              {LESSON_CONTENT[
+                LessonData?.upcomingLesson.number
+              ].content.points.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-center space-x-4"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
+                    {item.icon}
+                  </div>
+                  <div className="w-2/5">
+                    <h3 className="font-semibold text-primary">
+                      {item.header}
+                    </h3>
+                    <p className="text-sm">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* remember card */}
+            <Card className="my-6 mb-16 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-primary">
+                  Things to Remember
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1">
+                {LESSON_CONTENT[
+                  LessonData?.upcomingLesson.number
+                ].content.remember.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full text-2xl">
+                      {item.icon}
+                    </div>
+                    <div className="w-4/5">
+                      <p>{item.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Reschedule & Start Lesson button */}
+            <div className="y-4 sticky bottom-[6.5%] mt-auto flex flex-row gap-4 pb-4 pt-1 backdrop-blur-sm">
+              <Button
+                onClick={() =>
+                  navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+                }
+                className="w-full"
+              >
+                Reschedule
+              </Button>
+              <Button
+                onClick={() =>
+                  navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+                }
+                className="w-full"
+              >
+                Start Lesson
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex h-full flex-col overflow-x-auto p-6 pb-20">
+          <div className="mb-6 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground"
+            >
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <h1 className="text-xl">Test Date</h1>
+            <div className="w-6" />
+          </div>
+
+          <div className="mb-6 h-48 w-full rounded-3xl bg-white shadow-lg">
+            <img
+              src="/assets/laptop-typing.png"
+              alt="Person using laptop"
+              className="object-fit h-48 w-full"
+            />
+          </div>
+
+          {/* Date input */}
+          {data && data[0].LL_test_date == null && data[0].LL_result != true ? (
+            <div className="flex flex-col justify-center">
+              <Label className="mb-4 text-center text-xl">
+                Let’s get your Learners License!
+              </Label>
+
+              <div className="flex flex-row justify-center gap-4">
+                <Link to="/bookll-1">
+                  <Button className="mt-auto w-full">Book now</Button>
+                </Link>
+                <Link to="/bookll-3">
+                  <Button className="mt-auto w-full">Submit Test Date</Button>
+                </Link>
+              </div>
+            </div>
           ) : null}
 
-          {/* text when user failed the LL_test */}
-          {LLResult === false ? (
-            <p className="mt-4">
-              Don&apos;t worry! 🤗 You can try again after 7 days.
-            </p>
+          {/* user's LL_test_date count-down until today == LL_test_date */}
+          {data &&
+          data[0].LL_test_date != null &&
+          data[0].LL_result != true &&
+          isDateGreaterThanToday(data[0].LL_test_date) ? (
+            <div className="mt-4 flex flex-col justify-center">
+              <Button
+                onClick={() => (window.location.href = "/prep")}
+                className="mt-auto w-full"
+              >
+                Start Learning
+              </Button>
+              <p className="text-center">or should we say, Gaminggg...</p>
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="mb-4 text-center">
+                    <p className="flex items-center justify-center gap-3">
+                      <Calendar color="gray" size={24} />
+                      <span className="text-gray-500">
+                        {formatDate(data[0].LL_test_date)}
+                      </span>
+                    </p>
+                  </CardTitle>
+                  <div className="flex flex-row gap-x-12">
+                    <CardDescription className="text-md w-1/2 border-r-4 border-gray-400 pr-4">
+                      <span className="text-xl">
+                        {getDateDifference(data[0].LL_test_date).MM}
+                      </span>
+                      <span> Month(s) and</span>
+                      <br></br>
+                      <span className="text-xl">
+                        {getDateDifference(data[0].LL_test_date).DD}
+                      </span>
+                      <span> Day(s) to go</span>
+                    </CardDescription>
+                    <CardDescription className="text-md w-1/3 self-center text-center">
+                      <span className="text-xl">
+                        {getTotalDaysDifference(data[0].LL_test_date).DD}
+                      </span>
+                      <span> Day(s) Remaining</span>
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+              </Card>
+            </div>
+          ) : null}
+
+          {/* user's Test result */}
+          {data &&
+          isDateEqualToToday(data[0].LL_test_date) &&
+          data[0].LL_test_date != null &&
+          data[0].LL_result != true ? (
+            <div className="flex flex-col justify-center">
+              <Label className="text-center text-xl">
+                Every step is progress!
+              </Label>
+              <Label className="mb-4 text-center text-xl">
+                How did your LL test go?
+              </Label>
+
+              <div className="flex flex-row gap-4">
+                <Button
+                  className="mt-auto w-full border-2 border-primary"
+                  variant={`${LLResult === true ? "default" : "outline"}`}
+                  onClick={() => LLTestPassed()}
+                >
+                  Nailed it
+                </Button>
+                <Button
+                  className="mt-auto w-full border-2 border-primary"
+                  variant={`${LLResult === false ? "default" : "outline"}`}
+                  onClick={() => LLTestFailed()}
+                >
+                  One more shot
+                </Button>
+              </div>
+              {/* text when user passed the LL_test */}
+              {LLResult === true ? (
+                <p className="mt-4">
+                  Yayy! 🎉 Let&apos;s get you ready for your first practical
+                  lesson!
+                </p>
+              ) : null}
+
+              {/* text when user failed the LL_test */}
+              {LLResult === false ? (
+                <p className="mt-4">
+                  Don&apos;t worry! 🤗 You can try again after 7 days.
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

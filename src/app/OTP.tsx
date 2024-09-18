@@ -1,16 +1,40 @@
 import { ArrowLeft } from "lucide-react";
-import { useParams } from "react-router";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router";
 
 import PurpleGradient from "@/components/layout/purple";
 import { OTPInput } from "@/components/OTP";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
+import { useUpcomingLesson } from "@/queries/learner";
 
 export default function OTP() {
+  const { lessonId } = useParams();
+  const [OTP, setOTP] = useState("");
+  const [isOTPCorrect, setIsOTPCorrect] = useState<null | boolean>(null);
+  const navigate = useNavigate();
+
+  const { user } = useAuth();
+  const { data, isLoading, error } = useUpcomingLesson(user?.phone);
+
   const handleOtpChange = (otp: string) => {
+    setOTP(otp);
     console.log("OTP:", otp);
   };
 
-  const { lessonId } = useParams();
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  const handleSubmit = () => {
+    if (data?.upcomingSchedule.otp == OTP) {
+      setIsOTPCorrect(true);
+      console.log("OTP is correct");
+      navigate("/timer");
+    } else {
+      setIsOTPCorrect(false);
+      console.log("OTP is incorrect");
+    }
+  };
 
   return (
     <PurpleGradient>
@@ -42,9 +66,15 @@ export default function OTP() {
           <OTPInput length={6} onChange={handleOtpChange} />
         </div>
 
-        <Button className="w-full" variant={"purple"}>
+        <Button onClick={handleSubmit} className="w-full" variant={"purple"}>
           Submit OTP
         </Button>
+
+        {isOTPCorrect === false && (
+          <p className="mt-8 text-center text-orange-600">
+            ❌ Incorrect OTP, Please try again!
+          </p>
+        )}
       </div>
     </PurpleGradient>
   );

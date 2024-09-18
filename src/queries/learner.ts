@@ -28,14 +28,14 @@ export function useSetLLTestDate() {
   return useMutation({
     mutationFn: async ({
       phone,
-      testDate,
+      LL_test_date,
     }: {
       phone: string | null | undefined;
-      testDate: Date | null | undefined;
+      LL_test_date: Date | null | undefined;
     }) => {
       const { data, error } = await supabase
         .from("Learner")
-        .update({ LL_test_date: testDate })
+        .update({ LL_test_date: LL_test_date })
         .eq("phone", phone);
       if (error) throw new Error("Supabase error");
       return data;
@@ -66,6 +66,105 @@ export function useSetLLResult() {
         throw new Error("Supabase error");
       }
     },
+  });
+}
+
+export function useUpcomingLesson(phone: string | undefined) {
+  return useQuery({
+    queryKey: ["upcomingLesson", phone],
+    queryFn: async () => {
+      if (!phone) throw new Error("Phone number is required");
+
+      // Query the Learner table to find the learner_id
+      const { data: learner, error: learnerError } = await supabase
+        .from("Learner")
+        .select("id")
+        .eq("phone", phone)
+        .single();
+
+      if (learnerError) {
+        throw new Error("Supabase error while fetching learner");
+      }
+
+      if (!learner) {
+        throw new Error("No learner found with the given phone number");
+      }
+
+      const learner_id = learner.id;
+
+      // Query the Schedule table
+      const { data: schedule, error: scheduleError } = await supabase
+        .from("Schedule")
+        .select()
+        .eq("learner_id", learner_id);
+
+      if (scheduleError) {
+        throw new Error("Supabase error while fetching schedule");
+      }
+
+      const currentDate = new Date();
+
+      // Filter out invalid or null dates and find the closest upcoming schedule
+      const validSchedules = schedule.filter(
+        (item) => item.date && new Date(item.date) >= currentDate,
+      );
+
+      const sortedSchedules = validSchedules.sort(
+        (a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime(),
+      );
+
+      const upcomingSchedule = sortedSchedules.length
+        ? sortedSchedules[0]
+        : null;
+
+      if (!upcomingSchedule) {
+        return {
+          upcomingSchedule: null,
+          upcomingLesson: null,
+          instructor: null,
+          course: null,
+        };
+      }
+
+      const { lesson_id, instructor_id, course_id } = upcomingSchedule;
+
+      // Query the Lesson table
+      const { data: lesson, error: lessonError } = await supabase
+        .from("Lesson")
+        .select()
+        .eq("id", lesson_id!)
+        .single();
+
+      if (lessonError) throw new Error("Supabase error while fetching lesson");
+
+      // Query the Instructor table
+      const { data: instructor, error: instructorError } = await supabase
+        .from("Instructor")
+        .select()
+        .eq("id_instructor", instructor_id!)
+        .single();
+
+      if (instructorError) {
+        throw new Error("Supabase error while fetching instructor");
+      }
+
+      // Query the Courses table
+      const { data: course, error: courseError } = await supabase
+        .from("Courses")
+        .select()
+        .eq("id", course_id!)
+        .single();
+
+      if (courseError) throw new Error("Supabase error while fetching course");
+
+      return {
+        upcomingSchedule,
+        upcomingLesson: lesson || null,
+        instructor: instructor || null,
+        course: course || null,
+      };
+    },
+    enabled: !!phone,
   });
 }
 

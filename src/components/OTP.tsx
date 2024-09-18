@@ -11,24 +11,28 @@ export const OTPInput: React.FC<OTPInputProps> = ({ length, onChange }) => {
 
   const handleChange = (element: HTMLInputElement, index: number) => {
     const value = element.value.replace(/[^0-9]/g, ""); // Only allow digits
-    if (value) {
-      const newOtp = [...otp];
-      newOtp[index] = value;
-      setOtp(newOtp);
-      onChange(newOtp.join(""));
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    onChange(newOtp.join(""));
 
-      // Focus the next input
-      if (index < length - 1) {
-        inputsRef.current[index + 1]?.focus();
-      }
+    // Focus the next input
+    if (value && index < length - 1) {
+      inputsRef.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === "Backspace") {
+      const newOtp = [...otp];
       if (otp[index] === "" && index > 0) {
         // Move to the previous input if it's empty
         inputsRef.current[index - 1]?.focus();
+      } else {
+        // Clear the current input and focus back
+        newOtp[index] = "";
+        setOtp(newOtp);
+        onChange(newOtp.join(""));
       }
     }
   };

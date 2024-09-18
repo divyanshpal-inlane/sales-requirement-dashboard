@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/context/auth-context";
+import { useUpcomingLesson } from "@/queries/learner";
 
 const lessonIds = [
   { id: 1, img_path: "/assets/lesson-pic-1.png", desc: "Get to know your car" },
@@ -44,6 +46,32 @@ const lessonIds = [
   },
 ];
 export default function Schedule() {
+  const { user } = useAuth();
+  const { data, isLoading, error } = useUpcomingLesson(user?.phone);
+
+  function formatTimeTo12Hour(time: string): string {
+    // Validate input time format
+    const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+    if (!regex.test(time)) {
+      throw new Error("Invalid time format. Expected format is HH:MM:SS.");
+    }
+
+    // Split the time into hours, minutes, and seconds
+    const [hours, minutes] = time.split(":").map(Number);
+
+    // Determine AM or PM
+    const period = hours < 12 ? "AM" : "PM";
+
+    // Convert hours to 12-hour format
+    const hours12 = hours % 12 || 12;
+
+    // Format the time string
+    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+  }
+
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
   return (
     <div className="flex h-full w-full p-6 pb-20">
       <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
@@ -77,16 +105,22 @@ export default function Schedule() {
           <Card className="mt-6 bg-gray-50">
             <CardContent className="flex h-full items-center justify-between gap-8 py-4">
               <p className="flex h-full w-2/5 flex-col justify-center gap-1 text-sm">
-                <span className="text-accent-purple">Lesson 1</span>
-                <span>10th Sept</span>
-                <span>9:00 AM</span>
+                <span className="text-accent-purple">
+                  Lesson {data?.upcomingLesson.number}
+                </span>
+                <span>
+                  {formatTimeTo12Hour(data?.upcomingSchedule?.start_time)}
+                </span>
+                <span>
+                  {formatTimeTo12Hour(data?.upcomingSchedule?.end_time)}
+                </span>
               </p>
               <div className="flex flex-row gap-6 rounded-md bg-white p-2.5 shadow-sm">
                 <Link
                   to={`/lesson/1`}
                   className="text-md mt-1.5 flex flex-col justify-between"
                 >
-                  <p>Get to know your car</p>
+                  <p>{lessonIds[data?.upcomingLesson.number - 1].desc}</p>
                 </Link>
                 {/* image container */}
                 <div className="relative flex justify-end">
@@ -96,7 +130,10 @@ export default function Schedule() {
                     alt="Lesson-pic"
                   />
                   <div className="absolute -bottom-1.5 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
-                    <Link to={`/lesson/1`} className="text-xs text-primary">
+                    <Link
+                      to={`/lesson/${data?.upcomingLesson.number}`}
+                      className="text-xs text-primary"
+                    >
                       More details
                     </Link>
                     <ChevronRight

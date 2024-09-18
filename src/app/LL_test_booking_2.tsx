@@ -57,7 +57,11 @@ export default function LL_test_booking_2() {
         </div>
 
         <div className="flex flex-row justify-center gap-4">
-          <a href="https://parivahan.gov.in/parivahan/">
+          <a
+            target="_blank"
+            href="https://parivahan.gov.in/parivahan/"
+            rel="noreferrer"
+          >
             <Button className="mt-auto w-[240px]" variant={"purple"}>
               Go to the Parivahan Website
             </Button>
