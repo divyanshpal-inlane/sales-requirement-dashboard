@@ -102,50 +102,56 @@ export default function Schedule() {
 
           {/* upcoming lesson's card */}
 
-          <Card className="mt-6 bg-gray-50">
-            <CardContent className="flex h-full items-center justify-between gap-8 py-4">
-              <p className="flex h-full w-2/5 flex-col justify-center gap-1 text-sm">
-                <span className="text-accent-purple">
-                  Lesson {data?.upcomingLesson.number}
-                </span>
-                <span>
-                  {formatTimeTo12Hour(data?.upcomingSchedule?.start_time)}
-                </span>
-                <span>
-                  {formatTimeTo12Hour(data?.upcomingSchedule?.end_time)}
-                </span>
-              </p>
-              <div className="flex flex-row gap-6 rounded-md bg-white p-2.5 shadow-sm">
-                <Link
-                  to={`/lesson/1`}
-                  className="text-md mt-1.5 flex flex-col justify-between"
-                >
-                  <p>{lessonIds[data?.upcomingLesson.number - 1].desc}</p>
-                </Link>
-                {/* image container */}
-                <div className="relative flex justify-end">
-                  <img
-                    className="h-full"
-                    src="/assets/lesson-pic-1.png"
-                    alt="Lesson-pic"
-                  />
-                  <div className="absolute -bottom-1.5 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
-                    <Link
-                      to={`/lesson/${data?.upcomingLesson.number}`}
-                      className="text-xs text-primary"
-                    >
-                      More details
-                    </Link>
-                    <ChevronRight
-                      color="white"
-                      className="rounded-full bg-primary"
-                      size={16}
+          {data?.upcomingSchedule ? (
+            <Card className="mt-6 bg-gray-50">
+              <CardContent className="flex h-full items-center justify-between gap-8 py-4">
+                <p className="flex h-full w-2/5 flex-col justify-center gap-1 text-sm">
+                  <span className="text-accent-purple">
+                    Lesson {data?.upcomingLesson.number}
+                  </span>
+                  <span>
+                    {formatTimeTo12Hour(data?.upcomingSchedule?.start_time)}
+                  </span>
+                  <span>
+                    {formatTimeTo12Hour(data?.upcomingSchedule?.end_time)}
+                  </span>
+                </p>
+                <div className="flex flex-row gap-6 rounded-md bg-white p-2.5 shadow-sm">
+                  <Link
+                    to={`/lesson/1`}
+                    className="text-md mt-1.5 flex flex-col justify-between"
+                  >
+                    <p>{lessonIds[data?.upcomingLesson.number - 1].desc}</p>
+                  </Link>
+                  {/* image container */}
+                  <div className="relative flex justify-end">
+                    <img
+                      className="h-full"
+                      src="/assets/lesson-pic-1.png"
+                      alt="Lesson-pic"
                     />
+                    <div className="absolute -bottom-1.5 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
+                      <Link
+                        to={`/lesson/${data?.upcomingLesson.number}`}
+                        className="text-xs text-primary"
+                      >
+                        More details
+                      </Link>
+                      <ChevronRight
+                        color="white"
+                        className="rounded-full bg-primary"
+                        size={16}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="mt-24 text-center text-lg">
+              No Upcoming Lesson. 😓
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="lesson" className="flex h-full flex-col">

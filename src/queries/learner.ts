@@ -103,15 +103,29 @@ export function useUpcomingLesson(phone: string | undefined) {
       }
 
       const currentDate = new Date();
+      const currentTime = currentDate.toTimeString().split(" ")[0]; // Get current time as string in HH:MM:SS format
 
       // Filter out invalid or null dates and find the closest upcoming schedule
-      const validSchedules = schedule.filter(
-        (item) => item.date && new Date(item.date) >= currentDate,
-      );
+      const validSchedules = schedule.filter((item) => {
+        if (!item.date) return false;
+        const itemDate = new Date(item.date);
 
-      const sortedSchedules = validSchedules.sort(
-        (a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime(),
-      );
+        // If the date is in the future, include it
+        if (itemDate > currentDate) return true;
+
+        // If the date is today, check the end_time
+        if (itemDate.toDateString() === currentDate.toDateString()) {
+          return item.end_time && item.end_time > currentTime;
+        }
+
+        return false;
+      });
+
+      const sortedSchedules = validSchedules.sort((a, b) => {
+        const dateTimeA = new Date(`${a.date}T${a.start_time}`);
+        const dateTimeB = new Date(`${b.date}T${b.start_time}`);
+        return dateTimeA.getTime() - dateTimeB.getTime();
+      });
 
       const upcomingSchedule = sortedSchedules.length
         ? sortedSchedules[0]
@@ -167,7 +181,6 @@ export function useUpcomingLesson(phone: string | undefined) {
     enabled: !!phone,
   });
 }
-
 type PartialLearner = Omit<
   Partial<Database["public"]["Tables"]["Learner"]["Row"]>,
   "phone"

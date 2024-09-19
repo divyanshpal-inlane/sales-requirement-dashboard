@@ -134,9 +134,9 @@ export default function Home() {
     const targetDate = new Date(inputDate);
 
     // Ensure the input date is valid
-    if (isNaN(targetDate.getTime())) {
-      throw new Error("Invalid date format. Use 'yyyy-mm-dd'.");
-    }
+    // if (isNaN(targetDate.getTime())) {
+    //   throw new Error("Invalid date format. Use 'yyyy-mm-dd'.");
+    // }
 
     // Define month and weekday names
     const monthNames = [
@@ -179,9 +179,9 @@ export default function Home() {
   function formatTimeTo12Hour(time: string): string {
     // Validate input time format
     const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
-    if (!regex.test(time)) {
-      throw new Error("Invalid time format. Expected format is HH:MM:SS.");
-    }
+    // if (!regex.test(time)) {
+    //   throw new Error("Invalid time format. Expected format is HH:MM:SS.");
+    // }
 
     // Split the time into hours, minutes, and seconds
     const [hours, minutes] = time.split(":").map(Number);
@@ -224,147 +224,153 @@ export default function Home() {
   return (
     <div>
       {data && data[0].LL_result === true ? (
-        <div className="relative flex h-screen flex-col gap-4 overflow-y-auto">
-          {/* Image and LessonInfo */}
-          <div className="relative h-2/5 w-full">
-            <img
-              src="/assets/lesson1.png"
-              alt="Car dashboard"
-              className="h-full w-full object-fill"
-            />
-            <div className="absolute inset-0 bg-black bg-opacity-50">
-              <div className="flex h-full w-fit flex-col gap-2 bg-[#636363] bg-opacity-70 p-4 text-white">
-                <Button
-                  variant={"ghost"}
-                  size="icon"
-                  className="text-primary-foreground"
-                >
-                  <ArrowLeft />
-                </Button>
-                <div className="my-auto flex flex-col gap-2">
-                  <h1 className="mb-2 text-lg font-semibold">
-                    Lesson {LessonData?.upcomingLesson.number}
-                  </h1>
-                  <div className="flex flex-col gap-0 text-xs">
-                    <p className="text-sm">Date, Time</p>
-                    <p className="font-extralight">
-                      {formatDate(LessonData?.upcomingSchedule?.date)}
-                    </p>
-                    <p className="font-extralight">
-                      <span>
-                        {formatTimeTo12Hour(
-                          LessonData?.upcomingSchedule?.start_time,
-                        )}
-                      </span>
-                      {" - "}
-                      <span>
-                        {formatTimeTo12Hour(
-                          LessonData?.upcomingSchedule?.end_time,
-                        )}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="flex flex-col justify-between gap-0">
-                    <p className="text-sm">Instructor Name</p>
-                    <p className="text-xs font-extralight">
-                      {LessonData?.instructor?.name}
-                    </p>
-                  </div>
-                  <div className="flex flex-col justify-between gap-0">
-                    <p className="text-sm">Pick Up location</p>
-                    <p className="text-xs font-extralight">
-                      {data[0].pick_up_location}
-                    </p>
-                  </div>
-                  <div className="flex flex-col justify-between gap-0">
-                    <p className="text-sm">Car Model</p>
-                    <p className="text-xs font-extralight">
-                      {LessonData?.instructor?.car_make}
-                    </p>
-                  </div>
-                  <div className="flex flex-col justify-between gap-0">
-                    <p className="text-sm">Car Number</p>
-                    <p className="text-xs font-extralight">
-                      {LessonData?.instructor?.car_number}
-                    </p>
+        LessonData?.upcomingSchedule ? (
+          <div className="relative flex h-screen flex-col gap-4 overflow-y-auto">
+            {/* Image and LessonInfo */}
+            <div className="relative h-2/5 w-full">
+              <img
+                src="/assets/lesson1.png"
+                alt="Car dashboard"
+                className="h-full w-full object-fill"
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-50">
+                <div className="flex h-full w-fit flex-col gap-2 bg-[#636363] bg-opacity-70 p-4 text-white">
+                  <Button
+                    variant={"ghost"}
+                    size="icon"
+                    className="text-primary-foreground"
+                  >
+                    <ArrowLeft />
+                  </Button>
+                  <div className="my-auto flex flex-col gap-2">
+                    <h1 className="mb-2 text-lg font-semibold">
+                      Lesson {LessonData?.upcomingLesson?.number}
+                    </h1>
+                    <div className="flex flex-col gap-0 text-xs">
+                      <p className="text-sm">Date, Time</p>
+                      <p className="font-extralight">
+                        {formatDate(LessonData?.upcomingSchedule?.date)}
+                      </p>
+                      <p className="font-extralight">
+                        <span>
+                          {formatTimeTo12Hour(
+                            LessonData?.upcomingSchedule?.start_time,
+                          )}
+                        </span>
+                        {" - "}
+                        <span>
+                          {formatTimeTo12Hour(
+                            LessonData?.upcomingSchedule?.end_time,
+                          )}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex flex-col justify-between gap-0">
+                      <p className="text-sm">Instructor Name</p>
+                      <p className="text-xs font-extralight">
+                        {LessonData?.instructor?.name}
+                      </p>
+                    </div>
+                    <div className="flex flex-col justify-between gap-0">
+                      <p className="text-sm">Pick Up location</p>
+                      <p className="text-xs font-extralight">
+                        {data[0].pick_up_location}
+                      </p>
+                    </div>
+                    <div className="flex flex-col justify-between gap-0">
+                      <p className="text-sm">Car Model</p>
+                      <p className="text-xs font-extralight">
+                        {LessonData?.instructor?.car_make}
+                      </p>
+                    </div>
+                    <div className="flex flex-col justify-between gap-0">
+                      <p className="text-sm">Car Number</p>
+                      <p className="text-xs font-extralight">
+                        {LessonData?.instructor?.car_number}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex grow flex-col gap-2 px-6 pb-6">
-            {/* title */}
-            <h2 className="text-xl font-semibold">
-              You will be good at Starting &amp; Stopping the Car
-            </h2>
+            <div className="flex grow flex-col gap-2 px-6 pb-6">
+              {/* title */}
+              <h2 className="text-xl font-semibold">
+                You will be good at Starting &amp; Stopping the Car
+              </h2>
 
-            {/* points */}
-            <div className="space-y-4">
-              {LESSON_CONTENT[
-                LessonData?.upcomingLesson.number
-              ].content.points.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-center space-x-4"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
-                    {item.icon}
-                  </div>
-                  <div className="w-2/5">
-                    <h3 className="font-semibold text-primary">
-                      {item.header}
-                    </h3>
-                    <p className="text-sm">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* remember card */}
-            <Card className="my-6 mb-16 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-primary">
-                  Things to Remember
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-1">
+              {/* points */}
+              <div className="space-y-4">
                 {LESSON_CONTENT[
                   LessonData?.upcomingLesson.number
-                ].content.remember.map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full text-2xl">
+                ].content.points.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-center space-x-4"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
                       {item.icon}
                     </div>
-                    <div className="w-4/5">
-                      <p>{item.text}</p>
+                    <div className="w-2/5">
+                      <h3 className="font-semibold text-primary">
+                        {item.header}
+                      </h3>
+                      <p className="text-sm">{item.desc}</p>
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Reschedule & Start Lesson button */}
-            <div className="y-4 sticky bottom-[6.5%] mt-auto flex flex-row gap-4 pb-4 pt-1 backdrop-blur-sm">
-              <Button
-                onClick={() =>
-                  navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
-                }
-                className="w-full"
-              >
-                Reschedule
-              </Button>
-              <Button
-                onClick={() =>
-                  navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
-                }
-                className="w-full"
-              >
-                Start Lesson
-              </Button>
+              {/* remember card */}
+              <Card className="my-6 mb-16 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-primary">
+                    Things to Remember
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-1">
+                  {LESSON_CONTENT[
+                    LessonData?.upcomingLesson.number
+                  ].content.remember.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full text-2xl">
+                        {item.icon}
+                      </div>
+                      <div className="w-4/5">
+                        <p>{item.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Reschedule & Start Lesson button */}
+              <div className="y-4 sticky bottom-[6.5%] mt-auto flex flex-row gap-4 pb-4 pt-1 backdrop-blur-sm">
+                <Button
+                  onClick={() =>
+                    navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+                  }
+                  className="w-full"
+                >
+                  Reschedule
+                </Button>
+                <Button
+                  onClick={() =>
+                    navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+                  }
+                  className="w-full"
+                >
+                  Start Lesson
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-24 text-center text-xl">
+            No Upcoming Lesson. 😓
+          </div>
+        )
       ) : (
         <div className="flex h-full flex-col overflow-x-auto p-6 pb-20">
           <div className="mb-6 flex items-center justify-between">
