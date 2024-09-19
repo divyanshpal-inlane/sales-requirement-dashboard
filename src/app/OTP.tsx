@@ -5,7 +5,6 @@ import { useNavigate, useParams } from "react-router";
 import PurpleGradient from "@/components/layout/purple";
 import { OTPInput } from "@/components/OTP";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
 import { useUpcomingLesson } from "@/queries/learner";
 
 export default function OTP() {
@@ -14,8 +13,7 @@ export default function OTP() {
   const [isOTPCorrect, setIsOTPCorrect] = useState<null | boolean>(null);
   const navigate = useNavigate();
 
-  const { user } = useAuth();
-  const { data, isLoading, error } = useUpcomingLesson(user?.phone);
+  const { data, isLoading, error } = useUpcomingLesson();
 
   const handleOtpChange = (otp: string) => {
     setOTP(otp);
@@ -26,7 +24,7 @@ export default function OTP() {
   if (error) return <div>Error: {error.message}</div>;
 
   const handleSubmit = () => {
-    if (data?.upcomingSchedule.otp == OTP) {
+    if (data?.upcomingSchedule?.otp === OTP) {
       setIsOTPCorrect(true);
       console.log("OTP is correct");
       navigate("/timer");

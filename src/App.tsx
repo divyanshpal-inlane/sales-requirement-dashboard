@@ -7,21 +7,21 @@ import {
   Routes,
 } from "react-router-dom";
 
-import Aadhar from "@/app/aadhar";
-import Birthday from "@/app/birthday";
-import Home from "@/app/home";
 import LL_test_booking_1 from "@/app/LL_test_booking_1";
 import LL_test_booking_2 from "@/app/LL_test_booking_2";
 import LL_test_booking_3 from "@/app/LL_test_booking_3";
-import Prep from "@/app/prep";
-import Schedule from "@/app/schedule";
-import ScheduleDetails from "@/app/schedule/details";
-import ScheduleSlots from "@/app/schedule/slots";
-import UploadLL from "@/app/schedule/uploadLL";
 import MainLayout from "@/components/layout/main-layout";
 import Plan from "@/components/lesson/plan";
-import { AuthProvider } from "@/context/auth-context";
+import { AuthProvider, ProtectedRoute } from "@/context/auth-context";
+import ScheduleDetails from "@/routes/createSchedule/details";
+import ScheduleSlots from "@/routes/createSchedule/slots";
+import UploadLL from "@/routes/createSchedule/uploadLL";
+import Home from "@/routes/home";
 import Login from "@/routes/login";
+import Aadhar from "@/routes/onboard/aadhar";
+import Birthday from "@/routes/onboard/birthday";
+import Prep from "@/routes/prep";
+import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 
 import LessonReview from "./app/LessonReview";
@@ -44,22 +44,50 @@ export default function App() {
           <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/onboard" element={<Outlet />}>
+            <Route
+              path="/onboard"
+              element={
+                <ProtectedRoute>
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
               <Route path="birthday" element={<Birthday />} />
               <Route path="aadhar" element={<Aadhar />} />
             </Route>
-            <Route path="/" element={<MainLayout />}>
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Navigate to="/home" replace />} />
               <Route path="home" element={<Home />} />
               <Route path="prep" element={<Prep />} />
               <Route path="schedule" element={<Schedule />} />
             </Route>
-            <Route path="createSchedule">
+            <Route
+              path="createSchedule"
+              element={
+                <ProtectedRoute>
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
               <Route path="details" element={<ScheduleDetails />} />
               <Route path="slots" element={<ScheduleSlots />} />
               <Route path="uploadLL" element={<UploadLL />} />
             </Route>
-            <Route path="/" element={<Outlet />}>
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
               <Route path="birthday" element={<Birthday />} />
               <Route path="aadhar" element={<Aadhar />} />
               <Route path="bookLL-1" element={<LL_test_booking_1 />} />
@@ -69,7 +97,14 @@ export default function App() {
               <Route path="/timer" element={<TimerAndEmergency />} />
               <Route path="/lesson-review" element={<LessonReview />} />
             </Route>
-            <Route path="/lesson/:lessonId" element={<Plan />} />
+            <Route
+              path="/lesson/:lessonId"
+              element={
+                <ProtectedRoute>
+                  <Plan />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </AuthProvider>
       </QueryClientProvider>

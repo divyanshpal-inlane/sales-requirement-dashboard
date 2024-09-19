@@ -1,9 +1,7 @@
 import { format, getMonth, getYear, setMonth, setYear } from "date-fns";
 import { ArrowLeft } from "lucide-react";
-import * as React from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
-import invariant from "tiny-invariant";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/context/auth-context";
 import { useLearnerUpdate } from "@/queries/learner";
 
 const years = Array.from(
@@ -38,12 +35,6 @@ const months = [
 ];
 
 export default function Birthday() {
-  const { user } = useAuth();
-  const phone = user?.phone;
-  invariant(
-    user !== null && typeof phone === "string",
-    "user phone is required",
-  );
   const [date, setDate] = useState<Date>();
   const [currentDate, setCurrentDate] = useState(new Date());
   const { mutate, isPending } = useLearnerUpdate();
@@ -57,23 +48,20 @@ export default function Birthday() {
     setCurrentDate(setMonth(currentDate, months.indexOf(month)));
   };
 
-  const handleContinueClick = React.useCallback(() => {
+  const handleContinueClick = useCallback(() => {
     if (!date) {
       alert("Birthdate is required");
       return;
     }
     mutate(
       {
-        phone,
-        data: {
-          dob: format(date, "yyyy-MM-dd"),
-        },
+        dob: format(date, "yyyy-MM-dd"),
       },
       {
         onSuccess: () => navigate("/onboard/aadhar"),
       },
     );
-  }, []);
+  }, [date, mutate, navigate]);
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -91,7 +79,9 @@ export default function Birthday() {
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
-          <h1 className="mb-2 text-2xl font-bold">When's your birthday?</h1>
+          <h1 className="mb-2 text-2xl font-bold">
+            When&apos;s your birthday?
+          </h1>
           <p>We use this to check your eligibility to drive</p>
         </div>
       </div>
@@ -139,7 +129,11 @@ export default function Birthday() {
             initialFocus
           />
         </div>
-        <Button onClick={handleContinueClick} className="w-full">
+        <Button
+          onClick={handleContinueClick}
+          className="w-full"
+          disabled={isPending}
+        >
           Continue
         </Button>
       </div>

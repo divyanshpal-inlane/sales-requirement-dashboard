@@ -1,13 +1,18 @@
-import { addDays } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/context/auth-context";
-import { useUpcomingLesson } from "@/queries/learner";
+import { useLearner, useLearnerSchedule } from "@/queries/learner";
 
 const lessonIds = [
   { id: 1, img_path: "/assets/lesson-pic-1.png", desc: "Get to know your car" },
@@ -45,10 +50,8 @@ const lessonIds = [
     desc: "Mini challenges -  Test Prep",
   },
 ];
-export default function Schedule() {
-  const { user } = useAuth();
-  const { data, isLoading, error } = useUpcomingLesson(user?.phone);
 
+export default function Schedule() {
   function formatTimeTo12Hour(time: string): string {
     // Validate input time format
     const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
@@ -68,6 +71,68 @@ export default function Schedule() {
     // Format the time string
     return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
   }
+
+  const { data: learner, isLoading, error } = useLearner();
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const learnerId = learner?.id;
+
+  const { data: scheduledLessons } = useLearnerSchedule({
+    learnerId,
+  });
+
+  useEffect(() => {
+    if (scheduledLessons) {
+      setSelectedDates(scheduledLessons.map((lesson) => new Date(lesson.date)));
+    }
+  }, [scheduledLessons]);
+
+  const CustomDay = ({ date, displayMonth }) => {
+    if (!scheduledLessons) return null;
+
+    const lessonsForDay = scheduledLessons.filter((lesson) =>
+      isSameDay(new Date(lesson.date), date),
+    );
+
+    if (lessonsForDay.length === 0) {
+      return <div className="h-8 w-8 p-0">{date.getDate()}</div>;
+    }
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="h-8 w-8 bg-primary p-0 font-normal text-primary-foreground"
+          >
+            {date.getDate()}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-fit">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold text-gray-700">
+              Scheduled Lessons
+            </h3>
+            {lessonsForDay.map((lesson) => (
+              <p key={lesson.id} className="flex flex-col gap-1 text-xs">
+                <span className="text-gray-600">
+                  {format(new Date(`2000-01-01T${lesson.startTime}`), "h:mm a")}{" "}
+                  -{format(new Date(`2000-01-01T${lesson.endTime}`), "h:mm a")}
+                </span>
+                <span className="text-accent-purple">
+                  Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
+                </span>
+              </p>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // TODO: fix the time thingy
+  const nextLesson = scheduledLessons?.find(
+    (lesson) => new Date(lesson.date) >= new Date(),
+  );
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
@@ -94,45 +159,43 @@ export default function Schedule() {
             <CardContent>
               <Calendar
                 mode="multiple"
-                selected={[new Date(), addDays(new Date(), 1)]}
+                selected={selectedDates}
                 className="w-full rounded-md"
+                components={{
+                  Day: CustomDay,
+                }}
               />
             </CardContent>
           </Card>
 
           {/* upcoming lesson's card */}
 
-          {data?.upcomingSchedule ? (
+          {nextLesson && nextLesson.lesson ? (
             <Card className="mt-6 bg-gray-50">
               <CardContent className="flex h-full items-center justify-between gap-8 py-4">
                 <p className="flex h-full w-2/5 flex-col justify-center gap-1 text-sm">
                   <span className="text-accent-purple">
-                    Lesson {data?.upcomingLesson.number}
+                    Lesson {nextLesson.lesson.number}
                   </span>
-                  <span>
-                    {formatTimeTo12Hour(data?.upcomingSchedule?.start_time)}
-                  </span>
-                  <span>
-                    {formatTimeTo12Hour(data?.upcomingSchedule?.end_time)}
-                  </span>
+                  <span>{formatTimeTo12Hour(nextLesson.startTime)}</span>
+                  <span>{formatTimeTo12Hour(nextLesson.endTime)}</span>
                 </p>
                 <div className="flex flex-row gap-6 rounded-md bg-white p-2.5 shadow-sm">
                   <Link
-                    to={`/lesson/1`}
+                    to={`/lesson/${nextLesson.lesson.number}`}
                     className="text-md mt-1.5 flex flex-col justify-between"
                   >
-                    <p>{lessonIds[data?.upcomingLesson.number - 1].desc}</p>
+                    <p>{nextLesson.lesson.description}</p>
                   </Link>
-                  {/* image container */}
                   <div className="relative flex justify-end">
                     <img
                       className="h-full"
-                      src="/assets/lesson-pic-1.png"
+                      src={`/assets/lesson-pic-${nextLesson.lesson.number}.png`}
                       alt="Lesson-pic"
                     />
                     <div className="absolute -bottom-1.5 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
                       <Link
-                        to={`/lesson/${data?.upcomingLesson.number}`}
+                        to={`/lesson/${nextLesson.lesson.number}`}
                         className="text-xs text-primary"
                       >
                         More details

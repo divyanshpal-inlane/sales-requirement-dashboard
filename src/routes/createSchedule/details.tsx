@@ -5,31 +5,36 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/context/auth-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AREAS } from "@/constants/courses"; // Add this import
 import { useLearnerUpdate } from "@/queries/learner";
 
 export default function ScheduleDetails() {
   const { mutate: updateLearner } = useLearnerUpdate();
-  const { user } = useAuth();
   // Add state for address and pin code
   const [address, setAddress] = useState<string>("");
   const [pinCode, setPinCode] = useState<string>("");
+
+  const [area, setArea] = useState<string>(""); // Add state for area
 
   const navigate = useNavigate();
 
   const onContinue = useCallback(() => {
     updateLearner(
-      {
-        data: { city: pinCode, pick_up_location: address },
-        phone: user?.phone,
-      },
+      { pincode: pinCode, pick_up_location: address, area }, // Pass area to updateLearner
       {
         onSuccess: () => {
           navigate("/createSchedule/slots");
         },
       },
     );
-  }, [address, pinCode, user]);
+  }, [address, navigate, pinCode, updateLearner, area]); // Add area to dependencies
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -54,9 +59,27 @@ export default function ScheduleDetails() {
           <p className="">Our instructor&apos;s will meet you here</p>
         </div>
       </div>
-      <div className="mx-auto mt-8 flex w-full max-w-96 flex-col items-center gap-10 bg-white p-6">
+      <div className="mt-8 flex w-full flex-col items-center gap-10 bg-white p-6">
         <div className="w-full space-y-4">
-          <div className="flex flex-col gap-1">
+          <div className="flex w-full flex-col gap-1">
+            <Label htmlFor="areaSelect">Select Area</Label>
+            <Select
+              value={area} // Bind value to state
+              onValueChange={(val) => setArea(val)} // Update state on change
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select an area" />
+              </SelectTrigger>
+              <SelectContent>
+                {AREAS.map((area) => (
+                  <SelectItem key={area} value={area.toLowerCase()}>
+                    {area}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex w-full flex-col gap-1">
             <Label htmlFor="input1">Address</Label>
             <Input
               id="input1"
@@ -66,7 +89,7 @@ export default function ScheduleDetails() {
               onChange={(e) => setAddress(e.target.value)} // Update state on change
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex w-full flex-col gap-1">
             <Label htmlFor="input2">Pin code</Label>
             <Input
               id="input2"

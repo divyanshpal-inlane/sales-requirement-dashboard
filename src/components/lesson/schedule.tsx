@@ -1,9 +1,12 @@
-import { format, isSameDay, setHours, setMinutes, startOfDay } from "date-fns";
-import React, { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { addDays } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { DatePickerDemo } from "@/components/date-picker";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -11,175 +14,392 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { supabase } from "@/context/auth-context";
+
+interface LearnerScheduleSelectorProps {
+  learnerId: string;
+  learnerArea: string | null;
+  totalTime: number;
+  courseId: string;
+  lessonIds: string[];
+}
 
 interface TimeSlot {
-  start: Date;
-  end: Date;
-  isBlocked: boolean;
-}
-
-export interface SelectedSlot {
   date: Date;
-  slots: TimeSlot[];
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+  selectedDuration: number;
+  availableInstructors: string[];
 }
 
-const CELL_SIZE = "w-10 h-10";
+const timeSlots = [
+  { start: "06:00:00", end: "09:00:00", label: "6 AM - 9 AM" },
+  { start: "09:00:00", end: "12:00:00", label: "9 AM - 12 PM" },
+  { start: "12:00:00", end: "15:00:00", label: "12 PM - 3 PM" },
+  { start: "15:00:00", end: "18:00:00", label: "3 PM - 6 PM" },
+  { start: "18:00:00", end: "21:00:00", label: "6 PM - 9 PM" },
+];
 
-const CalendarTimeSlotSelector: React.FC = ({
-  blockedSlots,
-  days,
-  hours,
-}: {
-  blockedSlots: any;
-  days: any;
-  hours: any;
+const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
+  learnerId,
+  learnerArea,
+  totalTime,
+  courseId,
+  lessonIds,
 }) => {
-  const [startDate, setStartDate] = useState<Date>(startOfDay(new Date()));
-  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
+  const [startDate, setStartDate] = useState(addDays(new Date(), 1));
+  const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  const isSlotBlocked = (date: Date, hour: number): boolean => {
-    const key = `${format(date, "yyyy-MM-dd")}-${hour}`;
-    return blockedSlots[key];
-  };
+  // Fetch schedules for the next 14 days
+  const { data: schedules, isLoading: isLoadingSchedules } = useQuery({
+    queryKey: ["schedules", startDate],
+    queryFn: async () => {
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 13);
 
-  const isSlotSelected = (date: Date, hour: number): boolean => {
-    return selectedSlots.some(
-      (s) =>
-        isSameDay(s.date, date) &&
-        s.slots.some((slot) => slot.start.getHours() === hour),
-    );
-  };
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("*")
+        .gte("date", startDate.toISOString().split("T")[0])
+        .lte("date", endDate.toISOString().split("T")[0]);
 
-  const handleSlotSelection = (date: Date, hour: number) => {
-    if (isSlotBlocked(date, hour)) return;
+      if (error) throw error;
+      return data;
+    },
+  });
 
-    const slotStart = setMinutes(setHours(date, hour), 0);
-    const slotEnd = setMinutes(setHours(date, hour + 1), 0);
-    const newSlot: TimeSlot = {
-      start: slotStart,
-      end: slotEnd,
-      isBlocked: false,
-    };
+  // Fetch instructors for the learner's area
+  const { data: instructors, isLoading: isLoadingInstructors } = useQuery({
+    queryKey: ["instructors", learnerArea],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select("*")
+        .contains("areas", [learnerArea]);
 
-    const existingSelection = selectedSlots.find((s) =>
-      isSameDay(s.date, date),
-    );
-    let updatedSelection: SelectedSlot[];
+      if (error) throw error;
+      return data;
+    },
+  });
 
-    if (existingSelection) {
-      const updatedSlots = [...existingSelection.slots, newSlot].sort(
-        (a, b) => a.start.getTime() - b.start.getTime(),
+  const { mutate } = useMutation({
+    mutationFn: async (slots: TimeSlot[]) => {
+      const bookings = slots.flatMap((slot) => {
+        const bookingHours = slot.selectedDuration === 2 ? [0, 1] : [0];
+        return bookingHours.map((hour, index) => ({
+          learner_id: learnerId,
+          instructor_id: slot.availableInstructors[0],
+          date: slot.date.toISOString().split("T")[0],
+          start_time: addHours(slot.startTime, hour),
+          end_time: addHours(slot.startTime, hour + 1),
+          course_id: courseId,
+          lesson_id: lessonIds[index],
+          status: "booked",
+        }));
+      });
+
+      const { data, error } = await supabase.from("Schedule").upsert(bookings);
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["schedule"],
+      });
+    },
+  });
+
+  const checkSlotAvailability = useCallback(
+    (date: Date, startTime: string, endTime: string) => {
+      if (!schedules || !instructors)
+        return { isAvailable: false, availableInstructors: [] };
+
+      const relevantSchedules = schedules.filter(
+        (s) =>
+          s.date === date.toISOString().split("T")[0] &&
+          s.start_time >= startTime &&
+          s.end_time <= endTime,
       );
 
+      const availableInstructors = instructors
+        .filter((instructor) => {
+          const instructorSchedules = relevantSchedules.filter(
+            (s) => s.instructor_id === instructor.id_instructor,
+          );
+          return instructorSchedules.length === 0;
+        })
+        .map((instructor) => instructor.id_instructor);
+
+      return {
+        isAvailable: availableInstructors.length > 0,
+        availableInstructors,
+      };
+    },
+    [schedules, instructors],
+  );
+
+  useEffect(() => {
+    if (schedules && instructors) {
+      const newSlots: TimeSlot[] = [];
+      for (let i = 0; i < 14; i++) {
+        const currentDate = new Date(startDate);
+        currentDate.setDate(currentDate.getDate() + i);
+        timeSlots.forEach((slot) => {
+          const { isAvailable, availableInstructors } = checkSlotAvailability(
+            currentDate,
+            slot.start,
+            slot.end,
+          );
+          newSlots.push({
+            date: currentDate,
+            startTime: slot.start,
+            endTime: slot.end,
+            isAvailable,
+            selectedDuration: 0,
+            availableInstructors,
+          });
+        });
+      }
+      setSelectedSlots(newSlots);
+    }
+  }, [schedules, instructors, startDate, checkSlotAvailability]);
+
+  const handleSlotClick = (clickedSlot: TimeSlot) => {
+    if (!clickedSlot.isAvailable) return;
+
+    const updatedSlots = selectedSlots.map((slot) => {
       if (
-        updatedSlots.length > 2 &&
-        (updatedSlots[2].start.getTime() - updatedSlots[0].start.getTime() >
-          2 * 60 * 60 * 1000 ||
-          updatedSlots.length > 4)
+        slot.date.getTime() === clickedSlot.date.getTime() &&
+        slot.startTime === clickedSlot.startTime
       ) {
+        return {
+          ...slot,
+          selectedDuration: slot.selectedDuration === 0 ? 1 : 0,
+        };
+      }
+      return slot;
+    });
+
+    const daySlots = updatedSlots.filter(
+      (slot) =>
+        slot.date.getTime() === clickedSlot.date.getTime() &&
+        slot.selectedDuration > 0,
+    );
+
+    if (daySlots.length > 2) {
+      alert("You can only select up to 2 slots per day.");
+      return;
+    }
+
+    if (daySlots.length === 2) {
+      const sortedSlots = daySlots.sort((a, b) =>
+        a.startTime.localeCompare(b.startTime),
+      );
+      if (sortedSlots[0].startTime === addHours(sortedSlots[1].startTime, -3)) {
+        alert("You cannot select consecutive slots.");
         return;
       }
-
-      updatedSelection = selectedSlots.map((s) =>
-        isSameDay(s.date, date) ? { ...s, slots: updatedSlots } : s,
-      );
-    } else {
-      updatedSelection = [...selectedSlots, { date, slots: [newSlot] }];
     }
 
-    const totalHours = updatedSelection.reduce(
-      (sum, day) => sum + day.slots.length,
+    const totalSelectedHours = updatedSlots.reduce(
+      (sum, slot) => sum + slot.selectedDuration,
       0,
     );
-    if (totalHours <= 10) {
-      setSelectedSlots(updatedSelection);
+    if (totalSelectedHours > totalTime) {
+      alert(
+        `You can only select up to ${totalTime} hours of lessons in total.`,
+      );
+      return;
     }
+
+    setSelectedSlots(updatedSlots);
   };
 
-  const getTotalSelectedHours = (): number => {
-    return selectedSlots.reduce((sum, day) => sum + day.slots.length, 0);
+  const handleDurationChange = (clickedSlot: TimeSlot, duration: number) => {
+    const updatedSlots = selectedSlots.map((slot) => {
+      if (
+        slot.date.getTime() === clickedSlot.date.getTime() &&
+        slot.startTime === clickedSlot.startTime
+      ) {
+        return { ...slot, selectedDuration: duration };
+      }
+      return slot;
+    });
+
+    const totalSelectedHours = updatedSlots.reduce(
+      (sum, slot) => sum + slot.selectedDuration,
+      0,
+    );
+    if (totalSelectedHours > totalTime) {
+      alert(
+        `You can only select up to ${totalTime} hours of lessons in total.`,
+      );
+      return;
+    }
+
+    setSelectedSlots(updatedSlots);
+  };
+
+  const handleBookSlots = () => {
+    const slotsToBook = selectedSlots.filter(
+      (slot) => slot.selectedDuration > 0,
+    );
+    if (slotsToBook.length === 0) {
+      alert("Please select at least one slot to book.");
+      return;
+    }
+
+    mutate(slotsToBook, {
+      onSuccess: () => {
+        navigate("/createSchedule/uploadLL");
+      },
+      onError: (error) => {
+        alert("Error booking slots: " + error.message);
+      },
+    });
+  };
+
+  const addHours = (timeString: string, hours: number) => {
+    const [h, m, s] = timeString.split(":").map(Number);
+    const date = new Date(2000, 0, 1, h, m, s);
+    date.setHours(date.getHours() + hours);
+    return date.toTimeString().slice(0, 8);
+  };
+
+  const handleDateChange = (direction: "left" | "right") => {
+    const newDate = new Date(startDate);
+    newDate.setDate(newDate.getDate() + (direction === "left" ? -7 : 7));
+    setStartDate(newDate);
   };
 
   return (
-    <TooltipProvider>
-      <div className="flex flex-col justify-center gap-4">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="startDate">Start date</Label>
-          <DatePickerDemo />
-        </div>
-
-        <div className="flex">
-          <ScrollArea className="flex h-[600px] w-0 grow rounded-md border border-border p-2">
-            <table className="w-full table-fixed border-collapse">
-              <thead>
-                <tr>
-                  <th
-                    className={`${CELL_SIZE} sticky left-0 top-0 z-20 w-12 bg-white p-1`}
-                  ></th>
-                  {days.map((day, index) => (
-                    <th
-                      key={index}
-                      className={`${CELL_SIZE} sticky top-0 z-10 border-b bg-white p-1 text-center text-sm font-normal`}
-                    >
-                      <p>{format(day, "d")}</p>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {hours.map((hour) => (
-                  <tr key={hour}>
-                    <td
-                      className={`${CELL_SIZE} sticky left-0 z-10 w-16 bg-white p-1 text-center text-xs`}
-                    >
-                      {format(setHours(new Date(), hour), "h a")}
-                    </td>
-                    {days.map((day, dayIndex) => {
-                      const isBlocked = isSlotBlocked(day, hour);
-                      const isSelected = isSlotSelected(day, hour);
-                      return (
-                        <td
-                          key={dayIndex}
-                          className={`${CELL_SIZE} border p-0`}
-                        >
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                onClick={() => handleSlotSelection(day, hour)}
-                                className={`h-full w-full cursor-pointer transition-colors duration-200 ${
-                                  isBlocked
-                                    ? "cursor-not-allowed bg-red-100"
-                                    : isSelected
-                                      ? "bg-green-200 hover:bg-green-300"
-                                      : "bg-white hover:bg-gray-100"
-                                }`}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {isBlocked
-                                ? "Blocked"
-                                : isSelected
-                                  ? "Selected"
-                                  : "Available"}
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </div>
-
-        <Badge variant="secondary" className="w-fit text-lg">
-          Total Selected Hours: {getTotalSelectedHours()} / 10
-        </Badge>
+    <div className="p-4">
+      <div className="mb-4 flex justify-between">
+        <Button onClick={() => handleDateChange("left")}>
+          <ChevronLeft />
+        </Button>
+        <Button onClick={() => handleDateChange("right")}>
+          <ChevronRight />
+        </Button>
       </div>
-    </TooltipProvider>
+      <ScrollArea className="w-full whitespace-nowrap rounded-md">
+        <div className="flex">
+          {[...Array(14)].map((_, dayOffset) => {
+            const currentDate = new Date(startDate);
+            currentDate.setDate(currentDate.getDate() + dayOffset);
+            return (
+              <Card key={dayOffset} className="m-2 w-64 flex-shrink-0">
+                <CardHeader className="p-2">
+                  <CardTitle className="text-sm">
+                    {currentDate.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-1">
+                  {timeSlots.map((time) => {
+                    const slot = selectedSlots.find(
+                      (s) =>
+                        s.date.getTime() === currentDate.getTime() &&
+                        s.startTime === time.start,
+                    );
+                    return (
+                      <TooltipProvider key={time.start}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="mb-1 flex items-center">
+                              <Button
+                                variant={
+                                  slot?.selectedDuration ? "default" : "outline"
+                                }
+                                className={`flex-grow p-1 text-xs ${!slot?.isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
+                                onClick={() => slot && handleSlotClick(slot)}
+                                disabled={!slot?.isAvailable}
+                              >
+                                {time.label}{" "}
+                                {slot?.selectedDuration
+                                  ? `(${slot.selectedDuration}h)`
+                                  : ""}
+                              </Button>
+                              {slot && slot.selectedDuration > 0 && (
+                                <div className="ml-1">
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      slot.selectedDuration === 1
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="px-2 py-1 text-xs"
+                                    onClick={() =>
+                                      handleDurationChange(slot, 1)
+                                    }
+                                  >
+                                    1h
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      slot.selectedDuration === 2
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="ml-1 px-2 py-1 text-xs"
+                                    onClick={() =>
+                                      handleDurationChange(slot, 2)
+                                    }
+                                  >
+                                    2h
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {slot?.isAvailable
+                              ? `Available Instructors: ${slot.availableInstructors.length}`
+                              : "No instructors available"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+      <div className="mt-4">
+        <Button
+          onClick={handleBookSlots}
+          disabled={
+            selectedSlots.filter((s) => s.selectedDuration > 0).length === 0
+          }
+          className="w-full"
+        >
+          Book Selected Slots (
+          {selectedSlots.reduce((sum, slot) => sum + slot.selectedDuration, 0)}{" "}
+          hours)
+        </Button>
+      </div>
+      {isLoadingSchedules || isLoadingInstructors ? (
+        <Alert className="mt-4">
+          <AlertTitle>Loading</AlertTitle>
+          <AlertDescription>
+            Please wait while we fetch the available schedules.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
   );
 };
 
-export default CalendarTimeSlotSelector;
+export default LearnerScheduleSelector;

@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 
-import { DatePickerDemo } from "@/components/date-picker";
+import { DatePicker } from "@/components/date-picker";
 import PurpleGradient from "@/components/layout/purple";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,7 +33,7 @@ export default function BookLL() {
           When are you taking your Learners License Test?
         </Label>
 
-        <DatePickerDemo />
+        <DatePicker />
 
         <Button className="mt-auto w-full" variant={"purple"}>
           Submit

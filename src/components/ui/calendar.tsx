@@ -1,14 +1,9 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { cva, type VariantProps } from "class-variance-authority"; // Add this import
 import * as React from "react";
-import { Day, DayPicker } from "react-day-picker";
+import { DayPicker } from "react-day-picker";
 
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Define variants for day_selected
@@ -86,41 +81,40 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeftIcon className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRightIcon className="h-4 w-4" />,
-        Day: ({ date, displayMonth }) => {
-          console.log(props.selected, date);
-          return props.selected &&
-            Array.isArray(props.selected) &&
-            props.selected.some(
-              (selectedDate) =>
-                selectedDate.setHours(0, 0, 0, 0) === date.setHours(0, 0, 0, 0),
-            ) ? (
-            <Popover>
-              <PopoverTrigger className="relative">
-                <Button
-                  variant={"ghost"}
-                  className={cn(
-                    dayVariants({ variant }),
-                    "flex h-8 w-8 gap-0.5 p-0 font-normal aria-selected:opacity-100",
-                  )}
-                >
-                  {date.getDate()}
-                  <div className="h-1 w-1 rounded-full bg-white"></div>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-fit">
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-semibold text-gray-700">Slots</h3>
-                  <p className="flex flex-col gap-1 text-xs">
-                    <span className="text-gray-600">9:00 AM - 11:00 AM</span>
-                    <span className="text-gray-600">5:00 PM - 6:00 PM</span>
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <Day date={date} displayMonth={displayMonth} />
-          );
-        },
+        // Day: ({ date, displayMonth }) => {
+        //   return props.selected &&
+        //     Array.isArray(props.selected) &&
+        //     props.selected.some(
+        //       (selectedDate) =>
+        //         selectedDate.setHours(0, 0, 0, 0) === date.setHours(0, 0, 0, 0),
+        //     ) ? (
+        //     <Popover>
+        //       <PopoverTrigger className="relative">
+        //         <Button
+        //           variant={"ghost"}
+        //           className={cn(
+        //             dayVariants({ variant }),
+        //             "flex h-8 w-8 gap-0.5 p-0 font-normal aria-selected:opacity-100",
+        //           )}
+        //         >
+        //           {date.getDate()}
+        //           <div className="h-1 w-1 rounded-full bg-white"></div>
+        //         </Button>
+        //       </PopoverTrigger>
+        //       <PopoverContent className="w-fit">
+        //         <div className="flex flex-col gap-2">
+        //           <h3 className="text-sm font-semibold text-gray-700">Slots</h3>
+        //           <p className="flex flex-col gap-1 text-xs">
+        //             <span className="text-gray-600">9:00 AM - 11:00 AM</span>
+        //             <span className="text-gray-600">5:00 PM - 6:00 PM</span>
+        //           </p>
+        //         </div>
+        //       </PopoverContent>
+        //     </Popover>
+        //   ) : (
+        //     <Day date={date} displayMonth={displayMonth} />
+        //   );
+        // },
       }}
       {...props}
     />

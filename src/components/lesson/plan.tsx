@@ -749,7 +749,6 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
   const {
     menu,
     content: { game, remember, title, points },
-    id,
   } = LESSON_CONTENT[lessonId as keyof typeof LESSON_CONTENT];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);

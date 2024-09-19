@@ -1,25 +1,27 @@
+import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 
-import { DatePickerDemo } from "@/components/date-picker";
+import { DatePicker } from "@/components/date-picker";
 import PurpleGradient from "@/components/layout/purple";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
-import { useSetLLTestDate } from "@/queries/learner";
+import { useLearnerUpdate } from "@/queries/learner";
 
 export default function LL_test_booking_3() {
-  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const setLLTestDateMutation = useSetLLTestDate();
+  const setLLTestDateMutation = useLearnerUpdate();
 
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
   };
 
   const handleLLTestDate = () => {
+    if (!selectedDate) {
+      alert("No selected date");
+      return;
+    }
     setLLTestDateMutation.mutate({
-      phone: user?.phone,
-      testDate: selectedDate,
+      LL_test_date: format(selectedDate, "yyyy-MM-dd"),
     });
   };
 
@@ -50,7 +52,13 @@ export default function LL_test_booking_3() {
           When are you taking your Learners License Test?
         </p>
 
-        <DatePickerDemo date={selectedDate} setDate={handleDateChange} />
+        <DatePicker
+          disabled={(date) => date < new Date()}
+          date={selectedDate}
+          setDate={handleDateChange}
+          disableYear={true}
+          disableMonth={true}
+        />
 
         <div className="mt-4 flex flex-row justify-center gap-12">
           <a href="/home">

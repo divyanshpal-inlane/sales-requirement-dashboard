@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, User } from "@supabase/supabase-js";
 import React, {
   createContext,
   ReactNode,
@@ -8,11 +8,10 @@ import React, {
 } from "react";
 import { Navigate } from "react-router";
 
-import { useLearner } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
 type AuthContextType = {
-  user: any;
+  user: User | null;
   login: (phone: string, password: string) => Promise<any>;
   signUp: (phone: string, password: string) => Promise<any>;
   logout: () => void;
@@ -25,15 +24,13 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User>();
   const [loading, setLoading] = useState(true);
-
-  const { data, isLoading, error } = useLearner(user?.phone);
 
   useEffect(() => {
     // Check active session and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      setUser(session?.user);
       setLoading(false);
     });
 
@@ -41,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      setUser(session?.user);
     });
 
     return () => subscription.unsubscribe();
@@ -95,13 +92,14 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   if (!user) return <Navigate to="/login" />;
-  return { children };
+  return children;
 }
 
 export function useUser() {
   const { user } = useAuth();
-  if (!user) {
+  const phone = user?.phone;
+  if (!user || !phone) {
     throw new Error("user is required");
   }
-  return user;
+  return { phone };
 }

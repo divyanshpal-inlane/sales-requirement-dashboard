@@ -7,19 +7,16 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 
 import PurpleGradient from "@/components/layout/purple";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/context/auth-context";
 import { useUpcomingLesson } from "@/queries/learner";
 
 export default function TimerAndEmergency() {
   const [time, setTime] = useState<number>(3600000); // 1 hour in milliseconds
-  const { user } = useAuth();
-  const { data, isLoading, error } = useUpcomingLesson(user?.phone);
-  const navigate = useNavigate();
+
+  const { data, isLoading, error } = useUpcomingLesson();
 
   useEffect(() => {
     if (time <= 0) return; // Stop the timer if time is up
@@ -85,7 +82,9 @@ export default function TimerAndEmergency() {
                 <div className="font-bold">
                   <p>Instructor Name</p>
                 </div>
-                <div className="text-start text-sm">{data?.instructor?.name}</div>
+                <div className="text-start text-sm">
+                  {data?.instructor?.name}
+                </div>
               </div>
               <div className="relative flex flex-col items-center justify-center gap-1 rounded-sm bg-gray-100 px-1.5 py-1.5 text-gray-600">
                 <BadgeInfo
@@ -95,7 +94,9 @@ export default function TimerAndEmergency() {
                 <div className="font-bold">
                   <p>Car Model</p>
                 </div>
-                <div className="text-start text-sm">{data?.instructor?.car_make}</div>
+                <div className="text-start text-sm">
+                  {data?.instructor?.car_make}
+                </div>
               </div>
               <div className="relative flex flex-col items-center justify-center gap-1 rounded-sm bg-gray-100 px-1.5 py-1.5 text-gray-600">
                 <PhoneForwardedIcon
@@ -105,7 +106,9 @@ export default function TimerAndEmergency() {
                 <div className="font-bold">
                   <p>Instructor Ph.</p>
                 </div>
-                <div className="text-start text-sm">{data?.instructor?.phone}</div>
+                <div className="text-start text-sm">
+                  {data?.instructor?.phone}
+                </div>
               </div>
               <div className="relative flex flex-col items-center justify-center gap-1 rounded-sm bg-gray-100 px-1.5 py-1.5 text-gray-600">
                 <Info
@@ -115,7 +118,9 @@ export default function TimerAndEmergency() {
                 <div className="font-bold">
                   <p>License Plate</p>
                 </div>
-                <div className="text-start text-sm">{data?.instructor?.car_number}</div>
+                <div className="text-start text-sm">
+                  {data?.instructor?.car_number}
+                </div>
               </div>
             </div>
           </CardContent>

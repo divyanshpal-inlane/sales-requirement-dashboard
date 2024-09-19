@@ -1,6 +1,6 @@
 import { ArrowLeft, Edit2, RefreshCw, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ export default function UploadLL() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const { mutate } = useUploadLLMutation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (file && file.type.startsWith("image/")) {
@@ -43,7 +44,7 @@ export default function UploadLL() {
         { file, phone },
         {
           onSuccess: () => {
-            alert("success");
+            navigate("/home");
           },
         },
       );

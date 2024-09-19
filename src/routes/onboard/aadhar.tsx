@@ -11,11 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useUser } from "@/context/auth-context";
 import { useLearnerUpdate } from "@/queries/learner";
 
 export default function Aadhar() {
-  const { phone } = useUser();
   const [selectedState, setSelectedState] = useState<string>("");
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
@@ -27,16 +25,13 @@ export default function Aadhar() {
     }
     mutate(
       {
-        phone,
-        data: {
-          aadhar_state: selectedState,
-        },
+        aadhar_state: selectedState,
       },
       {
-        onSuccess: () => navigate("/onboard/aadhar"),
+        onSuccess: () => navigate("/home"),
       },
     );
-  }, [selectedState]);
+  }, [mutate, navigate, selectedState]);
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -122,7 +117,11 @@ export default function Aadhar() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={handleContinueClick} className="w-full">
+        <Button
+          onClick={handleContinueClick}
+          className="w-full"
+          disabled={isPending}
+        >
           Continue
         </Button>
       </div>

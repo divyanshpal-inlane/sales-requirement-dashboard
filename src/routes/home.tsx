@@ -12,22 +12,52 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { LESSON_CONTENT } from "@/constants/Lesson";
-import { useAuth } from "@/context/auth-context";
+import { useUser } from "@/context/auth-context";
 import {
   useLearner,
+  useLearnerSchedule,
   useSetLLResult,
   useSetLLTestDate,
   useUpcomingLesson,
 } from "@/queries/learner";
 
+const monthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+const dayNames = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
 export default function Home() {
-  const { user } = useAuth();
-  const { data, isLoading, error } = useLearner(user?.phone);
+  const { phone } = useUser();
+  const { data, isLoading, error } = useLearner();
   const {
     data: LessonData,
     isLoading: LessonIsLoading,
     error: LessonError,
-  } = useUpcomingLesson(user?.phone);
+  } = useUpcomingLesson();
+  const { data: scheduledLessons } = useLearnerSchedule({
+    learnerId: data?.id,
+  });
+
   const [LLResult, setLLResult] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
@@ -44,8 +74,8 @@ export default function Home() {
   function isDateEqualToToday(dateString: string): boolean {
     const inputDate = new Date(dateString);
     const today = new Date();
-    const formattedToday = today.toISOString().split("T")[0];
-    return inputDate.toISOString().split("T")[0] <= formattedToday;
+    const formattedToday = today.toISOString().split("T");
+    return inputDate.toISOString().split("T") <= formattedToday;
   }
 
   function getDateDifference(inputDate: string): { MM: string; DD: string } {
@@ -139,29 +169,6 @@ export default function Home() {
     // }
 
     // Define month and weekday names
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const dayNames = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
 
     // Get day, month, and weekday
     const day = targetDate.getDate();
@@ -177,12 +184,6 @@ export default function Home() {
   }
 
   function formatTimeTo12Hour(time: string): string {
-    // Validate input time format
-    const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
-    // if (!regex.test(time)) {
-    //   throw new Error("Invalid time format. Expected format is HH:MM:SS.");
-    // }
-
     // Split the time into hours, minutes, and seconds
     const [hours, minutes] = time.split(":").map(Number);
 
@@ -199,10 +200,10 @@ export default function Home() {
   async function LLTestPassed() {
     setLLResult(true);
     await delay(5000);
-    setLLResultMutation.mutate({ phone: user?.phone, LL_result: true });
+    setLLResultMutation.mutate({ phone: phone, LL_result: true });
     setLLTestDateMutation.mutate({
-      phone: user?.phone,
-      LL_test_date: data && data[0]?.LL_test_date,
+      phone: phone,
+      LL_test_date: data && data?.LL_test_date,
     });
     navigate(0);
   }
@@ -210,8 +211,8 @@ export default function Home() {
   async function LLTestFailed() {
     setLLResult(false);
     await delay(5000);
-    setLLResultMutation.mutate({ phone: user?.phone, LL_result: false });
-    setLLTestDateMutation.mutate({ phone: user?.phone, LL_test_date: null });
+    setLLResultMutation.mutate({ phone: phone, LL_result: false });
+    setLLTestDateMutation.mutate({ phone: phone, LL_test_date: null });
     navigate(0);
   }
 
@@ -219,12 +220,25 @@ export default function Home() {
   if (error || LessonError)
     return <p>Error: {error?.message || LessonError?.message}</p>;
 
-  console.log(data && data[0]);
+  console.log(data && data);
 
   return (
     <div>
-      {data && data[0].LL_result === true ? (
-        LessonData?.upcomingSchedule ? (
+      {data && data.LL_result === true ? (
+        scheduledLessons && scheduledLessons.length === 0 ? (
+          <div className="flex flex-col gap-4 p-6 text-center text-xl">
+            <img
+              src="/assets/laptop-typing.png"
+              alt="First Lesson"
+              className="w-full rounded-lg"
+            />
+            <p>Ready for your first lesson ? We just need few more details</p>
+            <Button className="w-full" asChild>
+              <Link to="/createSchedule/details">Set your schedule</Link>
+            </Button>
+            <p>We will book</p>
+          </div>
+        ) : LessonData?.upcomingLesson ? (
           <div className="relative flex h-screen flex-col gap-4 overflow-y-auto">
             {/* Image and LessonInfo */}
             <div className="relative h-2/5 w-full">
@@ -274,7 +288,7 @@ export default function Home() {
                     <div className="flex flex-col justify-between gap-0">
                       <p className="text-sm">Pick Up location</p>
                       <p className="text-xs font-extralight">
-                        {data[0].pick_up_location}
+                        {data.pick_up_location}
                       </p>
                     </div>
                     <div className="flex flex-col justify-between gap-0">
@@ -302,24 +316,25 @@ export default function Home() {
 
               {/* points */}
               <div className="space-y-4">
-                {LESSON_CONTENT[
-                  LessonData?.upcomingLesson.number
-                ].content.points.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-center space-x-4"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
-                      {item.icon}
+                {LessonData?.upcomingLesson.number &&
+                  LESSON_CONTENT[
+                    LessonData?.upcomingLesson.number
+                  ].content.points.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-center space-x-4"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
+                        {item.icon}
+                      </div>
+                      <div className="w-2/5">
+                        <h3 className="font-semibold text-primary">
+                          {item.header}
+                        </h3>
+                        <p className="text-sm">{item.desc}</p>
+                      </div>
                     </div>
-                    <div className="w-2/5">
-                      <h3 className="font-semibold text-primary">
-                        {item.header}
-                      </h3>
-                      <p className="text-sm">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
 
               {/* remember card */}
@@ -389,12 +404,12 @@ export default function Home() {
             <img
               src="/assets/laptop-typing.png"
               alt="Person using laptop"
-              className="object-fit h-48 w-full"
+              className="h-48 w-full object-fill"
             />
           </div>
 
           {/* Date input */}
-          {data && data[0].LL_test_date == null && data[0].LL_result != true ? (
+          {data && data.LL_test_date == null && data.LL_result != true ? (
             <div className="flex flex-col justify-center">
               <Label className="mb-4 text-center text-xl">
                 Let’s get your Learners License!
@@ -413,15 +428,12 @@ export default function Home() {
 
           {/* user's LL_test_date count-down until today == LL_test_date */}
           {data &&
-          data[0].LL_test_date != null &&
-          data[0].LL_result != true &&
-          isDateGreaterThanToday(data[0].LL_test_date) ? (
+          data.LL_test_date != null &&
+          data.LL_result != true &&
+          isDateGreaterThanToday(data.LL_test_date) ? (
             <div className="mt-4 flex flex-col justify-center">
-              <Button
-                onClick={() => (window.location.href = "/prep")}
-                className="mt-auto w-full"
-              >
-                Start Learning
+              <Button className="mt-auto w-full" asChild>
+                <Link to="/prep">Start Learning</Link>
               </Button>
               <p className="text-center">or should we say, Gaminggg...</p>
               <Card className="mt-6">
@@ -430,25 +442,25 @@ export default function Home() {
                     <p className="flex items-center justify-center gap-3">
                       <Calendar color="gray" size={24} />
                       <span className="text-gray-500">
-                        {formatDate(data[0].LL_test_date)}
+                        {formatDate(data.LL_test_date)}
                       </span>
                     </p>
                   </CardTitle>
                   <div className="flex flex-row gap-x-12">
                     <CardDescription className="text-md w-1/2 border-r-4 border-gray-400 pr-4">
                       <span className="text-xl">
-                        {getDateDifference(data[0].LL_test_date).MM}
+                        {getDateDifference(data.LL_test_date).MM}
                       </span>
                       <span> Month(s) and</span>
                       <br></br>
                       <span className="text-xl">
-                        {getDateDifference(data[0].LL_test_date).DD}
+                        {getDateDifference(data.LL_test_date).DD}
                       </span>
                       <span> Day(s) to go</span>
                     </CardDescription>
                     <CardDescription className="text-md w-1/3 self-center text-center">
                       <span className="text-xl">
-                        {getTotalDaysDifference(data[0].LL_test_date).DD}
+                        {getTotalDaysDifference(data.LL_test_date).DD}
                       </span>
                       <span> Day(s) Remaining</span>
                     </CardDescription>
@@ -459,10 +471,9 @@ export default function Home() {
           ) : null}
 
           {/* user's Test result */}
-          {data &&
-          isDateEqualToToday(data[0].LL_test_date) &&
-          data[0].LL_test_date != null &&
-          data[0].LL_result != true ? (
+          {data?.LL_test_date &&
+          isDateEqualToToday(data.LL_test_date) &&
+          data.LL_result !== true ? (
             <div className="flex flex-col justify-center">
               <Label className="text-center text-xl">
                 Every step is progress!

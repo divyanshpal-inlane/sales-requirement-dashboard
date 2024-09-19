@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
-import { SelectedSlot } from "@/components/lesson/schedule";
-import { supabase, useAuth } from "@/context/auth-context";
+import { supabase, useUser } from "@/context/auth-context";
 import { Database } from "@/types/database.types";
 
-export function useLearner(phone: string | null | undefined) {
+export function useLearner() {
+  const { phone } = useUser();
   return useQuery({
     queryKey: ["learner", phone],
     queryFn: async () => {
@@ -13,15 +13,30 @@ export function useLearner(phone: string | null | undefined) {
       const { data: Learner, error } = await supabase
         .from("Learner")
         .select()
-        .eq("phone", phone);
+        .eq("phone", phone)
+        .single();
 
-      console.log(Learner, error, "Learner data");
       if (error) throw new Error("Supabase error");
       return Learner;
     },
-    // staleTime: Infinity,
+    staleTime: Infinity,
     enabled: !!phone,
   });
+}
+
+export function useLearnerId() {
+  const queryClient = useQueryClient();
+  const { phone } = useUser();
+
+  const learnerData:
+    | Database["public"]["Tables"]["Learner"]["Row"]
+    | undefined = queryClient.getQueryData(["learner", phone]);
+
+  if (!learnerData) {
+    throw new Error("Learner data not found in cache");
+  }
+
+  return learnerData.id;
 }
 
 export function useSetLLTestDate() {
@@ -69,7 +84,8 @@ export function useSetLLResult() {
   });
 }
 
-export function useUpcomingLesson(phone: string | undefined) {
+export function useUpcomingLesson() {
+  const { phone } = useUser();
   return useQuery({
     queryKey: ["upcomingLesson", phone],
     queryFn: async () => {
@@ -178,6 +194,7 @@ export function useUpcomingLesson(phone: string | undefined) {
         course: course || null,
       };
     },
+    staleTime: Infinity,
     enabled: !!phone,
   });
 }
@@ -187,15 +204,10 @@ type PartialLearner = Omit<
 >;
 
 export function useLearnerUpdate() {
+  const { phone } = useUser();
   const queryClient = useQueryClient();
   const mutate = useMutation({
-    mutationFn: async ({
-      data,
-      phone,
-    }: {
-      data: PartialLearner;
-      phone: string;
-    }) => {
+    mutationFn: async (data: PartialLearner) => {
       const { error } = await supabase
         .from("Learner")
         .update(data)
@@ -203,7 +215,7 @@ export function useLearnerUpdate() {
       if (error) throw new Error(error.message);
       return null;
     },
-    onSuccess: (_, { phone }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["learner", phone],
       });
@@ -243,7 +255,8 @@ export function useUploadLLMutation() {
 }
 
 export function useSlotMutation() {
-  const { user } = useAuth();
+  const { phone } = useUser();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ newSlots }: { newSlots: SelectedSlot[] }) => {
       const { data, error } = await supabase.from("Schedule").upsert(
@@ -260,5 +273,70 @@ export function useSlotMutation() {
       if (error) throw new Error(error.message);
       return data;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["upcomingLesson", phone],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedule", phone],
+      });
+    },
+  });
+}
+
+export function useLessons({ courseId }: { courseId: string }) {
+  return useQuery({
+    queryKey: ["lessons", courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Lesson")
+        .select("*")
+        .eq("course_id", courseId);
+      if (error) throw new Error(error.message);
+      return data.map((lesson) => lesson.id);
+    },
+  });
+}
+
+export function useLesson({ lessonId }: { lessonId: string }) {
+  return useQuery({
+    queryKey: ["lesson", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Lesson")
+        .select("*")
+        .eq("id", lessonId)
+        .single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
+}
+
+export function useLearnerSchedule({ learnerId }: { learnerId: string }) {
+  return useQuery({
+    queryKey: ["schedule", learnerId],
+    queryFn: async () => {
+      if (!learnerId) return [];
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select(
+          "id, date, start_time, end_time, lesson_id, Lesson (id, number, description)",
+        )
+        .eq("learner_id", learnerId)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (error) throw error;
+      return data.map((lesson) => ({
+        id: lesson.id,
+        date: lesson.date,
+        startTime: lesson.start_time,
+        endTime: lesson.end_time,
+        lesson: lesson.Lesson,
+      }));
+    },
+    staleTime: Infinity,
+    enabled: !!learnerId,
   });
 }

@@ -92,9 +92,11 @@ export type Database = {
       };
       Instructor: {
         Row: {
+          areas: string[];
           car_license: string | null;
           car_make: string | null;
           car_mode: string | null;
+          car_number: string | null;
           created_at: string;
           DL_number: string | null;
           email: string | null;
@@ -106,9 +108,11 @@ export type Database = {
           phone: number | null;
         };
         Insert: {
+          areas?: string[];
           car_license?: string | null;
           car_make?: string | null;
           car_mode?: string | null;
+          car_number?: string | null;
           created_at?: string;
           DL_number?: string | null;
           email?: string | null;
@@ -120,9 +124,11 @@ export type Database = {
           phone?: number | null;
         };
         Update: {
+          areas?: string[];
           car_license?: string | null;
           car_make?: string | null;
           car_mode?: string | null;
+          car_number?: string | null;
           created_at?: string;
           DL_number?: string | null;
           email?: string | null;
@@ -166,6 +172,8 @@ export type Database = {
       };
       Learner: {
         Row: {
+          aadhar_state: string | null;
+          area: string | null;
           city: string | null;
           created_at: string;
           DL_id: string | null;
@@ -183,11 +191,14 @@ export type Database = {
           password: string | null;
           phone: string;
           pick_up_location: string | null;
+          pincode: string | null;
           signed_up: string | null;
           start_date: string | null;
           unavailability: Json | null;
         };
         Insert: {
+          aadhar_state?: string | null;
+          area?: string | null;
           city?: string | null;
           created_at?: string;
           DL_id?: string | null;
@@ -205,11 +216,14 @@ export type Database = {
           password?: string | null;
           phone: string;
           pick_up_location?: string | null;
+          pincode?: string | null;
           signed_up?: string | null;
           start_date?: string | null;
           unavailability?: Json | null;
         };
         Update: {
+          aadhar_state?: string | null;
+          area?: string | null;
           city?: string | null;
           created_at?: string;
           DL_id?: string | null;
@@ -227,6 +241,7 @@ export type Database = {
           password?: string | null;
           phone?: string;
           pick_up_location?: string | null;
+          pincode?: string | null;
           signed_up?: string | null;
           start_date?: string | null;
           unavailability?: Json | null;
@@ -267,6 +282,7 @@ export type Database = {
           duration: number | null;
           enabled: boolean | null;
           id: string;
+          number: number | null;
         };
         Insert: {
           course_id?: string | null;
@@ -275,6 +291,7 @@ export type Database = {
           duration?: number | null;
           enabled?: boolean | null;
           id?: string;
+          number?: number | null;
         };
         Update: {
           course_id?: string | null;
@@ -283,6 +300,7 @@ export type Database = {
           duration?: number | null;
           enabled?: boolean | null;
           id?: string;
+          number?: number | null;
         };
         Relationships: [
           {
@@ -348,40 +366,43 @@ export type Database = {
         Row: {
           course_id: string | null;
           created_at: string;
-          date: string | null;
-          enabled: boolean | null;
-          end_time: string | null;
+          date: string;
+          enabled: boolean;
+          end_time: string;
           id: number;
           instructor_id: string | null;
           learner_id: string | null;
           lesson_id: string | null;
-          start_time: string | null;
+          otp: string | null;
+          start_time: string;
           status: string | null;
         };
         Insert: {
           course_id?: string | null;
           created_at?: string;
-          date?: string | null;
-          enabled?: boolean | null;
-          end_time?: string | null;
+          date: string;
+          enabled?: boolean;
+          end_time: string;
           id?: number;
           instructor_id?: string | null;
           learner_id?: string | null;
           lesson_id?: string | null;
-          start_time?: string | null;
+          otp?: string | null;
+          start_time: string;
           status?: string | null;
         };
         Update: {
           course_id?: string | null;
           created_at?: string;
-          date?: string | null;
-          enabled?: boolean | null;
-          end_time?: string | null;
+          date?: string;
+          enabled?: boolean;
+          end_time?: string;
           id?: number;
           instructor_id?: string | null;
           learner_id?: string | null;
           lesson_id?: string | null;
-          start_time?: string | null;
+          otp?: string | null;
+          start_time?: string;
           status?: string | null;
         };
         Relationships: [
