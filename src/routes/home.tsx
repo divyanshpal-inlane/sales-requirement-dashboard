@@ -1,5 +1,5 @@
-import { ArrowLeft, Calendar } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Calendar, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,8 @@ export default function Home() {
 
   const [LLResult, setLLResult] = useState<boolean | null>(null);
   const navigate = useNavigate();
+  const [redirecting, SetRedirecting] = useState<boolean>(false);
+  const [seconds, setSeconds] = useState<number>(10);
 
   const setLLResultMutation = useSetLLResult();
   const setLLTestDateMutation = useSetLLTestDate();
@@ -199,22 +201,36 @@ export default function Home() {
 
   async function LLTestPassed() {
     setLLResult(true);
-    await delay(5000);
+    SetRedirecting(true);
+    setSeconds(10);
     setLLResultMutation.mutate({ phone: phone, LL_result: true });
     setLLTestDateMutation.mutate({
       phone: phone,
       LL_test_date: data && data?.LL_test_date,
     });
+    await delay(8000);
     navigate(0);
   }
 
   async function LLTestFailed() {
     setLLResult(false);
-    await delay(5000);
+    SetRedirecting(true);
+    setSeconds(10);
     setLLResultMutation.mutate({ phone: phone, LL_result: false });
     setLLTestDateMutation.mutate({ phone: phone, LL_test_date: null });
+    await delay(8000);
     navigate(0);
   }
+
+  useEffect(() => {
+    if (LLResult != null && seconds > 0) {
+      const intervalId = setInterval(() => {
+        setSeconds((prevSeconds) => prevSeconds - 1);
+      }, 1000);
+
+      return () => clearInterval(intervalId); // Cleanup interval on component unmount
+    }
+  }, [seconds, LLResult]);
 
   if (isLoading || LessonIsLoading) return <div>Loading...</div>;
   if (error || LessonError)
@@ -227,8 +243,20 @@ export default function Home() {
       {data && data.LL_result === true ? (
         scheduledLessons && scheduledLessons.length === 0 ? (
           <div className="flex flex-col gap-4 p-6 text-center text-xl">
+            {/* profile */}
+            <div className="mb-4 flex flex-row items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="text-start text-2xl">
+                  Hi {data.name || "Learner"}!
+                </p>
+                <p className="text-sm">Great job on passing the test.</p>
+              </div>
+              <div>
+                <User size={36} className="rounded-full bg-primary p-1" />
+              </div>
+            </div>
             <img
-              src="/assets/laptop-typing.png"
+              src="/assets/clocks.png"
               alt="First Lesson"
               className="w-full rounded-lg"
             />
@@ -236,10 +264,12 @@ export default function Home() {
             <Button className="w-full" asChild>
               <Link to="/createSchedule/details">Set your schedule</Link>
             </Button>
-            <p>We will book</p>
+            <p className="text-sm">
+              Share your availability, and we’ll book your lessons
+            </p>
           </div>
         ) : LessonData?.upcomingLesson ? (
-          <div className="relative flex h-screen flex-col gap-4 overflow-y-auto">
+          <div className="relative flex h-screen max-h-[930px] flex-col gap-4 overflow-y-auto">
             {/* Image and LessonInfo */}
             <div className="relative h-2/5 w-full">
               <img
@@ -361,7 +391,7 @@ export default function Home() {
               </Card>
 
               {/* Reschedule & Start Lesson button */}
-              <div className="y-4 sticky bottom-[6.5%] mt-auto flex flex-row gap-4 pb-4 pt-1 backdrop-blur-sm">
+              <div className="y-4 sticky bottom-12 mt-auto flex flex-row gap-4 pb-5 backdrop-blur-sm">
                 <Button
                   onClick={() =>
                     navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
@@ -388,16 +418,16 @@ export default function Home() {
         )
       ) : (
         <div className="flex h-full flex-col overflow-x-auto p-6 pb-20">
-          <div className="mb-6 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-primary-foreground"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <h1 className="text-xl">Test Date</h1>
-            <div className="w-6" />
+          <div className="mb-6 flex flex-row items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <p className="text-start text-2xl">
+                Hi {data.name || "Learner"}!
+              </p>
+              <p className="text-sm">We’ve got your back!</p>
+            </div>
+            <div>
+              <User size={36} className="rounded-full bg-primary p-1" />
+            </div>
           </div>
 
           <div className="mb-6 h-48 w-full rounded-3xl bg-white shadow-lg">
@@ -510,6 +540,13 @@ export default function Home() {
               {LLResult === false ? (
                 <p className="mt-4">
                   Don&apos;t worry! 🤗 You can try again after 7 days.
+                </p>
+              ) : null}
+
+              {/* redirecting */}
+              {redirecting ? (
+                <p className="mt-16 w-[150px] self-center bg-slate-50 p-1 text-center text-xs">
+                  Redirecting in {seconds}s...
                 </p>
               ) : null}
             </div>
