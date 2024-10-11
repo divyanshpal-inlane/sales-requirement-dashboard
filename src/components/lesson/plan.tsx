@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -13,6 +14,9 @@ import invariant from "tiny-invariant";
 import TriviaCard, { Game } from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { COURSES_DATA } from "@/constants/courses";
+import { useLearner, useLesson, useSchedule } from "@/queries/learner";
+import { Database } from "@/types/database.types";
 
 const LESSON_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 
@@ -718,7 +722,7 @@ const LESSON_CONTENT: Record<
         type: "question",
         games: [
           {
-            question: "What’s key to driving safely on a flyover?",
+            question: "What's key to driving safely on a flyover?",
             answers: [
               "Maintaining steady speed and lane discipline",
               "Driving faster to avoid traffic",
@@ -740,16 +744,34 @@ const LESSON_CONTENT: Record<
 };
 
 export default function Plan() {
-  const { lessonId } = useParams();
-  invariant(typeof lessonId === "string", "lessonId is required");
-  return <LessonPlan lessonId={lessonId} key={lessonId} />;
+  const { lessonId: lessonNumber } = useParams();
+  const { data: lesson } = useLesson({
+    number: Number(lessonNumber),
+    courseId: COURSES_DATA["BEGINNER"].id,
+  });
+  const { data: learner } = useLearner();
+  invariant(typeof lessonNumber === "string", "lessonId is required");
+
+  if (!learner || !lesson) return <div>Loading...</div>;
+  return <LessonPlan key={lessonNumber} learner={learner} lesson={lesson} />;
 }
 
-export function LessonPlan({ lessonId }: { lessonId: string }) {
+export function LessonPlan({
+  lesson,
+  learner,
+}: {
+  lesson: Database["public"]["Tables"]["Lesson"]["Row"];
+  learner: Database["public"]["Tables"]["Learner"]["Row"];
+}) {
+  const { data: schedule } = useSchedule({
+    lessonId: lesson.id,
+    learnerId: learner.id,
+  });
+
   const {
     menu,
     content: { game, remember, title, points },
-  } = LESSON_CONTENT[lessonId as keyof typeof LESSON_CONTENT];
+  } = LESSON_CONTENT[lesson.number as keyof typeof LESSON_CONTENT];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
@@ -761,18 +783,32 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
     setSelectedCard(null);
   }, []);
 
+  const { trivia, video: videos } = menu ?? {};
+  const {
+    title: triviaTitle,
+    icon: triviaIcon,
+    color: triviaColor,
+  } = trivia ?? {};
+  const [
+    {
+      title: videoTitle,
+      icon: videoIcon,
+      color: videoColor,
+      video_path: videoVideoPath,
+    },
+  ] = videos ?? [];
   const menuItems = useMemo(
     () => [
       {
-        title: menu?.trivia.title ?? "",
-        icon: menu?.trivia.icon ?? "",
-        color: menu?.trivia.color ?? "",
+        title: triviaTitle ?? "",
+        icon: triviaIcon ?? "",
+        color: triviaColor ?? "",
         content: <TriviaCard finishGame={finishGame} game={game} />,
       },
       {
-        title: menu?.video[0].title ?? "",
-        icon: menu?.video[0].icon ?? "",
-        color: menu?.video[0].color ?? "",
+        title: videoTitle ?? "",
+        icon: videoIcon ?? "",
+        color: videoColor ?? "",
         content: (
           <video
             className="w-80 overflow-hidden rounded-lg"
@@ -780,13 +816,23 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
             muted
             playsInline
           >
-            <source src={menu?.video[0].video_path} type="video/mp4" />
+            <source src={videoVideoPath} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         ),
       },
     ],
-    [game, finishGame],
+    [
+      triviaTitle,
+      triviaIcon,
+      triviaColor,
+      finishGame,
+      game,
+      videoTitle,
+      videoIcon,
+      videoColor,
+      videoVideoPath,
+    ],
   );
 
   const handleCardClick = (index: number) => {
@@ -805,7 +851,7 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
 
   return (
     <div
-      key={lessonId}
+      key={lesson.number}
       className="relative h-full w-full overflow-hidden text-foreground"
     >
       <img
@@ -828,14 +874,14 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
               <ArrowLeft />
             </Button>
 
-            <p className="text-white">Lesson {lessonId}</p>
+            <p className="text-white">Lesson {lesson.number}</p>
             <Button
               size={"icon"}
               variant={"ghost"}
               className="text-white"
               onClick={() =>
                 navigate(
-                  `/lesson/${Number(lessonId) < 10 ? Number(lessonId) + 1 : lessonId + 1}`,
+                  `/lesson/${Number(lesson.number) < 10 ? Number(lesson.number) + 1 : lesson.number + 1}`,
                 )
               }
             >
@@ -882,27 +928,40 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
                   <div className="flex w-full flex-row gap-4">
                     <div className="flex w-full flex-col gap-0">
                       <p className="text-sm font-light">Date, Time</p>
-                      <p className="text-base">Mon 12th Sept, 9:00AM</p>
+                      <p className="text-base">
+                        {schedule
+                          ? format(new Date(schedule.date), "EEE, do MMM") +
+                            ", " +
+                            format(
+                              new Date(`2000-01-01T${schedule.start_time}`),
+                              "h aa",
+                            )
+                          : "Not available"}
+                      </p>
                     </div>
                     <div className="flex w-full flex-col gap-0">
                       <p className="text-sm font-light">Instructor Name</p>
-                      <p className="text-base">XXXXXX</p>
+                      <p className="text-base">
+                        {schedule?.Instructor?.name
+                          ? schedule?.Instructor?.name
+                          : "Not available"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex w-full flex-row gap-4">
                     <div className="flex w-full flex-col gap-0">
                       <p className="text-sm font-light">Pick Up location</p>
-                      <p className="text-base">XXXXXX</p>
+                      <p className="text-base">Not available</p>
                     </div>
                     <div className="flex w-full flex-col gap-0">
                       <p className="text-sm font-light">Car Model</p>
-                      <p className="text-base">XXXXXX</p>
+                      <p className="text-base">Not available</p>
                     </div>
                   </div>
                   <div className="flex w-full flex-row gap-4">
                     <div className="flex flex-col gap-0">
                       <p className="text-sm font-light">Car Number</p>
-                      <p className="text-base">XXXXXX</p>
+                      <p className="text-base">Not available</p>
                     </div>
                   </div>
                 </div>
@@ -914,7 +973,15 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
                   exit={{ opacity: 0 }}
                   className="text-sm font-light"
                 >
-                  Date, Time: Mon 12th Sept, 9:00AM
+                  Date, Time:{" "}
+                  {schedule
+                    ? format(new Date(schedule.date), "EEE, do MMM") +
+                      ", " +
+                      format(
+                        new Date(`2000-01-01T${schedule.start_time}`),
+                        "h aa",
+                      )
+                    : "Not available"}
                 </motion.p>
               )}
             </motion.div>
@@ -970,7 +1037,7 @@ export function LessonPlan({ lessonId }: { lessonId: string }) {
                   <div className="mt-4">
                     <h3 className="mb-4 text-lg font-semibold">{title}</h3>
                     <div className="space-y-4">
-                      {points.map(({ icon, desc, header }) => (
+                      {points.map(({ desc, header }) => (
                         <div key={header} className="flex items-center gap-2">
                           <TowerControl className="h-6 w-6" />
                           <div>

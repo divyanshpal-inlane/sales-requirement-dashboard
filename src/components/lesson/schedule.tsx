@@ -87,16 +87,17 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
 
   const { mutate } = useMutation({
     mutationFn: async (slots: TimeSlot[]) => {
+      let lessonIndex = 0;
       const bookings = slots.flatMap((slot) => {
         const bookingHours = slot.selectedDuration === 2 ? [0, 1] : [0];
-        return bookingHours.map((hour, index) => ({
+        return bookingHours.map((hour) => ({
           learner_id: learnerId,
           instructor_id: slot.availableInstructors[0],
           date: slot.date.toISOString().split("T")[0],
           start_time: addHours(slot.startTime, hour),
           end_time: addHours(slot.startTime, hour + 1),
           course_id: courseId,
-          lesson_id: lessonIds[index],
+          lesson_id: lessonIds[lessonIndex++],
           status: "booked",
         }));
       });

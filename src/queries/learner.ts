@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
+import { COURSES_DATA } from "@/constants/courses";
 import { supabase, useUser } from "@/context/auth-context";
 import { Database } from "@/types/database.types";
 
@@ -224,21 +225,6 @@ export function useLearnerUpdate() {
   return mutate;
 }
 
-export function useSchedule() {
-  return useQuery({
-    queryKey: ["schedule", "2024-09-11"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Schedule")
-        .select("*")
-        .gte("date", "2024-09-11")
-        .lte("date", "2024-09-20");
-      if (error) throw new Error(error.message);
-      return data;
-    },
-  });
-}
-
 export function useUploadLLMutation() {
   return useMutation({
     mutationFn: async ({ file, phone }: { file: File; phone: string }) => {
@@ -291,25 +277,57 @@ export function useLessons({ courseId }: { courseId: string }) {
       const { data, error } = await supabase
         .from("Lesson")
         .select("*")
-        .eq("course_id", courseId);
+        .eq("course_id", courseId)
+        .order("number", { ascending: true });
       if (error) throw new Error(error.message);
       return data.map((lesson) => lesson.id);
     },
   });
 }
 
-export function useLesson({ lessonId }: { lessonId: string }) {
+export function useLesson({
+  number,
+  courseId = COURSES_DATA["BEGINNER"].id,
+}: {
+  number: number;
+  courseId: string;
+}) {
   return useQuery({
-    queryKey: ["lesson", lessonId],
+    queryKey: ["lesson", courseId, number],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Lesson")
         .select("*")
-        .eq("id", lessonId)
+        .eq("number", number)
+        .eq("course_id", courseId)
         .single();
       if (error) throw new Error(error.message);
       return data;
     },
+  });
+}
+
+export function useSchedule({
+  lessonId,
+  learnerId,
+}: {
+  lessonId: string;
+  learnerId: string;
+}) {
+  return useQuery({
+    queryKey: ["schedule", lessonId, learnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("id, date, start_time, end_time, Instructor (name)")
+        .eq("lesson_id", lessonId)
+        .eq("learner_id", learnerId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: Infinity,
+    enabled: !!learnerId,
   });
 }
 
