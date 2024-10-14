@@ -18,7 +18,7 @@ import { COURSES_DATA } from "@/constants/courses";
 import { useLearner, useLesson, useSchedule } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
-const LESSON_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
+const LESSON_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
 
 const LESSON_CONTENT: Record<
   (typeof LESSON_IDS)[number],
@@ -741,6 +741,74 @@ const LESSON_CONTENT: Record<
       },
     },
   },
+  "10": {
+    id: "10",
+    menu: {
+      trivia: {
+        title: "flyover flow facts",
+        icon: "⚙️",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "pass like a pro",
+          icon: "👀",
+          color: "bg-indigo-500",
+          video_path: "/assets/parallel-parking.mp4",
+        },
+      ],
+    },
+    content: {
+      remember: [
+        {
+          icon: "🏎",
+          text: "Drive at consistent speeds",
+        },
+        {
+          icon: "👨🏻‍💼",
+          text: "Every pro driver has good control of the car - drive slowly",
+        },
+        {
+          icon: "😊",
+          text: "Treat your car like your best buddy",
+        },
+      ],
+      title: "You will have an absolutely fun time doing the challenges",
+      points: [
+        {
+          icon: "😎",
+          header: "RTO Rehearsal:",
+          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+        },
+        {
+          icon: "😎",
+          header: "Zen Mode:",
+          desc: "Tips to stay relaxed & focused",
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question: "What’s key to driving safely on a flyover?",
+            answers: [
+              "Maintaining steady speed and lane discipline",
+              "Driving faster to avoid traffic",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question: "What should you do when merging or exiting a flyover?",
+            answers: [
+              "Adjust your speed to match traffic and signal in advance",
+              "Brake suddenly and exit quickly",
+            ],
+            correctAnswer: 2,
+          },
+        ],
+      },
+    },
+  },
 };
 
 export default function Plan() {
@@ -881,7 +949,7 @@ export function LessonPlan({
               className="text-white"
               onClick={() =>
                 navigate(
-                  `/lesson/${Number(lesson.number) < 10 ? Number(lesson.number) + 1 : lesson.number + 1}`,
+                  `/lesson/${Number(lessonId) < 10 ? Number(lessonId) + 1 : 1}`,
                 )
               }
             >
@@ -1042,10 +1110,10 @@ export function LessonPlan({
                           <TowerControl className="h-6 w-6" />
                           <div>
                             <p className="font-medium text-accent-purple">
-                              {desc}
+                              {header}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {header}
+                              {desc}
                             </p>
                           </div>
                         </div>

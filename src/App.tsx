@@ -20,13 +20,16 @@ import Home from "@/routes/home";
 import Login from "@/routes/login";
 import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
+import DLQuestion from "@/routes/onboard/DL";
 import Prep from "@/routes/prep";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 
+import Instructor from "./app/instructor/Instructor";
 import LessonReview from "./app/LessonReview";
 import OTP from "./app/OTP";
 import TimerAndEmergency from "./app/TimerAndEmergency";
+import Lesson10 from "./components/lesson/lesson10";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +71,8 @@ export default function App() {
               <Route path="prep" element={<Prep />} />
               <Route path="schedule" element={<Schedule />} />
             </Route>
+            <Route path="/signature" element={<Lesson10 />} />
+            <Route path="/DL" element={<DLQuestion />} />
             <Route
               path="createSchedule"
               element={
@@ -96,6 +101,7 @@ export default function App() {
               <Route path="/OTP/:lessonId" element={<OTP />} />
               <Route path="/timer" element={<TimerAndEmergency />} />
               <Route path="/lesson-review" element={<LessonReview />} />
+              <Route path="/instructor" element={<Instructor />} />
             </Route>
             <Route
               path="/lesson/:lessonId"

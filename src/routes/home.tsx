@@ -269,146 +269,261 @@ export default function Home() {
             </p>
           </div>
         ) : LessonData?.upcomingLesson ? (
-          <div className="relative flex h-screen max-h-[930px] flex-col gap-4 overflow-y-auto">
-            {/* Image and LessonInfo */}
-            <div className="relative h-2/5 w-full">
-              <img
-                src="/assets/lesson1.png"
-                alt="Car dashboard"
-                className="h-full w-full object-fill"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-50">
-                <div className="flex h-full w-fit flex-col gap-2 bg-[#636363] bg-opacity-70 p-4 text-white">
-                  <Button
-                    variant={"ghost"}
-                    size="icon"
-                    className="text-primary-foreground"
-                  >
-                    <ArrowLeft />
-                  </Button>
-                  <div className="my-auto flex flex-col gap-2">
-                    <h1 className="mb-2 text-lg font-semibold">
+          // <div className="relative flex h-screen max-h-[930px] flex-col gap-4 overflow-y-auto">
+          //   {/* Image and LessonInfo */}
+          //   <div className="relative h-2/5 w-full">
+          //     <img
+          //       src="/assets/lesson1.png"
+          //       alt="Car dashboard"
+          //       className="h-full w-full object-fill"
+          //     />
+          //     <div className="absolute inset-0 bg-black bg-opacity-50">
+          //       <div className="flex h-full w-fit flex-col gap-2 bg-[#636363] bg-opacity-70 p-4 text-white">
+          //         <Button
+          //           variant={"ghost"}
+          //           size="icon"
+          //           className="text-primary-foreground"
+          //         >
+          //           <ArrowLeft />
+          //         </Button>
+          //         <div className="my-auto flex flex-col gap-2">
+          //           <h1 className="mb-2 text-lg font-semibold">
+          //             Lesson {LessonData?.upcomingLesson?.number}
+          //           </h1>
+          //           <div className="flex flex-col gap-0 text-xs">
+          //             <p className="text-sm">Date, Time</p>
+          //             <p className="font-extralight">
+          //               {formatDate(LessonData?.upcomingSchedule?.date)}
+          //             </p>
+          //             <p className="font-extralight">
+          //               <span>
+          //                 {formatTimeTo12Hour(
+          //                   LessonData?.upcomingSchedule?.start_time,
+          //                 )}
+          //               </span>
+          //               {" - "}
+          //               <span>
+          //                 {formatTimeTo12Hour(
+          //                   LessonData?.upcomingSchedule?.end_time,
+          //                 )}
+          //               </span>
+          //             </p>
+          //           </div>
+          //           <div className="flex flex-col justify-between gap-0">
+          //             <p className="text-sm">Instructor Name</p>
+          //             <p className="text-xs font-extralight">
+          //               {LessonData?.instructor?.name}
+          //             </p>
+          //           </div>
+          //           <div className="flex flex-col justify-between gap-0">
+          //             <p className="text-sm">Pick Up location</p>
+          //             <p className="text-xs font-extralight">
+          //               {data.pick_up_location}
+          //             </p>
+          //           </div>
+          //           <div className="flex flex-col justify-between gap-0">
+          //             <p className="text-sm">Car Model</p>
+          //             <p className="text-xs font-extralight">
+          //               {LessonData?.instructor?.car_make}
+          //             </p>
+          //           </div>
+          //           <div className="flex flex-col justify-between gap-0">
+          //             <p className="text-sm">Car Number</p>
+          //             <p className="text-xs font-extralight">
+          //               {LessonData?.instructor?.car_number}
+          //             </p>
+          //           </div>
+          //         </div>
+          //       </div>
+          //     </div>
+          //   </div>
+
+          //   <div className="flex grow flex-col gap-2 px-6 pb-6">
+          //     {/* title */}
+          //     <h2 className="text-xl font-semibold">
+          //       You will be good at Starting &amp; Stopping the Car
+          //     </h2>
+
+          //     {/* points */}
+          //     <div className="space-y-4">
+          //       {LessonData?.upcomingLesson.number &&
+          //         LESSON_CONTENT[
+          //           LessonData?.upcomingLesson.number
+          //         ].content.points.map((item, index) => (
+          //           <div
+          //             key={index}
+          //             className="flex items-center justify-center space-x-4"
+          //           >
+          //             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
+          //               {item.icon}
+          //             </div>
+          //             <div className="w-2/5">
+          //               <h3 className="font-semibold text-primary">
+          //                 {item.header}
+          //               </h3>
+          //               <p className="text-sm">{item.desc}</p>
+          //             </div>
+          //           </div>
+          //         ))}
+          //     </div>
+
+          //     {/* remember card */}
+          //     <Card className="my-6 mb-16 shadow-lg">
+          //       <CardHeader>
+          //         <CardTitle className="text-primary">
+          //           Things to Remember
+          //         </CardTitle>
+          //       </CardHeader>
+          //       <CardContent className="flex flex-col gap-1">
+          //         {LESSON_CONTENT[
+          //           LessonData?.upcomingLesson.number
+          //         ].content.remember.map((item, index) => (
+          //           <div key={index} className="flex items-center gap-2">
+          //             <div className="flex h-12 w-12 items-center justify-center rounded-full text-2xl">
+          //               {item.icon}
+          //             </div>
+          //             <div className="w-4/5">
+          //               <p>{item.text}</p>
+          //             </div>
+          //           </div>
+          //         ))}
+          //       </CardContent>
+          //     </Card>
+
+          //     {/* Reschedule & Start Lesson button */}
+          //     <div className="y-4 sticky bottom-12 mt-auto flex flex-row gap-4 pb-5 backdrop-blur-sm">
+          //       <Button
+          //         onClick={() =>
+          //           navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+          //         }
+          //         className="w-full"
+          //       >
+          //         Reschedule
+          //       </Button>
+          //       <Button
+          //         onClick={() =>
+          //           navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+          //         }
+          //         className="w-full"
+          //       >
+          //         Start Lesson
+          //       </Button>
+          //     </div>
+          //   </div>
+          // </div>
+
+          //  New Home Screen
+          <div className="flex flex-col gap-4 p-6 text-center text-xl">
+            {/* profile */}
+            <div className="mb-4 flex flex-row items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="text-start text-2xl">
+                  Hi {data.name || "Learner"}!
+                </p>
+                <p className="text-sm">Please Check Your Upcoming Schedule.</p>
+              </div>
+              <div>
+                <User size={36} className="rounded-full bg-primary p-1" />
+              </div>
+            </div>
+            {/* title */}
+            <h2 className="mt-6 text-xl font-semibold">
+              You will be good at Starting &amp; Stopping the Car
+            </h2>
+
+            {/* info */}
+
+            <div className="mx-auto mt-6 w-full rounded-lg p-2 border">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Row 1 */}
+                <div className="rounded p-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-semibold">Lesson Number</span>
+                    <span className="text-sm font-extralight">
                       Lesson {LessonData?.upcomingLesson?.number}
-                    </h1>
-                    <div className="flex flex-col gap-0 text-xs">
-                      <p className="text-sm">Date, Time</p>
-                      <p className="font-extralight">
-                        {formatDate(LessonData?.upcomingSchedule?.date)}
-                      </p>
-                      <p className="font-extralight">
-                        <span>
-                          {formatTimeTo12Hour(
-                            LessonData?.upcomingSchedule?.start_time,
-                          )}
-                        </span>
-                        {" - "}
-                        <span>
-                          {formatTimeTo12Hour(
-                            LessonData?.upcomingSchedule?.end_time,
-                          )}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex flex-col justify-between gap-0">
-                      <p className="text-sm">Instructor Name</p>
-                      <p className="text-xs font-extralight">
-                        {LessonData?.instructor?.name}
-                      </p>
-                    </div>
-                    <div className="flex flex-col justify-between gap-0">
-                      <p className="text-sm">Pick Up location</p>
-                      <p className="text-xs font-extralight">
-                        {data.pick_up_location}
-                      </p>
-                    </div>
-                    <div className="flex flex-col justify-between gap-0">
-                      <p className="text-sm">Car Model</p>
-                      <p className="text-xs font-extralight">
-                        {LessonData?.instructor?.car_make}
-                      </p>
-                    </div>
-                    <div className="flex flex-col justify-between gap-0">
-                      <p className="text-sm">Car Number</p>
-                      <p className="text-xs font-extralight">
-                        {LessonData?.instructor?.car_number}
-                      </p>
-                    </div>
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded p-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-semibold">
+                      Instructor Name
+                    </span>
+                    <span className="text-sm font-extralight">
+                      {LessonData?.instructor?.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 2 */}
+                <div className="rounded p-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-semibold">Date, Time</span>
+                    <span className="text-sm font-extralight text-start">
+                      {formatDate(LessonData?.upcomingSchedule?.date)}{" "}
+                      <span>
+                        {formatTimeTo12Hour(
+                          LessonData?.upcomingSchedule?.start_time,
+                        )}
+                      </span>
+                      {" - "}
+                      <span>
+                        {formatTimeTo12Hour(
+                          LessonData?.upcomingSchedule?.end_time,
+                        )}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded p-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-semibold">Car Model</span>
+                    <span className="text-sm font-extralight">
+                      {LessonData?.instructor?.car_make}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 3 */}
+                <div className="rounded p-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-semibold">
+                      Pick Up location
+                    </span>
+                    <span className="text-sm font-extralight">
+                      {data.pick_up_location}
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded p-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-semibold">Car Number</span>
+                    <span className="text-sm font-extralight">
+                      {LessonData?.instructor?.car_number}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex grow flex-col gap-2 px-6 pb-6">
-              {/* title */}
-              <h2 className="text-xl font-semibold">
-                You will be good at Starting &amp; Stopping the Car
-              </h2>
-
-              {/* points */}
-              <div className="space-y-4">
-                {LessonData?.upcomingLesson.number &&
-                  LESSON_CONTENT[
-                    LessonData?.upcomingLesson.number
-                  ].content.points.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-center space-x-4"
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/50 text-2xl">
-                        {item.icon}
-                      </div>
-                      <div className="w-2/5">
-                        <h3 className="font-semibold text-primary">
-                          {item.header}
-                        </h3>
-                        <p className="text-sm">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-
-              {/* remember card */}
-              <Card className="my-6 mb-16 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-primary">
-                    Things to Remember
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-1">
-                  {LESSON_CONTENT[
-                    LessonData?.upcomingLesson.number
-                  ].content.remember.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full text-2xl">
-                        {item.icon}
-                      </div>
-                      <div className="w-4/5">
-                        <p>{item.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Reschedule & Start Lesson button */}
-              <div className="y-4 sticky bottom-12 mt-auto flex flex-row gap-4 pb-5 backdrop-blur-sm">
-                <Button
-                  onClick={() =>
-                    navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
-                  }
-                  className="w-full"
-                >
-                  Reschedule
-                </Button>
-                <Button
-                  onClick={() =>
-                    navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
-                  }
-                  className="w-full"
-                >
-                  Start Lesson
-                </Button>
-              </div>
+            {/* Reschedule & Start Lesson button */}
+            <div className="mt-6 flex flex-row gap-4">
+              <Button
+                onClick={() =>
+                  navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+                }
+                className="w-full"
+              >
+                Reschedule
+              </Button>
+              <Button
+                onClick={() =>
+                  navigate(`/OTP/${LessonData?.upcomingLesson.number}`)
+                }
+                className="w-full"
+              >
+                Start Lesson
+              </Button>
             </div>
           </div>
         ) : (
