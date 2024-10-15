@@ -2,6 +2,7 @@ import React, {
   MouseEvent,
   TouchEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -20,7 +21,7 @@ const Signature: React.FC = () => {
     y: 0,
   });
 
-  // Resize canvas to match the display size
+  // Function to resize the canvas
   const resizeCanvas = () => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -32,13 +33,19 @@ const Signature: React.FC = () => {
       // Save current drawing
       const dataUrl = canvas.toDataURL();
 
+      // Reset transformation matrix before scaling
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
       // Adjust for device pixel ratio
       const dpr = window.devicePixelRatio || 1;
       canvas.width = canvasRect.width * dpr;
       canvas.height = canvasRect.height * dpr;
       ctx.scale(dpr, dpr);
 
-      // Clear and redraw the saved image
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Redraw the saved image
       const img = new Image();
       img.src = dataUrl;
       img.onload = () => {
@@ -47,10 +54,14 @@ const Signature: React.FC = () => {
     }
   };
 
-  useEffect(() => {
+  // Use useLayoutEffect to ensure the canvas is resized before the browser paints
+  useLayoutEffect(() => {
+    const handleResize = () => resizeCanvas();
+    // Initial resize after component mounts
     resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
+    // Add resize listener
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Get canvas coordinates based on mouse or touch events
@@ -137,7 +148,12 @@ const Signature: React.FC = () => {
         ref={containerRef}
       >
         {/* Outer Image */}
-        <img src={signatureOut} alt="Outer" className="h-auto w-full" />
+        <img
+          src={signatureOut}
+          alt="Outer"
+          className="h-auto w-full"
+          onLoad={resizeCanvas} // Ensure resizeCanvas is called after image loads
+        />
 
         {/* Heading Inside Outer Image Above Inner Image */}
         <h2 className="absolute left-4 top-[5%] transform px-4 text-center text-xl text-accent-purple">
@@ -149,6 +165,7 @@ const Signature: React.FC = () => {
           src={signatureIn}
           alt="Inner"
           className="pointer-events-none absolute left-1/2 top-1/2 h-auto w-[90%] -translate-x-1/2 -translate-y-1/2 transform"
+          onLoad={resizeCanvas} // Ensure resizeCanvas is called after image loads
         />
 
         {/* Canvas for Signature */}
