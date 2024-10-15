@@ -1,30 +1,39 @@
-import { useState } from "react"; // Import useState
-import { Navigate } from "react-router";
+import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
+import { useLearnerUpdate } from "@/queries/learner";
 
 import lesson1 from "../../../public/assets/lesson1.png";
 
 export default function DLQuestion() {
-  const { user } = useAuth();
-  const [hasDL, setHasDL] = useState<boolean | null>(null);
+  const { mutate, isPending } = useLearnerUpdate();
+  const navigate = useNavigate();
 
   const handleDLResponse = (response: boolean) => {
-    setHasDL(response);
+    if (response) {
+      mutate(
+        {
+          LL_result: true,
+        },
+        {
+          onSuccess: () => {
+            navigate("/home");
+          },
+        },
+      );
+    } else {
+      mutate(
+        {
+          LL_result: null,
+        },
+        {
+          onSuccess: () => {
+            window.location.href = "https://forms.gle/4Qe8ttAhBYHE7PDq8";
+          },
+        },
+      );
+    }
   };
-
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  if (hasDL !== null) {
-    return hasDL ? (
-      <Navigate to="/next-page-yes" />
-    ) : (
-      <Navigate to="/next-page-no" />
-    );
-  }
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -47,10 +56,15 @@ export default function DLQuestion() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <Button className="w-full" onClick={() => handleDLResponse(true)}>
+          <Button
+            disabled={isPending}
+            className="w-full"
+            onClick={() => handleDLResponse(true)}
+          >
             Yes
           </Button>
           <Button
+            disabled={isPending}
             className="w-full"
             variant="outline"
             onClick={() => handleDLResponse(false)}

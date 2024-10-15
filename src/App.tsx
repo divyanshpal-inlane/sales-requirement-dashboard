@@ -57,6 +57,7 @@ export default function App() {
             >
               <Route path="birthday" element={<Birthday />} />
               <Route path="aadhar" element={<Aadhar />} />
+              <Route path="dl" element={<DLQuestion />} />
             </Route>
             <Route
               path="/"
@@ -72,7 +73,6 @@ export default function App() {
               <Route path="schedule" element={<Schedule />} />
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
-            <Route path="/DL" element={<DLQuestion />} />
             <Route
               path="createSchedule"
               element={
