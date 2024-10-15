@@ -124,7 +124,7 @@ const Signature: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center gap-8 bg-[#00CE84] p-4">
+    <div className="flex min-h-screen w-full flex-col items-center gap-8 bg-[#00CE84]">
       {/* Header */}
       {/* <div className="flex flex-row items-center justify-center gap-4 p-4 text-center">
         <p className="text-4xl">Autograph Please</p>
@@ -148,13 +148,13 @@ const Signature: React.FC = () => {
         <img
           src={signatureIn}
           alt="Inner"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-auto w-3/4 -translate-x-1/2 -translate-y-1/2 transform"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-auto w-[90%] -translate-x-1/2 -translate-y-1/2 transform"
         />
 
         {/* Canvas for Signature */}
         <canvas
           ref={canvasRef}
-          className="absolute left-1/2 top-[60%] h-[18%] w-[70%] -translate-x-1/2 -translate-y-1/2 transform bg-transparent"
+          className="absolute left-1/2 top-[60%] mt-4 h-[18%] w-[75%] -translate-x-1/2 -translate-y-1/2 transform bg-transparent"
           style={{ touchAction: "none", cursor: "crosshair" }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
@@ -166,7 +166,7 @@ const Signature: React.FC = () => {
         />
 
         {/* Text Inside Outer Image Below Inner Image */}
-        <div className="text-md absolute bottom-[15%] left-1/2 w-3/4 -translate-x-1/2 transform text-center text-accent-purple">
+        <div className="text-md absolute bottom-[10%] left-1/2 w-3/4 -translate-x-1/2 transform text-center text-accent-purple">
           <div className="flex flex-row items-center justify-center gap-3">
             <Checkbox /> <p>I agree to uphold this pledge.</p>
           </div>
