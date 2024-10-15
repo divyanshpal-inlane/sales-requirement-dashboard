@@ -18,6 +18,8 @@ import { COURSES_DATA } from "@/constants/courses";
 import { useLearner, useLesson, useSchedule } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
+import Signature from "./signature";
+
 const LESSON_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
 
 const LESSON_CONTENT: Record<
@@ -25,19 +27,20 @@ const LESSON_CONTENT: Record<
   {
     id: string;
     content: {
-      game: Game;
+      game?: Game;
       title: string;
       points: { icon: React.ReactNode; header: string; desc: string }[];
       remember: { icon: React.ReactNode; text: string }[];
     };
     menu?: {
-      trivia: { title: string; icon: string; color: string };
-      video: {
+      trivia?: { title: string; icon: string; color: string };
+      video?: {
         title: string;
         icon: string;
         color: string;
         video_path: string;
       }[];
+      signature?: { title: string; icon: string; color: string };
     };
   }
 > = {
@@ -744,19 +747,11 @@ const LESSON_CONTENT: Record<
   "10": {
     id: "10",
     menu: {
-      trivia: {
-        title: "flyover flow facts",
-        icon: "⚙️",
-        color: "bg-purple-400",
+      signature: {
+        title: "Sign your completion",
+        icon: "✍️",
+        color: "bg-[#00CE84]",
       },
-      video: [
-        {
-          title: "pass like a pro",
-          icon: "👀",
-          color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
-        },
-      ],
     },
     content: {
       remember: [
@@ -786,27 +781,6 @@ const LESSON_CONTENT: Record<
           desc: "Tips to stay relaxed & focused",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question: "What’s key to driving safely on a flyover?",
-            answers: [
-              "Maintaining steady speed and lane discipline",
-              "Driving faster to avoid traffic",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question: "What should you do when merging or exiting a flyover?",
-            answers: [
-              "Adjust your speed to match traffic and signal in advance",
-              "Brake suddenly and exit quickly",
-            ],
-            correctAnswer: 2,
-          },
-        ],
-      },
     },
   },
 };
@@ -839,7 +813,7 @@ export function LessonPlan({
   const {
     menu,
     content: { game, remember, title, points },
-  } = LESSON_CONTENT[lesson.number as keyof typeof LESSON_CONTENT];
+  } = LESSON_CONTENT[lesson.number as unknown as keyof typeof LESSON_CONTENT];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
@@ -851,7 +825,7 @@ export function LessonPlan({
     setSelectedCard(null);
   }, []);
 
-  const { trivia, video: videos } = menu ?? {};
+  const { trivia, video: videos, signature } = menu ?? {};
   const {
     title: triviaTitle,
     icon: triviaIcon,
@@ -863,43 +837,78 @@ export function LessonPlan({
       icon: videoIcon,
       color: videoColor,
       video_path: videoVideoPath,
+    } = {} as {
+      title: string;
+      icon: string;
+      color: string;
+      video_path: string;
     },
   ] = videos ?? [];
+  const {
+    title: signatureTitle,
+    icon: signatureIcon,
+    color: signatureColor,
+  } = signature ?? {};
+
   const menuItems = useMemo(
     () => [
-      {
-        title: triviaTitle ?? "",
-        icon: triviaIcon ?? "",
-        color: triviaColor ?? "",
-        content: <TriviaCard finishGame={finishGame} game={game} />,
-      },
-      {
-        title: videoTitle ?? "",
-        icon: videoIcon ?? "",
-        color: videoColor ?? "",
-        content: (
-          <video
-            className="w-80 overflow-hidden rounded-lg"
-            autoPlay
-            muted
-            playsInline
-          >
-            <source src={videoVideoPath} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-        ),
-      },
+      ...(trivia && game
+        ? [
+            {
+              title: triviaTitle ?? "",
+              icon: triviaIcon ?? "",
+              color: triviaColor ?? "",
+              content: <TriviaCard finishGame={finishGame} game={game} />,
+            },
+          ]
+        : []),
+      ...(videos
+        ? [
+            {
+              title: videoTitle ?? "",
+              icon: videoIcon ?? "",
+              color: videoColor ?? "",
+              content: (
+                <video
+                  className="w-80 overflow-hidden rounded-lg"
+                  autoPlay
+                  muted
+                  playsInline
+                >
+                  <source src={videoVideoPath} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              ),
+            },
+          ]
+        : []),
+      ...(signature
+        ? [
+            {
+              title: signatureTitle ?? "",
+              icon: signatureIcon ?? "",
+              color: signatureColor ?? "",
+              content: <Signature />,
+            },
+          ]
+        : []),
     ],
     [
+      trivia,
+      videos,
+      signature,
       triviaTitle,
       triviaIcon,
       triviaColor,
-      finishGame,
-      game,
       videoTitle,
       videoIcon,
       videoColor,
       videoVideoPath,
+      signatureTitle,
+      signatureIcon,
+      signatureColor,
+      finishGame,
+      game,
     ],
   );
 
@@ -949,7 +958,7 @@ export function LessonPlan({
               className="text-white"
               onClick={() =>
                 navigate(
-                  `/lesson/${Number(lessonId) < 10 ? Number(lessonId) + 1 : 1}`,
+                  `/lesson/${Number(lesson.number) < 10 ? Number(lesson.number) + 1 : 1}`,
                 )
               }
             >

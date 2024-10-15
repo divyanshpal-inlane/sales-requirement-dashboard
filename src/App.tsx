@@ -29,7 +29,7 @@ import Instructor from "./app/instructor/Instructor";
 import LessonReview from "./app/LessonReview";
 import OTP from "./app/OTP";
 import TimerAndEmergency from "./app/TimerAndEmergency";
-import Lesson10 from "./components/lesson/lesson10";
+import Lesson10 from "./components/lesson/signature";
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import signatureIn from "../../../public/assets/signature-in.png";
 import signatureOut from "../../../public/assets/signature-out.png";
 
-const Lesson10: React.FC = () => {
+const Signature: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -126,10 +126,10 @@ const Lesson10: React.FC = () => {
   return (
     <div className="flex min-h-screen w-full flex-col items-center gap-8 bg-[#00CE84] p-4">
       {/* Header */}
-      <div className="flex flex-row items-center justify-center gap-4 p-4 text-center">
+      {/* <div className="flex flex-row items-center justify-center gap-4 p-4 text-center">
         <p className="text-4xl">Autograph Please</p>
         <p className="text-5xl">✏️</p>
-      </div>
+      </div> */}
 
       {/* Image and Canvas Container */}
       <div
@@ -181,12 +181,12 @@ const Lesson10: React.FC = () => {
         >
           Clear Signature
         </button>
-        <button className="hover:bg-accent-purple-dark mt-4 rounded bg-accent-purple px-4 py-2 text-white transition-colors">
+        {/* <button className="hover:bg-accent-purple-dark mt-4 rounded bg-accent-purple px-4 py-2 text-white transition-colors">
           Submit
-        </button>
+        </button> */}
       </div>
     </div>
   );
 };
 
-export default Lesson10;
+export default Signature;
