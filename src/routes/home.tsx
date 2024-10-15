@@ -1,11 +1,10 @@
-import { ArrowLeft, Calendar, User } from "lucide-react";
+import { Calendar, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -428,12 +427,17 @@ export default function Home() {
             </div>
             {/* title */}
             <h2 className="mt-6 text-xl font-semibold">
-              You will be good at Starting &amp; Stopping the Car
+              {
+                LESSON_CONTENT[
+                  LessonData?.upcomingLesson
+                    ?.number as keyof typeof LESSON_CONTENT
+                ].content.title
+              }
             </h2>
 
             {/* info */}
 
-            <div className="mx-auto mt-6 w-full rounded-lg p-2 border">
+            <div className="mx-auto mt-6 w-full rounded-lg border p-2">
               <div className="grid grid-cols-2 gap-4">
                 {/* Row 1 */}
                 <div className="rounded p-4">
@@ -459,7 +463,7 @@ export default function Home() {
                 <div className="rounded p-4">
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-semibold">Date, Time</span>
-                    <span className="text-sm font-extralight text-start">
+                    <span className="text-start text-sm font-extralight">
                       {formatDate(LessonData?.upcomingSchedule?.date)}{" "}
                       <span>
                         {formatTimeTo12Hour(

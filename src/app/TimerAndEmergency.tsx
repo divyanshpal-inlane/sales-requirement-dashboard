@@ -7,11 +7,12 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 
 import PurpleGradient from "@/components/layout/purple";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUpcomingLesson } from "@/queries/learner";
+import { useUpcomingLesson, useUpdateScheduleStatus } from "@/queries/learner";
 
 export default function TimerAndEmergency() {
   const [time, setTime] = useState<number>(3600000); // 1 hour in milliseconds
@@ -28,6 +29,23 @@ export default function TimerAndEmergency() {
     // Clean up the interval on component unmount
     return () => clearInterval(timer);
   }, [time]);
+
+  const { mutate, isPending } = useUpdateScheduleStatus();
+  const navigate = useNavigate();
+
+  const handleEndLesson = () => {
+    mutate(
+      {
+        scheduleId: data?.upcomingSchedule?.id,
+        status: "COMPLETED",
+      },
+      {
+        onSuccess: () => {
+          navigate("/home");
+        },
+      },
+    );
+  };
 
   const formatTime = (time: number) => {
     const totalSeconds = Math.floor(time / 1000);
@@ -126,8 +144,17 @@ export default function TimerAndEmergency() {
           </CardContent>
         </Card>
 
-        <Button className="mt-6 w-full" variant={"purple"}>
-          Emergency Button
+        <Button className="mt-6 w-full" variant={"destructive"} asChild>
+          <a href="tel:+919748439881">Emergency Button</a>
+        </Button>
+
+        <Button
+          className="mt-6 w-full"
+          variant={"purple"}
+          disabled={isPending}
+          onClick={handleEndLesson}
+        >
+          End Lesson
         </Button>
       </div>
     </PurpleGradient>

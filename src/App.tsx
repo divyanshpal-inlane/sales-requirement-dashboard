@@ -12,6 +12,7 @@ import LL_test_booking_2 from "@/app/LL_test_booking_2";
 import LL_test_booking_3 from "@/app/LL_test_booking_3";
 import MainLayout from "@/components/layout/main-layout";
 import Plan from "@/components/lesson/plan";
+import RescheduleView from "@/components/lesson/RescheduleView";
 import { AuthProvider, ProtectedRoute } from "@/context/auth-context";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import ScheduleSlots from "@/routes/createSchedule/slots";
@@ -108,6 +109,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Plan />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reschedule/:lessonId"
+              element={
+                <ProtectedRoute>
+                  <RescheduleView />
                 </ProtectedRoute>
               }
             />

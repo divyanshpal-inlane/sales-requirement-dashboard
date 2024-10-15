@@ -25,7 +25,7 @@ export default function Login() {
   };
 
   if (user) {
-    if (active === "signup") return <Navigate to="/home" />;
+    if (active === "login") return <Navigate to="/home" />;
     return <Navigate to="/onboard/birthday" />;
   }
 

@@ -1,16 +1,12 @@
 import React, {
   MouseEvent,
   TouchEvent,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
-
-import signatureIn from "../../../public/assets/signature-in.png";
-import signatureOut from "../../../public/assets/signature-out.png";
 
 const Signature: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,12 +50,9 @@ const Signature: React.FC = () => {
     }
   };
 
-  // Use useLayoutEffect to ensure the canvas is resized before the browser paints
   useLayoutEffect(() => {
     const handleResize = () => resizeCanvas();
-    // Initial resize after component mounts
     resizeCanvas();
-    // Add resize listener
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -149,7 +142,7 @@ const Signature: React.FC = () => {
       >
         {/* Outer Image */}
         <img
-          src={signatureOut}
+          src={"/assets/signature-out.png"}
           alt="Outer"
           className="h-auto w-full"
           onLoad={resizeCanvas} // Ensure resizeCanvas is called after image loads
@@ -162,7 +155,7 @@ const Signature: React.FC = () => {
 
         {/* Inner Image */}
         <img
-          src={signatureIn}
+          src={"/assets/signature-in.png"}
           alt="Inner"
           className="pointer-events-none absolute left-1/2 top-1/2 h-auto w-[90%] -translate-x-1/2 -translate-y-1/2 transform"
           onLoad={resizeCanvas} // Ensure resizeCanvas is called after image loads

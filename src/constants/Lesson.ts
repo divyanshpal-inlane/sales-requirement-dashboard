@@ -1,23 +1,37 @@
 import { Game } from "@/components/lesson/trivia";
 
+export const LESSON_IDS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+] as const;
+
 export const LESSON_CONTENT: Record<
   (typeof LESSON_IDS)[number],
   {
     id: string;
     content: {
-      game: Game;
+      game?: Game;
       title: string;
       points: { icon: React.ReactNode; header: string; desc: string }[];
       remember: { icon: React.ReactNode; text: string }[];
     };
     menu?: {
-      trivia: { title: string; icon: string; color: string };
-      video: {
+      trivia?: { title: string; icon: string; color: string };
+      video?: {
         title: string;
         icon: string;
         color: string;
         video_path: string;
       }[];
+      signature?: { title: string; icon: string; color: string };
     };
   }
 > = {
@@ -104,7 +118,8 @@ export const LESSON_CONTENT: Record<
           title: "3 seconds is all it takes",
           icon: "⏰",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/parallel-parking.mp4",
         },
       ],
     },
@@ -596,7 +611,8 @@ export const LESSON_CONTENT: Record<
         },
         {
           icon: "💡",
-          text: "Don’t forget to use indicator and horn to let others know of your action",
+          text:
+            "Don’t forget to use indicator and horn to let others know of your action",
         },
       ],
       title: "You will start believing in your driving skills",
@@ -605,7 +621,8 @@ export const LESSON_CONTENT: Record<
         {
           icon: "😎",
           header: "Evening Traffic Tamer:",
-          desc: "Maintain speeds and distances to handle evening traffic with ease",
+          desc:
+            "Maintain speeds and distances to handle evening traffic with ease",
         },
         {
           icon: "😎",
@@ -702,7 +719,7 @@ export const LESSON_CONTENT: Record<
         type: "question",
         games: [
           {
-            question: "What’s key to driving safely on a flyover?",
+            question: "What's key to driving safely on a flyover?",
             answers: [
               "Maintaining steady speed and lane discipline",
               "Driving faster to avoid traffic",
@@ -719,6 +736,46 @@ export const LESSON_CONTENT: Record<
           },
         ],
       },
+    },
+  },
+  "10": {
+    id: "10",
+    menu: {
+      signature: {
+        title: "Sign your completion",
+        icon: "✍️",
+        color: "bg-[#00CE84]",
+      },
+    },
+    content: {
+      remember: [
+        {
+          icon: "🏎",
+          text: "Drive at consistent speeds",
+        },
+        {
+          icon: "👨🏻‍💼",
+          text: "Every pro driver has good control of the car - drive slowly",
+        },
+        {
+          icon: "😊",
+          text: "Treat your car like your best buddy",
+        },
+      ],
+      title: "You will have an absolutely fun time doing the challenges",
+      points: [
+        {
+          icon: "😎",
+          header: "RTO Rehearsal:",
+          desc:
+            "Mini challenges to get test ready Focus on lane driving & parking",
+        },
+        {
+          icon: "😎",
+          header: "Zen Mode:",
+          desc: "Tips to stay relaxed & focused",
+        },
+      ],
     },
   },
 };

@@ -3,8 +3,6 @@ import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useLearnerUpdate } from "@/queries/learner";
 
-import lesson1 from "../../../public/assets/lesson1.png";
-
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
@@ -14,6 +12,7 @@ export default function DLQuestion() {
       mutate(
         {
           LL_result: true,
+          has_a_DL: true,
         },
         {
           onSuccess: () => {
@@ -25,6 +24,7 @@ export default function DLQuestion() {
       mutate(
         {
           LL_result: null,
+          has_a_DL: false,
         },
         {
           onSuccess: () => {
@@ -40,7 +40,7 @@ export default function DLQuestion() {
       <header className="relative h-[400px]">
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           <img
-            src={lesson1}
+            src={"/assets/lesson1.png"}
             alt="Four-wheeler with driver"
             className="h-full w-full object-fill"
           />
