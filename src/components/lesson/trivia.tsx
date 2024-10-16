@@ -17,6 +17,7 @@ export type ImageGame = {
     }[];
     correctAnswer: number;
     imageSrc: string;
+    question: string;
   }[];
 };
 
@@ -64,16 +65,22 @@ const TriviaCard = ({
           15 secs <span className="text-2xl">⏰</span>
         </PaintedText>
         <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
-          <p className="mb-6 font-glancyr text-accent-purple">{}</p>
+          {gameType === "image" ? (
+            <p className="mb-6 font-glancyr text-accent-purple">
+              {game[gameIndex].question}
+            </p>
+          ) : null}
           <Comp
             key={game[gameIndex].imageSrc}
             setSelectedAnswer={setSelectedAnswer}
             selectedAnswer={selectedAnswer}
             game={game[gameIndex]}
           />
-          <p className="mt-1 w-full px-4 text-start font-glancyr text-xs">
-            Click on the image to input your answer
-          </p>
+          {gameType === "image" ? (
+            <p className="mt-1 w-full px-4 text-start font-glancyr text-xs">
+              Click on the image to input your answer
+            </p>
+          ) : null}
           <AnimatePresence>
             {selectedAnswer && (
               <motion.div

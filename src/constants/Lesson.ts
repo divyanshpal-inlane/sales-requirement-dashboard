@@ -95,11 +95,13 @@ export const LESSON_CONTENT: Record<
             ],
             correctAnswer: 3,
             imageSrc: "/assets/ThreePedal.png",
+            question: "Which one is the Accelerator?",
           },
           {
             mapAreas: [{ x: 203.15625, y: 65, width: 40, height: 24, id: 1 }],
             correctAnswer: 1,
             imageSrc: "/assets/SteeringWheel.png",
+            question: "Where is the turn signal?",
           },
         ],
       },
