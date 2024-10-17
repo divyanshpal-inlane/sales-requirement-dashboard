@@ -31,6 +31,7 @@ import LessonReview from "./app/LessonReview";
 import OTP from "./app/OTP";
 import TimerAndEmergency from "./app/TimerAndEmergency";
 import Lesson10 from "./components/lesson/signature";
+import Profile from "./routes/profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ export default function App() {
               <Route path="home" element={<Home />} />
               <Route path="prep" element={<Prep />} />
               <Route path="schedule" element={<Schedule />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
             <Route
