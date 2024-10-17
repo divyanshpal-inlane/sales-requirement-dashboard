@@ -149,9 +149,22 @@ export default function Schedule() {
   };
 
   // TODO: fix the time thingy
-  const nextLesson = scheduledLessons?.find(
-    (lesson) => new Date(lesson.date) >= new Date(),
-  );
+  const nextLesson = scheduledLessons?.find((lesson) => {
+    const now = new Date();
+    const currentDateTime = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+    );
+
+    const [year, month, day] = lesson.date.split("-").map(Number);
+    const [hours, minutes] = lesson.startTime.split(":").map(Number);
+    const lessonDateTime = new Date(year, month - 1, day, hours, minutes);
+
+    return lessonDateTime > currentDateTime;
+  });
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
