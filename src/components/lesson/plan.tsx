@@ -79,6 +79,17 @@ export function LessonPlan({
       color: string;
       video_path: string;
     },
+    {
+      title: videoTitle2,
+      icon: videoIcon2,
+      color: videoColor2,
+      video_path: videoVideoPath2,
+    } = {} as {
+      title: string;
+      icon: string;
+      color: string;
+      video_path: string;
+    },
   ] = videos ?? [];
   const {
     title: signatureTitle,
@@ -113,6 +124,24 @@ export function LessonPlan({
                   controls
                 >
                   <source src={videoVideoPath} type="video/mp4" />
+                  <track kind="captions" src="" label="English captions" />
+                  Your browser does not support the video tag.
+                </video>
+              ),
+            },
+            {
+              title: videoTitle2 ?? "",
+              icon: videoIcon2 ?? "",
+              color: videoColor2 ?? "",
+              content: (
+                <video
+                  className="w-80 overflow-hidden rounded-lg"
+                  autoPlay
+                  playsInline
+                  muted={false}
+                  controls
+                >
+                  <source src={videoVideoPath2} type="video/mp4" />
                   <track kind="captions" src="" label="English captions" />
                   Your browser does not support the video tag.
                 </video>

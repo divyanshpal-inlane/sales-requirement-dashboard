@@ -48,7 +48,7 @@ export const LESSON_CONTENT: Record<
           title: "Car command center",
           icon: "🚨",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/1.mp4",
         },
       ],
     },
@@ -121,7 +121,14 @@ export const LESSON_CONTENT: Record<
           icon: "⏰",
           color: "bg-indigo-500",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/parallel-parking.mp4",
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
+        },
+        {
+          title: "slay slopes like a pro",
+          icon: "⏰",
+          color: "bg-lime-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
       ],
     },
@@ -190,10 +197,17 @@ export const LESSON_CONTENT: Record<
       },
       video: [
         {
+          title: "When to change Gears?",
+          icon: "⚙️",
+          color: "bg-green-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
+        },
+        {
           title: "Turn Like a Champ!",
           icon: "↩️",
-          color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          color: "bg-lime-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-2.mp4",
         },
       ],
     },
@@ -270,10 +284,16 @@ export const LESSON_CONTENT: Record<
       },
       video: [
         {
-          title: "watch this before parking ",
-          icon: "👀",
+          title: "perpendicular parking",
+          icon: "🚗",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-1.mp4",
+        },
+        {
+          title: "parallel parking",
+          icon: "👀",
+          color: "bg-blue-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-2.mp4",
         },
       ],
     },
@@ -359,7 +379,7 @@ export const LESSON_CONTENT: Record<
           title: "pause, bump, then go!",
           icon: "🛑",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
         },
       ],
     },
@@ -434,7 +454,7 @@ export const LESSON_CONTENT: Record<
           title: "signal, check, then move!",
           icon: "🛣️",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
         },
       ],
     },
@@ -513,10 +533,16 @@ export const LESSON_CONTENT: Record<
       },
       video: [
         {
-          title: "take a sneak peak",
+          title: "Roudabout rules",
           icon: "📷",
-          color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          color: "bg-yellow-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
+        },
+        {
+          title: "Crossroad control",
+          icon: "🚦",
+          color: "bg-orange-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
         },
       ],
     },
@@ -601,7 +627,7 @@ export const LESSON_CONTENT: Record<
           title: "Car command center",
           icon: "🔥",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
         },
       ],
     },
@@ -613,8 +639,7 @@ export const LESSON_CONTENT: Record<
         },
         {
           icon: "💡",
-          text:
-            "Don’t forget to use indicator and horn to let others know of your action",
+          text: "Don’t forget to use indicator and horn to let others know of your action",
         },
       ],
       title: "You will start believing in your driving skills",
@@ -623,8 +648,7 @@ export const LESSON_CONTENT: Record<
         {
           icon: "😎",
           header: "Evening Traffic Tamer:",
-          desc:
-            "Maintain speeds and distances to handle evening traffic with ease",
+          desc: "Maintain speeds and distances to handle evening traffic with ease",
         },
         {
           icon: "😎",
@@ -675,7 +699,7 @@ export const LESSON_CONTENT: Record<
           title: "pass like a pro",
           icon: "👀",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
         },
       ],
     },
@@ -769,8 +793,7 @@ export const LESSON_CONTENT: Record<
         {
           icon: "😎",
           header: "RTO Rehearsal:",
-          desc:
-            "Mini challenges to get test ready Focus on lane driving & parking",
+          desc: "Mini challenges to get test ready Focus on lane driving & parking",
         },
         {
           icon: "😎",
