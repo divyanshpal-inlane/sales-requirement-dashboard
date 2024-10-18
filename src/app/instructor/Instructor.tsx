@@ -1,4 +1,4 @@
-import { addMinutes, format, isAfter, parseISO, set } from "date-fns";
+import { addMinutes, isAfter } from "date-fns";
 import { PhoneOutgoing, SquareArrowOutUpRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ const Instructor = () => {
 
   function formatTimeRange(start_time: string, end_time: string): string {
     const formatTime = (time: string): string => {
-      let [hours, minutes] = time.split(":");
+      const [hours, minutes] = time.split(":");
       let period = "AM";
       let hourNum = parseInt(hours, 10);
 

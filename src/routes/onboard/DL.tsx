@@ -28,7 +28,8 @@ export default function DLQuestion() {
         },
         {
           onSuccess: () => {
-            window.location.href = "https://forms.gle/4Qe8ttAhBYHE7PDq8";
+            window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
+            navigate("/home");
           },
         },
       );

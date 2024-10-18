@@ -40,17 +40,12 @@ export function useLearnerId() {
 }
 
 export function useSetLLTestDate() {
+  const { phone } = useUser();
   return useMutation({
-    mutationFn: async ({
-      phone,
-      LL_test_date,
-    }: {
-      phone: string | null | undefined;
-      LL_test_date: Date | null | undefined;
-    }) => {
+    mutationFn: async ({ LL_test_date }: { LL_test_date: Date }) => {
       const { data, error } = await supabase
         .from("Learner")
-        .update({ LL_test_date: LL_test_date })
+        .update({ LL_test_date: LL_test_date.toDateString() })
         .eq("phone", phone);
       if (error) throw new Error("Supabase error");
       return data;
