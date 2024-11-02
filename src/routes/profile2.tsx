@@ -1,48 +1,84 @@
-import { ArrowLeft, LogOut } from "lucide-react"; // Import LogOut icon
+import { ArrowLeft, Check, LogOut, UserPen, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/context/auth-context"; // Import useAuth
+import { useAuth } from "@/context/auth-context";
 import { useLearner, useLearnerUpdate } from "@/queries/learner";
 
 export default function Profile2() {
   const { data: learner, isLoading, error } = useLearner();
-  const { mutate: updateLearner } = useLearnerUpdate();
+  const { mutate: updateLearner, isLoading: isUpdating } = useLearnerUpdate();
   const navigate = useNavigate();
-  const { logout } = useAuth(); // Get logout function from useAuth
+  const { logout } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(learner?.name || "");
-  const [birthday, setBirthday] = useState(learner?.dob || "");
-  const [email, setEmail] = useState(learner?.email || "");
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    birthday: "",
+    email: "",
+  });
 
   useEffect(() => {
     if (learner) {
-      setName(learner.name || "");
-      setBirthday(learner.dob || "");
-      setEmail(learner.email || "");
+      setFormData({
+        name: learner.name || "",
+        birthday: learner.dob || "",
+        email: learner.email || "",
+      });
     }
   }, [learner]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
-  const handleSave = () => {
-    updateLearner({
-      name,
-      dob: birthday,
-      email,
-    });
-    setIsEditing(false);
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Error loading profile: {error.message}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      await updateLearner({
+        name: formData.name,
+        dob: formData.birthday,
+        email: formData.email,
+      });
+      setIsEditing(false);
+      setShowSuccessAlert(true);
+      setTimeout(() => setShowSuccessAlert(false), 3000);
+    } catch (error) {
+      console.error("Update failed:", error);
+    }
   };
 
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/login"); // Redirect to login page after logout
+      navigate("/login", { replace: true });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -50,66 +86,119 @@ export default function Profile2() {
 
   return (
     <div className="container mx-auto flex min-h-screen flex-col p-4">
+      {/* Back Button */}
       <div className="mb-6 flex items-center">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => navigate(-1)}
-          className="mr-2"
+          className="mr-2 transform rounded-full bg-white transition-transform hover:scale-105"
         >
           <ArrowLeft size={24} />
         </Button>
-        <h1 className="text-2xl font-bold">Profile</h1>
       </div>
-      <div className="flex-grow space-y-4">
-        <div>
-          <Label htmlFor="name">Name</Label>
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={!isEditing}
-          />
-        </div>
-        <div>
-          <Label htmlFor="birthday">Birthday</Label>
-          <Input
-            id="birthday"
-            type="date"
-            value={birthday}
-            onChange={(e) => setBirthday(e.target.value)}
-            disabled={!isEditing}
-          />
-        </div>
-        <div>
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" value={learner?.phone || ""} disabled />
-        </div>
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={!isEditing}
-          />
-        </div>
-        <div>
+
+      {/* Header */}
+      <div className="flex items-center justify-center gap-2 text-center text-3xl font-bold">
+        <UserPen
+          size={44}
+          className="mt-1.5 animate-pulse rounded-full border bg-white p-1 text-primary"
+        />
+        <h1>Profile</h1>
+      </div>
+
+      {/* Success Alert */}
+      {showSuccessAlert && (
+        <Alert className="animate-fadeIn mt-4 bg-green-50 text-green-800">
+          <Check className="h-4 w-4" />
+          <AlertDescription>Profile updated successfully!</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Form Fields */}
+      <div className="mt-8 flex-grow space-y-6">
+        {[
+          { id: "name", label: "Name", type: "text" },
+          { id: "birthday", label: "Birthday", type: "date" },
+          {
+            id: "phone",
+            label: "Phone",
+            type: "tel",
+            value: learner?.phone || "",
+            readonly: true,
+          },
+          { id: "email", label: "Email", type: "email" },
+        ].map((field) => (
+          <div
+            key={field.id}
+            className={`transform transition-all duration-200 ${
+              isEditing ? "translate-x-0 opacity-100" : ""
+            }`}
+          >
+            <Label htmlFor={field.id} className="block text-sm font-medium">
+              {field.label}
+            </Label>
+            <Input
+              id={field.id}
+              type={field.type}
+              value={field.readonly ? field.value : formData[field.id]}
+              onChange={(e) => handleInputChange(field.id, e.target.value)}
+              disabled={!isEditing || field.readonly}
+              className={`mt-1 w-full transition-colors duration-200 ${
+                isEditing && !field.readonly
+                  ? "border-primary bg-white"
+                  : "border-gray-200 bg-gray-50"
+              }`}
+            />
+          </div>
+        ))}
+
+        {/* Edit/Save Buttons */}
+        <div className="flex justify-center space-x-2">
           {isEditing ? (
-            <div className="space-x-2">
-              <Button onClick={handleSave}>Save</Button>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
+            <>
+              <Button
+                onClick={handleSave}
+                disabled={isUpdating}
+                className="transform transition-all hover:scale-105"
+              >
+                {isUpdating ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditing(false)}
+                className="transform transition-all hover:scale-105"
+              >
+                <X className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
-            </div>
+            </>
           ) : (
-            <Button onClick={() => setIsEditing(true)}>Edit</Button>
+            <Button
+              onClick={() => setIsEditing(true)}
+              className="transform transition-all hover:scale-105"
+            >
+              <UserPen className="mr-2 h-4 w-4" />
+              Edit Profile
+            </Button>
           )}
         </div>
       </div>
+
+      {/* Logout Button */}
       <div className="mt-auto pb-20">
-        <Button onClick={handleLogout} variant="destructive" className="w-full">
+        <Button
+          onClick={handleLogout}
+          variant="destructive"
+          className="w-full transform transition-all hover:scale-105"
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </Button>

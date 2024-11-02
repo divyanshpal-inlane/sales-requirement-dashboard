@@ -217,7 +217,15 @@ export default function Schedule() {
                     to={`/lesson/${nextLesson.lesson.number}`}
                     className="text-md mt-1.5 flex flex-col justify-between"
                   >
-                    <p>{nextLesson.lesson.description}</p>
+                    <p>
+                      {
+                        lessonIds[
+                          nextLesson.lesson?.number
+                            ? nextLesson.lesson.number - 1
+                            : 0
+                        ].desc
+                      }
+                    </p>
                   </Link>
                   <div className="relative flex justify-end">
                     <img

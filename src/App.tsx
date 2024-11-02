@@ -34,6 +34,8 @@ import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
 import Instructor from "./app/instructor/Instructor";
+import InstructorProfile from "./app/instructor/InstructorProfile";
+import OTP from "./app/instructor/OTP";
 import LessonReview from "./app/LessonReview";
 import Lesson10 from "./components/lesson/signature";
 
@@ -122,6 +124,22 @@ export default function App() {
               element={
                 <ProtectedInstructorRoute>
                   <Instructor />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor-profile"
+              element={
+                <ProtectedInstructorRoute>
+                  <InstructorProfile />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/otp/:learnerId/:scheduleId"
+              element={
+                <ProtectedInstructorRoute>
+                  <OTP />
                 </ProtectedInstructorRoute>
               }
             />

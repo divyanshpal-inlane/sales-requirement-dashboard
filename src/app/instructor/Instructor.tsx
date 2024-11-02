@@ -1,5 +1,11 @@
 import { addMinutes, isAfter } from "date-fns";
-import { PhoneOutgoing, SquareArrowOutUpRight } from "lucide-react";
+import {
+  CircleCheckBig,
+  PhoneOutgoing,
+  SquareArrowOutUpRight,
+  UserPen,
+} from "lucide-react";
+import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,14 +17,17 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
+import { useUser } from "@/context/auth-context";
 import { useInstructor } from "@/queries/instructor";
 
 const Instructor = () => {
+  const { phone } = useUser();
   const {
     data: instructorData,
     isLoading: instructorLoading,
     error: instructorError,
-  } = useInstructor("3333344444");
+  } = useInstructor(phone);
+  const navigate = useNavigate();
 
   if (instructorLoading) return <div>Loading...</div>;
   if (instructorError)
@@ -73,6 +82,8 @@ const Instructor = () => {
     return isAfter(now, thirtyMinutesBefore);
   };
 
+  console.log(instructorData);
+
   return (
     <>
       <div className="flex h-full w-full p-6 pb-20">
@@ -83,13 +94,13 @@ const Instructor = () => {
               {instructorData?.instructorScheduleDay.length})
             </TabsTrigger>
             <TabsTrigger value="lesson" className="w-full">
-              Lesson Details
+              All Classes
             </TabsTrigger>
           </TabsList>
 
           <TabsContent
             value="calendar"
-            className="flex min-h-screen flex-col justify-between gap-2 overflow-y-scroll"
+            className="flex flex-col justify-between gap-2 overflow-y-auto"
           >
             {instructorData?.learnerLessonDay.map(
               ({ learner, lesson }, index) => {
@@ -139,7 +150,7 @@ const Instructor = () => {
                             </a>
                           </div>
                         </div>
-                        <div className="flex flex-row gap-1">
+                        {/* <div className="flex flex-row gap-1">
                           <p>OTP :</p>
                           <p>
                             {shouldShowOTP(
@@ -149,19 +160,59 @@ const Instructor = () => {
                               ? instructorData.instructorScheduleDay[index].otp
                               : "OTP will be available 30 min prior to the lesson"}
                           </p>
-                        </div>
+                        </div> */}
                       </div>
                       <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
                         <div className="flex flex-wrap gap-1 p-1 text-xs">
                           <p>Lesson status :</p>
-                          <p>
+                          <div className="flex flex-row items-center gap-24">
                             {instructorData.instructorScheduleDay[index].status}
-                          </p>
+                            {instructorData.instructorScheduleDay[index]
+                              .status === "ongoing" ? (
+                              <div className="relative flex items-center justify-center">
+                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
+                              </div>
+                            ) : null}
+                            {instructorData.instructorScheduleDay[index]
+                              .status === "completed" ? (
+                              <div className="flex items-center justify-center">
+                                <CircleCheckBig
+                                  className="rounded-full bg-green-500 text-white"
+                                  size={18}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                         <div>
-                          <Button size="sm" className="text-xs">
-                            Reschedule
-                          </Button>
+                          {instructorData.instructorScheduleDay[index]
+                            .status === "ongoing" ||
+                          instructorData.instructorScheduleDay[index].status ===
+                            "completed" ? null : (
+                            <Button
+                              onClick={() => {
+                                navigate(
+                                  `/otp/${instructorData.learnerLessonDay[index].learner.id}/${instructorData.instructorScheduleDay[index].id}`,
+                                );
+                              }}
+                              size="sm"
+                              className="text-xs"
+                            >
+                              Start
+                            </Button>
+                          )}
+                          {/* <Button
+                            onClick={() => {
+                              navigate(
+                                `/otp/${instructorData.learnerLessonDay[index].learner.id}/${instructorData.instructorScheduleDay[index].id}`,
+                              );
+                            }}
+                            size="sm"
+                            className="text-xs"
+                          >
+                            Start
+                          </Button> */}
                         </div>
                       </Card>
                     </CardContent>
@@ -169,20 +220,101 @@ const Instructor = () => {
                 );
               },
             )}
+            <div className="fixed bottom-4 right-4">
+              <button className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-purple shadow-lg transition duration-200 hover:bg-purple-600">
+                <a href="tel:+919748439881">
+                  <PhoneOutgoing className="text-white" size={18} />
+                </a>
+              </button>
+            </div>
           </TabsContent>
 
           <TabsContent
             value="lesson"
-            className="flex h-full flex-col"
-          ></TabsContent>
+            className="flex flex-col justify-between gap-2 overflow-y-scroll"
+          >
+            {instructorData?.learnerLesson.map(({ learner, lesson }, index) => {
+              return (
+                <Card
+                  className={
+                    instructorData?.learnerLesson.length - 1 == index
+                      ? `mb-24`
+                      : ``
+                  }
+                  key={index}
+                >
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center justify-between gap-4">
+                      <div>Lesson {lesson.number}</div>
+                      <div className="text-sm">
+                        {formatTimeRange(
+                          instructorData.instructorSchedule[index].start_time,
+                          instructorData.instructorSchedule[index].end_time,
+                        )}
+                      </div>
+                    </CardTitle>
+                    <CardDescription>
+                      {LESSON_CONTENT[lesson.number].content.title}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1 text-xs">
+                      <div className="flex flex-row items-center gap-1">
+                        <p>Pick-up Location :</p>
+                        <p>{learner.pick_up_location}</p>
+                        <div className="ml-1">
+                          <SquareArrowOutUpRight size={14} />
+                        </div>
+                      </div>
+                      <div className="flex flex-row gap-1">
+                        <p>Learner name :</p>
+                        <p>{learner.name}</p>
+                      </div>
+                      <div className="flex flex-row items-center gap-1">
+                        <p>Contact Learner : {learner.phone}</p>
+                        <div className="ml-1">
+                          <a href={`tel:+91${learner.phone}`}>
+                            <PhoneOutgoing size={14} />
+                          </a>
+                        </div>
+                      </div>
+                      {/* <div className="flex flex-row gap-1">
+                          <p>OTP :</p>
+                          <p>
+                            {shouldShowOTP(
+                              instructorData.instructorScheduleDay[index]
+                                .start_time,
+                            )
+                              ? instructorData.instructorScheduleDay[index].otp
+                              : "OTP will be available 30 min prior to the lesson"}
+                          </p>
+                        </div> */}
+                    </div>
+                    {/* <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
+                      <div className="flex flex-wrap gap-1 p-1 text-xs">
+                        <p>Lesson status :</p>
+                        <p>{instructorData.instructorSchedule[index].status}</p>
+                      </div>
+                      <div>
+                        <Button size="sm" className="text-xs">
+                          Start
+                        </Button>
+                      </div>
+                    </Card> */}
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            <div className="fixed bottom-4 right-4">
+              <button className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-purple shadow-lg transition duration-200 hover:bg-purple-600">
+                <a href="/instructor-profile">
+                  <UserPen className="text-white" size={24} />
+                </a>
+              </button>
+            </div>
+          </TabsContent>
         </Tabs>
-      </div>
-      <div className="fixed bottom-4 right-4">
-        <button className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-purple shadow-lg transition duration-200 hover:bg-purple-600">
-          <a href="tel:+919748439881">
-            <PhoneOutgoing className="text-white" size={18} />
-          </a>
-        </button>
       </div>
     </>
   );
