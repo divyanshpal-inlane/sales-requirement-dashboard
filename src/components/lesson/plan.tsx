@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
+  Home,
   TowerControl,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -219,22 +220,39 @@ export function LessonPlan({
               className="text-white"
               onClick={() => navigate("/schedule")}
             >
-              <ArrowLeft />
+              <Home />
             </Button>
 
-            <p className="text-white">Lesson {lesson.number}</p>
-            <Button
-              size={"icon"}
-              variant={"ghost"}
-              className="text-white"
-              onClick={() =>
-                navigate(
-                  `/lesson/${Number(lesson.number) < 10 ? Number(lesson.number) + 1 : 1}`,
-                )
-              }
-            >
-              <ArrowRight />
-            </Button>
+            <div className="flex flex-row items-center justify-center gap-1">
+              {lesson.number > 1 ? (
+                <Button
+                  size={"icon"}
+                  variant={"ghost"}
+                  className="text-white"
+                  onClick={() => navigate(`/lesson/${lesson.number - 1}`)}
+                >
+                  <ArrowLeft />
+                </Button>
+              ) : (
+                <div></div>
+              )}
+              <p className="text-white">Lesson {lesson.number}</p>
+              {lesson.number && lesson.number < 10 && (
+                <Button
+                  size={"icon"}
+                  variant={"ghost"}
+                  className="text-white"
+                  onClick={() =>
+                    navigate(
+                      `/lesson/${Number(lesson.number) < 10 ? Number(lesson.number) + 1 : 1}`,
+                    )
+                  }
+                >
+                  <ArrowRight />
+                </Button>
+              )}
+            </div>
+            <p></p>
           </div>
         </div>
 

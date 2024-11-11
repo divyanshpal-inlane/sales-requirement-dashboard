@@ -72,7 +72,7 @@ export default function ScheduleDetails() {
               </SelectTrigger>
               <SelectContent>
                 {AREAS.map((area) => (
-                  <SelectItem key={area} value={area.toLowerCase()}>
+                  <SelectItem key={area} value={area}>
                     {area}
                   </SelectItem>
                 ))}
