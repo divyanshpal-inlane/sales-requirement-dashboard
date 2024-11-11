@@ -1,6 +1,6 @@
 # Vite + React + Typescript + Eslint + Prettier + Tailwind
 
-A starter for React with Typescript with fast Vite and all static code testing with Eslint and formatting with Prettier.
+A starter for React with Typescript with the fast Vite and all static code testing with Eslint and formatting with Prettier.
 
 ## Installation
 
