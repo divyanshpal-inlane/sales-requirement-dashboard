@@ -1,11 +1,11 @@
-import { useState } from "react"; // Import useState
-import { Navigate } from "react-router";
+import React, { useState } from "react";
+import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
 
-export default function Login() {
+export default function InstructorAuth() {
   const { login, signUp, user } = useAuth();
   const [active, setActive] = useState<"login" | "signup">("login");
   const [phone, setPhone] = useState<string>("");
@@ -15,49 +15,29 @@ export default function Login() {
     e.preventDefault();
     try {
       if (active === "login") {
-        await login(phone, password, "learner");
+        await login(phone, password, "instructor");
       } else {
-        await signUp(phone, password, "learner");
+        await signUp(phone, password, "instructor");
       }
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("Instructor auth failed:", error);
     }
   };
 
-  if (user && user.user_metadata.user_role === "learner") {
-    if (active === "login") return <Navigate to="/home" />;
-    return <Navigate to="/onboard/birthday" />;
-  } else if (user && user.user_metadata.user_role === "instructor") {
+  if (user && user.user_metadata.user_role === "instructor") {
     return <Navigate to="/instructor" />;
   }
 
   return (
     <div className="flex h-full w-full flex-col">
-      <header className="relative h-[400px]">
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-          <img
-            src="/assets/login-hero.png"
-            alt="Person with car"
-            className="h-full w-full object-fill"
-          />
-        </div>
-      </header>
-
       <div className="flex h-full flex-col gap-6 p-6">
         <div className="flex flex-col items-center">
-          <h2 className="text-2xl">Ready to take the wheel?</h2>
-          <p className="text-lg">Let&apos;s get you driving!</p>
+          <h2 className="text-2xl">Welcome, Instructor!</h2>
+          <p className="text-lg">Ready to guide new drivers?</p>
         </div>
 
         <form onSubmit={onSubmitHandler}>
-          {" "}
-          {/* Add form element */}
           <div className="space-y-4">
-            {/* <Input
-              placeholder="Enter Your Name"
-              value={name} // Bind phone state
-              onChange={(e) => setName(e.target.value)} // Update phone state
-            /> */}
             <div className="flex h-fit rounded-md shadow-md">
               <span className="flex items-center rounded-l-md border border-r-0 bg-gray-100 px-3 text-gray-500">
                 +91
@@ -65,43 +45,43 @@ export default function Login() {
               <Input
                 className="rounded-l-none shadow-none"
                 placeholder="Enter Mobile Number"
-                value={phone} // Bind phone state
-                onChange={(e) => setPhone(e.target.value)} // Update phone state
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
               />
             </div>
             <Input
               type="password"
-              placeholder="Create Password"
-              value={password} // Bind password state
-              onChange={(e) => setPassword(e.target.value)} // Update password state
+              placeholder="Enter Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <div className="flex flex-col items-center gap-1">
               {active === "login" ? (
                 <>
                   <Button className="w-full" type="submit">
-                    Login
+                    Login as Instructor
                   </Button>
                   <p className="text-sm text-muted-foreground">
-                    Not signed up ?
+                    Not registered?
                     <Button
                       type="button"
-                      variant={"link"}
+                      variant="link"
                       onClick={() => setActive("signup")}
                     >
-                      Signup
+                      Sign up
                     </Button>
                   </p>
                 </>
               ) : (
                 <>
                   <Button className="w-full" type="submit">
-                    Signup
+                    Sign up as Instructor
                   </Button>
                   <p className="text-sm text-muted-foreground">
-                    Already signed up ?
+                    Already registered?
                     <Button
                       type="button"
-                      variant={"link"}
+                      variant="link"
                       onClick={() => setActive("login")}
                     >
                       Login
@@ -117,13 +97,13 @@ export default function Login() {
           By continuing, you agree to our
           <nav className="flex flex-row justify-center gap-4">
             <a
-              href="#"
+              href="/terms"
               className="text-muted-foreground hover:text-blue-500 hover:underline"
             >
               Terms of Service
             </a>
             <a
-              href="#"
+              href="/privacy"
               className="text-muted-foreground hover:text-blue-500 hover:underline"
             >
               Privacy Policies

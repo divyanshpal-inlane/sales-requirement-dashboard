@@ -1,23 +1,37 @@
 import { Game } from "@/components/lesson/trivia";
 
+export const LESSON_IDS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+] as const;
+
 export const LESSON_CONTENT: Record<
   (typeof LESSON_IDS)[number],
   {
     id: string;
     content: {
-      game: Game;
+      game?: Game;
       title: string;
       points: { icon: React.ReactNode; header: string; desc: string }[];
       remember: { icon: React.ReactNode; text: string }[];
     };
     menu?: {
-      trivia: { title: string; icon: string; color: string };
-      video: {
+      trivia?: { title: string; icon: string; color: string };
+      video?: {
         title: string;
         icon: string;
         color: string;
         video_path: string;
       }[];
+      signature?: { title: string; icon: string; color: string };
     };
   }
 > = {
@@ -34,7 +48,7 @@ export const LESSON_CONTENT: Record<
           title: "Car command center",
           icon: "🚨",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/1.mp4",
         },
       ],
     },
@@ -81,11 +95,13 @@ export const LESSON_CONTENT: Record<
             ],
             correctAnswer: 3,
             imageSrc: "/assets/ThreePedal.png",
+            question: "Which one is the Accelerator?",
           },
           {
             mapAreas: [{ x: 203.15625, y: 65, width: 40, height: 24, id: 1 }],
             correctAnswer: 1,
             imageSrc: "/assets/SteeringWheel.png",
+            question: "Where is the turn signal?",
           },
         ],
       },
@@ -104,7 +120,15 @@ export const LESSON_CONTENT: Record<
           title: "3 seconds is all it takes",
           icon: "⏰",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
+        },
+        {
+          title: "slay slopes like a pro",
+          icon: "⏰",
+          color: "bg-lime-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
       ],
     },
@@ -173,10 +197,17 @@ export const LESSON_CONTENT: Record<
       },
       video: [
         {
+          title: "When to change Gears?",
+          icon: "⚙️",
+          color: "bg-green-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
+        },
+        {
           title: "Turn Like a Champ!",
           icon: "↩️",
-          color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          color: "bg-lime-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-2.mp4",
         },
       ],
     },
@@ -253,10 +284,16 @@ export const LESSON_CONTENT: Record<
       },
       video: [
         {
-          title: "watch this before parking ",
-          icon: "👀",
+          title: "perpendicular parking",
+          icon: "🚗",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-1.mp4",
+        },
+        {
+          title: "parallel parking",
+          icon: "👀",
+          color: "bg-blue-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-2.mp4",
         },
       ],
     },
@@ -342,7 +379,7 @@ export const LESSON_CONTENT: Record<
           title: "pause, bump, then go!",
           icon: "🛑",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
         },
       ],
     },
@@ -417,7 +454,7 @@ export const LESSON_CONTENT: Record<
           title: "signal, check, then move!",
           icon: "🛣️",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
         },
       ],
     },
@@ -496,10 +533,16 @@ export const LESSON_CONTENT: Record<
       },
       video: [
         {
-          title: "take a sneak peak",
+          title: "Roudabout rules",
           icon: "📷",
-          color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          color: "bg-yellow-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
+        },
+        {
+          title: "Crossroad control",
+          icon: "🚦",
+          color: "bg-orange-500",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
         },
       ],
     },
@@ -584,7 +627,7 @@ export const LESSON_CONTENT: Record<
           title: "Car command center",
           icon: "🔥",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
         },
       ],
     },
@@ -656,7 +699,7 @@ export const LESSON_CONTENT: Record<
           title: "pass like a pro",
           icon: "👀",
           color: "bg-indigo-500",
-          video_path: "/assets/parallel-parking.mp4",
+          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
         },
       ],
     },
@@ -702,7 +745,7 @@ export const LESSON_CONTENT: Record<
         type: "question",
         games: [
           {
-            question: "What’s key to driving safely on a flyover?",
+            question: "What's key to driving safely on a flyover?",
             answers: [
               "Maintaining steady speed and lane discipline",
               "Driving faster to avoid traffic",
@@ -719,6 +762,45 @@ export const LESSON_CONTENT: Record<
           },
         ],
       },
+    },
+  },
+  "10": {
+    id: "10",
+    menu: {
+      signature: {
+        title: "Sign your completion",
+        icon: "✍️",
+        color: "bg-[#00CE84]",
+      },
+    },
+    content: {
+      remember: [
+        {
+          icon: "🏎",
+          text: "Drive at consistent speeds",
+        },
+        {
+          icon: "👨🏻‍💼",
+          text: "Every pro driver has good control of the car - drive slowly",
+        },
+        {
+          icon: "😊",
+          text: "Treat your car like your best buddy",
+        },
+      ],
+      title: "You will have an absolutely fun time doing the challenges",
+      points: [
+        {
+          icon: "😎",
+          header: "RTO Rehearsal:",
+          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+        },
+        {
+          icon: "😎",
+          header: "Zen Mode:",
+          desc: "Tips to stay relaxed & focused",
+        },
+      ],
     },
   },
 };

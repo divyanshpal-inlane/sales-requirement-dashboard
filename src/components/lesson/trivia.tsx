@@ -17,6 +17,7 @@ export type ImageGame = {
     }[];
     correctAnswer: number;
     imageSrc: string;
+    question: string;
   }[];
 };
 
@@ -63,13 +64,23 @@ const TriviaCard = ({
         <PaintedText className="absolute right-6 top-14 text-lg text-black">
           15 secs <span className="text-2xl">⏰</span>
         </PaintedText>
-        <div className="font-brico relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 shadow-inner">
+        <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
+          {gameType === "image" ? (
+            <p className="mb-6 font-glancyr text-accent-purple">
+              {game[gameIndex].question}
+            </p>
+          ) : null}
           <Comp
             key={game[gameIndex].imageSrc}
             setSelectedAnswer={setSelectedAnswer}
             selectedAnswer={selectedAnswer}
             game={game[gameIndex]}
           />
+          {gameType === "image" ? (
+            <p className="mt-1 w-full px-4 text-start font-glancyr text-xs">
+              Click on the image to input your answer
+            </p>
+          ) : null}
           <AnimatePresence>
             {selectedAnswer && (
               <motion.div
@@ -77,7 +88,7 @@ const TriviaCard = ({
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`font-glancyr absolute bottom-0 left-0 right-0 p-4 ${
+                className={`absolute bottom-0 left-0 right-0 p-4 font-glancyr ${
                   isCorrect
                     ? "bg-primary/30 text-primary"
                     : "bg-destructive/30 text-destructive"

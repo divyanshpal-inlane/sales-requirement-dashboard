@@ -28,7 +28,7 @@ export default function Aadhar() {
         aadhar_state: selectedState,
       },
       {
-        onSuccess: () => navigate("/home"),
+        onSuccess: () => navigate("/onboard/dl"),
       },
     );
   }, [mutate, navigate, selectedState]);

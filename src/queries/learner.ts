@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 
 import { COURSES_DATA } from "@/constants/courses";
 import { supabase, useUser } from "@/context/auth-context";
@@ -41,17 +40,12 @@ export function useLearnerId() {
 }
 
 export function useSetLLTestDate() {
+  const { phone } = useUser();
   return useMutation({
-    mutationFn: async ({
-      phone,
-      LL_test_date,
-    }: {
-      phone: string | null | undefined;
-      LL_test_date: Date | null | undefined;
-    }) => {
+    mutationFn: async ({ LL_test_date }: { LL_test_date: Date }) => {
       const { data, error } = await supabase
         .from("Learner")
-        .update({ LL_test_date: LL_test_date })
+        .update({ LL_test_date: LL_test_date.toDateString() })
         .eq("phone", phone);
       if (error) throw new Error("Supabase error");
       return data;
@@ -90,8 +84,6 @@ export function useUpcomingLesson() {
   return useQuery({
     queryKey: ["upcomingLesson", phone],
     queryFn: async () => {
-      if (!phone) throw new Error("Phone number is required");
-
       // Query the Learner table to find the learner_id
       const { data: learner, error: learnerError } = await supabase
         .from("Learner")
@@ -240,36 +232,6 @@ export function useUploadLLMutation() {
   });
 }
 
-export function useSlotMutation() {
-  const { phone } = useUser();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ newSlots }: { newSlots: SelectedSlot[] }) => {
-      const { data, error } = await supabase.from("Schedule").upsert(
-        newSlots.map((slot) =>
-          slot.slots
-            .map((timeSlot) => ({
-              learner_id: "30fde0da-377d-47da-9b09-e608db215349",
-              start_time: timeSlot.start,
-              date: format(slot.date, "yyyy-MM-dd"),
-            }))
-            .flatMap()
-        ),
-      );
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["upcomingLesson", phone],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["schedule", phone],
-      });
-    },
-  });
-}
-
 export function useLessons({ courseId }: { courseId: string }) {
   return useQuery({
     queryKey: ["lessons", courseId],
@@ -356,5 +318,33 @@ export function useLearnerSchedule({ learnerId }: { learnerId: string }) {
     },
     staleTime: Infinity,
     enabled: !!learnerId,
+  });
+}
+export function useUpdateScheduleStatus() {
+  return useMutation({
+    mutationFn: async ({
+      scheduleId,
+      status,
+    }: {
+      scheduleId: number;
+      status: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("Schedule")
+        .update({ status: status })
+        .eq("id", scheduleId)
+        .select();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        throw new Error("Failed to update schedule status");
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      // Optionally, you can invalidate and refetch related queries here
+      // queryClient.invalidateQueries(["schedule"]);
+    },
   });
 }

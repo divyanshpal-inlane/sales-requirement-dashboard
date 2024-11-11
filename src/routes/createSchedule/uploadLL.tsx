@@ -14,7 +14,7 @@ export default function UploadLL() {
   const [fileName, setFileName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const { mutate } = useUploadLLMutation();
+  const { mutate, isPending } = useUploadLLMutation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function UploadLL() {
             </div>
           )}
         </div>
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full" disabled={isPending || !file}>
           Upload now
         </Button>
       </form>

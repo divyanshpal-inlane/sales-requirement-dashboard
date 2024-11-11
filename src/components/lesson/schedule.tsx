@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/context/auth-context";
+import { generateRandomOTP } from "@/lib/utils";
 
 interface LearnerScheduleSelectorProps {
   learnerId: string;
@@ -22,6 +23,7 @@ interface LearnerScheduleSelectorProps {
   totalTime: number;
   courseId: string;
   lessonIds: string[];
+  startFromLessonId?: string;
 }
 
 interface TimeSlot {
@@ -47,6 +49,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
   totalTime,
   courseId,
   lessonIds,
+  startFromLessonId,
 }) => {
   const [startDate, setStartDate] = useState(addDays(new Date(), 1));
   const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
@@ -85,6 +88,23 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
     },
   });
 
+  // Modify the query to fetch existing schedules
+  const { data: existingSchedules } = useQuery({
+    queryKey: ["existingSchedules", learnerId, courseId, startFromLessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("*")
+        .eq("learner_id", learnerId)
+        .eq("course_id", courseId)
+        .in("lesson_id", lessonIds)
+        .order("date", { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { mutate } = useMutation({
     mutationFn: async (slots: TimeSlot[]) => {
       let lessonIndex = 0;
@@ -99,6 +119,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
           course_id: courseId,
           lesson_id: lessonIds[lessonIndex++],
           status: "booked",
+          otp: generateRandomOTP(),
         }));
       });
 
@@ -144,7 +165,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
   );
 
   useEffect(() => {
-    if (schedules && instructors) {
+    if (schedules && instructors && existingSchedules) {
       const newSlots: TimeSlot[] = [];
       for (let i = 0; i < 14; i++) {
         const currentDate = new Date(startDate);
@@ -155,19 +176,30 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
             slot.start,
             slot.end,
           );
+          const existingSchedule = existingSchedules.find(
+            (s) =>
+              s.date === currentDate.toISOString().split("T")[0] &&
+              s.start_time === slot.start,
+          );
           newSlots.push({
             date: currentDate,
             startTime: slot.start,
             endTime: slot.end,
             isAvailable,
-            selectedDuration: 0,
+            selectedDuration: existingSchedule ? 1 : 0,
             availableInstructors,
           });
         });
       }
       setSelectedSlots(newSlots);
     }
-  }, [schedules, instructors, startDate, checkSlotAvailability]);
+  }, [
+    schedules,
+    instructors,
+    existingSchedules,
+    startDate,
+    checkSlotAvailability,
+  ]);
 
   const handleSlotClick = (clickedSlot: TimeSlot) => {
     if (!clickedSlot.isAvailable) return;

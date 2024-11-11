@@ -96,13 +96,16 @@ export default function Schedule() {
     if (lessonsForDay.length === 0) {
       return <div className="h-8 w-8 p-0">{date.getDate()}</div>;
     }
-
     return (
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="h-8 w-8 bg-primary p-0 font-normal text-primary-foreground"
+            className={`h-8 w-8 p-0 font-normal ${
+              date < new Date().setHours(0, 0, 0, 0)
+                ? "bg-gray-300 text-gray-600"
+                : "bg-primary text-primary-foreground"
+            }`}
           >
             {date.getDate()}
           </Button>
@@ -112,17 +115,33 @@ export default function Schedule() {
             <h3 className="text-sm font-semibold text-gray-700">
               Scheduled Lessons
             </h3>
-            {lessonsForDay.map((lesson) => (
-              <p key={lesson.id} className="flex flex-col gap-1 text-xs">
-                <span className="text-gray-600">
-                  {format(new Date(`2000-01-01T${lesson.startTime}`), "h:mm a")}{" "}
-                  -{format(new Date(`2000-01-01T${lesson.endTime}`), "h:mm a")}
-                </span>
-                <span className="text-accent-purple">
-                  Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
-                </span>
-              </p>
-            ))}
+            {lessonsForDay.map((lesson) => {
+              const now = new Date();
+              const isLessonPast =
+                new Date(`${lesson.date}T${lesson.startTime}`) < now;
+              return (
+                <p
+                  key={lesson.id}
+                  className={`flex flex-col gap-1 text-xs ${isLessonPast ? "text-gray-400 line-through" : ""}`}
+                >
+                  <span
+                    className={`${isLessonPast ? "text-gray-400" : "text-gray-600"}`}
+                  >
+                    {format(
+                      new Date(`2000-01-01T${lesson.startTime}`),
+                      "h:mm a",
+                    )}{" "}
+                    -
+                    {format(new Date(`2000-01-01T${lesson.endTime}`), "h:mm a")}
+                  </span>
+                  <span
+                    className={`${isLessonPast ? "text-gray-400" : "text-accent-purple"}`}
+                  >
+                    Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
+                  </span>
+                </p>
+              );
+            })}
           </div>
         </PopoverContent>
       </Popover>
@@ -130,9 +149,22 @@ export default function Schedule() {
   };
 
   // TODO: fix the time thingy
-  const nextLesson = scheduledLessons?.find(
-    (lesson) => new Date(lesson.date) >= new Date(),
-  );
+  const nextLesson = scheduledLessons?.find((lesson) => {
+    const now = new Date();
+    const currentDateTime = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+    );
+
+    const [year, month, day] = lesson.date.split("-").map(Number);
+    const [hours, minutes] = lesson.startTime.split(":").map(Number);
+    const lessonDateTime = new Date(year, month - 1, day, hours, minutes);
+
+    return lessonDateTime > currentDateTime;
+  });
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
@@ -185,7 +217,15 @@ export default function Schedule() {
                     to={`/lesson/${nextLesson.lesson.number}`}
                     className="text-md mt-1.5 flex flex-col justify-between"
                   >
-                    <p>{nextLesson.lesson.description}</p>
+                    <p>
+                      {
+                        lessonIds[
+                          nextLesson.lesson?.number
+                            ? nextLesson.lesson.number - 1
+                            : 0
+                        ].desc
+                      }
+                    </p>
                   </Link>
                   <div className="relative flex justify-end">
                     <img

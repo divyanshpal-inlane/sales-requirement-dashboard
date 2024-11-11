@@ -12,21 +12,32 @@ import LL_test_booking_2 from "@/app/LL_test_booking_2";
 import LL_test_booking_3 from "@/app/LL_test_booking_3";
 import MainLayout from "@/components/layout/main-layout";
 import Plan from "@/components/lesson/plan";
-import { AuthProvider, ProtectedRoute } from "@/context/auth-context";
+import RescheduleView from "@/components/lesson/RescheduleView";
+import {
+  AuthProvider,
+  ProtectedInstructorRoute,
+  ProtectedLearnerRoute,
+} from "@/context/auth-context";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import ScheduleSlots from "@/routes/createSchedule/slots";
 import UploadLL from "@/routes/createSchedule/uploadLL";
 import Home from "@/routes/home";
+import InstructorAuth from "@/routes/InstructorAuth";
 import Login from "@/routes/login";
 import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
+import DLQuestion from "@/routes/onboard/DL";
 import Prep from "@/routes/prep";
+import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
+import StartLesson from "@/routes/startLesson";
 
+import Instructor from "./app/instructor/Instructor";
+import InstructorProfile from "./app/instructor/InstructorProfile";
+import OTP from "./app/instructor/OTP";
 import LessonReview from "./app/LessonReview";
-import OTP from "./app/OTP";
-import TimerAndEmergency from "./app/TimerAndEmergency";
+import Lesson10 from "./components/lesson/signature";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,36 +55,40 @@ export default function App() {
           <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/instructor-login" element={<InstructorAuth />} />
             <Route
               path="/onboard"
               element={
-                <ProtectedRoute>
+                <ProtectedLearnerRoute>
                   <Outlet />
-                </ProtectedRoute>
+                </ProtectedLearnerRoute>
               }
             >
               <Route path="birthday" element={<Birthday />} />
               <Route path="aadhar" element={<Aadhar />} />
+              <Route path="dl" element={<DLQuestion />} />
             </Route>
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedLearnerRoute>
                   <MainLayout />
-                </ProtectedRoute>
+                </ProtectedLearnerRoute>
               }
             >
               <Route index element={<Navigate to="/home" replace />} />
               <Route path="home" element={<Home />} />
               <Route path="prep" element={<Prep />} />
               <Route path="schedule" element={<Schedule />} />
+              <Route path="profile" element={<Profile2 />} />
             </Route>
+            <Route path="/signature" element={<Lesson10 />} />
             <Route
               path="createSchedule"
               element={
-                <ProtectedRoute>
+                <ProtectedLearnerRoute>
                   <Outlet />
-                </ProtectedRoute>
+                </ProtectedLearnerRoute>
               }
             >
               <Route path="details" element={<ScheduleDetails />} />
@@ -83,9 +98,9 @@ export default function App() {
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedLearnerRoute>
                   <Outlet />
-                </ProtectedRoute>
+                </ProtectedLearnerRoute>
               }
             >
               <Route path="birthday" element={<Birthday />} />
@@ -93,16 +108,47 @@ export default function App() {
               <Route path="bookLL-1" element={<LL_test_booking_1 />} />
               <Route path="bookLL-2/:navId" element={<LL_test_booking_2 />} />
               <Route path="bookLL-3" element={<LL_test_booking_3 />} />
-              <Route path="/OTP/:lessonId" element={<OTP />} />
-              <Route path="/timer" element={<TimerAndEmergency />} />
+              <Route path="/startLesson" element={<StartLesson />} />
               <Route path="/lesson-review" element={<LessonReview />} />
             </Route>
             <Route
               path="/lesson/:lessonId"
               element={
-                <ProtectedRoute>
+                <ProtectedLearnerRoute>
                   <Plan />
-                </ProtectedRoute>
+                </ProtectedLearnerRoute>
+              }
+            />
+            <Route
+              path="/instructor"
+              element={
+                <ProtectedInstructorRoute>
+                  <Instructor />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor-profile"
+              element={
+                <ProtectedInstructorRoute>
+                  <InstructorProfile />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/otp/:learnerId/:scheduleId"
+              element={
+                <ProtectedInstructorRoute>
+                  <OTP />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/reschedule/:lessonId"
+              element={
+                <ProtectedLearnerRoute>
+                  <RescheduleView />
+                </ProtectedLearnerRoute>
               }
             />
           </Routes>
