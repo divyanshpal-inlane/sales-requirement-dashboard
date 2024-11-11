@@ -13,7 +13,15 @@ export const COURSES_DATA: Record<
 
 export const AREAS = [
   "Indiranagar",
-  "Koramangala",
   "HSR Layout",
-  "BTM Layout",
+  "Electronic City",
+  "Marathalli",
+  "JP Nagar",
+  "Whitefield",
+  "Bommanahalli",
+  "KR Puram",
+  "Mahadevpura",
+  "Hoodi",
+  "Ramamurthy Nagar",
+  "TC Palya",
 ] as const;
