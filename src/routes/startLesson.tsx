@@ -57,7 +57,11 @@ export default function StartLesson() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>OTP for Instructor</span>
-              <Badge variant="outline">{data?.upcomingSchedule?.status}</Badge>
+              <Badge variant="default">
+                {data?.upcomingSchedule?.status
+                  ? data?.upcomingSchedule?.status.toUpperCase()
+                  : "BOOKED"}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>

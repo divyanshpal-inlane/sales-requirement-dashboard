@@ -12,40 +12,8 @@ export default function Start() {
           className="h-32 w-32 object-cover"
         />
         <p className="-ml-6 mt-8 flex flex-col leading-none">
-          <motion.span
-          // initial={{
-          //   x: "100%",
-          //   opacity: 0,
-          // }}
-          // animate={{
-          //   x: 0,
-          //   opacity: 1,
-          // }}
-          // transition={{
-          //   ease: "easeOut",
-          //   duration: 0.3,
-          //   delay: 0.2,
-          // }}
-          >
-            By your side
-          </motion.span>
-          <motion.span
-          // initial={{
-          //   x: "100%",
-          //   opacity: 0,
-          // }}
-          // animate={{
-          //   x: 0,
-          //   opacity: 1,
-          // }}
-          // transition={{
-          //   ease: "easeOut",
-          //   duration: 0.3,
-          //   delay: 0.7,
-          // }}
-          >
-            Every ride
-          </motion.span>
+          <motion.span>By your side</motion.span>
+          <motion.span>Every ride</motion.span>
         </p>
       </div>
       <Button size={"lg"} className="mt-auto w-full" variant={"secondary"}>

@@ -338,13 +338,13 @@ export function LessonPlan({
 
         {selectedCard === null ? (
           <div className="absolute bottom-6 left-4 right-4 z-20 flex justify-center gap-6">
-            <Button
+            {/* <Button
               onClick={handleReschedule}
               size={"lg"}
               className="w-32 text-lg"
             >
               Reschedule
-            </Button>
+            </Button> */}
             <Button
               onClick={() => {
                 if (isMenuOpen) setIsInfoCardOpen(true);

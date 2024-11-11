@@ -266,7 +266,7 @@ export default function Home() {
                 <Link to="/createSchedule/details">Set your schedule</Link>
               </Button>
               <p className="text-sm">
-                Share your availability, and we'll book your lessons
+                Share your availability, and we&apos;ll book your lessons
               </p>
             </div>
           ) : LessonData?.upcomingLesson ? (
@@ -292,14 +292,14 @@ export default function Home() {
 
               {/* Reschedule & Start Lesson button */}
               <div className="mt-6 flex flex-row gap-4">
-                <Button
+                {/* <Button
                   onClick={() =>
-                    navigate(`/reschedule/${LessonData?.upcomingLesson.number}`)
+                    navigate(`/reschedule/${LessonData?.upcomingLesson.id}`)
                   }
                   className="w-full"
                 >
                   Reschedule
-                </Button>
+                </Button> */}
                 <Button
                   onClick={() => navigate(`/startLesson`)}
                   className="w-full"

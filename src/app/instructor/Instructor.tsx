@@ -166,7 +166,9 @@ const Instructor = () => {
                         <div className="flex flex-wrap gap-1 p-1 text-xs">
                           <p>Lesson status :</p>
                           <div className="flex flex-row items-center gap-24">
-                            {instructorData.instructorScheduleDay[index].status}
+                            {instructorData.instructorScheduleDay[
+                              index
+                            ].status?.toUpperCase()}
                             {instructorData.instructorScheduleDay[index]
                               .status === "ongoing" ? (
                               <div className="relative flex items-center justify-center">
@@ -278,29 +280,7 @@ const Instructor = () => {
                           </a>
                         </div>
                       </div>
-                      {/* <div className="flex flex-row gap-1">
-                          <p>OTP :</p>
-                          <p>
-                            {shouldShowOTP(
-                              instructorData.instructorScheduleDay[index]
-                                .start_time,
-                            )
-                              ? instructorData.instructorScheduleDay[index].otp
-                              : "OTP will be available 30 min prior to the lesson"}
-                          </p>
-                        </div> */}
                     </div>
-                    {/* <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
-                      <div className="flex flex-wrap gap-1 p-1 text-xs">
-                        <p>Lesson status :</p>
-                        <p>{instructorData.instructorSchedule[index].status}</p>
-                      </div>
-                      <div>
-                        <Button size="sm" className="text-xs">
-                          Start
-                        </Button>
-                      </div>
-                    </Card> */}
                   </CardContent>
                 </Card>
               );

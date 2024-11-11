@@ -26,7 +26,7 @@ function LLFlow() {
       </Alert>
     );
 
-  if (!learner.LL_application_id) {
+  if (!learner.LL_team_appointment_booked) {
     return <LLAppointmentBooking />;
   }
 

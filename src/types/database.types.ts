@@ -190,6 +190,7 @@ export type Database = {
           LL_application_approved: boolean | null
           LL_application_id: string | null
           LL_result: boolean | null
+          LL_team_appointment_booked: boolean | null
           LL_test_date: string | null
           name: string | null
           password: string | null
@@ -216,6 +217,7 @@ export type Database = {
           LL_application_approved?: boolean | null
           LL_application_id?: string | null
           LL_result?: boolean | null
+          LL_team_appointment_booked?: boolean | null
           LL_test_date?: string | null
           name?: string | null
           password?: string | null
@@ -242,6 +244,7 @@ export type Database = {
           LL_application_approved?: boolean | null
           LL_application_id?: string | null
           LL_result?: boolean | null
+          LL_team_appointment_booked?: boolean | null
           LL_test_date?: string | null
           name?: string | null
           password?: string | null

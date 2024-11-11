@@ -11,8 +11,10 @@ import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLearnerUpdate } from "@/queries/learner";
 
 export default function LLAppointmentBooking() {
+  const { mutate: updateLearner } = useLearnerUpdate();
   useEffect(() => {
     (async function () {
       const cal = await getCalApi({ namespace: "30min" });
@@ -22,8 +24,15 @@ export default function LLAppointmentBooking() {
         hideEventTypeDetails: true,
         layout: "month_view",
       });
+      cal("on", {
+        action: "bookingSuccessful",
+        callback: (e) => {
+          console.log(e);
+          updateLearner({ LL_team_appointment_booked: true });
+        },
+      });
     })();
-  }, []);
+  }, [updateLearner]);
 
   return (
     <Card className="mx-auto mt-4 max-w-2xl">
@@ -52,7 +61,7 @@ export default function LLAppointmentBooking() {
         <Button
           className="w-full py-3 text-lg"
           data-cal-namespace="30min"
-          data-cal-link="shubham-jain-pxyyf5/30min"
+          data-cal-link="inlane.in/30min"
           data-cal-config='{"layout":"month_view","theme":"light"}'
         >
           Book Appointment

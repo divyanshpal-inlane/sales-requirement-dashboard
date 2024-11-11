@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface LLApplicationStatusProps {
-  applicationId: string;
+  applicationId: string | null;
 }
 
 export function LLApplicationStatus({
@@ -15,7 +15,9 @@ export function LLApplicationStatus({
       </CardHeader>
       <CardContent className="space-y-4 p-6">
         <p className="text-lg font-semibold">
-          Your LL application (ID: {applicationId}) is being processed.
+          {applicationId
+            ? `Your LL application (ID: ${applicationId}) is being processed.`
+            : "Your LL application ID is being generated."}
         </p>
         <p className="text-base">
           As the government approves the application documents, please prepare
