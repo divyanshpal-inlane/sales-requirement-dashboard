@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -24,6 +24,7 @@ interface LearnerScheduleSelectorProps {
   courseId: string;
   lessonIds: string[];
   startFromLessonId?: string;
+  isRescheduling?: boolean;
 }
 
 interface TimeSlot {
@@ -43,6 +44,13 @@ const timeSlots = [
   { start: "18:00:00", end: "21:00:00", label: "6 PM - 9 PM" },
 ];
 
+const addHours = (timeString: string, hours: number) => {
+  const [h, m, s] = timeString.split(":").map(Number);
+  const date = new Date(2000, 0, 1, h, m, s);
+  date.setHours(date.getHours() + hours);
+  return date.toTimeString().slice(0, 8);
+};
+
 const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
   learnerId,
   learnerArea,
@@ -50,6 +58,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
   courseId,
   lessonIds,
   startFromLessonId,
+  isRescheduling = false,
 }) => {
   const [startDate, setStartDate] = useState(addDays(new Date(), 1));
   const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
@@ -88,16 +97,16 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
     },
   });
 
-  // Modify the query to fetch existing schedules
+  // Add query to fetch existing schedules for the learner
   const { data: existingSchedules } = useQuery({
-    queryKey: ["existingSchedules", learnerId, courseId, startFromLessonId],
+    queryKey: ["existingSchedules", learnerId, courseId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Schedule")
-        .select("*")
+        .select("*, instructor:instructor_id(*)")
         .eq("learner_id", learnerId)
         .eq("course_id", courseId)
-        .in("lesson_id", lessonIds)
+        .gte("date", new Date().toISOString().split("T")[0])
         .order("date", { ascending: true });
 
       if (error) throw error;
@@ -105,23 +114,72 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
     },
   });
 
+  // Modify the mutation to handle rescheduling
   const { mutate } = useMutation({
     mutationFn: async (slots: TimeSlot[]) => {
-      let lessonIndex = 0;
-      const bookings = slots.flatMap((slot) => {
-        const bookingHours = slot.selectedDuration === 2 ? [0, 1] : [0];
-        return bookingHours.map((hour) => ({
-          learner_id: learnerId,
-          instructor_id: slot.availableInstructors[0],
-          date: slot.date.toISOString().split("T")[0],
-          start_time: addHours(slot.startTime, hour),
-          end_time: addHours(slot.startTime, hour + 1),
-          course_id: courseId,
-          lesson_id: lessonIds[lessonIndex++],
-          status: "booked",
-          otp: generateRandomOTP(),
-        }));
+      // If rescheduling, get the existing instructor assignments
+      const existingInstructorMap: Record<string, string> = {};
+      if (isRescheduling && existingSchedules) {
+        existingSchedules.forEach((schedule) => {
+          if (schedule.lesson_id && lessonIds.includes(schedule.lesson_id)) {
+            existingInstructorMap[schedule.lesson_id] =
+              schedule.instructor_id || "";
+          }
+        });
+      }
+
+      // Sort slots by date and time to ensure lessons are assigned in chronological order
+      const sortedSlots = [...slots].sort((a, b) => {
+        const dateCompare = a.date.getTime() - b.date.getTime();
+        if (dateCompare !== 0) return dateCompare;
+        return a.startTime.localeCompare(b.startTime);
       });
+
+      let lessonIndex = 0;
+      const bookings = [];
+
+      // Process each slot in chronological order
+      for (const slot of sortedSlots) {
+        if (slot.selectedDuration === 0) continue;
+
+        const bookingHours = slot.selectedDuration === 2 ? [0, 1] : [0];
+        const instructorId = slot.availableInstructors[0];
+
+        for (const hour of bookingHours) {
+          const currentLessonId = lessonIds[lessonIndex];
+          if (!currentLessonId) continue; // Skip if we've run out of lessons
+
+          const bookingInstructorId = isRescheduling
+            ? existingInstructorMap[currentLessonId] || instructorId
+            : instructorId;
+
+          bookings.push({
+            learner_id: learnerId,
+            instructor_id: bookingInstructorId,
+            date: slot.date.toISOString().split("T")[0],
+            start_time: addHours(slot.startTime, hour),
+            end_time: addHours(slot.startTime, hour + 1),
+            course_id: courseId,
+            lesson_id: currentLessonId,
+            status: "booked",
+            otp: generateRandomOTP(),
+          });
+
+          lessonIndex++;
+        }
+      }
+
+      if (isRescheduling && startFromLessonId) {
+        // Delete existing schedules for the lessons being rescheduled
+        const { error: deleteError } = await supabase
+          .from("Schedule")
+          .delete()
+          .eq("learner_id", learnerId)
+          .eq("course_id", courseId)
+          .in("lesson_id", lessonIds);
+
+        if (deleteError) throw deleteError;
+      }
 
       const { data, error } = await supabase.from("Schedule").upsert(bookings);
 
@@ -132,6 +190,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
       queryClient.invalidateQueries({
         queryKey: ["schedule"],
       });
+      navigate(isRescheduling ? `/lesson/${startFromLessonId}` : "/home");
     },
   });
 
@@ -140,12 +199,27 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
       if (!schedules || !instructors)
         return { isAvailable: false, availableInstructors: [] };
 
-      const relevantSchedules = schedules.filter(
-        (s) =>
-          s.date === date.toISOString().split("T")[0] &&
+      const dateStr = date.toISOString().split("T")[0];
+
+      // Filter schedules for this time slot, excluding the learner's own bookings that are being rescheduled
+      const relevantSchedules = schedules.filter((s) => {
+        const isInTimeRange =
+          s.date === dateStr &&
           s.start_time >= startTime &&
-          s.end_time <= endTime,
-      );
+          s.end_time <= endTime;
+
+        // If this is a reschedule operation, exclude the learner's own bookings that are being rescheduled
+        if (
+          isRescheduling &&
+          s.learner_id === learnerId &&
+          s.lesson_id &&
+          lessonIds.includes(s.lesson_id)
+        ) {
+          return false;
+        }
+
+        return isInTimeRange;
+      });
 
       const availableInstructors = instructors
         .filter((instructor) => {
@@ -161,7 +235,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
         availableInstructors,
       };
     },
-    [schedules, instructors],
+    [schedules, instructors, isRescheduling, learnerId, lessonIds],
   );
 
   useEffect(() => {
@@ -176,17 +250,40 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
             slot.start,
             slot.end,
           );
-          const existingSchedule = existingSchedules.find(
+
+          const currentDateStr = currentDate.toISOString().split("T")[0];
+
+          // Find all bookings that fall within this time slot's range
+          const slotBookings = existingSchedules.filter(
             (s) =>
-              s.date === currentDate.toISOString().split("T")[0] &&
-              s.start_time === slot.start,
+              s.date === currentDateStr &&
+              s.start_time >= slot.start &&
+              s.start_time < slot.end,
           );
+
+          // Count how many hours are booked in this slot
+          const bookedHours = slotBookings.length;
+
+          // Check if any of the bookings are for the lesson we're rescheduling
+          const hasReschedulingLesson = slotBookings.some(
+            (booking) =>
+              booking.lesson_id && lessonIds.includes(booking.lesson_id),
+          );
+
+          // Check if there are any bookings for other lessons
+          const hasOtherLessons = slotBookings.some(
+            (booking) =>
+              booking.lesson_id && !lessonIds.includes(booking.lesson_id),
+          );
+
           newSlots.push({
             date: currentDate,
             startTime: slot.start,
             endTime: slot.end,
-            isAvailable,
-            selectedDuration: existingSchedule ? 1 : 0,
+            isAvailable: isAvailable && !hasOtherLessons,
+            // If this slot has our lesson, show the duration as 1 or 2 based on booked hours
+            // If it's not our lesson or no booking, show 0
+            selectedDuration: hasReschedulingLesson ? bookedHours : 0,
             availableInstructors,
           });
         });
@@ -199,6 +296,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
     existingSchedules,
     startDate,
     checkSlotAvailability,
+    lessonIds,
   ]);
 
   const handleSlotClick = (clickedSlot: TimeSlot) => {
@@ -288,19 +386,12 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
 
     mutate(slotsToBook, {
       onSuccess: () => {
-        navigate("/createSchedule/uploadLL");
+        navigate("/home");
       },
       onError: (error) => {
         alert("Error booking slots: " + error.message);
       },
     });
-  };
-
-  const addHours = (timeString: string, hours: number) => {
-    const [h, m, s] = timeString.split(":").map(Number);
-    const date = new Date(2000, 0, 1, h, m, s);
-    date.setHours(date.getHours() + hours);
-    return date.toTimeString().slice(0, 8);
   };
 
   const handleDateChange = (direction: "left" | "right") => {
@@ -351,7 +442,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
                                 variant={
                                   slot?.selectedDuration ? "default" : "outline"
                                 }
-                                className={`flex-grow p-1 text-xs ${!slot?.isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
+                                className={`flex-grow text-xs ${!slot?.isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
                                 onClick={() => slot && handleSlotClick(slot)}
                                 disabled={!slot?.isAvailable}
                               >
@@ -389,6 +480,16 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
                                     }
                                   >
                                     2h
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="ml-1 px-2 py-1 text-xs"
+                                    onClick={() =>
+                                      handleDurationChange(slot, 0)
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
                               )}

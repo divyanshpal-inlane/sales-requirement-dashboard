@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from "lucide-react"; // Add this import
 import { useState } from "react"; // Import useState
 import { Navigate } from "react-router";
 
@@ -10,16 +11,21 @@ export default function Login() {
   const [active, setActive] = useState<"login" | "signup">("login");
   const [phone, setPhone] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const onSubmitHandler = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(""); // Clear any previous errors
     try {
       if (active === "login") {
         await login(phone, password, "learner");
       } else {
         await signUp(phone, password, "learner");
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle different error messages
+      setErrorMessage(error?.message || "An error occurred. Please try again.");
       console.error("Login failed:", error);
     }
   };
@@ -50,14 +56,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={onSubmitHandler}>
-          {" "}
-          {/* Add form element */}
           <div className="space-y-4">
-            {/* <Input
-              placeholder="Enter Your Name"
-              value={name} // Bind phone state
-              onChange={(e) => setName(e.target.value)} // Update phone state
-            /> */}
             <div className="flex h-fit rounded-md shadow-md">
               <span className="flex items-center rounded-l-md border border-r-0 bg-gray-100 px-3 text-gray-500">
                 +91
@@ -69,12 +68,31 @@ export default function Login() {
                 onChange={(e) => setPhone(e.target.value)} // Update phone state
               />
             </div>
-            <Input
-              type="password"
-              placeholder="Create Password"
-              value={password} // Bind password state
-              onChange={(e) => setPassword(e.target.value)} // Update password state
-            />
+            <div className="space-y-1">
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder={
+                    active === "login" ? "Enter Password" : "Create Password"
+                  }
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {errorMessage && (
+                <p className="text-sm text-destructive" role="alert">
+                  {errorMessage}
+                </p>
+              )}
+            </div>
             <div className="flex flex-col items-center gap-1">
               {active === "login" ? (
                 <>
@@ -86,7 +104,10 @@ export default function Login() {
                     <Button
                       type="button"
                       variant={"link"}
-                      onClick={() => setActive("signup")}
+                      onClick={() => {
+                        setActive("signup");
+                        setErrorMessage("");
+                      }}
                     >
                       Signup
                     </Button>
@@ -102,7 +123,10 @@ export default function Login() {
                     <Button
                       type="button"
                       variant={"link"}
-                      onClick={() => setActive("login")}
+                      onClick={() => {
+                        setActive("login");
+                        setErrorMessage("");
+                      }}
                     >
                       Login
                     </Button>
@@ -117,14 +141,18 @@ export default function Login() {
           By continuing, you agree to our
           <nav className="flex flex-row justify-center gap-4">
             <a
-              href="#"
+              target="_blank"
+              href="https://inlane.in/terms-and-conditions"
               className="text-muted-foreground hover:text-blue-500 hover:underline"
+              rel="noreferrer"
             >
               Terms of Service
             </a>
             <a
-              href="#"
+              target="_blank"
+              href="https://inlane.in/privacy-policy"
               className="text-muted-foreground hover:text-blue-500 hover:underline"
+              rel="noreferrer"
             >
               Privacy Policies
             </a>

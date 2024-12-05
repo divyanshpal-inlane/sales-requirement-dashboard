@@ -14,9 +14,15 @@ import invariant from "tiny-invariant";
 
 import TriviaCard from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { COURSES_DATA } from "@/constants/courses";
 import { LESSON_CONTENT } from "@/constants/Lesson";
+import { numberToText } from "@/lib/utils";
 import { useLearner, useLesson, useSchedule } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
@@ -68,30 +74,6 @@ export function LessonPlan({
     icon: triviaIcon,
     color: triviaColor,
   } = trivia ?? {};
-  const [
-    {
-      title: videoTitle,
-      icon: videoIcon,
-      color: videoColor,
-      video_path: videoVideoPath,
-    } = {} as {
-      title: string;
-      icon: string;
-      color: string;
-      video_path: string;
-    },
-    {
-      title: videoTitle2,
-      icon: videoIcon2,
-      color: videoColor2,
-      video_path: videoVideoPath2,
-    } = {} as {
-      title: string;
-      icon: string;
-      color: string;
-      video_path: string;
-    },
-  ] = videos ?? [];
   const {
     title: signatureTitle,
     icon: signatureIcon,
@@ -100,6 +82,26 @@ export function LessonPlan({
 
   const menuItems = useMemo(
     () => [
+      ...(videos && videos.length > 0
+        ? videos.map((video) => ({
+            title: video.title ?? "",
+            icon: video.icon ?? "",
+            color: video.color ?? "",
+            content: (
+              <video
+                className="w-80 overflow-hidden rounded-lg"
+                autoPlay
+                playsInline
+                muted={false}
+                controls
+              >
+                <source src={video.video_path} type="video/mp4" />
+                <track kind="captions" src="" label="English captions" />
+                Your browser does not support the video tag.
+              </video>
+            ),
+          }))
+        : []),
       ...(trivia && game
         ? [
             {
@@ -107,46 +109,6 @@ export function LessonPlan({
               icon: triviaIcon ?? "",
               color: triviaColor ?? "",
               content: <TriviaCard finishGame={finishGame} game={game} />,
-            },
-          ]
-        : []),
-      ...(videos
-        ? [
-            {
-              title: videoTitle ?? "",
-              icon: videoIcon ?? "",
-              color: videoColor ?? "",
-              content: (
-                <video
-                  className="w-80 overflow-hidden rounded-lg"
-                  autoPlay
-                  playsInline
-                  muted={false}
-                  controls
-                >
-                  <source src={videoVideoPath} type="video/mp4" />
-                  <track kind="captions" src="" label="English captions" />
-                  Your browser does not support the video tag.
-                </video>
-              ),
-            },
-            {
-              title: videoTitle2 ?? "",
-              icon: videoIcon2 ?? "",
-              color: videoColor2 ?? "",
-              content: (
-                <video
-                  className="w-80 overflow-hidden rounded-lg"
-                  autoPlay
-                  playsInline
-                  muted={false}
-                  controls
-                >
-                  <source src={videoVideoPath2} type="video/mp4" />
-                  <track kind="captions" src="" label="English captions" />
-                  Your browser does not support the video tag.
-                </video>
-              ),
             },
           ]
         : []),
@@ -162,21 +124,17 @@ export function LessonPlan({
         : []),
     ],
     [
-      trivia,
       videos,
-      signature,
+      trivia,
+      game,
+      finishGame,
       triviaTitle,
       triviaIcon,
       triviaColor,
-      videoTitle,
-      videoIcon,
-      videoColor,
-      videoVideoPath,
+      signature,
       signatureTitle,
       signatureIcon,
       signatureColor,
-      finishGame,
-      game,
     ],
   );
 
@@ -194,9 +152,9 @@ export function LessonPlan({
     }
   };
 
-  const handleReschedule = () => {
-    navigate(`/reschedule/${lesson.id}`);
-  };
+  const timeString = schedule
+    ? `${format(new Date(`2000-01-01T${schedule.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${schedule.start_time}`).setHours(new Date(`2000-01-01T${schedule.start_time}`).getHours() + 1), "h:mm a")}`
+    : "Not available";
 
   return (
     <div
@@ -224,7 +182,7 @@ export function LessonPlan({
             </Button>
 
             <div className="flex flex-row items-center justify-center gap-1">
-              {lesson.number > 1 ? (
+              {lesson.number && lesson.number > 1 ? (
                 <Button
                   size={"icon"}
                   variant={"ghost"}
@@ -236,11 +194,13 @@ export function LessonPlan({
               ) : (
                 <div></div>
               )}
-              <p className="text-white">Lesson {lesson.number}</p>
+              <p className="text-2xl leading-none text-white">
+                Lesson {numberToText(lesson.number)}
+              </p>
               {lesson.number && lesson.number < 10 && (
                 <Button
+                  variant={"link"}
                   size={"icon"}
-                  variant={"ghost"}
                   className="text-white"
                   onClick={() =>
                     navigate(
@@ -290,65 +250,89 @@ export function LessonPlan({
                 transition={{ duration: 0.3 }}
                 className="overflow-hidden"
               >
-                <div className="flex w-full flex-col flex-wrap gap-6 gap-y-1 font-light">
-                  <div className="flex w-full flex-row gap-4">
-                    <div className="flex w-full flex-col gap-0">
-                      <p className="text-sm font-light">Date, Time</p>
-                      <p className="text-base">
-                        {schedule
-                          ? format(new Date(schedule.date), "EEE, do MMM") +
-                            ", " +
-                            format(
-                              new Date(`2000-01-01T${schedule.start_time}`),
-                              "h aa",
-                            )
-                          : "Not available"}
-                      </p>
-                    </div>
-                    <div className="flex w-full flex-col gap-0">
-                      <p className="text-sm font-light">Instructor Name</p>
-                      <p className="text-base">
-                        {schedule?.Instructor?.name
-                          ? schedule?.Instructor?.name
-                          : "Not available"}
-                      </p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Row 1 */}
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Date</p>
+                    <p className="text-base">
+                      {schedule
+                        ? format(new Date(schedule.date), "EEE, do MMM")
+                        : "Not available"}
+                    </p>
                   </div>
-                  <div className="flex w-full flex-row gap-4">
-                    <div className="flex w-full flex-col gap-0">
-                      <p className="text-sm font-light">Pick Up location</p>
-                      <p className="text-base">Not available</p>
-                    </div>
-                    <div className="flex w-full flex-col gap-0">
-                      <p className="text-sm font-light">Car Model</p>
-                      <p className="text-base">Not available</p>
-                    </div>
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Time</p>
+                    <p className="text-base">{timeString}</p>
                   </div>
-                  <div className="flex w-full flex-row gap-4">
-                    <div className="flex flex-col gap-0">
-                      <p className="text-sm font-light">Car Number</p>
-                      <p className="text-base">Not available</p>
-                    </div>
+
+                  {/* Row 2 */}
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Instructor Name</p>
+                    <p className="text-base">
+                      {schedule?.Instructor?.name
+                        ? schedule?.Instructor?.name
+                        : "Not available"}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Pick Up location</p>
+
+                    <Popover>
+                      <PopoverTrigger>
+                        <p className="truncate text-base">
+                          {learner?.pick_up_location
+                            ? learner?.pick_up_location
+                            : "Not available"}
+                        </p>
+                      </PopoverTrigger>
+                      <PopoverContent>
+                        {learner?.pick_up_location}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Row 3 */}
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Car Model</p>
+                    <p className="text-base">
+                      {schedule?.Instructor?.car_make
+                        ? schedule?.Instructor?.car_make
+                        : "Not available"}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Car Number</p>
+                    <p className="text-base">
+                      {schedule?.Instructor?.car_number
+                        ? schedule?.Instructor?.car_number
+                        : "Not available"}
+                    </p>
                   </div>
                 </div>
               </motion.div>
               {isSessionDetailsMinimized && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-sm font-light"
-                >
-                  Date, Time:{" "}
-                  {schedule
-                    ? format(new Date(schedule.date), "EEE, do MMM") +
-                      ", " +
-                      format(
-                        new Date(`2000-01-01T${schedule.start_time}`),
-                        "h aa",
-                      )
-                    : "Not available"}
-                </motion.p>
+                <div className="flex flex-col gap-1">
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-base font-light"
+                  >
+                    <span className="font-medium">Date:</span>{" "}
+                    {schedule
+                      ? format(new Date(schedule.date), "EEE, do MMM")
+                      : "Not available"}
+                  </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-base font-light"
+                  >
+                    <span className="font-medium">Time: </span>
+                    {timeString}
+                  </motion.p>
+                </div>
               )}
             </motion.div>
           </AnimatePresence>
@@ -387,9 +371,9 @@ export function LessonPlan({
               className="flex w-full grow overflow-y-auto"
             >
               <ScrollArea className="mx-4 mb-4 flex grow overflow-y-auto rounded-b-3xl rounded-t-3xl bg-[#FFFFF0]">
-                <div className="flex flex-col gap-4 p-6 pb-16">
+                <div className="flex flex-col gap-4 p-6 pb-24">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold">Information</h2>
+                    <h2 className="text-2xl font-semibold">Lesson Plan</h2>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -405,9 +389,7 @@ export function LessonPlan({
                         <div key={header} className="flex items-center gap-2">
                           <TowerControl className="h-6 w-6" />
                           <div>
-                            <p className="font-medium text-accent-purple">
-                              {header}
-                            </p>
+                            <p className="font-medium text-primary">{header}</p>
                             <p className="text-sm text-muted-foreground">
                               {desc}
                             </p>
@@ -417,10 +399,10 @@ export function LessonPlan({
                     </div>
                   </div>
                   <div className="mt-4 rounded-lg bg-black bg-opacity-10 p-4 backdrop-blur-sm">
-                    <h4 className="mb-2 text-lg text-accent-purple">
+                    <h4 className="mb-4 text-lg text-accent-purple">
                       Things to remember
                     </h4>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-3">
                       {remember.map(({ icon, text }) => (
                         <p
                           key={text}

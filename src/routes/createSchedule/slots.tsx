@@ -41,12 +41,12 @@ export default function ScheduleSlots() {
             className="text-primary-foreground"
             asChild
           >
-            <Link to="/createSchedule/details">
+            <Link to="/createSchedule/uploadLL">
               <ArrowLeft className="h-6 w-6" />
             </Link>
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            2/3
+            3/3
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">

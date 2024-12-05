@@ -9,7 +9,7 @@ export interface InputProps
 import { cva, VariantProps } from "class-variance-authority";
 
 const inputVariants = cva(
-  "flex h-fit w-full rounded-md border border-input bg-transparent px-3 py-3 text-sm shadow-md transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+  "flex h-fit w-full rounded-md border border-input bg-transparent px-3 py-3 text-base shadow-md transition-colors file:border-0 file:bg-transparent file:text-base file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {

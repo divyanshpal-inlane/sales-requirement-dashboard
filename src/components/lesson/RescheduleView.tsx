@@ -9,12 +9,22 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/context/auth-context";
 import { useLearner } from "@/queries/learner";
 
+interface Lesson {
+  id: string;
+  number: number;
+  course_id: string;
+  Courses: {
+    id: string;
+    name: string | null;
+  };
+}
+
 function RescheduleView() {
   const { lessonId } = useParams<{ lessonId: string }>();
   invariant(lessonId, "lessonId is required");
   const { data: learner } = useLearner();
 
-  const { data: lesson } = useQuery({
+  const { data: lesson } = useQuery<Lesson>({
     queryKey: ["lesson", lessonId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -23,28 +33,32 @@ function RescheduleView() {
         .eq("id", lessonId)
         .single();
       if (error) throw error;
-      return data;
+      if (!data) throw new Error("Lesson not found");
+      return data as Lesson;
     },
   });
 
-  const { data: allLessons } = useQuery({
+  const { data: allLessons } = useQuery<Lesson[]>({
     queryKey: ["allLessons", lesson?.course_id],
     queryFn: async () => {
-      if (!lesson) throw new Error("Lesson not found");
+      if (!lesson?.course_id) throw new Error("Course ID not found");
       const { data, error } = await supabase
         .from("Lesson")
         .select("*")
         .eq("course_id", lesson.course_id)
         .order("number", { ascending: true });
       if (error) throw error;
-      return data;
+      if (!data) throw new Error("No lessons found");
+      return data as Lesson[];
     },
-    enabled: !!lesson,
+    enabled: !!lesson?.course_id,
   });
 
   const upcomingLessonIds = React.useMemo(() => {
-    if (!allLessons || !lesson) return [];
-    return allLessons.filter((l) => l.number >= lesson.number).map((l) => l.id);
+    if (!allLessons || !lesson?.number) return [];
+    return allLessons
+      .filter((l) => (l.number || 0) >= lesson.number)
+      .map((l) => l.id);
   }, [allLessons, lesson]);
 
   if (!learner || !lesson || !allLessons) {
@@ -84,6 +98,7 @@ function RescheduleView() {
         lessonIds={upcomingLessonIds}
         courseId={lesson.course_id}
         startFromLessonId={lessonId}
+        isRescheduling={true}
       />
     </div>
   );

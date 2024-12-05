@@ -1,6 +1,7 @@
+import { useLoadScript } from "@react-google-maps/api";
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useState } from "react"; // Add this import
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react"; // Add this import
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,8 @@ import {
 import { AREAS } from "@/constants/courses"; // Add this import
 import { useLearnerUpdate } from "@/queries/learner";
 
+const libraries = ["places"];
+
 export default function ScheduleDetails() {
   const { mutate: updateLearner } = useLearnerUpdate();
   // Add state for address and pin code
@@ -22,19 +25,75 @@ export default function ScheduleDetails() {
   const [pinCode, setPinCode] = useState<string>("");
 
   const [area, setArea] = useState<string>(""); // Add state for area
+  const [addressLat, setAddressLat] = useState<number | null>(null);
+  const [addressLng, setAddressLng] = useState<number | null>(null);
 
   const navigate = useNavigate();
 
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    libraries: libraries as ["places"],
+  });
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
+
+    autocompleteRef.current = new google.maps.places.Autocomplete(
+      inputRef.current,
+      {
+        componentRestrictions: { country: "IN" },
+        fields: ["address_components", "formatted_address", "geometry"],
+      },
+    );
+
+    const listener = autocompleteRef.current.addListener(
+      "place_changed",
+      () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (place?.formatted_address) {
+          setAddress(place.formatted_address);
+
+          if (place.geometry?.location) {
+            setAddressLat(place.geometry.location.lat());
+            setAddressLng(place.geometry.location.lng());
+          }
+
+          const postcodeComponent = place.address_components?.find(
+            (component) => component.types.includes("postal_code"),
+          );
+          if (postcodeComponent) {
+            setPinCode(postcodeComponent.long_name);
+          }
+        }
+      },
+    );
+
+    // Cleanup listener when component unmounts
+    return () => {
+      google.maps.event.removeListener(listener);
+      autocompleteRef.current = null;
+    };
+  }, [isLoaded]);
+
   const onContinue = useCallback(() => {
     updateLearner(
-      { pincode: pinCode, pick_up_location: address, area }, // Pass area to updateLearner
+      {
+        pincode: pinCode,
+        pick_up_location: address,
+        area,
+        address_lat: addressLat,
+        address_lng: addressLng,
+      },
       {
         onSuccess: () => {
-          navigate("/createSchedule/slots");
+          navigate("/createSchedule/uploadLL");
         },
       },
     );
-  }, [address, navigate, pinCode, updateLearner, area]); // Add area to dependencies
+  }, [address, navigate, pinCode, updateLearner, area, addressLat, addressLng]);
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -44,11 +103,9 @@ export default function ScheduleDetails() {
             variant="ghost"
             size="icon"
             className="text-primary-foreground"
-            asChild
+            onClick={() => navigate("/home")}
           >
-            <Link to="/schedule">
-              <ArrowLeft className="h-6 w-6" />
-            </Link>
+            <ArrowLeft className="h-6 w-6" />
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
             1/3
@@ -84,9 +141,10 @@ export default function ScheduleDetails() {
             <Input
               id="input1"
               type="text"
-              placeholder="Koramangla, Indiranagar"
-              value={address} // Bind value to state
-              onChange={(e) => setAddress(e.target.value)} // Update state on change
+              placeholder="Start typing your address..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              ref={inputRef}
             />
           </div>
           <div className="flex w-full flex-col gap-1">

@@ -54,18 +54,17 @@ export function useSetLLTestDate() {
 }
 
 export function useSetLLResult() {
+  const { phone } = useUser();
   return useMutation({
     mutationFn: async ({
-      phone,
       LL_result,
     }: {
-      phone: string | null | undefined;
       LL_result: boolean | null | undefined;
     }) => {
       console.log("Phone:", phone);
       console.log("LL_result:", LL_result);
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("Learner")
         .update({ LL_result: LL_result })
         .eq("phone", phone)
@@ -81,48 +80,59 @@ export function useSetLLResult() {
 
 export function useUpcomingLesson() {
   const { phone } = useUser();
+  const { data: learner } = useLearner();
+
   return useQuery({
-    queryKey: ["upcomingLesson", phone],
+    queryKey: ["schedule", "upcomingLesson", phone, learner?.id],
     queryFn: async () => {
-      // Query the Learner table to find the learner_id
-      const { data: learner, error: learnerError } = await supabase
-        .from("Learner")
-        .select("id")
-        .eq("phone", phone)
-        .single();
-
-      if (learnerError) {
-        throw new Error("Supabase error while fetching learner");
+      if (!learner?.id) {
+        return {
+          upcomingSchedule: null,
+          upcomingLesson: null,
+          instructor: null,
+          course: null,
+        };
       }
-
-      if (!learner) {
-        throw new Error("No learner found with the given phone number");
-      }
-
-      const learner_id = learner.id;
-
-      // Query the Schedule table
-      const { data: schedule, error: scheduleError } = await supabase
-        .from("Schedule")
-        .select()
-        .eq("learner_id", learner_id);
-
-      if (scheduleError) {
-        throw new Error("Supabase error while fetching schedule");
-      }
-
       const currentDate = new Date();
-      const currentTime = currentDate.toTimeString().split(" ")[0]; // Get current time as string in HH:MM:SS format
+      const currentTime = currentDate.toTimeString().split(" ")[0];
 
-      // Filter out invalid or null dates and find the closest upcoming schedule
-      const validSchedules = schedule.filter((item) => {
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select(
+          `
+          *,
+          Lesson (*),
+          Instructor (
+            id_instructor,
+            name,
+            car_make,
+            car_number
+          ),
+          Courses (*)
+        `,
+        )
+        .eq("learner_id", learner.id);
+
+      if (error) {
+        throw new Error(`Supabase error: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        return {
+          upcomingSchedule: null,
+          upcomingLesson: null,
+          instructor: null,
+          course: null,
+        };
+      }
+
+      // Filter and sort upcoming schedules
+      const validSchedules = data.filter((item) => {
         if (!item.date) return false;
         const itemDate = new Date(item.date);
 
-        // If the date is in the future, include it
         if (itemDate > currentDate) return true;
 
-        // If the date is today, check the end_time
         if (itemDate.toDateString() === currentDate.toDateString()) {
           return item.end_time && item.end_time > currentTime;
         }
@@ -136,11 +146,7 @@ export function useUpcomingLesson() {
         return dateTimeA.getTime() - dateTimeB.getTime();
       });
 
-      const upcomingSchedule = sortedSchedules.length
-        ? sortedSchedules[0]
-        : null;
-
-      if (!upcomingSchedule) {
+      if (sortedSchedules.length === 0) {
         return {
           upcomingSchedule: null,
           upcomingLesson: null,
@@ -149,45 +155,16 @@ export function useUpcomingLesson() {
         };
       }
 
-      const { lesson_id, instructor_id, course_id } = upcomingSchedule;
-
-      // Query the Lesson table
-      const { data: lesson, error: lessonError } = await supabase
-        .from("Lesson")
-        .select()
-        .eq("id", lesson_id!)
-        .single();
-
-      if (lessonError) throw new Error("Supabase error while fetching lesson");
-
-      // Query the Instructor table
-      const { data: instructor, error: instructorError } = await supabase
-        .from("Instructor")
-        .select()
-        .eq("id_instructor", instructor_id!)
-        .single();
-
-      if (instructorError) {
-        throw new Error("Supabase error while fetching instructor");
-      }
-
-      // Query the Courses table
-      const { data: course, error: courseError } = await supabase
-        .from("Courses")
-        .select()
-        .eq("id", course_id!)
-        .single();
-
-      if (courseError) throw new Error("Supabase error while fetching course");
+      const nextSchedule = sortedSchedules[0];
 
       return {
-        upcomingSchedule,
-        upcomingLesson: lesson || null,
-        instructor: instructor || null,
-        course: course || null,
+        upcomingSchedule: nextSchedule,
+        upcomingLesson: nextSchedule.Lesson,
+        instructor: nextSchedule.Instructor,
+        course: nextSchedule.Courses,
       };
     },
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 30, // 30 minutes
     enabled: !!phone,
   });
 }
@@ -218,11 +195,18 @@ export function useLearnerUpdate() {
 }
 
 export function useUploadLLMutation() {
+  const { phone } = useUser();
   return useMutation({
-    mutationFn: async ({ file, phone }: { file: File; phone: string }) => {
+    mutationFn: async ({
+      file,
+      fileName = "LL",
+    }: {
+      file: File;
+      fileName?: string;
+    }) => {
       const { data, error } = await supabase.storage
         .from("LL")
-        .upload(`${phone}/${file.name}`, file, {
+        .upload(`${phone}/${fileName}.${file.type.split("/")[1]}`, file, {
           cacheControl: "3600",
           upsert: true,
         });
@@ -250,9 +234,11 @@ export function useLessons({ courseId }: { courseId: string }) {
 export function useLesson({
   number,
   courseId = COURSES_DATA["BEGINNER"].id,
+  refetchInterval = 0,
 }: {
   number: number;
-  courseId: string;
+  courseId?: string;
+  refetchInterval?: number;
 }) {
   return useQuery({
     queryKey: ["lesson", courseId, number],
@@ -266,6 +252,31 @@ export function useLesson({
       if (error) throw new Error(error.message);
       return data;
     },
+    refetchInterval,
+  });
+}
+
+export function useLessonSchedule({
+  lessonId,
+  refetchInterval = 0,
+}: {
+  lessonId: string | undefined;
+  refetchInterval?: number;
+}) {
+  return useQuery({
+    queryKey: ["lessonSchedule", lessonId],
+    queryFn: async () => {
+      if (!lessonId) return null;
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("id, date, start_time, end_time, status")
+        .eq("lesson_id", lessonId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval,
+    enabled: !!lessonId,
   });
 }
 
@@ -281,7 +292,9 @@ export function useSchedule({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Schedule")
-        .select("id, date, start_time, end_time, Instructor (name)")
+        .select(
+          "id, date, start_time, end_time, Instructor (name, car_make, car_number)",
+        )
         .eq("lesson_id", lessonId)
         .eq("learner_id", learnerId)
         .single();

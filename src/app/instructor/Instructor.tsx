@@ -1,8 +1,7 @@
-import { addMinutes, isAfter } from "date-fns";
 import {
   CircleCheckBig,
+  ExternalLinkIcon,
   PhoneOutgoing,
-  SquareArrowOutUpRight,
   UserPen,
 } from "lucide-react";
 import { useNavigate } from "react-router";
@@ -59,31 +58,6 @@ const Instructor = () => {
     return `${formattedStartTime} to ${formattedEndTime}`;
   }
 
-  const shouldShowOTP = (timeStr: string): boolean => {
-    // Get current time
-    const now = new Date();
-
-    // Parse the time string (format: "HH:mm:ss")
-    const [hours, minutes] = timeStr.split(":").map(Number);
-
-    // Create a date object for the lesson time today
-    const lessonTime = new Date();
-    lessonTime.setHours(hours, minutes, 0);
-
-    // If the lesson time has already passed for today, it's a past lesson
-    if (isAfter(now, lessonTime)) {
-      return true;
-    }
-
-    // Calculate 30 minutes before lesson
-    const thirtyMinutesBefore = addMinutes(lessonTime, -30);
-
-    // Show OTP if current time is after the 30-minute mark
-    return isAfter(now, thirtyMinutesBefore);
-  };
-
-  console.log(instructorData);
-
   return (
     <>
       <div className="flex h-full w-full p-6 pb-20">
@@ -132,18 +106,32 @@ const Instructor = () => {
                     <CardContent className="flex flex-col gap-4">
                       <div className="flex flex-col gap-1 text-xs">
                         <div className="flex flex-row items-center gap-1">
-                          <p>Pick-up Location :</p>
-                          <p>{learner.pick_up_location}</p>
-                          <div className="ml-1">
-                            <SquareArrowOutUpRight size={14} />
-                          </div>
+                          <p className="text-nowrap text-muted-foreground">
+                            Pick-up Location :
+                          </p>
+                          <a
+                            href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                          >
+                            <span className="truncate">
+                              {learner.pick_up_location}
+                            </span>
+                            <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+                          </a>
                         </div>
                         <div className="flex flex-row gap-1">
-                          <p>Learner name :</p>
+                          <p className="text-muted-foreground">
+                            Learner name :
+                          </p>
                           <p>{learner.name}</p>
                         </div>
                         <div className="flex flex-row items-center gap-1">
-                          <p>Contact Learner : {learner.phone}</p>
+                          <p className="text-muted-foreground">
+                            Contact Learner :{" "}
+                          </p>
+                          <p>{learner.phone}</p>
                           <div className="ml-1">
                             <a href={`tel:+91${learner.phone}`}>
                               <PhoneOutgoing size={14} />
@@ -262,18 +250,30 @@ const Instructor = () => {
                   <CardContent className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1 text-xs">
                       <div className="flex flex-row items-center gap-1">
-                        <p>Pick-up Location :</p>
-                        <p>{learner.pick_up_location}</p>
-                        <div className="ml-1">
-                          <SquareArrowOutUpRight size={14} />
-                        </div>
+                        <p className="text-nowrap text-muted-foreground">
+                          Pick-up Location :
+                        </p>
+                        <a
+                          href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                        >
+                          <span className="truncate">
+                            {learner.pick_up_location}
+                          </span>
+                          <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+                        </a>
                       </div>
                       <div className="flex flex-row gap-1">
-                        <p>Learner name :</p>
+                        <p className="text-muted-foreground">Learner name :</p>
                         <p>{learner.name}</p>
                       </div>
                       <div className="flex flex-row items-center gap-1">
-                        <p>Contact Learner : {learner.phone}</p>
+                        <p className="text-muted-foreground">
+                          Contact Learner :{" "}
+                        </p>
+                        <p>{learner.phone}</p>
                         <div className="ml-1">
                           <a href={`tel:+91${learner.phone}`}>
                             <PhoneOutgoing size={14} />

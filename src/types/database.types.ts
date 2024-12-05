@@ -176,6 +176,8 @@ export type Database = {
       Learner: {
         Row: {
           aadhar_state: string | null
+          address_lat: number | null
+          address_lng: number | null
           area: string | null
           city: string | null
           created_at: string
@@ -203,6 +205,8 @@ export type Database = {
         }
         Insert: {
           aadhar_state?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
           area?: string | null
           city?: string | null
           created_at?: string
@@ -230,6 +234,8 @@ export type Database = {
         }
         Update: {
           aadhar_state?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
           area?: string | null
           city?: string | null
           created_at?: string

@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { InteractiveImageQuiz, QuestionQuiz } from "@/components/lesson/quiz";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PaintedText } from "@/components/ui/paint-text";
 
 export type ImageGame = {
@@ -49,11 +50,56 @@ const TriviaCard = ({
     undefined,
   );
   const [gameIndex, setGameIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
   const isCorrect = selectedAnswer === game[gameIndex].correctAnswer;
+
+  useEffect(() => {
+    if (timeLeft === 0) {
+      setShowTimeUpDialog(true);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  useEffect(() => {
+    // Reset timer when moving to next question
+    setTimeLeft(15);
+  }, [gameIndex]);
 
   const Comp = gameToTriviaMap[gameType];
   return (
     <div className="flex h-full w-full items-center justify-center">
+      <Dialog open={showTimeUpDialog} onOpenChange={setShowTimeUpDialog}>
+        <DialogContent className="sm:max-w-md">
+          <div className="flex flex-col items-center gap-4 p-6">
+            <h2 className="text-2xl font-bold text-destructive">Time's Up!</h2>
+            <p className="text-center text-gray-600">
+              You ran out of time for this question.
+            </p>
+            <Button
+              onClick={() => {
+                setShowTimeUpDialog(false);
+                if (gameIndex + 1 >= game.length) {
+                  finishGame();
+                } else {
+                  setGameIndex((prev) => prev + 1);
+                  setSelectedAnswer(undefined);
+                }
+              }}
+              className="w-full"
+            >
+              {gameIndex + 1 >= game.length ? "Finish Game" : "Next Question"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="relative flex aspect-[2/3] w-full max-w-sm flex-col justify-center rounded-[30px] bg-white p-2 shadow-[0_10px_20px_rgba(0,0,0,0.19),_0_6px_6px_rgba(0,0,0,0.23)] transition-all duration-300 hover:shadow-[0_14px_28px_rgba(0,0,0,0.25),_0_10px_10px_rgba(0,0,0,0.22)]">
         <PaintedText
           className="absolute -left-2 top-14 -m-2 p-2 px-4 text-2xl font-light"
@@ -61,8 +107,10 @@ const TriviaCard = ({
         >
           Trivia time
         </PaintedText>
-        <PaintedText className="absolute right-6 top-14 text-lg text-black">
-          15 secs <span className="text-2xl">⏰</span>
+        <PaintedText
+          className={`absolute right-6 top-14 text-lg ${timeLeft <= 5 ? "text-destructive" : "text-black"}`}
+        >
+          {timeLeft} secs <span className="text-2xl">⏰</span>
         </PaintedText>
         <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
           {gameType === "image" ? (
@@ -77,7 +125,7 @@ const TriviaCard = ({
             game={game[gameIndex]}
           />
           {gameType === "image" ? (
-            <p className="mt-1 w-full px-4 text-start font-glancyr text-xs">
+            <p className="mt-1 w-full px-4 text-start font-glancyr text-base">
               Click on the image to input your answer
             </p>
           ) : null}

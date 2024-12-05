@@ -92,7 +92,7 @@ export default function Profile2() {
           variant="ghost"
           size="icon"
           onClick={() => navigate(-1)}
-          className="mr-2 transform rounded-full bg-white transition-transform hover:scale-105"
+          className="mr-2 transform bg-white transition-transform hover:scale-105"
         >
           <ArrowLeft size={24} />
         </Button>
@@ -101,10 +101,10 @@ export default function Profile2() {
       {/* Header */}
       <div className="flex items-center justify-center gap-2 text-center text-3xl font-bold">
         <UserPen
-          size={44}
+          size={36}
           className="mt-1.5 animate-pulse rounded-full border bg-white p-1 text-primary"
         />
-        <h1>Profile</h1>
+        <h1 className="text-2xl font-medium">Profile</h1>
       </div>
 
       {/* Success Alert */}

@@ -108,7 +108,10 @@ export default function App() {
               <Route path="bookLL-1" element={<LL_test_booking_1 />} />
               <Route path="bookLL-2/:navId" element={<LL_test_booking_2 />} />
               <Route path="bookLL-3" element={<LL_test_booking_3 />} />
-              <Route path="/startLesson" element={<StartLesson />} />
+              <Route
+                path="/startLesson/:lessonNumber"
+                element={<StartLesson />}
+              />
               <Route path="/lesson-review" element={<LessonReview />} />
             </Route>
             <Route
