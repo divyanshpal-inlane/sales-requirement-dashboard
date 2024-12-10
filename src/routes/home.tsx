@@ -1,7 +1,8 @@
 import { User } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import LLFlow from "@/components/ll_flow";
+import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
 import { SessionDetails } from "@/components/SessionDetails";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,10 @@ import {
   useLessonSchedule,
   useUpcomingLesson,
 } from "@/queries/learner";
+import { useLatestPayment } from "@/queries/payment";
+import type { Database } from "@/types/database.types";
+
+type Payment = Database["public"]["Tables"]["payment"]["Row"];
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -32,7 +37,7 @@ const isWithin30MinutesOfLesson = (
 export default function Home() {
   const navigate = useNavigate();
 
-  const { data, isLoading, error } = useLearner();
+  const { data: learner, isLoading, error } = useLearner();
   const {
     data: LessonData,
     isLoading: LessonIsLoading,
@@ -44,9 +49,29 @@ export default function Home() {
   });
 
   const { data: scheduledLessons } = useLearnerSchedule({
-    learnerId: data?.id,
+    learnerId: learner?.id,
   });
   const { mutate: updateLearner } = useLearnerUpdate();
+
+  const { data: payment, isLoading: paymentLoading } = useLatestPayment(
+    learner?.id,
+  );
+
+  if (paymentLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!payment || payment.status !== "completed") {
+    return (
+      <div className="container mx-auto max-w-md py-8">
+        <PaymentStatusCard />
+      </div>
+    );
+  }
+
+  if (!learner?.onboarding_completed) {
+    return <Navigate to="/onboard/birthday" />;
+  }
 
   if (isLoading || LessonIsLoading) {
     return <div>Loading...</div>;
@@ -60,7 +85,9 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
       <header className="sticky top-0 z-10 flex items-center justify-between p-4">
-        <h1 className="text-2xl font-medium">Hi {data?.name || "Learner"}!</h1>
+        <h1 className="text-2xl font-medium">
+          Hi {learner?.name || "Learner"}!
+        </h1>
         <Link to="/profile" className="rounded-full bg-white p-1">
           <User size={24} className="hover:text-primary-dark text-primary" />
         </Link>
@@ -68,9 +95,9 @@ export default function Home() {
 
       {/* Main content */}
       <main className="flex flex-grow flex-col p-4 pb-20">
-        {data && !data.has_a_DL ? (
+        {learner && !learner.has_a_DL ? (
           <LLFlow />
-        ) : data && data.LL_result === true ? (
+        ) : learner && learner.LL_result === true ? (
           scheduledLessons && scheduledLessons.length === 0 ? (
             <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
               <img

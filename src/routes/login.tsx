@@ -1,6 +1,7 @@
 import { Eye, EyeOff } from "lucide-react"; // Add this import
 import { useState } from "react"; // Import useState
 import { Navigate } from "react-router";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +9,9 @@ import { useAuth } from "@/context/auth-context";
 
 export default function Login() {
   const { login, signUp, user } = useAuth();
-  const [active, setActive] = useState<"login" | "signup">("login");
-  const [phone, setPhone] = useState<string>("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const active = searchParams.get("active") || "login";
+  const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -23,7 +25,7 @@ export default function Login() {
       } else {
         await signUp(phone, password, "learner");
       }
-    } catch (error: any) {
+    } catch (error) {
       // Handle different error messages
       setErrorMessage(error?.message || "An error occurred. Please try again.");
       console.error("Login failed:", error);
@@ -105,7 +107,7 @@ export default function Login() {
                       type="button"
                       variant={"link"}
                       onClick={() => {
-                        setActive("signup");
+                        setSearchParams({ active: "signup" });
                         setErrorMessage("");
                       }}
                     >
@@ -124,7 +126,7 @@ export default function Login() {
                       type="button"
                       variant={"link"}
                       onClick={() => {
-                        setActive("login");
+                        setSearchParams({ active: "login" });
                         setErrorMessage("");
                       }}
                     >

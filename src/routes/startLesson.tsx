@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft, Home, Phone } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import invariant from "tiny-invariant";
 
@@ -119,7 +119,10 @@ export default function StartLesson() {
         )}
 
         <Button className="mb-6 w-full" variant="destructive" asChild>
-          <a href="tel:+919748439881">Emergency Button</a>
+          <span className="flex items-center space-x-2">
+            <Phone size={16} />
+            <a href="tel:+919748439881">Emergency Button</a>
+          </span>
         </Button>
       </div>
     </PurpleGradient>

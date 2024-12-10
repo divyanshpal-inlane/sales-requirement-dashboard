@@ -26,7 +26,7 @@ export function SessionDetails({
         <CardTitle>
           <div className="flex flex-row items-center justify-center gap-3">
             <IdCardIcon />
-            <p>Lesson Details</p>
+            <p className="font-medium">Lesson Details</p>
           </div>
         </CardTitle>
       </CardHeader>

@@ -7,12 +7,20 @@ import {
   Routes,
 } from "react-router-dom";
 
+import Instructor from "@/app/instructor/Instructor";
+import InstructorProfile from "@/app/instructor/InstructorProfile";
+import OTP from "@/app/instructor/OTP";
+import LessonReview from "@/app/LessonReview";
 import LL_test_booking_1 from "@/app/LL_test_booking_1";
 import LL_test_booking_2 from "@/app/LL_test_booking_2";
 import LL_test_booking_3 from "@/app/LL_test_booking_3";
 import MainLayout from "@/components/layout/main-layout";
 import Plan from "@/components/lesson/plan";
 import RescheduleView from "@/components/lesson/RescheduleView";
+import Lesson10 from "@/components/lesson/signature";
+import PaymentCallback from "@/components/payment/PaymentCallback";
+import PaymentPage from "@/components/payment/PaymentPage";
+import PaymentStatus from "@/components/payment/PaymentStatus";
 import {
   AuthProvider,
   ProtectedInstructorRoute,
@@ -32,12 +40,6 @@ import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
-
-import Instructor from "./app/instructor/Instructor";
-import InstructorProfile from "./app/instructor/InstructorProfile";
-import OTP from "./app/instructor/OTP";
-import LessonReview from "./app/LessonReview";
-import Lesson10 from "./components/lesson/signature";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -154,6 +156,10 @@ export default function App() {
                 </ProtectedLearnerRoute>
               }
             />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/payment/callback" element={<PaymentCallback />} />
+            <Route path="/payment/success" element={<PaymentStatus />} />
+            <Route path="/payment/failure" element={<PaymentStatus />} />
           </Routes>
         </AuthProvider>
       </QueryClientProvider>

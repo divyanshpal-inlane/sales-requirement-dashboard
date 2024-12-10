@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { COURSES_DATA } from "@/constants/courses";
-import { supabase, useUser } from "@/context/auth-context";
+import { useUser } from "@/context/auth-context";
+import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/types/database.types";
 
 export function useLearner() {
@@ -306,7 +307,7 @@ export function useSchedule({
   });
 }
 
-export function useLearnerSchedule({ learnerId }: { learnerId: string }) {
+export function useLearnerSchedule({ learnerId }: { learnerId?: string }) {
   return useQuery({
     queryKey: ["schedule", learnerId],
     queryFn: async () => {

@@ -1,4 +1,4 @@
-import { createClient, User } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
 import React, {
   createContext,
   ReactNode,
@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { Navigate } from "react-router";
 
-import { Database } from "@/types/database.types";
+import { supabase } from "@/lib/supabaseClient";
 
 type UserRole = "learner" | "instructor";
 
@@ -19,10 +19,6 @@ type AuthContextType = {
   signUp: (phone: string, password: string, role: UserRole) => Promise<User>;
   logout: () => Promise<void>;
 };
-
-const supabaseUrl = "https://csnzgfzxnscumvjefpon.supabase.co";
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 const AuthContext = createContext<AuthContextType | null>(null);
 

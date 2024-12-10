@@ -13,6 +13,7 @@ export default function DLQuestion() {
         {
           LL_result: true,
           has_a_DL: true,
+          onboarding_completed: true,
         },
         {
           onSuccess: () => {
@@ -25,6 +26,7 @@ export default function DLQuestion() {
         {
           LL_result: null,
           has_a_DL: false,
+          onboarding_completed: true,
         },
         {
           onSuccess: () => {

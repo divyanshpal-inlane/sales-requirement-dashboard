@@ -42,50 +42,57 @@ export type Database = {
         }
         Relationships: []
       }
-      Enrolment: {
+      enrollment: {
         Row: {
-          course_id: string | null
+          course_id: string
           created_at: string
-          enabled: boolean | null
-          end_date: string | null
-          id: number
-          learner_id: string | null
-          payment_status: boolean | null
-          start_date: string | null
+          id: string
+          learner_id: string
+          payment_id: string | null
+          progress: Json
+          status: Database["public"]["Enums"]["enrollment_status"]
+          updated_at: string
         }
         Insert: {
-          course_id?: string | null
+          course_id: string
           created_at?: string
-          enabled?: boolean | null
-          end_date?: string | null
-          id?: number
-          learner_id?: string | null
-          payment_status?: boolean | null
-          start_date?: string | null
+          id?: string
+          learner_id: string
+          payment_id?: string | null
+          progress?: Json
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          updated_at?: string
         }
         Update: {
-          course_id?: string | null
+          course_id?: string
           created_at?: string
-          enabled?: boolean | null
-          end_date?: string | null
-          id?: number
-          learner_id?: string | null
-          payment_status?: boolean | null
-          start_date?: string | null
+          id?: string
+          learner_id?: string
+          payment_id?: string | null
+          progress?: Json
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "Enrolment_course_id_fkey"
+            foreignKeyName: "enrollment_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "Courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "Enrolment_learner_id_fkey"
+            foreignKeyName: "enrollment_learner_id_fkey"
             columns: ["learner_id"]
             isOneToOne: false
             referencedRelation: "Learner"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment"
             referencedColumns: ["id"]
           },
         ]
@@ -195,6 +202,7 @@ export type Database = {
           LL_team_appointment_booked: boolean | null
           LL_test_date: string | null
           name: string | null
+          onboarding_completed: boolean | null
           password: string | null
           phone: string
           pick_up_location: string | null
@@ -224,6 +232,7 @@ export type Database = {
           LL_team_appointment_booked?: boolean | null
           LL_test_date?: string | null
           name?: string | null
+          onboarding_completed?: boolean | null
           password?: string | null
           phone: string
           pick_up_location?: string | null
@@ -253,6 +262,7 @@ export type Database = {
           LL_team_appointment_booked?: boolean | null
           LL_test_date?: string | null
           name?: string | null
+          onboarding_completed?: boolean | null
           password?: string | null
           phone?: string
           pick_up_location?: string | null
@@ -327,50 +337,47 @@ export type Database = {
           },
         ]
       }
-      Payment: {
+      payment: {
         Row: {
-          amount: number | null
+          amount: number
           created_at: string
-          enabled: boolean | null
-          id: number
-          "⁠learner_id": string | null
-          payment_date: string | null
-          pmt_ref: string | null
-          product: string | null
-          "⁠psp_ref": string | null
-          status: boolean | null
-          transaction_id: string | null
+          email: string
+          gateway_reference: string | null
+          id: string
+          learner_id: string
+          payment_type: Database["public"]["Enums"]["payment_type"]
+          phone: string
+          status: string
+          updated_at: string
         }
         Insert: {
-          amount?: number | null
+          amount: number
           created_at?: string
-          enabled?: boolean | null
-          id?: number
-          "⁠learner_id"?: string | null
-          payment_date?: string | null
-          pmt_ref?: string | null
-          product?: string | null
-          "⁠psp_ref"?: string | null
-          status?: boolean | null
-          transaction_id?: string | null
+          email: string
+          gateway_reference?: string | null
+          id?: string
+          learner_id: string
+          payment_type: Database["public"]["Enums"]["payment_type"]
+          phone: string
+          status?: string
+          updated_at?: string
         }
         Update: {
-          amount?: number | null
+          amount?: number
           created_at?: string
-          enabled?: boolean | null
-          id?: number
-          "⁠learner_id"?: string | null
-          payment_date?: string | null
-          pmt_ref?: string | null
-          product?: string | null
-          "⁠psp_ref"?: string | null
-          status?: boolean | null
-          transaction_id?: string | null
+          email?: string
+          gateway_reference?: string | null
+          id?: string
+          learner_id?: string
+          payment_type?: Database["public"]["Enums"]["payment_type"]
+          phone?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "Payment_⁠learner_id_fkey"
-            columns: ["⁠learner_id"]
+            foreignKeyName: "payment_learner_id_fkey"
+            columns: ["learner_id"]
             isOneToOne: false
             referencedRelation: "Learner"
             referencedColumns: ["id"]
@@ -500,7 +507,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      enrollment_status: "pending" | "active" | "completed" | "cancelled"
+      payment_type: "course" | "reschedule"
     }
     CompositeTypes: {
       [_ in never]: never

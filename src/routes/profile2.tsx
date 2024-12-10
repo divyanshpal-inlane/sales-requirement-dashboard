@@ -85,7 +85,7 @@ export default function Profile2() {
   };
 
   return (
-    <div className="container mx-auto flex min-h-screen flex-col p-4">
+    <div className="container mx-auto flex h-full flex-col p-4">
       {/* Back Button */}
       <div className="mb-6 flex items-center">
         <Button

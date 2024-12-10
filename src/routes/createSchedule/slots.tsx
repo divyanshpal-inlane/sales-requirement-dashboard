@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import CalendarTimeSlotSelector from "@/components/lesson/schedule";
 import { Button } from "@/components/ui/button";
 import { COURSES_DATA } from "@/constants/courses";
-import { supabase } from "@/context/auth-context";
+import { supabase } from "@/lib/supabaseClient";
 import { useLearner, useLessons } from "@/queries/learner";
 
 const courseId = COURSES_DATA["BEGINNER"].id;

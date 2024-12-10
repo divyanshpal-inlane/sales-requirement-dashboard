@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "crypto-js": "npm:crypto-js"
+  },
+  "tasks": {
+    "deploy": "supabase functions deploy"
+  }
+}

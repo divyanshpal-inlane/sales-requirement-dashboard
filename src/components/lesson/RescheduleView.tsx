@@ -6,7 +6,7 @@ import invariant from "tiny-invariant";
 
 import CalendarTimeSlotSelector from "@/components/lesson/schedule";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/context/auth-context";
+import { supabase } from "@/lib/supabaseClient";
 import { useLearner } from "@/queries/learner";
 
 interface Lesson {
