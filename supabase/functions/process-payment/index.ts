@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
 import CryptoJS from "npm:crypto-js";
 
 const corsHeaders = {
@@ -16,7 +16,7 @@ interface PaymentDetails {
   phone: string;
   paymentType: "course" | "reschedule";
   courseId?: string;
-  scheduleId?: string;
+  requestId?: string;
 }
 
 // Utility functions for encryption and hash generation
@@ -60,7 +60,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { amount, email, phone, paymentType, courseId, scheduleId } =
+    const { amount, email, phone, paymentType, courseId, requestId } =
       (await req.json()) as PaymentDetails;
 
     // 1. Find or create learner
@@ -114,7 +114,7 @@ serve(async (req) => {
     if (dbError) throw dbError;
 
     // 3. Update related records based on payment type
-    if (paymentType === "reschedule" && scheduleId) {
+    if (paymentType === "reschedule" && requestId) {
       const { error: scheduleError } = await supabaseClient
         .from("Schedule")
         .update({ payment_id: paymentRecord.id })

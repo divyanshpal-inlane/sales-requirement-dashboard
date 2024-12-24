@@ -1,37 +1,29 @@
 import { User } from "@supabase/supabase-js";
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { Navigate } from "react-router";
+import { createContext, useContext, useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 
 import { supabase } from "@/lib/supabaseClient";
 
-type UserRole = "learner" | "instructor";
+type UserRole = "learner" | "instructor" | "admin";
 
-type AuthContextType = {
-  user: User | undefined;
-  userRole: UserRole | undefined;
-  login: (phone: string, password: string, role: UserRole) => Promise<User>;
-  signUp: (phone: string, password: string, role: UserRole) => Promise<User>;
+interface AuthContextType {
+  user: User | null;
+  login: (phone: string, password: string, role: UserRole) => Promise<void>;
+  signUp: (phone: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
-};
+}
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User>();
-  const [userRole, setUserRole] = useState<UserRole>();
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
-    // Check active session and sets the user
+    // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user);
-      setUserRole(session?.user.user_metadata.user_role as UserRole);
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
@@ -39,36 +31,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user);
-      setUserRole(session?.user.user_metadata.user_role as UserRole);
+      setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (
-    phone: string,
-    password: string,
-    role: UserRole,
-  ): Promise<User> => {
+  const login = async (phone: string, password: string, role: UserRole) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       phone,
       password,
     });
+
     if (error) throw error;
-    if (data.user.user_metadata.user_role !== role) {
-      await logout();
-      throw new Error("Invalid user role for this login type");
+
+    // Check if the user has the correct role
+    if (data.user?.user_metadata.user_role !== role) {
+      await supabase.auth.signOut();
+      throw new Error("Invalid role for this login");
     }
-    return data.user;
   };
 
-  const signUp = async (
-    phone: string,
-    password: string,
-    role: UserRole,
-  ): Promise<User> => {
-    const { data, error } = await supabase.auth.signUp({
+  const signUp = async (phone: string, password: string, role: UserRole) => {
+    const { error } = await supabase.auth.signUp({
       phone,
       password,
       options: {
@@ -77,65 +63,104 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
+
     if (error) throw error;
-    if (!data.user) throw new Error("User creation failed");
-    return data.user;
   };
 
-  const logout = async (): Promise<void> => {
+  const logout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
 
   if (loading) {
-    return <div>Loading...</div>; // Or your custom loading component
+    return <div>Loading...</div>;
   }
 
   return (
-    <AuthContext.Provider value={{ user, userRole, login, logout, signUp }}>
-      <div className="flex h-screen items-center justify-center font-glancyr">
-        <div className="mx-auto flex aspect-[9/16] h-full max-h-[1000px] overflow-hidden rounded-lg bg-white shadow-lg">
-          {children}
-        </div>
-      </div>
+    <AuthContext.Provider value={{ user, login, signUp, logout }}>
+      {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth should be used inside AuthProvider");
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
   return context;
+}
+
+export function useUser() {
+  const { user } = useAuth();
+  return {
+    phone: user?.phone,
+    role: user?.user_metadata.user_role as UserRole,
+  };
 }
 
 export function ProtectedLearnerRoute({
   children,
 }: {
   children: React.ReactNode;
-}) {
-  const { user, userRole } = useAuth();
+}): JSX.Element {
+  const { user } = useAuth();
 
-  if (!user || userRole !== "learner") return <Navigate to="/login" />;
-  return <>{children}</>;
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (user.user_metadata.user_role !== "learner") {
+    return <Navigate to="/login" />;
+  }
+
+  return (
+    <div className="flex h-screen items-center justify-center font-glancyr">
+      <div className="mx-auto flex aspect-[9/16] h-full max-h-[1000px] overflow-hidden rounded-lg bg-white shadow-lg">
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export function ProtectedInstructorRoute({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}): JSX.Element {
   const { user } = useAuth();
 
-  if (!user || user.user_metadata.user_role !== "instructor")
+  if (!user) {
     return <Navigate to="/instructor-login" />;
-  return <>{children}</>;
+  }
+
+  if (user.user_metadata.user_role !== "instructor") {
+    return <Navigate to="/instructor-login" />;
+  }
+
+  return (
+    <div className="flex h-screen items-center justify-center font-glancyr">
+      <div className="mx-auto flex aspect-[9/16] h-full max-h-[1000px] overflow-hidden rounded-lg bg-white shadow-lg">
+        {children}
+      </div>
+    </div>
+  );
 }
 
-export function useUser() {
+export function ProtectedAdminRoute({
+  children,
+}: {
+  children: React.ReactNode;
+}): JSX.Element {
   const { user } = useAuth();
-  const phone = user?.phone;
-  if (!user || !phone) {
-    throw new Error("user is required");
+
+  if (!user) {
+    return <Navigate to="/login" />;
   }
-  return { phone };
+
+  if (user.user_metadata.user_role !== "admin") {
+    return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
 }

@@ -20,9 +20,7 @@ import {
   useUpcomingLesson,
 } from "@/queries/learner";
 import { useLatestPayment } from "@/queries/payment";
-import type { Database } from "@/types/database.types";
-
-type Payment = Database["public"]["Tables"]["payment"]["Row"];
+import { useLearnerRescheduleRequests } from "@/queries/preferences";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -38,6 +36,8 @@ export default function Home() {
   const navigate = useNavigate();
 
   const { data: learner, isLoading, error } = useLearner();
+  const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
+    useLearnerRescheduleRequests(learner?.id);
   const {
     data: LessonData,
     isLoading: LessonIsLoading,
@@ -57,7 +57,7 @@ export default function Home() {
     learner?.id,
   );
 
-  if (paymentLoading) {
+  if (paymentLoading || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -73,7 +73,7 @@ export default function Home() {
     return <Navigate to="/onboard/birthday" />;
   }
 
-  if (isLoading || LessonIsLoading) {
+  if (isLoading || LessonIsLoading || scheduleRequestsLoading) {
     return <div>Loading...</div>;
   }
 
@@ -95,7 +95,9 @@ export default function Home() {
 
       {/* Main content */}
       <main className="flex flex-grow flex-col p-4 pb-20">
-        {learner && !learner.has_a_DL ? (
+        {scheduleRequests && scheduleRequests.length > 0 ? (
+          <div>Your schedule is getting created. Please check back later.</div>
+        ) : learner && !learner.has_a_DL ? (
           <LLFlow />
         ) : learner && learner.LL_result === true ? (
           scheduledLessons && scheduledLessons.length === 0 ? (
@@ -149,10 +151,10 @@ export default function Home() {
 
               {/* Reschedule & Start Lesson button */}
               <div className="mt-6 flex flex-col gap-4">
-                <div className="flex flex-row gap-4">
+                <div className="flex flex-row flex-wrap gap-4">
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger className="w-full">
+                      <TooltipTrigger className="grow">
                         <Button
                           onClick={() =>
                             navigate(
@@ -204,7 +206,7 @@ export default function Home() {
                       navigate(`/lesson/${LessonData?.upcomingLesson?.number}`)
                     }
                     variant="outline"
-                    className="w-full"
+                    className="grow"
                   >
                     Lesson Details
                   </Button>

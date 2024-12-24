@@ -21,7 +21,7 @@ interface PaymentDetails {
   phone: string;
   paymentType: "course" | "reschedule";
   courseId?: string;
-  scheduleId?: string;
+  requestId?: string;
 }
 
 function PaymentPage() {
@@ -37,7 +37,7 @@ function PaymentPage() {
     paymentType:
       (searchParams.get("type") as "course" | "reschedule") || "course",
     courseId: searchParams.get("courseId") || "",
-    scheduleId: searchParams.get("scheduleId") || undefined,
+    requestId: searchParams.get("requestId") || undefined,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,6 +101,9 @@ function PaymentPage() {
     }
   };
 
+  const type =
+    searchParams.get("type") === "reschedule" ? "reschedule" : "course";
+
   if (coursesLoading) {
     return (
       <div className="container mx-auto max-w-md py-8">
@@ -126,30 +129,32 @@ function PaymentPage() {
             </Alert>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="courseId"
-                className="mb-1 block text-sm font-medium"
-              >
-                Select Course
-              </label>
-              <Select
-                value={paymentDetails.courseId}
-                onValueChange={handleCourseChange}
-                disabled={coursesLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a course" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses?.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.name} - ₹{course.price}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {type === "course" && (
+              <div>
+                <label
+                  htmlFor="courseId"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Select Course
+                </label>
+                <Select
+                  value={paymentDetails.courseId}
+                  onValueChange={handleCourseChange}
+                  disabled={coursesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses?.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.name} - ₹{course.price}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label
                 htmlFor="amount"
@@ -167,40 +172,54 @@ function PaymentPage() {
                 className="w-full"
               />
             </div>
-            <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={paymentDetails.email}
-                onChange={handleInputChange}
-                required
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-                Phone Number
-              </label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={paymentDetails.phone}
-                onChange={handleInputChange}
-                required
-                className="w-full"
-                pattern="[0-9]{10}"
-                title="Please enter a valid 10-digit phone number"
-              />
-            </div>
+            {type === "course" && (
+              <>
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="mb-1 block text-sm font-medium"
+                  >
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={paymentDetails.email}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="phone"
+                    className="mb-1 block text-sm font-medium"
+                  >
+                    Phone Number
+                  </label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={paymentDetails.phone}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full"
+                    pattern="[0-9]{10}"
+                    title="Please enter a valid 10-digit phone number"
+                  />
+                </div>
+              </>
+            )}
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !paymentDetails.courseId}
+              disabled={
+                isLoading ||
+                (!paymentDetails.courseId && type === "course") ||
+                (!paymentDetails.requestId && type === "reschedule")
+              }
             >
               {isLoading ? "Processing..." : "Proceed to Pay"}
             </Button>

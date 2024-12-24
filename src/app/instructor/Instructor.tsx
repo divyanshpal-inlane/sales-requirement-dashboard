@@ -4,7 +4,7 @@ import {
   PhoneOutgoing,
   UserPen,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,20 +17,32 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { useUser } from "@/context/auth-context";
-import { useInstructor } from "@/queries/instructor";
+import { useInstructor, useUpdateScheduleStatus } from "@/queries/instructor";
 
-const Instructor = () => {
+function Instructor() {
   const { phone } = useUser();
   const {
     data: instructorData,
     isLoading: instructorLoading,
     error: instructorError,
-  } = useInstructor(phone);
+  } = useInstructor(phone ?? "");
+  const updateScheduleStatus = useUpdateScheduleStatus();
   const navigate = useNavigate();
 
   if (instructorLoading) return <div>Loading...</div>;
   if (instructorError)
     return <div>An error occurred: {instructorError.message}</div>;
+
+  const handleFinishLesson = async (scheduleId: string) => {
+    try {
+      await updateScheduleStatus.mutateAsync({
+        scheduleId,
+        status: "completed",
+      });
+    } catch (error) {
+      console.error("Failed to update lesson status:", error);
+    }
+  };
 
   function formatTimeRange(start_time: string, end_time: string): string {
     const formatTime = (time: string): string => {
@@ -78,10 +90,13 @@ const Instructor = () => {
           >
             {instructorData?.learnerLessonDay.map(
               ({ learner, lesson }, index) => {
+                const currentSchedule =
+                  instructorData.instructorScheduleDay[index];
+                const isOngoing = currentSchedule.status === "ongoing";
                 return (
                   <Card
                     className={
-                      instructorData?.learnerLessonDay.length - 1 == index
+                      instructorData?.learnerLessonDay.length - 1 === index
                         ? `mb-24`
                         : ``
                     }
@@ -89,18 +104,17 @@ const Instructor = () => {
                   >
                     <CardHeader>
                       <CardTitle className="flex flex-wrap items-center justify-between gap-4">
-                        <div>Lesson {lesson.number}</div>
+                        <div>Lesson {lesson?.number}</div>
                         <div className="text-sm">
                           {formatTimeRange(
-                            instructorData.instructorScheduleDay[index]
-                              .start_time,
-                            instructorData.instructorScheduleDay[index]
-                              .end_time,
+                            currentSchedule.start_time,
+                            currentSchedule.end_time,
                           )}
                         </div>
                       </CardTitle>
                       <CardDescription>
-                        {LESSON_CONTENT[lesson.number].content.title}
+                        {lesson?.number &&
+                          LESSON_CONTENT[lesson.number]?.content.title}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
@@ -138,34 +152,21 @@ const Instructor = () => {
                             </a>
                           </div>
                         </div>
-                        {/* <div className="flex flex-row gap-1">
-                          <p>OTP :</p>
-                          <p>
-                            {shouldShowOTP(
-                              instructorData.instructorScheduleDay[index]
-                                .start_time,
-                            )
-                              ? instructorData.instructorScheduleDay[index].otp
-                              : "OTP will be available 30 min prior to the lesson"}
-                          </p>
-                        </div> */}
                       </div>
                       <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
-                        <div className="flex flex-wrap gap-1 p-1 text-xs">
-                          <p>Lesson status :</p>
+                        <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-xs">
+                          <p>
+                            Lesson status :{" "}
+                            {currentSchedule.status?.toUpperCase()}
+                          </p>
                           <div className="flex flex-row items-center gap-24">
-                            {instructorData.instructorScheduleDay[
-                              index
-                            ].status?.toUpperCase()}
-                            {instructorData.instructorScheduleDay[index]
-                              .status === "ongoing" ? (
+                            {isOngoing ? (
                               <div className="relative flex items-center justify-center">
                                 <div className="h-3 w-3 rounded-full bg-green-500"></div>
                                 <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
                               </div>
                             ) : null}
-                            {instructorData.instructorScheduleDay[index]
-                              .status === "completed" ? (
+                            {currentSchedule.status === "completed" ? (
                               <div className="flex items-center justify-center">
                                 <CircleCheckBig
                                   className="rounded-full bg-green-500 text-white"
@@ -174,35 +175,34 @@ const Instructor = () => {
                               </div>
                             ) : null}
                           </div>
-                        </div>
-                        <div>
-                          {instructorData.instructorScheduleDay[index]
-                            .status === "ongoing" ||
-                          instructorData.instructorScheduleDay[index].status ===
-                            "completed" ? null : (
+                          {isOngoing && (
                             <Button
-                              onClick={() => {
-                                navigate(
-                                  `/otp/${instructorData.learnerLessonDay[index].learner.id}/${instructorData.instructorScheduleDay[index].id}`,
-                                );
-                              }}
+                              onClick={() =>
+                                handleFinishLesson(
+                                  currentSchedule.id.toString(),
+                                )
+                              }
                               size="sm"
+                              variant="secondary"
                               className="text-xs"
                             >
-                              Start
+                              Finish Lesson
                             </Button>
                           )}
-                          {/* <Button
-                            onClick={() => {
-                              navigate(
-                                `/otp/${instructorData.learnerLessonDay[index].learner.id}/${instructorData.instructorScheduleDay[index].id}`,
-                              );
-                            }}
-                            size="sm"
-                            className="text-xs"
-                          >
-                            Start
-                          </Button> */}
+                          {currentSchedule.status !== "ongoing" &&
+                            currentSchedule.status !== "completed" && (
+                              <Button
+                                onClick={() => {
+                                  navigate(
+                                    `/otp/${learner.id}/${currentSchedule.id}`,
+                                  );
+                                }}
+                                size="sm"
+                                className="text-xs"
+                              >
+                                Start
+                              </Button>
+                            )}
                         </div>
                       </Card>
                     </CardContent>
@@ -227,7 +227,7 @@ const Instructor = () => {
               return (
                 <Card
                   className={
-                    instructorData?.learnerLesson.length - 1 == index
+                    instructorData?.learnerLesson.length - 1 === index
                       ? `mb-24`
                       : ``
                   }
@@ -235,7 +235,7 @@ const Instructor = () => {
                 >
                   <CardHeader>
                     <CardTitle className="flex flex-wrap items-center justify-between gap-4">
-                      <div>Lesson {lesson.number}</div>
+                      <div>Lesson {lesson?.number}</div>
                       <div className="text-sm">
                         {formatTimeRange(
                           instructorData.instructorSchedule[index].start_time,
@@ -244,7 +244,8 @@ const Instructor = () => {
                       </div>
                     </CardTitle>
                     <CardDescription>
-                      {LESSON_CONTENT[lesson.number].content.title}
+                      {lesson?.number &&
+                        LESSON_CONTENT[lesson.number]?.content.title}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
@@ -298,6 +299,6 @@ const Instructor = () => {
       </div>
     </>
   );
-};
+}
 
 export default Instructor;

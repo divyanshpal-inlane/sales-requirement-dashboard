@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  skipToken,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { COURSES_DATA } from "@/constants/courses";
 import { useUser } from "@/context/auth-context";
@@ -217,18 +222,20 @@ export function useUploadLLMutation() {
   });
 }
 
-export function useLessons({ courseId }: { courseId: string }) {
+export function useLessons({ courseId }: { courseId: string | undefined }) {
   return useQuery({
     queryKey: ["lessons", courseId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Lesson")
-        .select("*")
-        .eq("course_id", courseId)
-        .order("number", { ascending: true });
-      if (error) throw new Error(error.message);
-      return data.map((lesson) => lesson.id);
-    },
+    queryFn: courseId
+      ? async () => {
+        const { data, error } = await supabase
+          .from("Lesson")
+          .select("*")
+          .eq("course_id", courseId)
+          .order("number", { ascending: true });
+        if (error) throw new Error(error.message);
+        return data;
+      }
+      : skipToken,
   });
 }
 
@@ -264,20 +271,23 @@ export function useLessonSchedule({
   lessonId: string | undefined;
   refetchInterval?: number;
 }) {
+  const { data: learner } = useLearner();
   return useQuery({
     queryKey: ["lessonSchedule", lessonId],
-    queryFn: async () => {
-      if (!lessonId) return null;
-      const { data, error } = await supabase
-        .from("Schedule")
-        .select("id, date, start_time, end_time, status")
-        .eq("lesson_id", lessonId)
-        .single();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: lessonId && learner?.id
+      ? async () => {
+        const { data, error } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, end_time, status")
+          .eq("lesson_id", lessonId)
+          .eq("learner_id", learner?.id)
+          .single();
+        if (error) throw error;
+        return data;
+      }
+      : skipToken,
     refetchInterval,
-    enabled: !!lessonId,
+    enabled: !!lessonId && !!learner?.id,
   });
 }
 
@@ -307,15 +317,29 @@ export function useSchedule({
   });
 }
 
+export type Schedule = {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  lessonId: string | null;
+  learnerId: string | null;
+  lesson: {
+    id: string;
+    number: number | null;
+    description: string | null;
+  } | null;
+};
+
 export function useLearnerSchedule({ learnerId }: { learnerId?: string }) {
-  return useQuery({
+  return useQuery<Schedule[]>({
     queryKey: ["schedule", learnerId],
     queryFn: async () => {
       if (!learnerId) return [];
       const { data, error } = await supabase
         .from("Schedule")
         .select(
-          "id, date, start_time, end_time, lesson_id, Lesson (id, number, description)",
+          "id, date, start_time, end_time, lesson_id, learner_id, Lesson (id, number, description)",
         )
         .eq("learner_id", learnerId)
         .order("date", { ascending: true })
@@ -326,6 +350,8 @@ export function useLearnerSchedule({ learnerId }: { learnerId?: string }) {
         id: lesson.id,
         date: lesson.date,
         startTime: lesson.start_time,
+        learnerId: lesson.learner_id,
+        lessonId: lesson.lesson_id,
         endTime: lesson.end_time,
         lesson: lesson.Lesson,
       }));
@@ -359,6 +385,81 @@ export function useUpdateScheduleStatus() {
     onSuccess: () => {
       // Optionally, you can invalidate and refetch related queries here
       // queryClient.invalidateQueries(["schedule"]);
+    },
+  });
+}
+
+export function useLearnerEnrollmentCourse({
+  learnerId,
+}: {
+  learnerId: string;
+}) {
+  return useQuery({
+    queryKey: ["course", learnerId],
+    queryFn: learnerId
+      ? async () => {
+        const { data, error } = await supabase
+          .from("enrollment")
+          .select("*, Courses(*)")
+          .eq("learner_id", learnerId)
+          .eq("status", "active");
+
+        if (error) throw error;
+        return data;
+      }
+      : skipToken,
+  });
+}
+
+export function useMutationRescheduleRequest() {
+  return useMutation({
+    mutationFn: async ({
+      learnerId,
+      totalFee = 0,
+      lessonIds,
+      paymentId = null,
+      type = "reschedule",
+    }: {
+      learnerId: string;
+      totalFee?: number;
+      lessonIds: string[];
+      paymentId?: string | null;
+      type?: Database["public"]["Tables"]["reschedule_requests"]["Row"]["type"];
+    }) => {
+      const { data: rescheduleRequest, error: rescheduleError } = await supabase
+        .from("reschedule_requests")
+        .insert({
+          amount: totalFee,
+          status: totalFee > 0 ? "pending_payment" : "pending",
+          learner_id: learnerId,
+          lesson_ids: lessonIds,
+          payment_id: paymentId,
+          type,
+        })
+        .select()
+        .single();
+      if (rescheduleError) throw rescheduleError;
+      return rescheduleRequest;
+    },
+  });
+}
+
+export function useMutationCompleteRescheduleRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ requestId }: { requestId: string }) => {
+      const { data, error } = await supabase
+        .from("reschedule_requests")
+        .update({ status: "completed" })
+        .eq("id", requestId)
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["scheduling-requests"],
+      });
     },
   });
 }

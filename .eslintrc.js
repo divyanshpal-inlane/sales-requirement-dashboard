@@ -25,12 +25,12 @@ module.exports = {
     node: true,
   },
   extends: [
+    "plugin:prettier/recommended",
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:react-hooks/recommended",
     "plugin:react/recommended",
     "plugin:jsx-a11y/recommended",
-    "plugin:prettier/recommended",
   ],
   plugins: ["simple-import-sort", "prettier"],
   rules: {

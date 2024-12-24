@@ -44,7 +44,7 @@ export default function UploadLL() {
         { file, phone },
         {
           onSuccess: () => {
-            navigate("/createSchedule/slots");
+            navigate("/createSchedule/preferences");
           },
         },
       );

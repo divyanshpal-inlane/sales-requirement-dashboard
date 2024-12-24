@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { APIProvider } from "@vis.gl/react-google-maps";
 import {
   BrowserRouter,
   Navigate,
@@ -23,11 +24,13 @@ import PaymentPage from "@/components/payment/PaymentPage";
 import PaymentStatus from "@/components/payment/PaymentStatus";
 import {
   AuthProvider,
+  ProtectedAdminRoute,
   ProtectedInstructorRoute,
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
+import AdminLogin from "@/routes/admin-login";
+import AdminSchedules from "@/routes/admin/schedules";
 import ScheduleDetails from "@/routes/createSchedule/details";
-import ScheduleSlots from "@/routes/createSchedule/slots";
 import UploadLL from "@/routes/createSchedule/uploadLL";
 import Home from "@/routes/home";
 import InstructorAuth from "@/routes/InstructorAuth";
@@ -35,6 +38,7 @@ import Login from "@/routes/login";
 import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
 import DLQuestion from "@/routes/onboard/DL";
+import Preferences from "@/routes/preferences";
 import Prep from "@/routes/prep";
 import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
@@ -57,6 +61,7 @@ export default function App() {
           <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/instructor-login" element={<InstructorAuth />} />
             <Route
               path="/onboard"
@@ -83,6 +88,7 @@ export default function App() {
               <Route path="prep" element={<Prep />} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="profile" element={<Profile2 />} />
+              {/* <Route path="preferences" element={<Preferences />} /> */}
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
             <Route
@@ -93,8 +99,18 @@ export default function App() {
                 </ProtectedLearnerRoute>
               }
             >
-              <Route path="details" element={<ScheduleDetails />} />
-              <Route path="slots" element={<ScheduleSlots />} />
+              <Route
+                path="details"
+                element={
+                  <APIProvider
+                    apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                  >
+                    <ScheduleDetails />
+                  </APIProvider>
+                }
+              />
+              {/* <Route path="slots" element={<ScheduleSlots />} /> */}
+              <Route path="preferences" element={<Preferences />} />
               <Route path="uploadLL" element={<UploadLL />} />
             </Route>
             <Route
@@ -156,6 +172,16 @@ export default function App() {
                 </ProtectedLearnerRoute>
               }
             />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedAdminRoute>
+                  <Outlet />
+                </ProtectedAdminRoute>
+              }
+            >
+              <Route path="schedules" element={<AdminSchedules />} />
+            </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />
             <Route path="/payment/success" element={<PaymentStatus />} />

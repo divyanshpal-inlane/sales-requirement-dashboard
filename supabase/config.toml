@@ -24,9 +24,17 @@ port = 54324
 
 [storage]
 enabled = true
-port = 54325
 
 [auth]
 enabled = true
-port = 54326
-site_url = "http://localhost:3000"
+site_url = "http://localhost:5173"
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = false
+
+[auth.sms.twilio]
+enabled = true
+account_sid = "AC5ef87321c7993486a86326b471d1a81"
+auth_token = "007ef12f49de96d214dec49f17476455"
+message_service_sid = "NADASDASD"
