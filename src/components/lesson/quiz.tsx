@@ -8,11 +8,12 @@ interface InteractiveImageQuizProps {
   setSelectedAnswer: (answer: number) => void;
 }
 
+type CanvasSize = { width: number; height: number };
+
 export const InteractiveImageQuiz = ({
   game: { imageSrc, mapAreas },
   setSelectedAnswer,
 }: InteractiveImageQuizProps) => {
-  type CanvasSize = { width: number; height: number };
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({
     width: 0,
     height: 0,

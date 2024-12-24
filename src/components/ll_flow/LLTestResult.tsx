@@ -15,7 +15,7 @@ export function LLTestResult({ learner }: LLTestResultProps) {
 
   const handleSetResult = (passed: boolean) => {
     setResult(passed);
-    setLLResultMutation.mutate({ phone: learner.phone, LL_result: passed });
+    setLLResultMutation.mutate({ LL_result: passed });
   };
 
   if (learner.LL_result === true) {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { supabase } from "@/context/auth-context";
+import { supabase } from "@/lib/supabaseClient";
 
 const getCurrentDate = () => {
   const date = new Date();

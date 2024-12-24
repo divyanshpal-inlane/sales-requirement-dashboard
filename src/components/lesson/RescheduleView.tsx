@@ -1,20 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import React from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import invariant from "tiny-invariant";
 
-import CalendarTimeSlotSelector from "@/components/lesson/schedule";
+import RescheduleConfirmationSheet from "@/components/lesson/RescheduleConfirmationSheet";
+import RescheduleSelector from "@/components/lesson/RescheduleSelector";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/context/auth-context";
-import { useLearner } from "@/queries/learner";
+import { supabase } from "@/lib/supabaseClient";
+import { Schedule, useLearner, useLearnerSchedule } from "@/queries/learner";
+
+interface Lesson {
+  id: string;
+  number: number;
+  course_id: string;
+  Courses: {
+    id: string;
+    name: string | null;
+  };
+}
 
 function RescheduleView() {
   const { lessonId } = useParams<{ lessonId: string }>();
   invariant(lessonId, "lessonId is required");
   const { data: learner } = useLearner();
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
 
-  const { data: lesson } = useQuery({
+  const { data: lesson } = useQuery<Lesson>({
     queryKey: ["lesson", lessonId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -23,37 +36,41 @@ function RescheduleView() {
         .eq("id", lessonId)
         .single();
       if (error) throw error;
-      return data;
+      if (!data) throw new Error("Lesson not found");
+      return data as Lesson;
     },
   });
 
-  const { data: allLessons } = useQuery({
-    queryKey: ["allLessons", lesson?.course_id],
-    queryFn: async () => {
-      if (!lesson) throw new Error("Lesson not found");
-      const { data, error } = await supabase
-        .from("Lesson")
-        .select("*")
-        .eq("course_id", lesson.course_id)
-        .order("number", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!lesson,
+  const { data: schedules } = useLearnerSchedule({
+    learnerId: learner?.id || "",
   });
 
-  const upcomingLessonIds = React.useMemo(() => {
-    if (!allLessons || !lesson) return [];
-    return allLessons.filter((l) => l.number >= lesson.number).map((l) => l.id);
-  }, [allLessons, lesson]);
+  const handleLessonsSelected = (schedules: Schedule[]) => {
+    setSelectedSchedules(schedules);
+    setIsConfirmationOpen(true);
+  };
 
-  if (!learner || !lesson || !allLessons) {
+  const calculateTotalFee = () => {
+    if (!schedules) return 0;
+    return schedules.reduce((total: number, schedule) => {
+      if (selectedSchedules.some((s) => s.id === schedule.id)) {
+        const scheduleDate = new Date(`${schedule.date}T${schedule.startTime}`);
+        const now = new Date();
+        const diffHours =
+          (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+        return total + (diffHours < 72 ? 300 : 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  if (!learner || !lesson || !schedules) {
     return <p>Loading...</p>;
   }
 
   return (
-    <div className="flex h-full w-full flex-col rounded-md">
-      <div className="flex flex-col rounded-b-[40px] bg-primary">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-col rounded-b-[40px] bg-primary">
         <div className="flex items-center justify-between p-4">
           <Button
             variant="ghost"
@@ -77,13 +94,19 @@ function RescheduleView() {
         </div>
       </div>
 
-      <CalendarTimeSlotSelector
-        learnerArea={learner.area}
+      <div className="flex-1 overflow-auto p-4">
+        <RescheduleSelector
+          learnerId={learner.id}
+          onLessonsSelected={handleLessonsSelected}
+        />
+      </div>
+
+      <RescheduleConfirmationSheet
+        isOpen={isConfirmationOpen}
+        onOpenChange={setIsConfirmationOpen}
+        selectedSchedules={selectedSchedules || []}
+        totalFee={calculateTotalFee()}
         learnerId={learner.id}
-        totalTime={upcomingLessonIds.length}
-        lessonIds={upcomingLessonIds}
-        courseId={lesson.course_id}
-        startFromLessonId={lessonId}
       />
     </div>
   );

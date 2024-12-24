@@ -41,6 +41,7 @@ export default function Aadhar() {
             variant="ghost"
             size="icon"
             className="text-primary-foreground"
+            onClick={() => navigate("/onboard/birthday")}
           >
             <ArrowLeft className="h-6 w-6" />
           </Button>
@@ -49,7 +50,7 @@ export default function Aadhar() {
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
-          <h1 className="mb-2 text-2xl font-bold">
+          <h1 className="mb-2 text-2xl font-semibold">
             Where is your aadhar regitered?
           </h1>
           <p className="text">
@@ -120,7 +121,7 @@ export default function Aadhar() {
         <Button
           onClick={handleContinueClick}
           className="w-full"
-          disabled={isPending}
+          disabled={isPending || !selectedState}
         >
           Continue
         </Button>

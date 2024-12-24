@@ -1,5 +1,4 @@
 import { format, getMonth, getYear, setMonth, setYear } from "date-fns";
-import { ArrowLeft } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -36,7 +35,7 @@ const months = [
 
 export default function Birthday() {
   const [date, setDate] = useState<Date>();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(setYear(new Date(), 2010));
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
 
@@ -66,20 +65,13 @@ export default function Birthday() {
   return (
     <div className="flex h-full w-full flex-col rounded-md">
       <div className="flex flex-col rounded-b-[20px] bg-primary">
-        <div className="flex items-center justify-between p-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </Button>
+        <div className="flex items-center justify-end p-4">
           <span className="text-lg font-semibold text-primary-foreground">
             1/2
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
-          <h1 className="mb-2 text-2xl font-bold">
+          <h1 className="mb-2 text-2xl font-semibold">
             When&apos;s your birthday?
           </h1>
           <p>We use this to check your eligibility to drive</p>

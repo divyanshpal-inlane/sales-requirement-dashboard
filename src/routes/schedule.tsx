@@ -14,6 +14,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLearner, useLearnerSchedule } from "@/queries/learner";
 
+type CustomDayProps = {
+  date: Date;
+  displayMonth?: Date;
+};
+
 const lessonIds = [
   { id: 1, img_path: "/assets/lesson-pic-1.png", desc: "Get to know your car" },
   { id: 2, img_path: "/assets/lesson-pic-2.png", desc: "Balancing the pedals" },
@@ -86,7 +91,7 @@ export default function Schedule() {
     }
   }, [scheduledLessons]);
 
-  const CustomDay = ({ date, displayMonth }) => {
+  const CustomDay = ({ date }: CustomDayProps) => {
     if (!scheduledLessons) return null;
 
     const lessonsForDay = scheduledLessons.filter((lesson) =>
@@ -172,7 +177,6 @@ export default function Schedule() {
   return (
     <div className="flex h-full w-full p-6 pb-20">
       <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
-        {/* <div className="flex justify-between gap-10"> */}
         <TabsList className="w-full">
           <TabsTrigger value="calendar" className="w-full">
             Calendar
@@ -181,118 +185,120 @@ export default function Schedule() {
             Lesson
           </TabsTrigger>
         </TabsList>
-        {/* </div> */}
+
         <TabsContent
           value="calendar"
-          className="flex h-full grow flex-col justify-between"
+          className="flex h-full flex-col overflow-y-auto"
         >
-          <Card>
-            <CardHeader>Upcoming schedule</CardHeader>
-            <CardContent>
-              <Calendar
-                mode="multiple"
-                selected={selectedDates}
-                className="w-full rounded-md"
-                components={{
-                  Day: CustomDay,
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          {/* upcoming lesson's card */}
-
-          {nextLesson && nextLesson.lesson ? (
-            <Card className="mt-6 bg-gray-50">
-              <CardContent className="flex h-full items-center justify-between gap-8 py-4">
-                <p className="flex h-full w-2/5 flex-col justify-center gap-1 text-sm">
-                  <span className="text-accent-purple">
-                    Lesson {nextLesson.lesson.number}
-                  </span>
-                  <span>{formatTimeTo12Hour(nextLesson.startTime)}</span>
-                  <span>{formatTimeTo12Hour(nextLesson.endTime)}</span>
-                </p>
-                <div className="flex flex-row gap-6 rounded-md bg-white p-2.5 shadow-sm">
-                  <Link
-                    to={`/lesson/${nextLesson.lesson.number}`}
-                    className="text-md mt-1.5 flex flex-col justify-between"
-                  >
-                    <p>
-                      {
-                        lessonIds[
-                          nextLesson.lesson?.number
-                            ? nextLesson.lesson.number - 1
-                            : 0
-                        ].desc
-                      }
-                    </p>
-                  </Link>
-                  <div className="relative flex justify-end">
-                    <img
-                      className="h-full"
-                      src={`/assets/lesson-pic-${nextLesson.lesson.number}.png`}
-                      alt="Lesson-pic"
-                    />
-                    <div className="absolute -bottom-1.5 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
-                      <Link
-                        to={`/lesson/${nextLesson.lesson.number}`}
-                        className="text-xs text-primary"
-                      >
-                        More details
-                      </Link>
-                      <ChevronRight
-                        color="white"
-                        className="rounded-full bg-primary"
-                        size={16}
-                      />
-                    </div>
-                  </div>
-                </div>
+          <div className="flex min-h-full flex-col">
+            <Card className="flex-none">
+              <CardHeader>Upcoming schedule</CardHeader>
+              <CardContent>
+                <Calendar
+                  mode="multiple"
+                  selected={selectedDates}
+                  className="w-full rounded-md"
+                  components={{
+                    Day: CustomDay,
+                  }}
+                />
               </CardContent>
             </Card>
-          ) : (
-            <div className="mt-24 text-center text-lg">
-              No Upcoming Lesson. 😓
-            </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="lesson" className="flex h-full flex-col">
-          <div className="h-full grow">
-            <div className="flex h-[95%] w-full flex-col gap-2 overflow-y-auto">
-              <div className="mb-4 grid grid-cols-2 gap-4">
-                {lessonIds.map((lesson) => (
-                  <div
-                    key={lesson.id}
-                    className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 shadow-md"
-                  >
-                    <p className="text-accent-purple">Lesson {lesson.id}</p>
+            <h2 className="mt-6 text-lg font-medium">Upcoming Lesson</h2>
+
+            {nextLesson && nextLesson.lesson ? (
+              <Card className="mb-6 mt-6 bg-gray-50">
+                <CardContent className="flex h-full flex-col items-start gap-4 py-4">
+                  <p className="flex h-full w-full gap-2 text-sm">
+                    <span className="text-accent-purple">
+                      Lesson {nextLesson.lesson.number}
+                    </span>
+                    <span>
+                      {new Date(nextLesson.date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      | {formatTimeTo12Hour(nextLesson.startTime)} -{" "}
+                      {formatTimeTo12Hour(nextLesson.endTime)}
+                    </span>
+                  </p>
+                  <div className="flex w-full flex-col gap-2 rounded-md shadow-sm">
+                    <Link
+                      to={`/lesson/${nextLesson.lesson.number}`}
+                      className="text-md flex flex-col justify-between"
+                    >
+                      <p>
+                        {
+                          lessonIds[
+                            nextLesson.lesson?.number
+                              ? nextLesson.lesson.number - 1
+                              : 0
+                          ].desc
+                        }
+                      </p>
+                    </Link>
                     <div className="relative">
-                      <img src={lesson.img_path} alt="Lesson-pic" />
-                      <div className="absolute -bottom-1.5 right-1 flex w-[75%] flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
+                      <img
+                        className="h-full w-full object-cover"
+                        src={`/assets/lesson-pic-${nextLesson.lesson.number}.png`}
+                        alt="Lesson-pic"
+                      />
+                      <div className="absolute bottom-0 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
                         <Link
-                          to={`/lesson/${lesson.id}`}
-                          className="text-xs text-primary"
+                          to={`/lesson/${nextLesson.lesson.number}`}
+                          className="font-medium text-primary"
                         >
                           More details
                         </Link>
                         <ChevronRight
                           color="white"
                           className="rounded-full bg-primary"
-                          size={16}
+                          size={20}
                         />
                       </div>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="mt-24 text-center text-lg">
+                No Upcoming Lesson. 😓
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="lesson" className="h-full overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4 pb-6">
+            {lessonIds.map((lesson) => (
+              <div
+                key={lesson.id}
+                className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 shadow-md"
+              >
+                <p className="text-accent-purple">Lesson {lesson.id}</p>
+                <div className="relative">
+                  <img src={lesson.img_path} alt="Lesson-pic" />
+                  <div className="absolute -bottom-1.5 right-1 flex w-[75%] flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
                     <Link
                       to={`/lesson/${lesson.id}`}
-                      className="text-md mt-1.5"
+                      className="text-xs text-primary"
                     >
-                      {lesson.desc}
+                      More details
                     </Link>
+                    <ChevronRight
+                      color="white"
+                      className="rounded-full bg-primary"
+                      size={16}
+                    />
                   </div>
-                ))}
+                </div>
+                <Link to={`/lesson/${lesson.id}`} className="text-md mt-1.5">
+                  {lesson.desc}
+                </Link>
               </div>
-            </div>
+            ))}
           </div>
         </TabsContent>
       </Tabs>

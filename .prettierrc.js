@@ -1,26 +1,26 @@
 module.exports = {
-  "tabWidth": 2,
-  "printWidth": 80,
-  "useTabs": false,
-  "semi": true,
-  "trailingComma": "all",
-  "singleQuote": false,
-  "quoteProps": "as-needed",
-  "bracketSpacing": true,
-  "arrowParens": "always",
-  "jsxBracketSameLine": false,
-  "tailwindConfig": "./tailwind.config.js",
-  "tailwindAttributes": ["wrapperClassName", "wrapClassName", "rootClassName"],
-  "tailwindFunctions": ["classNames", "classnames", "twMerge"],
-  "overrides": [
+  tabWidth: 2,
+  printWidth: 80,
+  useTabs: false,
+  semi: true,
+  trailingComma: "all",
+  singleQuote: false,
+  quoteProps: "as-needed",
+  bracketSpacing: true,
+  arrowParens: "always",
+  // "jsxBracketSameLine": false,
+  tailwindConfig: "./tailwind.config.js",
+  tailwindAttributes: ["wrapperClassName", "wrapClassName", "rootClassName"],
+  tailwindFunctions: ["classNames", "classnames", "twMerge"],
+  overrides: [
     {
-      "files": ".prettierrc.json",
-      "options": {
-        "parser": "json"
-      }
-    }
+      files: ".prettierrc.json",
+      options: {
+        parser: "json",
+      },
+    },
   ],
-  "plugins": ["prettier-plugin-tailwindcss"]
+  plugins: ["prettier-plugin-tailwindcss"],
 };
 
 // {

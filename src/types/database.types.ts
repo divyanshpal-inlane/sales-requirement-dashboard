@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      Admin: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          signed_up: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          signed_up?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          signed_up?: string | null
+        }
+        Relationships: []
+      }
       Courses: {
         Row: {
           code: number | null
@@ -42,50 +66,57 @@ export type Database = {
         }
         Relationships: []
       }
-      Enrolment: {
+      enrollment: {
         Row: {
-          course_id: string | null
+          course_id: string
           created_at: string
-          enabled: boolean | null
-          end_date: string | null
-          id: number
-          learner_id: string | null
-          payment_status: boolean | null
-          start_date: string | null
+          id: string
+          learner_id: string
+          payment_id: string | null
+          progress: Json
+          status: Database["public"]["Enums"]["enrollment_status"]
+          updated_at: string
         }
         Insert: {
-          course_id?: string | null
+          course_id: string
           created_at?: string
-          enabled?: boolean | null
-          end_date?: string | null
-          id?: number
-          learner_id?: string | null
-          payment_status?: boolean | null
-          start_date?: string | null
+          id?: string
+          learner_id: string
+          payment_id?: string | null
+          progress?: Json
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          updated_at?: string
         }
         Update: {
-          course_id?: string | null
+          course_id?: string
           created_at?: string
-          enabled?: boolean | null
-          end_date?: string | null
-          id?: number
-          learner_id?: string | null
-          payment_status?: boolean | null
-          start_date?: string | null
+          id?: string
+          learner_id?: string
+          payment_id?: string | null
+          progress?: Json
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "Enrolment_course_id_fkey"
+            foreignKeyName: "enrollment_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "Courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "Enrolment_learner_id_fkey"
+            foreignKeyName: "enrollment_learner_id_fkey"
             columns: ["learner_id"]
             isOneToOne: false
             referencedRelation: "Learner"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment"
             referencedColumns: ["id"]
           },
         ]
@@ -176,6 +207,8 @@ export type Database = {
       Learner: {
         Row: {
           aadhar_state: string | null
+          address_lat: number | null
+          address_lng: number | null
           area: string | null
           city: string | null
           created_at: string
@@ -193,6 +226,8 @@ export type Database = {
           LL_team_appointment_booked: boolean | null
           LL_test_date: string | null
           name: string | null
+          needs_scheduling: boolean | null
+          onboarding_completed: boolean | null
           password: string | null
           phone: string
           pick_up_location: string | null
@@ -203,6 +238,8 @@ export type Database = {
         }
         Insert: {
           aadhar_state?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
           area?: string | null
           city?: string | null
           created_at?: string
@@ -220,6 +257,8 @@ export type Database = {
           LL_team_appointment_booked?: boolean | null
           LL_test_date?: string | null
           name?: string | null
+          needs_scheduling?: boolean | null
+          onboarding_completed?: boolean | null
           password?: string | null
           phone: string
           pick_up_location?: string | null
@@ -230,6 +269,8 @@ export type Database = {
         }
         Update: {
           aadhar_state?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
           area?: string | null
           city?: string | null
           created_at?: string
@@ -247,6 +288,8 @@ export type Database = {
           LL_team_appointment_booked?: boolean | null
           LL_test_date?: string | null
           name?: string | null
+          needs_scheduling?: boolean | null
+          onboarding_completed?: boolean | null
           password?: string | null
           phone?: string
           pick_up_location?: string | null
@@ -321,52 +364,100 @@ export type Database = {
           },
         ]
       }
-      Payment: {
+      payment: {
         Row: {
-          amount: number | null
+          amount: number
           created_at: string
-          enabled: boolean | null
-          id: number
-          "⁠learner_id": string | null
-          payment_date: string | null
-          pmt_ref: string | null
-          product: string | null
-          "⁠psp_ref": string | null
-          status: boolean | null
-          transaction_id: string | null
+          email: string | null
+          gateway_reference: string | null
+          id: string
+          learner_id: string
+          payment_type: Database["public"]["Enums"]["payment_type"]
+          phone: string | null
+          status: string
+          updated_at: string
         }
         Insert: {
-          amount?: number | null
+          amount: number
           created_at?: string
-          enabled?: boolean | null
-          id?: number
-          "⁠learner_id"?: string | null
-          payment_date?: string | null
-          pmt_ref?: string | null
-          product?: string | null
-          "⁠psp_ref"?: string | null
-          status?: boolean | null
-          transaction_id?: string | null
+          email?: string | null
+          gateway_reference?: string | null
+          id?: string
+          learner_id: string
+          payment_type: Database["public"]["Enums"]["payment_type"]
+          phone?: string | null
+          status?: string
+          updated_at?: string
         }
         Update: {
-          amount?: number | null
+          amount?: number
           created_at?: string
-          enabled?: boolean | null
-          id?: number
-          "⁠learner_id"?: string | null
-          payment_date?: string | null
-          pmt_ref?: string | null
-          product?: string | null
-          "⁠psp_ref"?: string | null
-          status?: boolean | null
-          transaction_id?: string | null
+          email?: string | null
+          gateway_reference?: string | null
+          id?: string
+          learner_id?: string
+          payment_type?: Database["public"]["Enums"]["payment_type"]
+          phone?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "Payment_⁠learner_id_fkey"
-            columns: ["⁠learner_id"]
+            foreignKeyName: "payment_learner_id_fkey"
+            columns: ["learner_id"]
             isOneToOne: false
             referencedRelation: "Learner"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reschedule_requests: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          learner_id: string
+          lesson_ids: string[]
+          payment_id: string | null
+          status: Database["public"]["Enums"]["reschedule_request_status"]
+          type: Database["public"]["Enums"]["reschedule_request_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          learner_id: string
+          lesson_ids: string[]
+          payment_id?: string | null
+          status?: Database["public"]["Enums"]["reschedule_request_status"]
+          type?: Database["public"]["Enums"]["reschedule_request_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          learner_id?: string
+          lesson_ids?: string[]
+          payment_id?: string | null
+          status?: Database["public"]["Enums"]["reschedule_request_status"]
+          type?: Database["public"]["Enums"]["reschedule_request_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reschedule_requests_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "Learner"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment"
             referencedColumns: ["id"]
           },
         ]
@@ -445,11 +536,52 @@ export type Database = {
           },
         ]
       }
+      schedule_preferences: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          learner_id: string
+          time_slot: Database["public"]["Enums"]["time_slot"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          learner_id: string
+          time_slot: Database["public"]["Enums"]["time_slot"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          learner_id?: string
+          time_slot?: Database["public"]["Enums"]["time_slot"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_preferences_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "Learner"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      calculate_reschedule_fee: {
+        Args: {
+          lesson_ids: string[]
+        }
+        Returns: number
+      }
       delete_claim: {
         Args: {
           uid: string
@@ -484,6 +616,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_within_72_hours: {
+        Args: {
+          schedule_date: string
+          schedule_time: string
+        }
+        Returns: boolean
+      }
       set_claim: {
         Args: {
           uid: string
@@ -494,7 +633,15 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      enrollment_status: "pending" | "active" | "completed" | "cancelled"
+      payment_type: "course" | "reschedule"
+      reschedule_request_status:
+        | "pending_payment"
+        | "pending"
+        | "completed"
+        | "cancelled"
+      reschedule_request_type: "new" | "reschedule"
+      time_slot: "6-9" | "9-12" | "12-15" | "15-18" | "18-21"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -598,3 +745,4 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+

@@ -44,7 +44,7 @@ export default function UploadLL() {
         { file, phone },
         {
           onSuccess: () => {
-            navigate("/home");
+            navigate("/createSchedule/preferences");
           },
         },
       );
@@ -60,12 +60,12 @@ export default function UploadLL() {
             size="icon"
             className="text-primary-foreground"
           >
-            <Link to="/createSchedule/slots">
+            <Link to="/createSchedule/details">
               <ArrowLeft className="h-6 w-6" />
             </Link>
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            3/3
+            2/3
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
@@ -108,7 +108,6 @@ export default function UploadLL() {
                     value={fileName}
                     onChange={(e) => setFileName(e.target.value)}
                     onBlur={() => setIsEditingName(false)}
-                    autoFocus
                     className="mr-2 flex-grow"
                   />
                 ) : (
@@ -149,7 +148,7 @@ export default function UploadLL() {
                   id="file-upload"
                   type="file"
                   className="sr-only"
-                  accept=".jpeg,.jpg,.pdf"
+                  accept=".jpeg,.jpg,.pdf,.png"
                   onChange={handleFileChange}
                 />
               </Label>
