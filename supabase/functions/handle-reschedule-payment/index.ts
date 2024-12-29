@@ -7,6 +7,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import CryptoJS from "npm:crypto-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,21 +15,43 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface WebhookPayload {
-  event: string;
-  payload: {
-    payment_id: string;
-    order_id: string;
-    payment_link_id: string | null;
-    payment_link_reference_id: string | null;
-    status: string;
-    amount: number;
-    attempts: number;
-    created_at: number;
-  };
+interface PaymentDetails {
+  amount: number;
+  paymentId: string;
+  requestId: string;
 }
 
-serve(async (req: Request) => {
+// Utility functions for encryption and hash generation
+function encrypt(input: string, key: string): string {
+  const cipher = CryptoJS.AES.encrypt(
+    CryptoJS.enc.Utf8.parse(input),
+    CryptoJS.enc.Utf8.parse(key),
+    {
+      mode: CryptoJS.mode.ECB,
+      padding: CryptoJS.pad.Pkcs7,
+    },
+  );
+  return cipher.toString();
+}
+
+function generateSecureHash(
+  sortedData: Record<string, string>,
+  secret: string,
+): string {
+  let secureHash = secret;
+
+  if (sortedData) {
+    for (const val of Object.values(sortedData)) {
+      secureHash += val;
+    }
+  }
+
+  // Generate SHA-256 hash
+  const hashed = CryptoJS.SHA256(CryptoJS.enc.Utf8.parse(secureHash));
+  return hashed.toString(CryptoJS.enc.Hex);
+}
+
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -39,69 +62,112 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const payload: WebhookPayload = await req.json();
+    const { amount, paymentId } = (await req.json()) as PaymentDetails;
 
-    // Only process successful payments
-    if (payload.event !== "payment.captured") {
-      return new Response(JSON.stringify({ message: "Ignored event" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    // Get payment details
+    // Get payment details with learner info
     const { data: payment, error: paymentError } = await supabaseClient
       .from("payment")
-      .select("*")
-      .eq("gateway_reference", payload.payload.payment_id)
+      .select(
+        `
+        *,
+        Learner (
+          email,
+          phone
+        )
+      `,
+      )
+      .eq("id", paymentId)
       .single();
 
     if (paymentError || !payment) {
       throw new Error("Payment not found");
     }
 
-    // Get reschedule request
-    const { data: request, error: requestError } = await supabaseClient
-      .from("reschedule_requests")
-      .select("*")
-      .eq("payment_id", payment.id)
-      .single();
+    // Get payment gateway parameters from environment
+    const merchantId = Deno.env.get("PAYMENT_MERCHANT_ID") ?? "";
+    const terminalId = Deno.env.get("PAYMENT_TERMINAL_ID") ?? "";
+    const bankId = Deno.env.get("PAYMENT_BANK_ID") ?? "";
+    const passCode = Deno.env.get("PAYMENT_PASS_CODE") ?? "";
+    const mcc = Deno.env.get("PAYMENT_MCC") ?? "";
+    const encKey = Deno.env.get("PAYMENT_ENC_KEY") ?? "";
+    const saltKey = Deno.env.get("PAYMENT_SALT_KEY") ?? "";
+    const returnURL = Deno.env.get("HOST_URL") + "/reschedule/callback";
+    const gatewayURL = Deno.env.get("PAYMENT_GATEWAY_URL") ?? "";
 
-    if (requestError || !request) {
-      throw new Error("Reschedule request not found");
-    }
+    // Prepare payment data
+    const txnRefNo = `ORD-${paymentId}`;
+    const txnType = "Pay";
+    const currency = "356";
+    const amountInPaise = Math.round(amount * 100).toString();
 
-    // Update reschedule request status
-    const { error: updateError } = await supabaseClient
-      .from("reschedule_requests")
-      .update({ status: "pending" })
-      .eq("id", request.id);
+    // Create data object in required format
+    const data = {
+      BankId: bankId,
+      MerchantId: merchantId,
+      TerminalId: terminalId,
+      TxnRefNo: txnRefNo,
+      MCC: mcc,
+      PassCode: passCode,
+      TxnType: txnType,
+      Currency: currency,
+      Amount: amountInPaise,
+      CurrencyCode: "356",
+      ReturnURL: returnURL,
+      gatewayURL: gatewayURL,
+      OrderInfo: txnRefNo,
+      Email: payment.Learner.email,
+      Phone: payment.Learner.phone,
+      UDF01: "",
+      UDF02: "",
+      UDF03: "",
+      UDF04: "",
+      UDF05: "",
+      UDF06: "",
+      UDF07: "",
+      UDF08: "",
+      UDF09: "",
+      UDF10: "",
+    };
 
-    if (updateError) {
-      throw new Error("Failed to update reschedule request");
-    }
+    // Sort data alphabetically
+    const sortedData = Object.fromEntries(Object.entries(data).sort());
 
-    // Update learner's needs_scheduling flag
-    const { error: learnerError } = await supabaseClient
-      .from("Learner")
-      .update({ needs_scheduling: true })
-      .eq("id", request.learner_id);
+    // Generate data string for encryption
+    let dataToPostToPG = "";
+    Object.entries(sortedData).forEach(([key, value]) => {
+      dataToPostToPG += `${key}||${value}::`;
+    });
 
-    if (learnerError) {
-      throw new Error("Failed to update learner");
-    }
+    // Generate secure hash
+    const secureHash = generateSecureHash(sortedData, saltKey);
 
+    // Add secure hash to data string
+    dataToPostToPG = `SecureHash||${secureHash}::${dataToPostToPG}`;
+    dataToPostToPG = dataToPostToPG.slice(0, -2); // Remove last '::'
+
+    // Encrypt the final data
+    const encData = encrypt(dataToPostToPG, encKey);
+
+    // Return the form data and gateway URL
     return new Response(
-      JSON.stringify({ message: "Successfully processed payment" }),
+      JSON.stringify({
+        gatewayURL,
+        formData: {
+          EncData: encData,
+          MerchantId: merchantId,
+          BankId: bankId,
+          TerminalId: terminalId,
+        },
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       },
     );
   } catch (error) {
-    return new Response(JSON.stringify({ message: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("Error processing payment", error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

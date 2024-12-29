@@ -72,8 +72,7 @@ export default function CreateSchedule({
       const { data, error } = await supabase
         .from("Instructor")
         .select("*")
-        .contains("areas", [learnerArea])
-        .eq("enabled", true);
+        .contains("areas", [learnerArea]);
 
       if (error) throw error;
       return data;

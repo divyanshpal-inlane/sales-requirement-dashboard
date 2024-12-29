@@ -14,9 +14,8 @@ interface PaymentDetails {
   amount: number;
   email: string;
   phone: string;
-  paymentType: "course" | "reschedule";
+  paymentType: "course";
   courseId?: string;
-  requestId?: string;
 }
 
 // Utility functions for encryption and hash generation
@@ -60,7 +59,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { amount, email, phone, paymentType, courseId, requestId } =
+    const { amount, email, phone, paymentType, courseId } =
       (await req.json()) as PaymentDetails;
 
     // 1. Find or create learner
@@ -114,14 +113,7 @@ serve(async (req) => {
     if (dbError) throw dbError;
 
     // 3. Update related records based on payment type
-    if (paymentType === "reschedule" && requestId) {
-      const { error: scheduleError } = await supabaseClient
-        .from("Schedule")
-        .update({ payment_id: paymentRecord.id })
-        .eq("id", scheduleId);
-
-      if (scheduleError) throw scheduleError;
-    } else if (paymentType === "course" && courseId) {
+    if (paymentType === "course" && courseId) {
       console.log("courseId ---> ", courseId);
       const { error: courseError } = await supabaseClient
         .from("enrollment")
@@ -133,6 +125,7 @@ serve(async (req) => {
             status: "pending",
           },
         ]);
+
       console.log("courseError ---> ", courseError);
       if (courseError) throw courseError;
     }
