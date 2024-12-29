@@ -22,6 +22,7 @@ import Lesson10 from "@/components/lesson/signature";
 import PaymentCallback from "@/components/payment/PaymentCallback";
 import PaymentPage from "@/components/payment/PaymentPage";
 import PaymentStatus from "@/components/payment/PaymentStatus";
+import ReschedulePaymentCallback from "@/components/payment/ReschedulePaymentCallback";
 import {
   AuthProvider,
   ProtectedAdminRoute,
@@ -186,6 +187,10 @@ export default function App() {
             <Route path="/payment/callback" element={<PaymentCallback />} />
             <Route path="/payment/success" element={<PaymentStatus />} />
             <Route path="/payment/failure" element={<PaymentStatus />} />
+            <Route
+              path="/reschedule/callback"
+              element={<ReschedulePaymentCallback />}
+            />
           </Routes>
         </AuthProvider>
       </QueryClientProvider>

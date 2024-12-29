@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -29,10 +30,13 @@ export default function RescheduleConfirmationSheet({
   learnerId,
 }: RescheduleConfirmationSheetProps) {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleConfirm = async () => {
     try {
-      // Create reschedule requests for each lesson
+      setIsLoading(true);
+
+      // Create payment record
       const { data: payment, error: paymentError } = await supabase
         .from("payment")
         .insert([
@@ -48,7 +52,7 @@ export default function RescheduleConfirmationSheet({
 
       if (paymentError) throw paymentError;
 
-      // Create reschedule requests
+      // Create reschedule request
       const { data: rescheduleRequest, error: rescheduleError } = await supabase
         .from("reschedule_requests")
         .insert({
@@ -65,11 +69,39 @@ export default function RescheduleConfirmationSheet({
 
       if (rescheduleError) throw rescheduleError;
 
-      // If payment is required, redirect to payment page
+      // If payment is required, initiate payment
       if (totalFee > 0) {
-        navigate(
-          `/payment?amount=${totalFee}&type=reschedule&paymentId=${payment.id}&requestId=${rescheduleRequest.id}`,
+        const { data, error: functionError } = await supabase.functions.invoke(
+          "handle-reschedule-payment",
+          {
+            body: {
+              amount: totalFee,
+              paymentId: payment.id,
+              requestId: rescheduleRequest.id,
+            },
+          },
         );
+
+        if (functionError) throw functionError;
+
+        // Create a form element
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = data.gatewayURL;
+
+        // Add all the required fields from the response
+        Object.entries(data.formData).forEach(([key, value]) => {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        });
+
+        // Append the form to the document body and submit
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
       } else {
         // If no payment required, redirect to home
         navigate("/");
@@ -77,6 +109,7 @@ export default function RescheduleConfirmationSheet({
     } catch (error) {
       console.error("Error creating reschedule request:", error);
       alert("Failed to create reschedule request. Please try again.");
+      setIsLoading(false);
     }
   };
 
@@ -141,11 +174,20 @@ export default function RescheduleConfirmationSheet({
             variant="outline"
             className="w-full"
             onClick={() => onOpenChange(false)}
+            disabled={isLoading}
           >
             Cancel
           </Button>
-          <Button className="w-full" onClick={handleConfirm}>
-            {totalFee > 0 ? "Proceed to Payment" : "Confirm Reschedule"}
+          <Button
+            className="w-full"
+            onClick={handleConfirm}
+            disabled={isLoading}
+          >
+            {isLoading
+              ? "Processing..."
+              : totalFee > 0
+                ? "Proceed to Payment"
+                : "Confirm Reschedule"}
           </Button>
         </SheetFooter>
       </SheetContent>
