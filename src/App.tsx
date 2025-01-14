@@ -68,7 +68,7 @@ export default function App() {
               path="/onboard"
               element={
                 <ProtectedLearnerRoute>
-                  <Outlet />
+                  <Outlet/>
                 </ProtectedLearnerRoute>
               }
             >
@@ -96,7 +96,7 @@ export default function App() {
               path="createSchedule"
               element={
                 <ProtectedLearnerRoute>
-                  <Outlet />
+                  <Outlet overflow-y-auto/>
                 </ProtectedLearnerRoute>
               }
             >

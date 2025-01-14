@@ -29,7 +29,7 @@ function Preferences() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col overflow-y-auto">
       <div className="flex flex-col rounded-b-[40px] bg-primary">
         <div className="flex items-center justify-between p-4">
           <Button

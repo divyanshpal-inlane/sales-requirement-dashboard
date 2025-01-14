@@ -52,9 +52,24 @@ function RescheduleView() {
 
   const calculateTotalFee = () => {
     if (!schedules) return 0;
-    return schedules.reduce((total: number, schedule) => {
-      if (selectedSchedules.some((s) => s.id === schedule.id)) {
-        const scheduleDate = new Date(`${schedule.date}T${schedule.startTime}`);
+    
+    // Group schedules by date
+    const groupedByDate = schedules.reduce((groups: { [key: string]: Schedule[] }, schedule) => {
+      const date = schedule.date;
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(schedule);
+      return groups;
+    }, {});
+
+    // Calculate fee for each day that has selected lessons
+    return Object.entries(groupedByDate).reduce((total, [date, daySchedules]) => {
+      const hasSelectedLessonInDay = daySchedules.some(schedule =>
+        selectedSchedules.some(s => s.id === schedule.id)
+      );
+      if (hasSelectedLessonInDay) {
+        const scheduleDate = new Date(`${date}T00:00:00`);
         const now = new Date();
         const diffHours =
           (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -78,7 +93,7 @@ function RescheduleView() {
             className="text-primary-foreground"
             asChild
           >
-            <Link to={`/lesson/${lesson.number}`}>
+            <Link to={`/home`}>
               <ArrowLeft className="h-6 w-6" />
             </Link>
           </Button>

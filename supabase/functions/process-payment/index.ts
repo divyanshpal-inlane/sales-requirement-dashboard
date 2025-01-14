@@ -16,6 +16,7 @@ interface PaymentDetails {
   phone: string;
   paymentType: "course";
   courseId?: string;
+  name: string;
 }
 
 // Utility functions for encryption and hash generation
@@ -59,7 +60,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { amount, email, phone, paymentType, courseId } =
+    const { amount, email, phone, paymentType, courseId, name } =
       (await req.json()) as PaymentDetails;
 
     // 1. Find or create learner
@@ -69,6 +70,7 @@ serve(async (req) => {
         .select()
         .eq("email", email)
         .eq("phone", phone)
+        .eq("name", name)
         .limit(1);
 
     if (learnerQueryError) throw learnerQueryError;
@@ -84,6 +86,7 @@ serve(async (req) => {
             {
               email,
               phone,
+              name,
               onboarding_completed: false,
             },
           ])
@@ -99,12 +102,14 @@ serve(async (req) => {
       .from("payment")
       .insert([
         {
+          
           learner_id: learnerId,
           amount,
           email,
           phone,
           payment_type: paymentType,
           status: "pending",
+          name,
         },
       ])
       .select()

@@ -128,7 +128,7 @@ export default function ScheduleDetails() {
   }, [address, navigate, pinCode, updateLearner, area, addressLat, addressLng]);
 
   return (
-    <div className="flex h-full w-full flex-col rounded-md">
+    <div className="flex h-full w-full flex-col rounded-md overflow-y-auto scrollbar-hide">
       <div className="flex flex-col rounded-b-[40px] bg-primary">
         <div className="flex items-center justify-between p-4">
           <Button

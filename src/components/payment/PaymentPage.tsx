@@ -22,6 +22,7 @@ interface PaymentDetails {
   paymentType: "course" | "reschedule";
   courseId?: string;
   requestId?: string;
+  name: string;
 }
 
 function PaymentPage() {
@@ -38,6 +39,7 @@ function PaymentPage() {
       (searchParams.get("type") as "course" | "reschedule") || "course",
     courseId: searchParams.get("courseId") || "",
     requestId: searchParams.get("requestId") || undefined,
+    name: searchParams.get("name") || "",
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,6 +176,23 @@ function PaymentPage() {
             </div>
             {type === "course" && (
               <>
+                <div>
+                  <label
+                  htmlFor="name"
+                  className="mb-1 block text-sm font-medium"
+                  >
+                    Name
+                    </label>
+                    <Input
+                    id="name"
+                    name="name"
+                    type="text"
+                    value={paymentDetails.name}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full"
+                    />
+                </div>
                 <div>
                   <label
                     htmlFor="email"

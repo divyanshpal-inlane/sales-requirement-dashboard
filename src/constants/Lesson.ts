@@ -13,28 +13,32 @@ export const LESSON_IDS = [
   "10",
 ] as const;
 
-export const LESSON_CONTENT: Record<
-  (typeof LESSON_IDS)[number],
-  {
-    id: string;
-    content: {
-      game?: Game;
+export type LessonContent =Partial< Record<
+(typeof LESSON_IDS)[number],
+{
+  id: string;
+  content: {
+    game1?: Game;
+    game?: Game;
+    title?: string;
+    points?: { icon: React.ReactNode; header: string; desc: string }[];
+    remember?: { icon: React.ReactNode; text: string }[];
+  };
+  menu?: {
+    trivia?: { title: string; icon: string; color: string };
+    video?: {
       title: string;
-      points: { icon: React.ReactNode; header: string; desc: string }[];
-      remember: { icon: React.ReactNode; text: string }[];
-    };
-    menu?: {
-      trivia?: { title: string; icon: string; color: string };
-      video?: {
-        title: string;
-        icon: string;
-        color: string;
-        video_path: string;
-      }[];
-      signature?: { title: string; icon: string; color: string };
-    };
-  }
-> = {
+      icon: string;
+      color: string;
+      video_path: string;
+    }[];
+    signature?: { title: string; icon: string; color: string };
+  };
+}
+>
+>
+
+export const LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
     menu: {
@@ -63,26 +67,26 @@ export const LESSON_CONTENT: Record<
       title: "You will be good at Starting & Stopping the Car",
       points: [
         {
-          icon: "😎",
+          icon: "gears.svg",
           header: "Car Intro:",
           desc: "Dash, gears, controls",
         },
         {
-          icon: "😎",
+          icon: "seat.svg",
           header: "Get Comfy:",
           desc: "Adjust seat, mirrors, steering",
         },
         {
-          icon: "😎",
+          icon: "ignition.svg",
           header: "Start Up:",
           desc: "Clutch, neutral, start button",
         },
         {
-          icon: "😎",
+          icon: "pedals.svg",
           header: "Move Forward:",
           desc: "Balance clutch & accelerator",
         },
-        { icon: "😎", header: "Stop Smoothly:", desc: "Brake, clutch" },
+        { icon: "brakes.svg", header: "Stop Smoothly:", desc: "Brake, clutch" },
       ],
       game: {
         type: "image",
@@ -142,22 +146,22 @@ export const LESSON_CONTENT: Record<
 
       points: [
         {
-          icon: "😎",
+          icon: "forward.svg",
           header: "Pedal Fun:",
           desc: "Drive forward & back on a straight road",
         },
         {
-          icon: "😎",
+          icon: "stop.svg",
           header: "Stop & Go:",
           desc: "Quick stops, smooth moves (emergency stops)",
         },
         {
-          icon: "😎",
+          icon: "slope.svg",
           header: "Slope Magic:",
           desc: "Balancing pedals on slopes",
         },
         {
-          icon: "😎",
+          icon: "mirror.svg",
           header: "Mirror Magic:",
           desc: "Grasping the surrounding",
         },
@@ -229,22 +233,22 @@ export const LESSON_CONTENT: Record<
       title: "You will start changing gears and practicing turns",
       points: [
         {
-          icon: "😎",
+          icon: "gears.svg",
           header: "Gearbox Magic:",
           desc: "Nail the clutch and shift gears smoothly",
         },
         {
-          icon: "😎",
+          icon: "seat.svg",
           header: "Get Comfy:",
           desc: "Adjust seat, mirrors, steering",
         },
         {
-          icon: "😎",
+          icon: "steering.svg",
           header: "Steering Skills:",
           desc: "Hold the wheel right, move smoothly",
         },
         {
-          icon: "😎",
+          icon: "rightturn.svg",
           header: "Turn Tricks:",
           desc: "Slow down, signal, and check mirrors",
         },
@@ -316,27 +320,27 @@ export const LESSON_CONTENT: Record<
 
       points: [
         {
-          icon: "😎",
+          icon: "parking.svg",
           header: "Find Your Fit:",
           desc: "Spot spaces and align perfectly",
         },
         {
-          icon: "😎",
+          icon: "mirror.svg",
           header: "Mirror Magic:",
           desc: "Judge distance and avoid bumper kisses",
         },
         {
-          icon: "😎",
+          icon: "steering.svg",
           header: "Slow Steering:",
           desc: "Navigate tight spots with ease",
         },
         {
-          icon: "😎",
+          icon: "vlc.svg",
           header: "Park and Exit:",
           desc: "Right gear & safely open doors",
         },
         {
-          icon: "😎",
+          icon: "gears.svg",
           header: "Gear Up:",
           desc: "Balance pedals and gear in slow movements",
         },
@@ -402,17 +406,17 @@ export const LESSON_CONTENT: Record<
 
       points: [
         {
-          icon: "😎",
+          icon: "pedals.svg",
           header: "Steady Speed:",
           desc: "1. On straight roads & turns \n 2. Speed control using brakes",
         },
         {
-          icon: "😎",
+          icon: "gears.svg",
           header: "Gear Shifting:",
           desc: "Without looking",
         },
         {
-          icon: "😎",
+          icon: "parking.svg",
           header: "Parking Pro:",
           desc: "Parallel park SLIDE!",
         },
@@ -477,27 +481,27 @@ export const LESSON_CONTENT: Record<
 
       points: [
         {
-          icon: "😎",
+          icon: "mirror.svg",
           header: "Mirror Magic:",
           desc: "Anticipating others actions ",
         },
         {
-          icon: "😎",
+          icon: "gaps.svg",
           header: "Safe Gaps:",
           desc: "Keep a safe distance from other vehicles",
         },
         {
-          icon: "😎",
+          icon: "uturn.svg",
           header: "Sign Savvy:",
           desc: "Know your traffic signs",
         },
         {
-          icon: "😎",
+          icon: "fog-lamp.svg",
           header: "Blinker Sense:",
           desc: "Use indicators to communicate",
         },
         {
-          icon: "😎",
+          icon: "highway.svg",
           header: "Lane Loyalty:",
           desc: "Maintain your lane",
         },
@@ -565,27 +569,27 @@ export const LESSON_CONTENT: Record<
 
       points: [
         {
-          icon: "😎",
+          icon: "traffic-light.svg",
           header: "Smooth Moves:",
           desc: "Stop & start at traffic signals",
         },
         {
-          icon: "😎",
+          icon: "speedometer.svg",
           header: "Speed Sense:",
           desc: "Judge and keep the right speed and distance",
         },
         {
-          icon: "😎",
+          icon: "cityscape.svg",
           header: "City Maze:",
           desc: "Roundabouts & Intersections Know who goes first",
         },
         {
-          icon: "😎",
+          icon: "fog-lamp.svg",
           header: "Signal Master:",
           desc: "Use indicators to communicate",
         },
         {
-          icon: "😎",
+          icon: "slopedes.svg",
           header: "Slope Savvy:",
           desc: "Low gear more power & control",
         },
@@ -646,17 +650,17 @@ export const LESSON_CONTENT: Record<
 
       points: [
         {
-          icon: "😎",
+          icon: "traffic-light.svg",
           header: "Evening Traffic Tamer:",
           desc: "Maintain speeds and distances to handle evening traffic with ease",
         },
         {
-          icon: "😎",
+          icon: "fog-lamp.svg",
           header: "Using indicator at night:",
           desc: "Communicate well with others",
         },
         {
-          icon: "😎",
+          icon: "parking.svg",
           header: "Night-time Parking Pro:",
           desc: "Learn to park in dim light",
         },
@@ -721,22 +725,22 @@ export const LESSON_CONTENT: Record<
       title: "You will drive at consistent speeds on a flyover",
       points: [
         {
-          icon: "😎",
+          icon: "flyover-bridge.svg",
           header: "Flyover Flow:",
           desc: "Merge and exit at the right speeds",
         },
         {
-          icon: "😎",
+          icon: "highway.svg",
           header: "Lane Glider:",
           desc: "Signal, check, and change lanes smoothly",
         },
         {
-          icon: "😎",
+          icon: "traffic-light.svg",
           header: "Flyover Traffic:",
           desc: "Become comfortable in driving on flyover traffic",
         },
         {
-          icon: "😎",
+          icon: "smartphone-call.svg",
           header: "Tech-Savvy Driver:",
           desc: "Using GPS without distractions",
         },
@@ -791,12 +795,12 @@ export const LESSON_CONTENT: Record<
       title: "You will have an absolutely fun time doing the challenges",
       points: [
         {
-          icon: "😎",
+          icon: "government.svg",
           header: "RTO Rehearsal:",
           desc: "Mini challenges to get test ready Focus on lane driving & parking",
         },
         {
-          icon: "😎",
+          icon: "calm.svg",
           header: "Zen Mode:",
           desc: "Tips to stay relaxed & focused",
         },

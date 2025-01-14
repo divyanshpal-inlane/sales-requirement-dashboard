@@ -385,9 +385,9 @@ export function LessonPlan({
                   <div className="mt-4">
                     <h3 className="mb-4 text-lg font-semibold">{title}</h3>
                     <div className="space-y-4">
-                      {points.map(({ desc, header }) => (
+                      {points.map(({ desc, header,icon }) => (
                         <div key={header} className="flex items-center gap-2">
-                          <TowerControl className="h-6 w-6" />
+                          <img src={`/assets/icons/${icon}`} className="h-6 w-6" alt={icon} />
                           <div>
                             <p className="font-medium text-primary">{header}</p>
                             <p className="text-sm text-muted-foreground">
