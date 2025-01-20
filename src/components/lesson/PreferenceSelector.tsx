@@ -20,13 +20,13 @@ import {
 interface PreferenceSelectorProps {
   learnerId: string;
   lessons: string[];
-  type?: Database["public"]["Tables"]["reschedule_requests"]["Row"]["type"];
+  type: string;
 }
 
 function PreferenceSelector({
   learnerId,
   lessons,
-  type = "reschedule",
+  type,
 }: PreferenceSelectorProps) {
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
 
@@ -84,18 +84,22 @@ function PreferenceSelector({
       },
       {
         onSuccess: () => {
-          rescheduleRequest(
-            {
-              learnerId,
-              lessonIds: lessons,
-              type,
-            },
-            {
-              onSuccess: () => {
-                navigate("/home");
+          if (type == "new") {
+            rescheduleRequest(
+              {
+                learnerId,
+                lessonIds: lessons,
+                type,
               },
-            },
-          );
+              {
+                onSuccess: () => {
+                  navigate("/home");
+                },
+              },
+            );
+          } else {
+            navigate("/home");
+          }
         },
       },
     );

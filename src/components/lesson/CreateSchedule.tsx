@@ -308,19 +308,19 @@ export default function CreateSchedule({
       alert("Not enough lessons available for the course");
       return;
     }
-
+  
     if (!instructors || instructors.length === 0) {
       alert("No instructors available for this area");
       return;
     }
-
+  
     // Sort lessons by lesson number
     const sortedLessons = allLessons
       ? [...allLessons]
           .filter((l) => l.number && l.number >= minLessonNumber)
-          .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
+          .sort((a, b) => (b.number ?? 0) - (a.number ?? 0)) // Sort in descending order
       : [];
-
+  
     const allSlots: Omit<Schedule, "lessonId">[] = [
       ...selectedSlots,
       ...laterScheduleOfLearnerToChange.map((s) => ({
@@ -329,19 +329,19 @@ export default function CreateSchedule({
         instructorId: s.instructor_id ?? "",
       })),
     ];
-
-    // Create schedules with lesson IDs and instructor ID
-    const schedulesWithIds = allSlots
-      .sort((a, b) => {
-        if (a.date === b.date) {
-          return a.hour - b.hour;
-        }
-        return isBefore(a.date, b.date) ? -1 : 1;
-      })
-      .map((slot, index) => ({
-        ...slot,
-        lessonId: sortedLessons[index].id ?? "",
-      }));
+  
+    // Sort slots chronologically (earliest to latest)
+    const chronologicallySortedSlots = allSlots.sort((a, b) => {
+      const timeA = new Date(a.date).setHours(a.hour);
+      const timeB = new Date(b.date).setHours(b.hour);
+      return timeB - timeA;
+    });
+  
+    // Map lessons to slots - most recent slot gets highest lesson number
+    const schedulesWithIds = chronologicallySortedSlots.map((slot, index) => ({
+      ...slot,
+      lessonId: sortedLessons[index]?.id ?? "",
+    }));
 
     onScheduleCreate(schedulesWithIds, sortedLessons[0].course_id ?? "");
   };

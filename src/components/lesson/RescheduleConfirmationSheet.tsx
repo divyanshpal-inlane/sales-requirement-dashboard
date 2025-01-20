@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { format } from "date-fns";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -134,7 +135,7 @@ export default function RescheduleConfirmationSheet({
         document.body.removeChild(form);
       } else {
         // If no payment required, redirect to home
-        navigate("/createSchedule/preferences");
+        navigate("/createSchedule/preferences?type=reschedule");
       }
     } catch (error) {
       console.error("Error creating reschedule request:", error);

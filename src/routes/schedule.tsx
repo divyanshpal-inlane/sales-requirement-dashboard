@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { format, isSameDay } from "date-fns";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -11,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLearner, useLearnerSchedule } from "@/queries/learner";
 
@@ -269,7 +271,7 @@ export default function Schedule() {
             )}
           </div>
         </TabsContent>
-
+        <ScrollArea className="relative">
         <TabsContent value="lesson" className="h-full overflow-y-auto">
           <div className="grid grid-cols-2 gap-4 pb-6">
             {lessonIds.map((lesson) => (
@@ -301,6 +303,7 @@ export default function Schedule() {
             ))}
           </div>
         </TabsContent>
+        </ScrollArea>
       </Tabs>
     </div>
   );

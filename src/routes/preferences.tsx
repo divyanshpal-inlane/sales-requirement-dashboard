@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import PreferenceSelector from "@/components/lesson/PreferenceSelector";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import {
 } from "@/queries/learner";
 
 function Preferences() {
+
+  const [searchParams] = useSearchParams();
+  const type = searchParams.get("type") as "new" | "reschedule" ;
   const { data: learner, isLoading } = useLearner();
   const { data: enrolledCourse, isLoading: enrolledCourseLoading } =
     useLearnerEnrollmentCourse({
@@ -43,7 +46,7 @@ function Preferences() {
             </Link>
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            Schedule Preferences
+          {type === "new" ? "Schedule Preferences" : "Reschedule Preferences"}
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
@@ -58,7 +61,7 @@ function Preferences() {
         <div className="flex-1 overflow-y-auto px-2 py-4">
           {learner && lessons ? (
             <PreferenceSelector
-              type="new"
+              type={type}
               lessons={lessons.map((l) => l.id)}
               learnerId={learner.id}
             />
