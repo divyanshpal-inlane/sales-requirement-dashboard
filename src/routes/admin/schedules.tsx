@@ -89,6 +89,20 @@ export default function AdminSchedules() {
         title: "Schedule created",
         description: "The schedule has been created successfully.",
       });
+      if (selectedRequest) {
+        completeRescheduleRequestMutation.mutate(
+          {
+            requestId: selectedRequest.id,
+          },
+          {
+            onSuccess: () => {
+              supabase.functions.invoke("learner-daily-schedule", {
+                body: { learner_id: selectedRequest.learner_id },
+              });
+            },
+          },
+        );
+      }
     },
     onError: (error) => {
       toast({
@@ -109,13 +123,10 @@ export default function AdminSchedules() {
   ) => {
     if (!selectedRequest) return;
 
-    await createScheduleMutation.mutateAsync({
+    createScheduleMutation.mutate({
       learnerId: selectedRequest.learner_id,
       schedules,
       courseId,
-    });
-    await completeRescheduleRequestMutation.mutateAsync({
-      requestId: selectedRequest.id,
     });
   };
 
