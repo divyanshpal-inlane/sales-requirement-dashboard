@@ -166,7 +166,9 @@ export default function CreateSchedule({
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];
     const dateStr = format(date, "yyyy-MM-dd");
-
+    const isDayBlocked = schedulesToChange.some(
+      (s) => format(new Date(s.date), "yyyy-MM-dd") === dateStr,
+    );
     // Create 24 hourly slots
     for (let hour = 6; hour < 21; hour++) {
       // Find which time slot this hour belongs to
@@ -196,11 +198,12 @@ export default function CreateSchedule({
       );
 
       // Check if this slot has other schedules for the same learner
-      const isLearnerSchedule = laterScheduleOfLearnerToChange?.some(
+      const isLearnerSchedule = existingSchedules?.some(
         (s) =>
           s.date === dateStr &&
           parseInt(s.start_time.split(":")[0]) === hour &&
-          s.learner_id === learnerId,
+          s.learner_id === learnerId &&
+          !request.lesson_ids.includes(s.lesson_id ?? ""),
       );
 
       // Get available instructors for this slot
@@ -233,7 +236,10 @@ export default function CreateSchedule({
         hour,
         timeSlot: timeSlot as TimeSlot | null,
         state: {
-          isAvailable: availableInstructors.length > 0 && !isLearnerSchedule,
+          isAvailable:
+            availableInstructors.length > 0 &&
+            !isLearnerSchedule &&
+            !isDayBlocked,
           isSelected: selectedSlots.some(
             (s) => format(s.date, "yyyy-MM-dd") === dateStr && s.hour === hour,
           ),
@@ -259,6 +265,10 @@ export default function CreateSchedule({
 
     const slotHour = slot.hour;
 
+    if (selectedSlots.length > request.lesson_ids.length) {
+      alert("Cannot select more slots than required.");
+      return;
+    }
     setSelectedSlots((prev) => {
       const dateStr = format(date, "yyyy-MM-dd");
       const isSelected = prev.some(
@@ -270,6 +280,11 @@ export default function CreateSchedule({
           (s) =>
             !(format(s.date, "yyyy-MM-dd") === dateStr && s.hour === slotHour),
         );
+      }
+
+      if (selectedSlots.length >= request.lesson_ids.length) {
+        alert("Cannot select more slots than required.");
+        return prev;
       }
 
       // const enrollment = enrollments?.find(
@@ -295,6 +310,9 @@ export default function CreateSchedule({
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
+    if (direction === "prev" && isBefore(addDays(startDate, -10), new Date())) {
+      return;
+    }
     setStartDate((prev) => addDays(prev, direction === "next" ? 10 : -10));
   };
 
@@ -308,19 +326,19 @@ export default function CreateSchedule({
       alert("Not enough lessons available for the course");
       return;
     }
-  
+
     if (!instructors || instructors.length === 0) {
       alert("No instructors available for this area");
       return;
     }
-  
+
     // Sort lessons by lesson number
     const sortedLessons = allLessons
       ? [...allLessons]
           .filter((l) => l.number && l.number >= minLessonNumber)
           .sort((a, b) => (b.number ?? 0) - (a.number ?? 0)) // Sort in descending order
       : [];
-  
+
     const allSlots: Omit<Schedule, "lessonId">[] = [
       ...selectedSlots,
       ...laterScheduleOfLearnerToChange.map((s) => ({
@@ -329,14 +347,14 @@ export default function CreateSchedule({
         instructorId: s.instructor_id ?? "",
       })),
     ];
-  
+
     // Sort slots chronologically (earliest to latest)
     const chronologicallySortedSlots = allSlots.sort((a, b) => {
       const timeA = new Date(a.date).setHours(a.hour);
       const timeB = new Date(b.date).setHours(b.hour);
       return timeB - timeA;
     });
-  
+
     // Map lessons to slots - most recent slot gets highest lesson number
     const schedulesWithIds = chronologicallySortedSlots.map((slot, index) => ({
       ...slot,

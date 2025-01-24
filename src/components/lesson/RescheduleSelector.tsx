@@ -3,9 +3,11 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Schedule, useLearnerSchedule } from "@/queries/learner";
-import { Checkbox } from "@/components/ui/checkbox";
+
+import { Label } from "../ui/label";
 
 interface RescheduleSelectorProps {
   learnerId: string;
@@ -27,20 +29,21 @@ export default function RescheduleSelector({
     learnerId,
   });
 
-  const groupedSchedules = schedules?.reduce((groups: GroupedSchedule[], schedule) => {
-    const date = schedule.date;
-    const existingGroup = groups.find(g => g.date === date);
-    
-    if (existingGroup) {
-      existingGroup.schedules.push(schedule);
-    } else {
-      groups.push({ date, schedules: [schedule] });
-    }
-    
-    return groups;
-  }, [])
+  const groupedSchedules = schedules?.reduce(
+    (groups: GroupedSchedule[], schedule) => {
+      const date = schedule.date;
+      const existingGroup = groups.find((g) => g.date === date);
 
+      if (existingGroup) {
+        existingGroup.schedules.push(schedule);
+      } else {
+        groups.push({ date, schedules: [schedule] });
+      }
 
+      return groups;
+    },
+    [],
+  );
 
   const handleLessonSelect = (schedule: Schedule) => {
     setSelectedLessons((prev) => {
@@ -71,10 +74,10 @@ export default function RescheduleSelector({
   const getTotalFee = () => {
     if (!groupedSchedules) return 0;
     return groupedSchedules.reduce((total, group) => {
-      const hasSelectedLessonInDay = group.schedules.some(schedule => 
-        selectedLessons.some((s) => s.id === schedule.id)
+      const hasSelectedLessonInDay = group.schedules.some((schedule) =>
+        selectedLessons.some((s) => s.id === schedule.id),
       );
-      
+
       return total + (hasSelectedLessonInDay ? calculateDayFee(group.date) : 0);
     }, 0);
   };
@@ -84,11 +87,11 @@ export default function RescheduleSelector({
       <ScrollArea className="h-[calc(100vh-300px)]">
         <div className="space-y-2">
           {groupedSchedules
-            ?.filter(group => isBefore(new Date(), new Date(group.date)))
+            ?.filter((group) => isBefore(new Date(), new Date(group.date)))
             .map((group) => (
               <Card key={group.date} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between ">
+                  <div className="flex items-center justify-between">
                     <div className="font-medium">
                       {format(new Date(group.date), "EEEE, MMMM d")}
                     </div>
@@ -105,24 +108,34 @@ export default function RescheduleSelector({
                         className="flex items-center justify-between rounded-lg border p-3"
                       >
                         <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-3">
-                          <Checkbox
-                            className="rounded-none" 
-                            checked={selectedLessons.some(s => s.id === schedule.id)}
-                            onCheckedChange={() =>
-                              schedule.lessonId && handleLessonSelect(schedule)
-                            }
-                          />
-                          <div>
-                            <div className="font-medium">
-                              Lesson {schedule.lesson?.number}
+                          <Label className="flex items-center gap-3">
+                            <Checkbox
+                              className="rounded-none"
+                              checked={selectedLessons.some(
+                                (s) => s.id === schedule.id,
+                              )}
+                              onCheckedChange={() =>
+                                schedule.lessonId &&
+                                handleLessonSelect(schedule)
+                              }
+                            />
+                            <div>
+                              <div className="font-medium">
+                                Lesson {schedule.lesson?.number}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {format(
+                                  new Date(`2000-01-01T${schedule.startTime}`),
+                                  "h:mm a",
+                                )}{" "}
+                                -{" "}
+                                {format(
+                                  new Date(`2000-01-01T${schedule.endTime}`),
+                                  "h:mm a",
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {format(new Date(`2000-01-01T${schedule.startTime}`), "h:mm a")} -{" "}
-                              {format(new Date(`2000-01-01T${schedule.endTime}`), "h:mm a")}
-                            </div>
-                          </div>
-                        </label>
+                          </Label>
                         </div>
                       </div>
                     ))}

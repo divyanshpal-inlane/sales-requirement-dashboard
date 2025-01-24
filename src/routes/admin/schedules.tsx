@@ -119,12 +119,14 @@ export default function AdminSchedules() {
     });
   };
 
-  const [newRequests, rescheduleRequests] = useMemo(() => {
-    return [
-      requests?.filter((r) => r.type === "new"),
-      requests?.filter((r) => r.type === "reschedule"),
-    ];
-  }, [requests]);
+  const newRequests = useMemo(
+    () => requests?.filter((r) => r.type === "new"),
+    [requests],
+  );
+  const rescheduleRequests = useMemo(
+    () => requests?.filter((r) => r.type === "reschedule"),
+    [requests],
+  );
 
   if (isLoading) {
     return (
@@ -143,8 +145,12 @@ export default function AdminSchedules() {
       <Tabs defaultValue="new" className="flex h-[calc(100%-73px)] flex-col">
         <div className="border-b px-6">
           <TabsList>
-            <TabsTrigger value="new">New Schedules</TabsTrigger>
-            <TabsTrigger value="reschedule">Reschedule Requests</TabsTrigger>
+            <TabsTrigger value="new">
+              New Schedules {newRequests?.length || 0}
+            </TabsTrigger>
+            <TabsTrigger value="reschedule">
+              Reschedule Requests {rescheduleRequests?.length || 0}
+            </TabsTrigger>
           </TabsList>
         </div>
 
