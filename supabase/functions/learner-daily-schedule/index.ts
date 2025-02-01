@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { learner_id } = await req.json();
+    const { learner_id, reschedule_lesson_number = 1 } = await req.json();
     console.log(learner_id, "called");
     // Fetch all schedules for tomorrow with related data
     const { data: schedules, error: schedulesError } = await supabaseClient
@@ -77,6 +77,11 @@ Deno.serve(async (req) => {
       throw learnerError;
     }
 
+    // Filter schedules based on reschedule_lesson_number
+    const filteredSchedules = schedules.filter(schedule => 
+      schedule.Lesson.number >= reschedule_lesson_number
+    );
+
     // Format time function
     const formatTime = (time: string): string => {
       const [hours, minutes] = time.split(":");
@@ -97,15 +102,19 @@ Deno.serve(async (req) => {
       return `${hourNum}:${minutes} ${period}`;
     };
 
-    const learnerSchedules = schedules || [];
+    const formatDate = (date: string): string => {
+      const [year, month, day] = date.split("-");
+      return  `${day}/${month}/${year}`;
+    };
 
     // Format schedule messages
-    const scheduleMessages = learnerSchedules.map((schedule, index) => {
+    const scheduleMessages = filteredSchedules.map((schedule, index) => {
+      const date = formatDate(schedule.date);
       const startTime = formatTime(schedule.start_time);
       const endTime = formatTime(schedule.end_time);
       return `${
         index + 1
-      }. ${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Instructor.name}`;
+      }.${date}. ${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Instructor.name}`;
     });
 
     // Fill remaining slots with empty strings if less than 6 schedules
@@ -117,7 +126,7 @@ Deno.serve(async (req) => {
     const messagePayload = {
       messages: [
         {
-          clientWaNumber: "918609267446",
+          clientWaNumber: "916289127271",
           templateName: "instructor_daily_schedule",
           templateContent:
             "Hey {{1}},\nWe hope your day went well and you had the best time! Here is your schedule for tomorrow:\n \n{{2}}\n{{3}}\n{{4}}\n{{5}}\n{{6}}\n{{7}}\nPlease check your calendar for more details 😊\nThank you!\nThe Lane Team 🚗",
@@ -150,7 +159,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("HELTAR_API_KEY")}`,
+        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJidXNpbmVzcyI6eyJpZCI6MTAzfSwiaWF0IjoxNzM2OTU5OTQ4LCJleHAiOjE4MzE1Njc5MTl9.4V3Hs6zLnKfR8qZq5w4HDEhqCDcDXsEBewn6REF4mu0`,
       },
       body: JSON.stringify(messagePayload),
     });

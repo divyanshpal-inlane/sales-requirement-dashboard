@@ -359,6 +359,7 @@ export default function CreateSchedule({
     const schedulesWithIds = chronologicallySortedSlots.map((slot, index) => ({
       ...slot,
       lessonId: sortedLessons[index]?.id ?? "",
+      lessonNumber: sortedLessons[index]?.number ?? 0,
     }));
 
     onScheduleCreate(schedulesWithIds, sortedLessons[0].course_id ?? "");

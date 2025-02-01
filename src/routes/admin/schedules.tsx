@@ -19,6 +19,7 @@ export type Schedule = {
   hour: number;
   instructorId: string;
   lessonId: string;
+  lessonNumber: number;
 };
 
 export default function AdminSchedules() {
@@ -46,6 +47,7 @@ export default function AdminSchedules() {
       learnerId: string;
       schedules: Schedule[];
       courseId: string;
+      rescheduleLessonNumber?: number;
     }) => {
       // delete existing lessonId schedule for learner
       const { error: deleteError } = await supabase
@@ -75,16 +77,8 @@ export default function AdminSchedules() {
       );
 
       if (error) throw error;
-
-      // Update needs_scheduling flag
-      const { error: updateError } = await supabase
-        .from("Learner")
-        .update({ needs_scheduling: false })
-        .eq("id", learnerId);
-
-      if (updateError) throw updateError;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
         title: "Schedule created",
         description: "The schedule has been created successfully.",
@@ -96,8 +90,16 @@ export default function AdminSchedules() {
           },
           {
             onSuccess: () => {
+              const rescheduleLessonNumber =
+                selectedRequest.type === "reschedule"
+                  ? Math.min(...variables.schedules.map((s) => s.lessonNumber))
+                  : 1;
+
               supabase.functions.invoke("learner-daily-schedule", {
-                body: { learner_id: selectedRequest.learner_id },
+                body: {
+                  learner_id: selectedRequest.learner_id,
+                  reschedule_lesson_number: rescheduleLessonNumber,
+                },
               });
             },
           },
@@ -123,10 +125,16 @@ export default function AdminSchedules() {
   ) => {
     if (!selectedRequest) return;
 
+    const rescheduleLessonNumber =
+      selectedRequest.type === "reschedule"
+        ? Math.min(...schedules.map((s) => s.lessonNumber))
+        : 1;
+
     createScheduleMutation.mutate({
       learnerId: selectedRequest.learner_id,
       schedules,
       courseId,
+      rescheduleLessonNumber,
     });
   };
 
