@@ -331,17 +331,24 @@ export type Schedule = {
   } | null;
 };
 
-export function useLearnerSchedule({ learnerId }: { learnerId?: string }) {
+export function useLearnerSchedule({
+  learnerId,
+  courseId,
+}: {
+  learnerId?: string;
+  courseId?: string;
+}) {
   return useQuery<Schedule[]>({
-    queryKey: ["schedule", learnerId],
+    queryKey: ["schedule", learnerId, courseId],
     queryFn: async () => {
-      if (!learnerId) return [];
+      if (!learnerId || !courseId) return [];
       const { data, error } = await supabase
         .from("Schedule")
         .select(
           "id, date, start_time, end_time, lesson_id, learner_id, Lesson (id, number, description)",
         )
         .eq("learner_id", learnerId)
+        .eq("course_id", courseId)
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
 
@@ -461,5 +468,25 @@ export function useMutationCompleteRescheduleRequest() {
         queryKey: ["scheduling-requests"],
       });
     },
+  });
+}
+
+export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
+  return useQuery({
+    queryKey: ["enrollment", learnerId],
+    queryFn: async () => {
+      if (!learnerId) return null;
+      const { data, error } = await supabase
+        .from("enrollment")
+        .select("*")
+        .eq("learner_id", learnerId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: Infinity,
+    enabled: !!learnerId,
   });
 }

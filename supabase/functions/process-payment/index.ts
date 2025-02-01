@@ -49,6 +49,8 @@ function generateSecureHash(
   return hashed.toString(CryptoJS.enc.Hex);
 }
 
+// TODO: if the user with the same phone number already has an active enrolled course
+// then don't allow them to make this payment, return the error message and show it on the UI with a a way to go back to login page or automatically incorrect
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -102,7 +104,6 @@ serve(async (req) => {
       .from("payment")
       .insert([
         {
-          
           learner_id: learnerId,
           amount,
           email,

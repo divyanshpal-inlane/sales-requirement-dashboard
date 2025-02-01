@@ -14,6 +14,7 @@ import {
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import {
   useLearner,
+  useLearnerEnrollment,
   useLearnerSchedule,
   useLearnerUpdate,
   useLessonSchedule,
@@ -36,6 +37,9 @@ export default function Home() {
   const navigate = useNavigate();
 
   const { data: learner, isLoading, error } = useLearner();
+  const { data: enrolledCourse, isLoading: isEnrolledCourseLoading } =
+    useLearnerEnrollment({ learnerId: learner?.id });
+
   const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useLearnerRescheduleRequests(learner?.id);
   const {
@@ -48,8 +52,10 @@ export default function Home() {
     lessonId: LessonData?.upcomingLesson?.id,
   });
 
+  // TODO: this should support enrolled course
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
+    courseId: enrolledCourse?.course_id,
   });
   const { mutate: updateLearner } = useLearnerUpdate();
 
@@ -73,7 +79,12 @@ export default function Home() {
     return <Navigate to="/onboard/birthday" />;
   }
 
-  if (isLoading || LessonIsLoading || scheduleRequestsLoading) {
+  if (
+    isLoading ||
+    LessonIsLoading ||
+    scheduleRequestsLoading ||
+    isEnrolledCourseLoading
+  ) {
     return <div>Loading...</div>;
   }
 
@@ -225,6 +236,9 @@ export default function Home() {
               </div>
             </div>
           ) : (
+            /*
+            TODO: this condition can be improved and also can be used for finished course UI
+            */
             <div className="mt-24 text-center text-xl">
               No Upcoming Lesson. 😓
             </div>
