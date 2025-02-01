@@ -13,34 +13,37 @@ export const LESSON_IDS = [
   "10",
 ] as const;
 
-export type LessonContent =Partial< Record<
-(typeof LESSON_IDS)[number],
-{
-  id: string;
-  content: {
-    game1?: Game;
-    game?: Game;
-    title?: string;
-    points?: { icon: React.ReactNode; header: string; desc: string }[];
-    remember?: { icon: React.ReactNode; text: string }[];
-  };
-  menu?: {
-    trivia?: { title: string; icon: string; color: string };
-    video?: {
-      title: string;
-      icon: string;
-      color: string;
-      video_path: string;
-    }[];
-    signature?: { title: string; icon: string; color: string };
-  };
-}
->
->
+export type LessonContent = Record<
+  string,
+  {
+    id: string;
+    description: string;
+    image_path: string;
+    content: {
+      game1?: Game;
+      game?: Game;
+      title?: string;
+      points?: { icon: React.ReactNode; header: string; desc: string }[];
+      remember?: { icon: React.ReactNode; text: string }[];
+    };
+    menu?: {
+      trivia?: { title: string; icon: string; color: string };
+      video?: {
+        title: string;
+        icon: string;
+        color: string;
+        video_path: string;
+      }[];
+      signature?: { title: string; icon: string; color: string };
+    };
+  }
+>;
 
 export const LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
     menu: {
       trivia: {
         title: "You drove into a quiz",
@@ -52,7 +55,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "Car command center",
           icon: "🚨",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/1.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/1.mp4",
         },
       ],
     },
@@ -113,6 +117,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
+    description: "Balancing the pedals",
+    image_path: "/assets/lesson-pic-2.png",
     menu: {
       trivia: {
         title: "You drove into a quiz",
@@ -193,6 +199,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "3": {
     id: "3",
+    description: "Gears & Steering Control",
+    image_path: "/assets/lesson-pic-3.png",
     menu: {
       trivia: {
         title: "clueless about gears",
@@ -211,7 +219,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "Turn Like a Champ!",
           icon: "↩️",
           color: "bg-lime-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-2.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-2.mp4",
         },
       ],
     },
@@ -280,6 +289,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "4": {
     id: "4",
+    description: "Parking",
+    image_path: "/assets/lesson-pic-4.png",
     menu: {
       trivia: {
         title: "let’s brake for trivia!",
@@ -291,13 +302,15 @@ export const LESSON_CONTENT: LessonContent = {
           title: "perpendicular parking",
           icon: "🚗",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-1.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-1.mp4",
         },
         {
           title: "parallel parking",
           icon: "👀",
           color: "bg-blue-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-2.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-2.mp4",
         },
       ],
     },
@@ -372,6 +385,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "5": {
     id: "5",
+    description: "Driving at steady speed",
+    image_path: "/assets/lesson-pic-5.png",
     menu: {
       trivia: {
         title: "screen time, before drive time",
@@ -383,7 +398,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "pause, bump, then go!",
           icon: "🛑",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
         },
       ],
     },
@@ -447,6 +463,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "6": {
     id: "6",
+    description: "Hitting the main road",
+    image_path: "/assets/lesson-pic-6.png",
     menu: {
       trivia: {
         title: "lane change challenge",
@@ -458,7 +476,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "signal, check, then move!",
           icon: "🛣️",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
         },
       ],
     },
@@ -529,6 +548,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "7": {
     id: "7",
+    description: "Bumper to bumper traffic",
+    image_path: "/assets/lesson-pic-7.png",
     menu: {
       trivia: {
         title: "test your know-how",
@@ -540,13 +561,15 @@ export const LESSON_CONTENT: LessonContent = {
           title: "Roudabout rules",
           icon: "📷",
           color: "bg-yellow-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
         },
         {
           title: "Crossroad control",
           icon: "🚦",
           color: "bg-orange-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
         },
       ],
     },
@@ -620,6 +643,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "8": {
     id: "8",
+    description: "Evening driving",
+    image_path: "/assets/lesson-pic-8.png",
     menu: {
       trivia: {
         title: "twilight trivia time",
@@ -631,7 +656,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "Car command center",
           icon: "🔥",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
         },
       ],
     },
@@ -643,7 +669,8 @@ export const LESSON_CONTENT: LessonContent = {
         },
         {
           icon: "💡",
-          text: "Don’t forget to use indicator and horn to let others know of your action",
+          text:
+            "Don’t forget to use indicator and horn to let others know of your action",
         },
       ],
       title: "You will start believing in your driving skills",
@@ -652,7 +679,8 @@ export const LESSON_CONTENT: LessonContent = {
         {
           icon: "traffic-light.svg",
           header: "Evening Traffic Tamer:",
-          desc: "Maintain speeds and distances to handle evening traffic with ease",
+          desc:
+            "Maintain speeds and distances to handle evening traffic with ease",
         },
         {
           icon: "fog-lamp.svg",
@@ -692,6 +720,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "9": {
     id: "9",
+    description: "Comfortable with flyovers",
+    image_path: "/assets/lesson-pic-9.png",
     menu: {
       trivia: {
         title: "flyover flow facts",
@@ -703,7 +733,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "pass like a pro",
           icon: "👀",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
         },
       ],
     },
@@ -770,6 +801,8 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "10": {
     id: "10",
+    description: "Mini challenges -  Test Prep",
+    image_path: "/assets/lesson-pic-10.png",
     menu: {
       signature: {
         title: "Sign your completion",
@@ -797,7 +830,8 @@ export const LESSON_CONTENT: LessonContent = {
         {
           icon: "government.svg",
           header: "RTO Rehearsal:",
-          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+          desc:
+            "Mini challenges to get test ready Focus on lane driving & parking",
         },
         {
           icon: "calm.svg",

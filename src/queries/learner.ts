@@ -5,7 +5,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { COURSES_DATA } from "@/constants/courses";
 import { useUser } from "@/context/auth-context";
 import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/types/database.types";
@@ -239,23 +238,21 @@ export function useLessons({ courseId }: { courseId: string | undefined }) {
   });
 }
 
+// TODO: fix this with lessonId
 export function useLesson({
-  number,
-  courseId = COURSES_DATA["BEGINNER"].id,
+  id,
   refetchInterval = 0,
 }: {
-  number: number;
-  courseId?: string;
+  id: string;
   refetchInterval?: number;
 }) {
   return useQuery({
-    queryKey: ["lesson", courseId, number],
+    queryKey: ["lesson", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Lesson")
         .select("*")
-        .eq("number", number)
-        .eq("course_id", courseId)
+        .eq("id", id)
         .single();
       if (error) throw new Error(error.message);
       return data;
@@ -478,13 +475,15 @@ export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
       if (!learnerId) return null;
       const { data, error } = await supabase
         .from("enrollment")
-        .select("*")
+        .select("*, Courses(*, Lesson(*))")
         .eq("learner_id", learnerId)
         .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .single();
+        .order("created_at", { ascending: false });
+
+      //TODO: fix this
       if (error) throw error;
-      return data;
+      // if (data.length === 0) throw new Error("User has no enrollment");
+      return data.length > 0 ? data[0] : null;
     },
     staleTime: Infinity,
     enabled: !!learnerId,
