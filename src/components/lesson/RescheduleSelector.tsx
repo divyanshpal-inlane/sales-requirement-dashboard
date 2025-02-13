@@ -11,6 +11,7 @@ import { Label } from "../ui/label";
 
 interface RescheduleSelectorProps {
   learnerId: string;
+  courseId: string;
   onLessonsSelected: (schedules: Schedule[]) => void;
 }
 
@@ -21,12 +22,14 @@ interface GroupedSchedule {
 
 export default function RescheduleSelector({
   learnerId,
+  courseId,
   onLessonsSelected,
 }: RescheduleSelectorProps) {
   const [selectedLessons, setSelectedLessons] = useState<Schedule[]>([]);
 
   const { data: schedules } = useLearnerSchedule({
     learnerId,
+    courseId,
   });
 
   const groupedSchedules = schedules?.reduce(

@@ -211,7 +211,7 @@ export function LessonPlan({
               size={"icon"}
               variant={"ghost"}
               className="text-white"
-              onClick={() => navigate("/schedule")}
+              onClick={() => navigate("/home")}
             >
               <Home />
             </Button>

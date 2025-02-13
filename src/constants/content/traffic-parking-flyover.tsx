@@ -1,9 +1,10 @@
-import { Game } from "@/components/lesson/trivia";
 import { LessonContent } from "../Lesson";
 
-export const LESSON_CONTENT: LessonContent = {
+export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
     menu: {
       trivia: {
         title: "car command center",
@@ -15,13 +16,15 @@ export const LESSON_CONTENT: LessonContent = {
           title: "3 seconds is all it takes",
           icon: "⏰",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
         },
         {
           title: "slay slopes like a pro",
           icon: "⏰",
           color: "bg-lime-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
       ],
     },
@@ -41,7 +44,16 @@ export const LESSON_CONTENT: LessonContent = {
       ],
       title: "You will be good at Starting & Stopping the Car",
       points: [
-        
+        {
+          icon: "seat.svg",
+          header: "Get Comfy:",
+          desc: "Adjust seat, mirrors, steering",
+        },
+        {
+          icon: "ignition.svg",
+          header: "Start Up:",
+          desc: "Clutch, neutral, turn the key",
+        },
         {
           icon: "forward.svg",
           header: "Pedal Fun:",
@@ -52,22 +64,6 @@ export const LESSON_CONTENT: LessonContent = {
           header: "Stop & Go:",
           desc: "Quick stops, smooth moves (emergency stops)",
         },
-        
-        {
-          icon: "rightturn.svg",
-          header: "Turn Tricks:",
-          desc: "Slow down, signal, and check mirrors",
-        },
-        {
-            icon: "slope.svg",
-            header: "Slope Magic:",
-            desc: "Balancing pedals on slopes",
-          },
-          {
-            icon: "mirror.svg",
-            header: "Mirror Magic:",
-            desc: "Grasping the surrounding",
-          },
       ],
       game: {
         type: "image",
@@ -94,7 +90,8 @@ export const LESSON_CONTENT: LessonContent = {
         type: "question",
         games: [
           {
-            question: "While reversing, how can we maintain control of the car?",
+            question:
+              "While reversing, how can we maintain control of the car?",
             answers: [
               "Just use the mirror",
               "Use the clutch and brake pedals to control speed, and look back",
@@ -110,92 +107,70 @@ export const LESSON_CONTENT: LessonContent = {
             correctAnswer: 1,
           },
         ],
-      }
+      },
     },
   },
-  
   "2": {
     id: "2",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
     menu: {
       trivia: {
-        title: "screen time, before drive time",
-        icon: "🤖",
+        title: "clueless about gears",
+        icon: "🤔",
         color: "bg-purple-400",
       },
       video: [
         {
-          title: "pause, bump, then go!",
-          icon: "🛑",
-          color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
+          title: "When to change Gears?",
+          icon: "⚙️",
+          color: "bg-green-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
         },
         {
-            title: "When to change Gears?",
-            icon: "⚙️",
-            color: "bg-green-500",
-            video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
-          },
+          title: "Turn Like a Champ!",
+          icon: "↩️",
+          color: "bg-lime-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-2.mp4",
+        },
       ],
     },
     content: {
       remember: [
-        {
-          icon: "🛣",
-          text: "Adjust speed to road conditions",
-        },
-        {
-            icon: "🎛",
-            text: "Gear Guru - Shift by engine sound or RPM"
-        },
-
-        {
-          icon: "⚙️",
-          text: "Release clutch slowly with gentle acceleration",
-        },
+        { icon: "🏎", text: "Keep it chill, under 20 km/h" },
+        { icon: "🚧", text: "Distance - Give obstacles some personal space" },
+        { icon: "😊", text: "Treat your car like your best buddy" },
+        { icon: "🐢", text: "Approach turns with caution and control" },
       ],
-      title: "You will drive on main roads for the first time",
-
+      title: "You will start changing gears and practicing turns",
       points: [
         {
-          icon: "pedals.svg",
-          header: "Steady Speed:",
-          desc: "1. On straight roads & turns \n 2. Speed control using brakes",
+          icon: "forward.svg",
+          header: "Balancing of pedals:",
+          desc: "Frequent start, move forward and stop to get the rhythm (practice on slopes too)",
         },
+
         {
           icon: "steering.svg",
           header: "Steering Skills:",
           desc: "Hold the wheel right, move smoothly",
         },
         {
-          icon: "gears.svg",
-          header: "Gear Shifting:",
-          desc: "Without looking",
+          icon: "rightturn.svg",
+          header: "Turn Tricks:",
+          desc: "Slow down, signal, and check mirrors",
         },
         {
-          icon: "parking.svg",
-          header: "Parking Pro:",
-          desc: "Parallel park SLIDE!",
+          icon: "gears.svg",
+          header: "Gearbox Magic:",
+          desc: "Nail the clutch and shift gears smoothly",
         },
       ],
       game: {
         type: "question",
         games: [
-          {
-            question: "How do you maintain a steady speed while making turns?",
-            answers: [
-              "Slow down before the turn and accelerate smoothly through it",
-              "Maintain the same speed throughout the turn",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question: "How do you maintain steady speed, if you see traffic slowing ahead?",
-            answers: [
-              "Slam on the brakes",
-              "Gradually ease off the accelerator",
-            ],
-            correctAnswer: 2,
-          },
           {
             question:
               "What should you do before shifting gears in a manual car?",
@@ -220,6 +195,189 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "3": {
     id: "3",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
+    menu: {
+      trivia: {
+        title: "let’s brake for trivia!",
+        icon: "⚙️",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "perpendicular parking",
+          icon: "🚗",
+          color: "bg-indigo-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-1.mp4",
+        },
+        {
+          title: "parallel parking",
+          icon: "👀",
+          color: "bg-blue-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/4-2.mp4",
+        },
+      ],
+    },
+    content: {
+      remember: [
+        {
+          icon: "🔲",
+          text: "Visualise the parking spot and plan before parking",
+        },
+        {
+          icon: "🅿️",
+          text: "Be slow while parking - check mirrors & signals",
+        },
+        {
+          icon: "⚙️",
+          text: "Steer smoothly",
+        },
+      ],
+      title: "You will find parking not so tough anymore",
+
+      points: [
+        {
+          icon: "parking.svg",
+          header: "Find Your Fit:",
+          desc: "Spot spaces and align perfectly",
+        },
+        {
+          icon: "mirror.svg",
+          header: "Mirror Magic:",
+          desc: "Judge distance and avoid bumper kisses",
+        },
+        {
+          icon: "steering.svg",
+          header: "Slow Steering:",
+          desc: "Navigate tight spots with ease",
+        },
+        {
+          icon: "gears.svg",
+          header: "Soft press on acceelerator:",
+          desc: "Slight push on accelerator and quick brake for slow movements",
+        },
+        {
+          icon: "vlc.svg",
+          header: "Park and Exit:",
+          desc: "Right gear & safely open doors",
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question:
+              "What’s the best way to check your car’s position while parking?",
+            answers: [
+              "Look at the side mirrors regularly to monitor distance from nearby objects",
+              "Open the door and check manually",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "What is the safest practice when exiting a parallel parking spot?",
+            answers: [
+              "Start moving when the coast looks clear",
+              "Check your blind spots and signal before pulling out.",
+            ],
+            correctAnswer: 2,
+          },
+        ],
+      },
+    },
+  },
+  "4": {
+    id: "4",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
+    menu: {
+      trivia: {
+        title: "screen time, before drive time",
+        icon: "🤖",
+        color: "bg-purple-400",
+      },
+      video: [
+        {
+          title: "pause, bump, then go!",
+          icon: "🛑",
+          color: "bg-indigo-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
+        },
+      ],
+    },
+    content: {
+      remember: [
+        {
+          icon: "🛣",
+          text: "Adjust speed to road conditions",
+        },
+        {
+          icon: "🚘",
+          text: "Slow pace - To sharpen steering skills",
+        },
+        { icon: "🐢", text: "Approach turns with caution and control" },
+
+        {
+          icon: "⚙️",
+          text: "Release clutch slowly with gentle acceleration",
+        },
+      ],
+      title: "You will drive on main roads for the first time",
+
+      points: [
+        {
+          icon: "pedals.svg",
+          header: "Steady Speed:",
+          desc: "1. On straight roads & turns \n 2. Speed control using brakes",
+        },
+        {
+          icon: "gears.svg",
+          header: "Gear Shifting:",
+          desc: "Without looking",
+        },
+        {
+          icon: "steering.svg",
+          header: "Steering Skills:",
+          desc: "Hold the wheel right, move smoothly",
+        },
+        {
+          icon: "parking.svg",
+          header: "Parking Pro:",
+          desc: "Parallel park SLIDE!",
+        },
+      ],
+      game: {
+        type: "question",
+        games: [
+          {
+            question: "How do you maintain a steady speed while making turns?",
+            answers: [
+              "Slow down before the turn and accelerate smoothly through it",
+              "Maintain the same speed throughout the turn",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "How do you maintain steady speed, if you see traffic slowing ahead?",
+            answers: [
+              "Slam on the brakes",
+              "Gradually ease off the accelerator",
+            ],
+            correctAnswer: 2,
+          },
+        ],
+      },
+    },
+  },
+  "5": {
+    id: "5",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
     menu: {
       trivia: {
         title: "lane change challenge",
@@ -231,7 +389,8 @@ export const LESSON_CONTENT: LessonContent = {
           title: "signal, check, then move!",
           icon: "🛣️",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
         },
       ],
     },
@@ -283,7 +442,8 @@ export const LESSON_CONTENT: LessonContent = {
         type: "question",
         games: [
           {
-            question: "Why is it important to maintain your lane while driving?",
+            question:
+              "Why is it important to maintain your lane while driving?",
             answers: [
               "It prevents accidents by ensuring predictable movements",
               "It saves fuel",
@@ -299,8 +459,10 @@ export const LESSON_CONTENT: LessonContent = {
       },
     },
   },
-  "4": {
-    id: "4",
+  "6": {
+    id: "6",
+    description: "Get to know your car",
+    image_path: "/assets/lesson-pic-1.png",
     menu: {
       trivia: {
         title: "test your know-how",
@@ -312,13 +474,15 @@ export const LESSON_CONTENT: LessonContent = {
           title: "Roudabout rules",
           icon: "📷",
           color: "bg-yellow-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
         },
         {
           title: "Crossroad control",
           icon: "🚦",
           color: "bg-orange-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
         },
       ],
     },
@@ -360,7 +524,11 @@ export const LESSON_CONTENT: LessonContent = {
           header: "Signal Master:",
           desc: "Use indicators to communicate",
         },
-        
+        {
+          icon: "slopedes.svg",
+          header: "Slope Savvy:",
+          desc: "Low gear more power & control",
+        },
       ],
 
       game: {
@@ -386,86 +554,11 @@ export const LESSON_CONTENT: LessonContent = {
       },
     },
   },
-"5": {
-    id: "5",
+  "7": {
+    id: "7",
+    description: "Flyover flow",
+    image_path: "/assets/lesson-pic-1.png",
     menu: {
-      trivia: {
-        title: "twilight trivia time",
-        icon: "🌅",
-        color: "bg-purple-400",
-      },
-      video: [
-        {
-            title: "view & light the night",
-            icon: "🔥",
-            color: "bg-indigo-500",
-            video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
-          },
-      ],
-    },
-    content: {
-      remember: [
-        {
-          icon: "🛣",
-          text: "All eyes on the road - zero distraction",
-        },
-        {
-          icon: "💡",
-          text: "Don’t forget to use indicator and horn to let others know of your action",
-        },
-      ],
-      title: "You will start believing in your driving skills",
-
-      points: [
-        {
-          icon: "speedometer.svg",
-          header: "Speed Sense:",
-          desc: "Judge and keep the right speed and distance",
-        },
-        {
-          icon: "flyover.svg",
-          header: "Flyover Flow:",
-          desc: "Flyover Flow: Merge and exit at the right speeds",
-        },
-        {
-          icon: "highway.svg",
-          header: "Lane Glider:",
-          desc: "Signal, check, and change lanes smoothly",
-        },
-      ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question:
-              "How can you signal to another driver that you are about to overtake them at night?",
-            answers: [
-              "Flash your high beams briefly to communicate your intention",
-              "Honk your horn repeatedly",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question:
-              "What is the best practice for parking at night in a poorly lit area?",
-            answers: [
-              "Use your hazard lights to increase visibility while parking",
-              "Park quickly without using additional lights",
-            ],
-            correctAnswer: 1,
-          },
-        ],
-      },
-    },
-  },
-  "6": {
-    id: "6",
-    menu: {
-        signature: {
-            title: "autograph please",
-            icon: "✍️",
-            color: "bg-[#00CE84]",
-          },
       trivia: {
         title: "flyover flow facts",
         icon: "⚙️",
@@ -476,25 +569,28 @@ export const LESSON_CONTENT: LessonContent = {
           title: "pass like a pro",
           icon: "👀",
           color: "bg-indigo-500",
-          video_path: "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
         },
-        
+        {
+          title: "view & light the night",
+          icon: "🔥",
+          color: "bg-indigo-500",
+          video_path:
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
+        },
       ],
     },
     content: {
       remember: [
         {
-            icon: "🏎",
-            text: "Drive at consistent speeds",
-          },
-          {
-            icon: "👨🏻‍💼",
-            text: "Every pro driver has good control of the car - drive slowly",
-          },
-          {
-            icon: "😊",
-            text: "Treat your car like your best buddy",
-          },
+          icon: "🧔🏻‍♂️",
+          text: "Believe in your driving skills and stay fully focused on the road",
+        },
+        {
+          icon: "😊",
+          text: "Treat your car like your best buddy",
+        },
       ],
       title: "You will have an absolutely fun time driving",
       points: [
@@ -507,7 +603,12 @@ export const LESSON_CONTENT: LessonContent = {
           icon: "highway.svg",
           header: "Lane Glider:",
           desc: "Signal, check, and change lanes smoothly",
-        },  
+        },
+        {
+          icon: "calm.svg",
+          header: "Zen Mode:",
+          desc: "Tips to stay relaxed & focused while driving",
+        },
         {
           icon: "traffic-light.svg",
           header: "Flyover Traffic:",
@@ -538,10 +639,54 @@ export const LESSON_CONTENT: LessonContent = {
             ],
             correctAnswer: 2,
           },
-          
+          {
+            question:
+              "How can you signal to another driver that you are about to overtake them at night?",
+            answers: [
+              "Flash your high beams briefly to communicate your intention",
+              "Honk your horn repeatedly",
+            ],
+            correctAnswer: 1,
+          },
+          {
+            question:
+              "What is the best practice for parking at night in a poorly lit area?",
+            answers: [
+              "Use your hazard lights to increase visibility while parking",
+              "Park quickly without using additional lights",
+            ],
+            correctAnswer: 1,
+          },
         ],
       },
     },
   },
-  
+  "8": {
+    id: "8",
+    description: "RTO rehearsal",
+    image_path: "/assets/lesson-pic-1.png",
+    menu: {
+      signature: {
+        title: "autograph please",
+        icon: "✍️",
+        color: "bg-[#00CE84]",
+      },
+    },
+    content: {
+      remember: [],
+      title: "You will have an absolutely fun time doing the challenges",
+      points: [
+        {
+          icon: "government.svg",
+          header: "RTO Rehearsal:",
+          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+        },
+        {
+          icon: "calm.svg",
+          header: "Zen Mode:",
+          desc: "Tips to stay relaxed & focused",
+        },
+      ],
+    },
+  },
 };

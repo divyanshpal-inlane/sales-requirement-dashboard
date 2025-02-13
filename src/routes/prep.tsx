@@ -1,4 +1,5 @@
 import { User } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,7 +42,9 @@ export default function Prep() {
       <header className="z-10 flex items-center justify-between bg-black/50 p-6">
         <p></p>
         <div className="rounded-full bg-primary p-2">
-          <User />
+          <Link to="/profile">
+            <User size={24} className="text-primary-foreground" />
+          </Link>
         </div>
       </header>
       <ScrollArea className="bg-black/50">

@@ -332,37 +332,103 @@ export default function CreateSchedule({
       return;
     }
 
-    // Sort lessons by lesson number
-    const sortedLessons = allLessons
-      ? [...allLessons]
-          .filter((l) => l.number && l.number >= minLessonNumber)
-          .sort((a, b) => (b.number ?? 0) - (a.number ?? 0)) // Sort in descending order
-      : [];
+    // Get all existing schedules for the course (excluding ones being rescheduled)
+    const existingCourseSchedules =
+      existingSchedules?.filter(
+        (s) =>
+          s.learner_id === learnerId &&
+          !request.lesson_ids.includes(s.lesson_id ?? "") &&
+          allLessons?.some((l) => l.id === s.lesson_id),
+      ) ?? [];
 
-    const allSlots: Omit<Schedule, "lessonId">[] = [
-      ...selectedSlots,
-      ...laterScheduleOfLearnerToChange.map((s) => ({
-        date: new Date(s.date),
-        hour: parseInt(s.start_time.split(":")[0]),
-        instructorId: s.instructor_id ?? "",
+    // Get completed lessons to maintain their numbers
+    const completedLessons = existingCourseSchedules.filter(
+      (s) => new Date(s.date).setHours(s.hour) < new Date().getTime(),
+    );
+
+    // Get upcoming lessons
+    const upcomingSlots = [
+      // New selected slots
+      ...selectedSlots.map((slot) => ({
+        date: slot.date,
+        hour: slot.hour,
+        instructorId: slot.instructorId,
+        isNew: true as const,
       })),
+      // Existing upcoming schedules that aren't being changed
+      ...existingCourseSchedules
+        .filter(
+          (s) =>
+            new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) >=
+            new Date().getTime(),
+        )
+        .map((schedule) => ({
+          date: new Date(schedule.date),
+          hour: parseInt(schedule.start_time.split(":")[0]),
+          instructorId: schedule.instructor_id ?? "",
+          lessonId: schedule.lesson_id ?? "",
+          isNew: false as const,
+        })),
     ];
 
-    // Sort slots chronologically (earliest to latest)
-    const chronologicallySortedSlots = allSlots.sort((a, b) => {
+    // Sort upcoming slots chronologically
+    const chronologicallySortedUpcomingSlots = upcomingSlots.sort((a, b) => {
       const timeA = new Date(a.date).setHours(a.hour);
       const timeB = new Date(b.date).setHours(b.hour);
-      return timeB - timeA;
+      return timeA - timeB;
     });
 
-    // Map lessons to slots - most recent slot gets highest lesson number
-    const schedulesWithIds = chronologicallySortedSlots.map((slot, index) => ({
-      ...slot,
-      lessonId: sortedLessons[index]?.id ?? "",
-      lessonNumber: sortedLessons[index]?.number ?? 0,
-    }));
+    // Get all lessons for the course
+    const courseLessons = allLessons
+      ? [...allLessons].sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
+      : [];
 
-    onScheduleCreate(schedulesWithIds, sortedLessons[0].course_id ?? "");
+    // Find the next lesson number after completed lessons
+    const maxCompletedLessonNumber = Math.max(
+      ...completedLessons.map(
+        (s) => courseLessons.find((l) => l.id === s.lesson_id)?.number ?? 0,
+      ),
+      0,
+    );
+
+    // Get available lessons for upcoming slots (lessons after the completed ones)
+    const availableLessons = courseLessons.filter(
+      (l) => (l.number ?? 0) > maxCompletedLessonNumber,
+    );
+
+    // Create new schedule array with reassigned lesson numbers
+    const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
+      (slot, index) => {
+        if (!slot.isNew) {
+          // This is an existing schedule that's not being changed
+          return {
+            date: slot.date,
+            hour: slot.hour,
+            instructorId: slot.instructorId,
+            lessonId: availableLessons[index]?.id ?? "",
+            lessonNumber: availableLessons[index]?.number ?? 0,
+          };
+        } else {
+          // This is a new schedule being created
+          return {
+            date: slot.date,
+            hour: slot.hour,
+            instructorId: slot.instructorId,
+            lessonId: availableLessons[index]?.id ?? "",
+            lessonNumber: availableLessons[index]?.number ?? 0,
+          };
+        }
+      },
+    );
+
+    // Filter out only the schedules that need to be created/updated
+    const schedulesToUpdate = schedulesWithIds.filter((schedule, index) => {
+      const originalSlot = chronologicallySortedUpcomingSlots[index];
+      // Include if it's a new slot or if the lesson number has changed
+      return originalSlot.isNew || schedule.lessonId !== originalSlot.lessonId;
+    });
+
+    onScheduleCreate(schedulesToUpdate, courseLessons[0]?.course_id ?? "");
   };
 
   const getSlotColor = (slot: HourlySlot) => {

@@ -1,10 +1,11 @@
-import { User } from "lucide-react";
+import { ArrowRight, BookOpen, Clock, User } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import LLFlow from "@/components/ll_flow";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
 import { SessionDetails } from "@/components/SessionDetails";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -92,6 +93,41 @@ export default function Home() {
     return <p>Error: {error?.message || LessonError?.message}</p>;
   }
 
+  const renderScheduleCreationState = () => (
+    <div className="flex flex-col items-center gap-6 p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center gap-4 p-6">
+          <div className="relative">
+            <Clock size={48} className="animate-pulse" />
+            <div className="absolute -right-1 -top-1 h-3 w-3 animate-ping rounded-full" />
+          </div>
+          <h2 className="text-center text-2xl font-semibold">
+            Your Schedule is Being Created
+          </h2>
+          <p className="text-center text-muted-foreground">
+            Our team is working on crafting your perfect learning schedule.
+            While you wait, play some learning games!
+          </p>
+        </CardContent>
+      </Card>
+
+      <Button
+        className="flex w-full max-w-md items-center justify-between gap-2 p-6"
+        onClick={() => navigate("/prep")}
+      >
+        <div className="flex items-center gap-3">
+          <BookOpen className="h-5 w-5" />
+          <span>Start Your Prep Work</span>
+        </div>
+        <ArrowRight className="h-5 w-5" />
+      </Button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        We'll notify you once your schedule is ready.
+      </p>
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
@@ -107,7 +143,7 @@ export default function Home() {
       {/* Main content */}
       <main className="flex flex-grow flex-col p-4 pb-20">
         {scheduleRequests && scheduleRequests.length > 0 ? (
-          <div>Your schedule is getting created. Please check back later.</div>
+          renderScheduleCreationState()
         ) : learner && !learner.has_a_DL ? (
           <LLFlow />
         ) : learner && learner.LL_result === true ? (
@@ -214,7 +250,7 @@ export default function Home() {
                   </TooltipProvider>
                   <Button
                     onClick={() =>
-                      navigate(`/lesson/${LessonData?.upcomingLesson?.number}`)
+                      navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
                     }
                     variant="outline"
                     className="grow"

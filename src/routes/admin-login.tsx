@@ -61,7 +61,7 @@ export default function AdminLogin() {
         await handleSignUp();
       } else {
         await login(formData.phone, formData.password, "admin");
-        navigate("/admin/schedules");
+        navigate("/admin");
       }
     } catch (error) {
       console.error("Login failed:", error);
