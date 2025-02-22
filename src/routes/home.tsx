@@ -34,6 +34,10 @@ const isWithin30MinutesOfLesson = (
   return diffInMinutes <= 30;
 };
 
+const isLessonCompleted = (lesson) => {
+  return lesson?.status?.toUpperCase() === "COMPLETED";
+};
+
 export default function Home() {
   const navigate = useNavigate();
 
@@ -53,7 +57,6 @@ export default function Home() {
     lessonId: LessonData?.upcomingLesson?.id,
   });
 
-  // TODO: this should support enrolled course
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
@@ -128,6 +131,16 @@ export default function Home() {
     </div>
   );
 
+  const lesson9 = scheduledLessons?.find(
+    (lesson) => lesson.lesson.number === 9,
+  );
+  const lesson10 = scheduledLessons?.find(
+    (lesson) => lesson.lesson.number === 10,
+  );
+
+  const isLesson9Completed = lesson9 && isLessonCompleted(lesson9);
+  const isLesson10Completed = lesson10 && isLessonCompleted(lesson10);
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
@@ -175,109 +188,124 @@ export default function Home() {
                 </Button>
               </p>
             </div>
-          ) : LessonData?.upcomingLesson ? (
-            <div className="flex flex-col gap-2 p-4 text-center text-xl">
-              <p>Here is your upcoming lesson!</p>
-              {LessonData?.upcomingSchedule &&
-                LessonData?.instructor &&
-                LessonData?.upcomingLesson && (
-                  <SessionDetails
-                    schedule={LessonData.upcomingSchedule}
-                    instructor={LessonData.instructor}
-                    lessonNumber={LessonData.upcomingLesson.number ?? 0}
-                  />
-                )}
-              <h2 className="text-lg font-semibold">
-                {
-                  LESSON_CONTENT[
-                    LessonData?.upcomingLesson
-                      ?.number as keyof typeof LESSON_CONTENT
-                  ].content.title
-                }
-              </h2>
-
-              {/* Reschedule & Start Lesson button */}
-              <div className="mt-6 flex flex-col gap-4">
-                <div className="flex flex-row flex-wrap gap-4">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="grow">
-                        <Button
-                          onClick={() =>
-                            navigate(
-                              `/startLesson/${LessonData?.upcomingLesson?.number}`,
-                            )
-                          }
-                          className="w-full"
-                          disabled={
-                            !isWithin30MinutesOfLesson(
-                              LessonData.upcomingSchedule.date,
-                              LessonData.upcomingSchedule.start_time,
-                            ) ||
-                            lessonSchedule?.status?.toUpperCase() ===
-                              "COMPLETED"
-                          }
-                        >
-                          {lessonSchedule?.status?.toUpperCase() === "ONGOING"
-                            ? "Lesson Started"
-                            : lessonSchedule?.status?.toUpperCase() ===
-                                "COMPLETED"
-                              ? "Lesson Completed"
-                              : "Start Lesson"}
-                        </Button>
-                      </TooltipTrigger>
-                      {!isWithin30MinutesOfLesson(
-                        LessonData.upcomingSchedule.date,
-                        LessonData.upcomingSchedule.start_time,
-                      ) &&
-                        !lessonSchedule?.status && (
-                          <TooltipContent>
-                            <p>Available 30 mins before lesson</p>
-                          </TooltipContent>
-                        )}
-                      {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
-                        lessonSchedule?.status?.toUpperCase() ===
-                          "COMPLETED") && (
-                        <TooltipContent>
-                          <p>
-                            {lessonSchedule.status.toUpperCase() === "ONGOING"
-                              ? "Session is already in progress"
-                              : "Session has been completed"}
-                          </p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Button
-                    onClick={() =>
-                      navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
-                    }
-                    variant="outline"
-                    className="grow"
-                  >
-                    Lesson Details
-                  </Button>
-                </div>
-                <Button
-                  onClick={() =>
-                    navigate(
-                      `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
-                    )
-                  }
-                  variant="secondary"
-                  className="w-full"
-                >
-                  Reschedule Lesson
-                </Button>
-              </div>
-            </div>
           ) : (
-            /*
-            TODO: this condition can be improved and also can be used for finished course UI
-            */
-            <div className="mt-24 text-center text-xl">
-              No Upcoming Lesson. 😓
-            </div>
+            <>
+              {LessonData?.upcomingLesson ? (
+                <div className="flex flex-col gap-2 p-4 text-center text-xl">
+                  <p>Here is your upcoming lesson!</p>
+                  {LessonData?.upcomingSchedule &&
+                    LessonData?.instructor &&
+                    LessonData?.upcomingLesson && (
+                      <SessionDetails
+                        schedule={LessonData.upcomingSchedule}
+                        instructor={LessonData.instructor}
+                        lessonNumber={LessonData.upcomingLesson.number ?? 0}
+                      />
+                    )}
+                  <h2 className="text-lg font-semibold">
+                    {
+                      LESSON_CONTENT[
+                        LessonData?.upcomingLesson
+                          ?.number as keyof typeof LESSON_CONTENT
+                      ].content.title
+                    }
+                  </h2>
+
+                  {/* Reschedule & Start Lesson button */}
+                  <div className="mt-6 flex flex-col gap-4">
+                    <div className="flex flex-row flex-wrap gap-4">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger className="grow">
+                            <Button
+                              onClick={() =>
+                                navigate(
+                                  `/startLesson/${LessonData?.upcomingLesson?.number}`,
+                                )
+                              }
+                              className="w-full"
+                              disabled={
+                                !isWithin30MinutesOfLesson(
+                                  LessonData.upcomingSchedule.date,
+                                  LessonData.upcomingSchedule.start_time,
+                                ) ||
+                                lessonSchedule?.status?.toUpperCase() ===
+                                  "COMPLETED"
+                              }
+                            >
+                              {lessonSchedule?.status?.toUpperCase() ===
+                              "ONGOING"
+                                ? "Lesson Started"
+                                : lessonSchedule?.status?.toUpperCase() ===
+                                    "COMPLETED"
+                                  ? "Lesson Completed"
+                                  : "Start Lesson"}
+                            </Button>
+                          </TooltipTrigger>
+                          {!isWithin30MinutesOfLesson(
+                            LessonData.upcomingSchedule.date,
+                            LessonData.upcomingSchedule.start_time,
+                          ) &&
+                            !lessonSchedule?.status && (
+                              <TooltipContent>
+                                <p>Available 30 mins before lesson</p>
+                              </TooltipContent>
+                            )}
+                          {(lessonSchedule?.status?.toUpperCase() ===
+                            "ONGOING" ||
+                            lessonSchedule?.status?.toUpperCase() ===
+                              "COMPLETED") && (
+                            <TooltipContent>
+                              <p>
+                                {lessonSchedule.status.toUpperCase() ===
+                                "ONGOING"
+                                  ? "Session is already in progress"
+                                  : "Session has been completed"}
+                              </p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                      <Button
+                        onClick={() =>
+                          navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
+                        }
+                        variant="outline"
+                        className="grow"
+                      >
+                        Lesson Details
+                      </Button>
+                    </div>
+                    <Button
+                      onClick={() =>
+                        navigate(
+                          `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
+                        )
+                      }
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      Reschedule Lesson
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-24 text-center text-xl">
+                  No Upcoming Lesson. 😓
+                  {scheduledLessons && scheduledLessons.length === 9 && (
+                    <Button
+                      className="mt-4 w-full"
+                      onClick={() =>
+                        navigate("/createSchedule/preferences?type=lesson10")
+                      }
+                      // disabled={isLesson9Completed && !isLesson10Completed}
+                    >
+                      Schedule Lesson 10
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
           )
         ) : (
           <div className="flex h-full flex-col overflow-x-auto pb-20">

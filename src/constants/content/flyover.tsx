@@ -3,8 +3,8 @@ export const x = 123;
 export const FLYOVER_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will drive at consistent speeds on a flyover",
+    image_path: "/assets/Flyover-Lesson-1.png",
     menu: {
       trivia: {
         title: "clueless about gears",
@@ -114,8 +114,8 @@ export const FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
-    description: "Balancing the pedals",
-    image_path: "/assets/lesson-pic-2.png",
+    description: "You will feel confident of your flyover skills",
+    image_path: "/assets/Flyover-Lesson-2.png",
     menu: {
       trivia: {
         title: "flyover flow facts",

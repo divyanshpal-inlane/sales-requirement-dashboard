@@ -3,8 +3,8 @@ import { LessonContent } from "../Lesson";
 export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will start getting the hang of balancing the pedals",
+    image_path: "/assets/Traffic+Flyover-Lesson-1.png",
     menu: {
       trivia: {
         title: "car command center",
@@ -118,8 +118,8 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will drive on main roads for the first time",
+    image_path: "/assets/Traffic+Flyover-Lesson-2.png",
     menu: {
       trivia: {
         title: "screen time, before drive time",
@@ -227,8 +227,8 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "3": {
     id: "3",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will start to drive at steady speeds on main roads",
+    image_path: "/assets/Traffic+Flyover-Lesson-3.png",
     menu: {
       trivia: {
         title: "lane change challenge",
@@ -312,8 +312,8 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "4": {
     id: "4",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will begin to enjoy driving on city roads",
+    image_path: "/assets/Traffic+Flyover-Lesson-4.png",
     menu: {
       trivia: {
         title: "test your know-how",
@@ -402,8 +402,8 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "5": {
     id: "5",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will start believing in your driving skills",
+    image_path: "/assets/Traffic+Flyover-Lesson-5.png",
     menu: {
       trivia: {
         title: "twilight trivia time",
@@ -440,7 +440,7 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
           desc: "Judge and keep the right speed and distance",
         },
         {
-          icon: "flyover.svg",
+          icon: "flyover-bridge.svg",
           header: "Flyover Flow:",
           desc: "Flyover Flow: Merge and exit at the right speeds",
         },
@@ -477,8 +477,8 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "6": {
     id: "6",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will drive at consistent speeds on a flyover",
+    image_path: "/assets/Traffic+Flyover-Lesson-6.png",
     menu: {
       signature: {
         title: "autograph please",

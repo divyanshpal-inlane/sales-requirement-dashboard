@@ -10,9 +10,8 @@ import {
 } from "@/queries/learner";
 
 function Preferences() {
-
   const [searchParams] = useSearchParams();
-  const type = searchParams.get("type") as "new" | "reschedule" ;
+  const type = searchParams.get("type") as "new" | "reschedule" | "lesson10";
   const { data: learner, isLoading } = useLearner();
   const { data: enrolledCourse, isLoading: enrolledCourseLoading } =
     useLearnerEnrollmentCourse({
@@ -22,6 +21,10 @@ function Preferences() {
   const { data: lessons, isLoading: lessonsLoading } = useLessons({
     courseId: enrolledCourse?.[0]?.course_id,
   });
+
+  // Get the first 9 lessons for new zschedule generation
+  const lessonsToSchedule =
+    type === "new" ? lessons?.slice(0, 9) : type === "lesson10" ? lessons?.slice(9, 10) : lessons;
 
   if (enrolledCourseLoading || lessonsLoading) {
     return <div>Loading...</div>;
@@ -46,7 +49,11 @@ function Preferences() {
             </Link>
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-          {type === "new" ? "Schedule Preferences" : "Reschedule Preferences"}
+            {type === "new"
+              ? "Schedule Preferences"
+              : type === "lesson10"
+              ? "Schedule Lesson 10"
+              : "Reschedule Preferences"}
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
@@ -59,10 +66,10 @@ function Preferences() {
 
       <div className="flex flex-1 flex-col">
         <div className="flex-1 overflow-y-auto px-2 py-4">
-          {learner && lessons ? (
+          {learner && lessonsToSchedule ? (
             <PreferenceSelector
               type={type}
-              lessons={lessons.map((l) => l.id)}
+              lessons={lessonsToSchedule.map((l) => l.id)}
               learnerId={learner.id}
             />
           ) : null}

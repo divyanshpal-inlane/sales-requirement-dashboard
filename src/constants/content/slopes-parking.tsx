@@ -3,8 +3,8 @@ import { LessonContent } from "../Lesson";
 export const SLOPES_PARKING_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "Conquer Slopes & Perpendicular Parking - No More Stress!",
+    image_path: "/assets/Slopes+Parking-Lesson-1.png",
     menu: {
       trivia: {
         title: "You drove into a quiz",
@@ -126,8 +126,8 @@ export const SLOPES_PARKING_LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "Parallel Parking Doesn’t Have to Be Scary",
+    image_path: "/assets/Slopes+Parking-Lesson-2.png",
     menu: {
       trivia: {
         title: "clueless about gears",
@@ -230,8 +230,8 @@ export const SLOPES_PARKING_LESSON_CONTENT: LessonContent = {
   },
   "3": {
     id: "3",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-2.png",
+    description: "Own the Slope Driving - Smooth & Steady",
+    image_path: "/assets/Slopes+Parking-Lesson-3.png",
     menu: {
       trivia: {
         title: "you drove into a quiz",
@@ -312,8 +312,8 @@ export const SLOPES_PARKING_LESSON_CONTENT: LessonContent = {
   },
   "4": {
     id: "4",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-2.png",
+    description: "Bring It All Together – Drive, Park & Own the Road",
+    image_path: "/assets/Slopes+Parking-Lesson-4.png",
     menu: {
       trivia: {
         title: "",

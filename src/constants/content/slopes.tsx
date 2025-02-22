@@ -3,8 +3,8 @@ import { LessonContent } from "../Lesson";
 export const SLOPES_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "Mastering Slope Control – Uphill & Downhill",
+    image_path: "/assets/Slopes-Lesson-1.png",
     menu: {
       trivia: {
         title: "You drove into a quiz",
@@ -92,8 +92,8 @@ export const SLOPES_LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-2.png",
+    description: "Climb with Confidence – Conquer Uphill & Downhill",
+    image_path: "/assets/Slopes-Lesson-2.png",
     menu: {
       signature: {
         title: "autograph please",

@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 
 const LearnerLLDetails = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedLearner, setSelectedLearner] = useState(null);
@@ -87,115 +90,134 @@ const LearnerLLDetails = () => {
   if (isError) return <div>Error loading learners.</div>;
 
   return (
-    <div className="flex h-full w-full gap-4 p-4">
+    <>
+      <div className="border-b bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/admin")}
+              className="h-10 w-10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">Learner LL Details</h1>
+          </div>
+        </div>
+      </div>
       {/* Left Panel - Learner Selection */}
-      <Card className="w-1/3">
-        <CardHeader>
-          <CardTitle>Select Learner</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="max-h-[600px] space-y-2 overflow-y-auto">
-            {learners?.length === 0 ? (
-              <div className="text-center text-muted-foreground">
-                No pending learners to process
+      <div className="flex h-full w-full gap-4 p-4">
+        <Card className="w-1/3">
+          <CardHeader>
+            <CardTitle>Select Learner</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[600px] space-y-2 overflow-y-auto">
+              {learners?.length === 0 ? (
+                <div className="text-center text-muted-foreground">
+                  No pending learners to process
+                </div>
+              ) : (
+                learners?.map((learner) => (
+                  <div
+                    key={learner.id}
+                    className={`cursor-pointer rounded-lg p-3 transition-colors ${
+                      selectedLearner?.id === learner.id
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted"
+                    }`}
+                    onClick={() => {
+                      setSelectedLearner(learner);
+                      setAppointmentId(learner.LL_application_id || "");
+                      setLlApproved(learner.LL_application_approved || false);
+                    }}
+                  >
+                    <div className="font-medium">{learner.name}</div>
+                    <div className="text-sm opacity-75">ID: {learner.id}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Middle Panel - Application ID Entry */}
+        <Card className="w-1/3">
+          <CardHeader>
+            <CardTitle>LL Application Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedLearner ? (
+              <div className="space-y-4">
+                <div>
+                  <Label>Selected Learner</Label>
+                  <div className="mt-1 font-medium">{selectedLearner.name}</div>
+                </div>
+                <div>
+                  <Label htmlFor="appointmentId">Application ID</Label>
+                  <Input
+                    id="appointmentId"
+                    value={appointmentId}
+                    onChange={(e) => setAppointmentId(e.target.value)}
+                    disabled={selectedLearner?.LL_application_id}
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  onClick={handleSaveAppointmentId}
+                  disabled={
+                    !appointmentId || selectedLearner?.LL_application_id
+                  }
+                  className="w-full"
+                >
+                  Save Application ID
+                </Button>
               </div>
             ) : (
-              learners?.map((learner) => (
-                <div
-                  key={learner.id}
-                  className={`cursor-pointer rounded-lg p-3 transition-colors ${
-                    selectedLearner?.id === learner.id
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted"
-                  }`}
-                  onClick={() => {
-                    setSelectedLearner(learner);
-                    setAppointmentId(learner.LL_application_id || "");
-                    setLlApproved(learner.LL_application_approved || false);
-                  }}
-                >
-                  <div className="font-medium">{learner.name}</div>
-                  <div className="text-sm opacity-75">ID: {learner.id}</div>
-                </div>
-              ))
+              <div className="text-center text-muted-foreground">
+                Select a learner to enter application details
+              </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Middle Panel - Application ID Entry */}
-      <Card className="w-1/3">
-        <CardHeader>
-          <CardTitle>LL Application Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {selectedLearner ? (
-            <div className="space-y-4">
-              <div>
-                <Label>Selected Learner</Label>
-                <div className="mt-1 font-medium">{selectedLearner.name}</div>
+        {/* Right Panel - LL Approval */}
+        <Card className="w-1/3">
+          <CardHeader>
+            <CardTitle>LL Approval</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedLearner?.LL_application_id ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="llApproved"
+                    checked={llApproved}
+                    onCheckedChange={setLlApproved}
+                    disabled={selectedLearner?.LL_application_approved}
+                  />
+                  <Label htmlFor="llApproved">LL Approved</Label>
+                </div>
+                <Button
+                  onClick={handleSaveLLApproval}
+                  disabled={
+                    !llApproved || selectedLearner?.LL_application_approved
+                  }
+                  className="w-full"
+                >
+                  Save Approval Status
+                </Button>
               </div>
-              <div>
-                <Label htmlFor="appointmentId">Application ID</Label>
-                <Input
-                  id="appointmentId"
-                  value={appointmentId}
-                  onChange={(e) => setAppointmentId(e.target.value)}
-                  disabled={selectedLearner?.LL_application_id}
-                  className="mt-1"
-                />
+            ) : (
+              <div className="text-center text-muted-foreground">
+                Enter application ID first
               </div>
-              <Button
-                onClick={handleSaveAppointmentId}
-                disabled={!appointmentId || selectedLearner?.LL_application_id}
-                className="w-full"
-              >
-                Save Application ID
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground">
-              Select a learner to enter application details
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Right Panel - LL Approval */}
-      <Card className="w-1/3">
-        <CardHeader>
-          <CardTitle>LL Approval</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {selectedLearner?.LL_application_id ? (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="llApproved"
-                  checked={llApproved}
-                  onCheckedChange={setLlApproved}
-                  disabled={selectedLearner?.LL_application_approved}
-                />
-                <Label htmlFor="llApproved">LL Approved</Label>
-              </div>
-              <Button
-                onClick={handleSaveLLApproval}
-                disabled={
-                  !llApproved || selectedLearner?.LL_application_approved
-                }
-                className="w-full"
-              >
-                Save Approval Status
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground">
-              Enter application ID first
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 };
 

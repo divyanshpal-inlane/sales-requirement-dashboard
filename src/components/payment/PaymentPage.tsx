@@ -150,7 +150,7 @@ function PaymentPage() {
                   <SelectContent>
                     {courses?.map((course) => (
                       <SelectItem key={course.id} value={course.id}>
-                        {course.name} - ₹{course.price}
+                        {course.name} - {course.total_lessons} Lessons
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -1,18 +1,20 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-
+import { ArrowLeft } from "lucide-react";
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { useNavigate } from "react-router-dom";
 import { useMutationCompleteRescheduleRequest } from "@/queries/learner";
 import {
   SchedulingRequests,
   useSchedulingRequests,
 } from "@/queries/preferences";
+import { DAYS_OF_WEEK, TIME_SLOT_LABELS, TIME_SLOTS, TimeSlot } from "@/types/schedule";
 
 export type Schedule = {
   date: Date;
@@ -23,11 +25,13 @@ export type Schedule = {
 };
 
 export default function AdminSchedules() {
+  const navigate = useNavigate();
   const { data: requests, isLoading, isRefetching } = useSchedulingRequests();
   const [selectedRequest, setSelectedRequest] = useState<
     SchedulingRequests[number] | null
   >(null);
   const { toast } = useToast();
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isRefetching) {
@@ -124,12 +128,12 @@ export default function AdminSchedules() {
     courseId: string,
   ) => {
     if (!selectedRequest) return;
-
+  
     const rescheduleLessonNumber =
-      selectedRequest.type === "reschedule"
+      selectedRequest.type === "reschedule" || selectedRequest.type === "lesson10"
         ? Math.min(...schedules.map((s) => s.lessonNumber))
         : 1;
-
+  
     createScheduleMutation.mutate({
       learnerId: selectedRequest.learner_id,
       schedules,
@@ -137,7 +141,6 @@ export default function AdminSchedules() {
       rescheduleLessonNumber,
     });
   };
-
   const newRequests = useMemo(
     () => requests?.filter((r) => r.type === "new"),
     [requests],
@@ -146,6 +149,21 @@ export default function AdminSchedules() {
     () => requests?.filter((r) => r.type === "reschedule"),
     [requests],
   );
+
+  const tenthLessonRequests = useMemo(
+    () => requests?.filter((r) => r.type === "lesson10"),
+    [requests],
+  );
+
+  const handleSlotToggle = (dayOfWeek: number, timeSlot: TimeSlot) => {
+    const key = `${dayOfWeek}-${timeSlot}`;
+    setSelectedSlot((prev) => (prev === key ? null : key));
+  };
+
+  const handleSubmit = () => {
+    // Handle the submission logic here
+    console.log("Selected Slot:", selectedSlot);
+  };
 
   if (isLoading) {
     return (
@@ -157,8 +175,20 @@ export default function AdminSchedules() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-bold">Schedule Management</h1>
+      <div className="border-b bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/admin")}
+              className="h-10 w-10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">Schedule Management</h1>
+          </div>
+        </div>
       </div>
 
       <Tabs defaultValue="new" className="flex h-[calc(100%-73px)] flex-col">
@@ -169,6 +199,9 @@ export default function AdminSchedules() {
             </TabsTrigger>
             <TabsTrigger value="reschedule">
               Reschedule Requests {rescheduleRequests?.length || 0}
+            </TabsTrigger>
+            <TabsTrigger value="lesson10">
+              10th Lesson Requests {tenthLessonRequests?.length || 0}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -248,6 +281,70 @@ export default function AdminSchedules() {
                 <CardContent>
                   <ScrollArea className="h-[calc(100vh-280px)]">
                     {rescheduleRequests?.map((request) => (
+                      <div key={request.id} className="mb-2">
+                        <Button
+                          variant={
+                            selectedRequest?.id === request.id
+                              ? "default"
+                              : "outline"
+                          }
+                          className="w-full justify-start"
+                          onClick={() => handleRequestSelect(request)}
+                        >
+                          <div className="text-left">
+                            <div className="font-medium">
+                              {request.Learner?.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {request.Learner?.area}
+                            </div>
+                          </div>
+                        </Button>
+                      </div>
+                    ))}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Schedule Creation */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>
+                    {selectedRequest
+                      ? `${selectedRequest.Learner?.name}'s Schedule`
+                      : "Select a Learner"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedRequest ? (
+                    <CreateSchedule
+                      request={selectedRequest}
+                      learnerId={selectedRequest.Learner?.id || ""}
+                      learnerArea={
+                        selectedRequest.Learner?.area || "Indiranagar"
+                      }
+                      onScheduleCreate={handleScheduleCreate}
+                    />
+                  ) : (
+                    <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
+                      Select a learner to create their schedule
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="lesson10" className="h-full">
+            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+              {/* Learners List */}
+              <Card className="md:col-span-1">
+                <CardHeader>
+                  <CardTitle>10th Lesson Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[calc(100vh-280px)]">
+                    {tenthLessonRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
                         <Button
                           variant={

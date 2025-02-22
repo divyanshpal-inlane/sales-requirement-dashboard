@@ -42,7 +42,7 @@ export const COURSES_DATA: Record<
   "f60e5fdb-787a-4b40-844d-4e66416a6c8f": {
     id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f",
     key: "MANUAL_FLYOVER_COURSE",
-    label: "Tower Control",
+    label: "Flyover",
     hours: 2,
     lessonsData: FLYOVER_LESSON_CONTENT,
   },

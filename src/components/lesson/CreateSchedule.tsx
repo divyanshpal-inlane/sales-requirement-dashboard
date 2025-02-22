@@ -316,6 +316,8 @@ export default function CreateSchedule({
     setStartDate((prev) => addDays(prev, direction === "next" ? 10 : -10));
   };
 
+  // ... (previous imports and interface definitions remain the same)
+
   const handleCreateSchedule = () => {
     if (selectedSlots.length === 0) {
       alert("Please select at least one time slot");
@@ -396,7 +398,7 @@ export default function CreateSchedule({
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
     );
 
-    // Create new schedule array with reassigned lesson numbers
+    // Create new schedule array with correctly assigned lesson numbers
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
         if (!slot.isNew) {
@@ -405,18 +407,37 @@ export default function CreateSchedule({
             date: slot.date,
             hour: slot.hour,
             instructorId: slot.instructorId,
-            lessonId: availableLessons[index]?.id ?? "",
-            lessonNumber: availableLessons[index]?.number ?? 0,
+            lessonId: slot.lessonId,
+            lessonNumber:
+              courseLessons.find((l) => l.id === slot.lessonId)?.number ?? 0,
           };
         } else {
-          // This is a new schedule being created
-          return {
-            date: slot.date,
-            hour: slot.hour,
-            instructorId: slot.instructorId,
-            lessonId: availableLessons[index]?.id ?? "",
-            lessonNumber: availableLessons[index]?.number ?? 0,
-          };
+          // Check if this slot is meant for lesson 10
+          const isLesson10Slot = request.lesson_ids.some(
+            (id) => courseLessons.find((l) => l.id === id)?.number === 10,
+          );
+
+          if (isLesson10Slot) {
+            // If this is lesson 10, find and use lesson 10
+            const lesson10 = availableLessons.find((l) => l.number === 10);
+            return {
+              date: slot.date,
+              hour: slot.hour,
+              instructorId: slot.instructorId,
+              lessonId: lesson10?.id ?? "",
+              lessonNumber: 10,
+            };
+          } else {
+            // For lessons 1-9, use sequential numbering starting after maxCompletedLessonNumber
+            const lesson = availableLessons[index];
+            return {
+              date: slot.date,
+              hour: slot.hour,
+              instructorId: slot.instructorId,
+              lessonId: lesson?.id ?? "",
+              lessonNumber: lesson?.number ?? 0,
+            };
+          }
         }
       },
     );
@@ -428,7 +449,12 @@ export default function CreateSchedule({
       return originalSlot.isNew || schedule.lessonId !== originalSlot.lessonId;
     });
 
-    onScheduleCreate(schedulesToUpdate, courseLessons[0]?.course_id ?? "");
+    // Create final schedules array, ensuring lesson 10 is handled correctly
+    const finalSchedules = schedulesToUpdate.filter(
+      (schedule) => schedule.lessonNumber <= 9 || schedule.lessonNumber === 10,
+    );
+
+    onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
   };
 
   const getSlotColor = (slot: HourlySlot) => {

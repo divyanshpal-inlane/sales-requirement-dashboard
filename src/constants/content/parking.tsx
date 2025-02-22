@@ -3,8 +3,9 @@ import { LessonContent } from "../Lesson";
 export const PARKING_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description:
+      "You will find parking not so tough anymore: Perpendicular & Parallel Parking",
+    image_path: "/assets/Parking-Lesson-1.png",
     menu: {
       trivia: {
         title: "You drove into a quiz",
@@ -123,8 +124,9 @@ export const PARKING_LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description:
+      "You will find parking not so tough anymore: Perpendicular & Parallel Parking",
+    image_path: "/assets/Parking-Lesson-2.png",
     menu: {
       signature: {
         title: "Sign your completion",

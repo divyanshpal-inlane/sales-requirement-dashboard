@@ -3,8 +3,8 @@ import { LessonContent } from "../Lesson";
 export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   "1": {
     id: "1",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will be good at Starting Stopping the Car",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-1.png",
     menu: {
       trivia: {
         title: "car command center",
@@ -112,8 +112,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "2": {
     id: "2",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will start getting the hang of balancing the pedals",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-2.png",
     menu: {
       trivia: {
         title: "clueless about gears",
@@ -195,8 +195,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "3": {
     id: "3",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will find parking not so tough anymore",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-3.png",
     menu: {
       trivia: {
         title: "let’s brake for trivia!",
@@ -291,8 +291,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "4": {
     id: "4",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will drive on main roads and practice steering",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-4.png",
     menu: {
       trivia: {
         title: "screen time, before drive time",
@@ -376,8 +376,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "5": {
     id: "5",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will start to drive at steady speeds on main roads",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-5.png",
     menu: {
       trivia: {
         title: "lane change challenge",
@@ -461,8 +461,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "6": {
     id: "6",
-    description: "Get to know your car",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will begin to enjoy driving on city roads",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-6.png",
     menu: {
       trivia: {
         title: "test your know-how",
@@ -556,8 +556,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "7": {
     id: "7",
-    description: "Flyover flow",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will have an absolutely fun time driving",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-7.png",
     menu: {
       trivia: {
         title: "flyover flow facts",
@@ -663,8 +663,8 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
   },
   "8": {
     id: "8",
-    description: "RTO rehearsal",
-    image_path: "/assets/lesson-pic-1.png",
+    description: "You will have an absolutely fun time doing the challenges",
+    image_path: "/assets/Traffic+Parking+Flyover-Lesson-8.png",
     menu: {
       signature: {
         title: "autograph please",

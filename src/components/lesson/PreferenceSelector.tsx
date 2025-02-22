@@ -58,6 +58,10 @@ function PreferenceSelector({
       if (next.has(key)) {
         next.delete(key);
       } else {
+        // Ensure only one slot is selected for lesson 10
+        if (type === "lesson10" && next.size >= 1) {
+          return prev;
+        }
         next.add(key);
       }
       return next;
@@ -84,12 +88,13 @@ function PreferenceSelector({
       },
       {
         onSuccess: () => {
-          if (type == "new") {
+          const requestType = type === "lesson10" ? "lesson10" : type;
+          if (type === "lesson10" || type === "new") {
             rescheduleRequest(
               {
                 learnerId,
                 lessonIds: lessons,
-                type,
+                type: requestType,
               },
               {
                 onSuccess: () => {
