@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     const messagePayload = {
       messages: [
         {
-          clientWaNumber: "916289127271",
+          clientWaNumber: learner.phone,
           templateName: "instructor_daily_schedule",
           templateContent:
             "Hey {{1}},\nWe hope your day went well and you had the best time! Here is your schedule for tomorrow:\n \n{{2}}\n{{3}}\n{{4}}\n{{5}}\n{{6}}\n{{7}}\nPlease check your calendar for more details 😊\nThank you!\nThe Lane Team 🚗",
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJidXNpbmVzcyI6eyJpZCI6MTAzfSwiaWF0IjoxNzM2OTU5OTQ4LCJleHAiOjE4MzE1Njc5MTl9.4V3Hs6zLnKfR8qZq5w4HDEhqCDcDXsEBewn6REF4mu0`,
+        Authorization: `Bearer ${Deno.env.get("HELTAR_API_KEY")}`,
       },
       body: JSON.stringify(messagePayload),
     });

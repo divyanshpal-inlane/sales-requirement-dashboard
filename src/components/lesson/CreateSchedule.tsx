@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabaseClient";
+import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
 import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
@@ -42,7 +43,7 @@ interface TimeSlotState {
 }
 
 interface HourlySlot {
-  hour: number;
+  timestamp: Date;
   timeSlot: TimeSlot | null;
   state: TimeSlotState;
 }
@@ -58,7 +59,7 @@ export default function CreateSchedule({
   const { data: preferences } = usePreferences(learnerId);
   const [startDate, setStartDate] = useState(addDays(new Date(), 1));
   const [selectedSlots, setSelectedSlots] = useState<
-    Array<Omit<Schedule, "lessonId">>
+    Array<Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId: string }>
   >([]);
   // const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [scheduleDetails, setScheduleDetails] = useState<
@@ -169,87 +170,94 @@ export default function CreateSchedule({
     const isDayBlocked = schedulesToChange.some(
       (s) => format(new Date(s.date), "yyyy-MM-dd") === dateStr,
     );
-    // Create 24 hourly slots
     for (let hour = 6; hour < 21; hour++) {
-      // Find which time slot this hour belongs to
-      const timeSlot = TIME_SLOTS.find((slot) => {
-        const [start, end] = slot.split("-");
-        return parseInt(start) <= hour && parseInt(end) > hour;
-      });
+      for (const minute of [0, 30]) {
+        const timestamp = new Date(date);
+        timestamp.setHours(hour, minute);
 
-      if (!timeSlot) continue;
+        // Find which time slot this time belongs to
+        const timeSlot = TIME_SLOTS.find((slot) => {
+          const [start, end] = slot.split("-");
+          return parseInt(start) <= hour && parseInt(end) > hour;
+        });
 
-      // Get schedules for this time slot
-      const slotSchedules =
-        otherSchedules?.filter(
+        if (!timeSlot) continue;
+
+        // Get schedules for this time slot
+        const slotSchedules =
+          otherSchedules?.filter(
+            (s) =>
+              s.date === dateStr &&
+              parseInt(s.start_time.split(":")[0]) === hour &&
+              parseInt(s.start_time.split(":")[1] || "0") === minute,
+          ) ?? [];
+
+        // Get learner preferences for this slot
+        const isPreferred = preferences?.some(
+          (p) => p.day_of_week === date.getDay() && p.time_slot === timeSlot,
+        );
+
+        // Check if this slot is currently scheduled for rescheduling
+        const isCurrentSchedule = schedulesToChange?.some(
           (s) =>
             s.date === dateStr && parseInt(s.start_time.split(":")[0]) === hour,
-        ) ?? [];
+        );
 
-      // Get learner preferences for this slot
-      const isPreferred = preferences?.some(
-        (p) => p.day_of_week === date.getDay() && p.time_slot === timeSlot,
-      );
+        // Check if this slot has other schedules for the same learner
+        const isLearnerSchedule = existingSchedules?.some(
+          (s) =>
+            s.date === dateStr &&
+            parseInt(s.start_time.split(":")[0]) === hour &&
+            s.learner_id === learnerId &&
+            !request.lesson_ids.includes(s.lesson_id ?? ""),
+        );
 
-      // Check if this slot is currently scheduled for rescheduling
-      const isCurrentSchedule = schedulesToChange?.some(
-        (s) =>
-          s.date === dateStr && parseInt(s.start_time.split(":")[0]) === hour,
-      );
+        // Get available instructors for this slot
+        const availableInstructors =
+          instructors
+            ?.filter((instructor) => {
+              return !slotSchedules.some(
+                (s) => s.instructor_id === instructor.id_instructor,
+              );
+            })
+            .map((i) => i.id_instructor) ?? [];
 
-      // Check if this slot has other schedules for the same learner
-      const isLearnerSchedule = existingSchedules?.some(
-        (s) =>
-          s.date === dateStr &&
-          parseInt(s.start_time.split(":")[0]) === hour &&
-          s.learner_id === learnerId &&
-          !request.lesson_ids.includes(s.lesson_id ?? ""),
-      );
+        const existingSchedule =
+          !isLearnerSchedule &&
+          !isCurrentSchedule &&
+          availableInstructors.length === 0 &&
+          slotSchedules.length > 0 &&
+          slotSchedules[0].Learner
+            ? {
+                slot_start_time: slotSchedules[0].start_time,
+                learner_name: slotSchedules[0].Learner.name,
+                learner_area: slotSchedules[0].Learner.area,
+                pickup_address: slotSchedules[0].Learner.pick_up_location,
+                latitude: slotSchedules[0].Learner.address_lat,
+                longitude: slotSchedules[0].Learner.address_lng,
+              }
+            : undefined;
 
-      // Get available instructors for this slot
-      const availableInstructors =
-        instructors
-          ?.filter((instructor) => {
-            return !slotSchedules.some(
-              (s) => s.instructor_id === instructor.id_instructor,
-            );
-          })
-          .map((i) => i.id_instructor) ?? [];
-
-      const existingSchedule =
-        !isLearnerSchedule &&
-        !isCurrentSchedule &&
-        availableInstructors.length === 0 &&
-        slotSchedules.length > 0 &&
-        slotSchedules[0].Learner
-          ? {
-              slot_start_time: slotSchedules[0].start_time,
-              learner_name: slotSchedules[0].Learner.name,
-              learner_area: slotSchedules[0].Learner.area,
-              pickup_address: slotSchedules[0].Learner.pick_up_location,
-              latitude: slotSchedules[0].Learner.address_lat,
-              longitude: slotSchedules[0].Learner.address_lng,
-            }
-          : undefined;
-
-      daySchedule.push({
-        hour,
-        timeSlot: timeSlot as TimeSlot | null,
-        state: {
-          isAvailable:
-            availableInstructors.length > 0 &&
-            !isLearnerSchedule &&
-            !isDayBlocked,
-          isSelected: selectedSlots.some(
-            (s) => format(s.date, "yyyy-MM-dd") === dateStr && s.hour === hour,
-          ),
-          isPreferred: !!isPreferred,
-          isCurrentSchedule,
-          isLearnerSchedule,
-          existingSchedule,
-          availableInstructors,
-        },
-      });
+        daySchedule.push({
+          timestamp,
+          timeSlot: timeSlot as TimeSlot | null,
+          state: {
+            isAvailable:
+              availableInstructors.length > 0 &&
+              !isLearnerSchedule &&
+              !isDayBlocked,
+            isSelected: selectedSlots.some(
+              (s) =>
+                format(s.date, "yyyy-MM-dd") === dateStr && s.hour === hour,
+            ),
+            isPreferred: !!isPreferred,
+            isCurrentSchedule,
+            isLearnerSchedule,
+            existingSchedule,
+            availableInstructors,
+          },
+        });
+      }
     }
 
     return daySchedule;
@@ -263,50 +271,116 @@ export default function CreateSchedule({
       return;
     }
 
-    const slotHour = slot.hour;
+    const slotTimestamp = slot.timestamp;
+    const hour = slotTimestamp.getHours();
+    const minutes = slotTimestamp.getMinutes();
 
-    if (selectedSlots.length > request.lesson_ids.length) {
-      alert("Cannot select more slots than required.");
-      return;
-    }
+    // Determine if this is a start slot (XX:00) or end slot (XX:30)
+    const isStartSlot = minutes === 0;
+    const isEndSlot = minutes === 30;
+
     setSelectedSlots((prev) => {
+      // Check if either this slot or its pair is already selected
       const dateStr = format(date, "yyyy-MM-dd");
-      const isSelected = prev.some(
-        (s) => format(s.date, "yyyy-MM-dd") === dateStr && s.hour === slotHour,
-      );
 
-      if (isSelected) {
-        return prev.filter(
-          (s) =>
-            !(format(s.date, "yyyy-MM-dd") === dateStr && s.hour === slotHour),
-        );
+      // For start slots (XX:00), check if this slot or XX:30 is selected
+      // For end slots (XX:30), check if this slot or (XX+1):00 is selected
+      const thisPairIsSelected = isStartSlot
+        ? prev.some(
+            (s) =>
+              format(s.date, "yyyy-MM-dd") === dateStr &&
+              s.hour === hour &&
+              (s.minutes === 0 || s.minutes === 30),
+          )
+        : prev.some(
+            (s) =>
+              format(s.date, "yyyy-MM-dd") === dateStr &&
+              ((s.hour === hour && s.minutes === 30) ||
+                (s.hour === hour + 1 && s.minutes === 0)),
+          );
+
+      if (thisPairIsSelected) {
+        // If the pair is selected, deselect both slots that make up the hour
+        return prev.filter((s) => {
+          if (format(s.date, "yyyy-MM-dd") !== dateStr) return true;
+
+          if (isStartSlot) {
+            // Deselect XX:00 and XX:30
+            return !(s.hour === hour && (s.minutes === 0 || s.minutes === 30));
+          } else {
+            // Deselect XX:30 and (XX+1):00
+            return !(
+              (s.hour === hour && s.minutes === 30) ||
+              (s.hour === hour + 1 && s.minutes === 0)
+            );
+          }
+        });
       }
 
-      if (selectedSlots.length >= request.lesson_ids.length) {
+      // Check if adding another slot would exceed the limit
+      const currentUniqueSlots = countUniqueHourlySlots(prev);
+      if (currentUniqueSlots >= request.lesson_ids.length) {
         alert("Cannot select more slots than required.");
         return prev;
       }
 
-      // const enrollment = enrollments?.find(
-      //   (e) => e.course_id === selectedCourse,
-      // );
-      // if (!enrollment) return prev;
-      // const course = enrollment.Courses;
-      // if (!course || !course.duration) return prev;
-      // if (prev.length >= course.duration) {
-      //   alert(`You can only select up to ${course.duration} hours`);
-      //   return prev;
-      // }
-
-      return [
-        ...prev,
-        {
-          date,
-          hour: slotHour,
-          instructorId: slot.state.availableInstructors[0],
-        },
-      ];
+      // When selecting, add both slots that make up the full hour
+      if (isStartSlot) {
+        // If selecting a XX:00 slot, also select the XX:30 slot
+        // Mark them as the same slot group
+        const slotGroupId = Date.now().toString(); // Unique ID for this hour selection
+        return [
+          ...prev,
+          {
+            date,
+            hour,
+            minutes: 0,
+            instructorId: slot.state.availableInstructors[0],
+            slotGroupId, // Add this to group related 30-min slots
+          },
+          {
+            date,
+            hour,
+            minutes: 30,
+            instructorId: slot.state.availableInstructors[0],
+            slotGroupId, // Same group ID for the second 30 min slot
+          },
+        ];
+      } else {
+        // If selecting a XX:30 slot, also select the (XX+1):00 slot
+        const slotGroupId = Date.now().toString();
+        return [
+          ...prev,
+          {
+            date,
+            hour,
+            minutes: 30,
+            instructorId: slot.state.availableInstructors[0],
+            slotGroupId,
+          },
+          {
+            date,
+            hour: hour + 1,
+            minutes: 0,
+            instructorId: slot.state.availableInstructors[0],
+            slotGroupId,
+          },
+        ];
+      }
     });
+  };
+
+  // Helper function to count unique hourly slots (treating pairs as one)
+  const countUniqueHourlySlots = (
+    slots: Array<
+      Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId?: string }
+    >,
+  ) => {
+    // Count by unique slotGroupIds
+    const uniqueGroups = new Set(
+      slots.map((s) => s.slotGroupId).filter(Boolean),
+    );
+    return uniqueGroups.size;
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
@@ -324,7 +398,7 @@ export default function CreateSchedule({
       return;
     }
 
-    if (!lessons || lessons.length < selectedSlots.length) {
+    if (!lessons || lessons.length < countUniqueHourlySlots(selectedSlots)) {
       alert("Not enough lessons available for the course");
       return;
     }
@@ -348,15 +422,38 @@ export default function CreateSchedule({
       (s) => new Date(s.date).setHours(s.hour) < new Date().getTime(),
     );
 
-    // Get upcoming lessons
-    const upcomingSlots = [
-      // New selected slots
-      ...selectedSlots.map((slot) => ({
-        date: slot.date,
-        hour: slot.hour,
-        instructorId: slot.instructorId,
+    // Group selected slots by their slotGroupId
+    const selectedSlotGroups = groupBy(
+      selectedSlots,
+      (slot) => slot.slotGroupId || "",
+    );
+
+    // Convert each pair of 30-minute slots into a single hour entry
+    // We'll use the first slot in each group as the starting point
+    const newSlots = Object.values(selectedSlotGroups).map((group) => {
+      // Sort the slots to ensure the earlier one comes first
+      const sortedGroup = [...group].sort((a, b) => {
+        const timeA = new Date(a.date).setHours(a.hour, a.minutes);
+        const timeB = new Date(b.date).setHours(b.hour, b.minutes);
+        return timeA - timeB;
+      });
+
+      // Use the first slot as the start time
+      const firstSlot = sortedGroup[0];
+      return {
+        date: firstSlot.date,
+        hour: firstSlot.hour,
+        minutes: firstSlot.minutes,
+        instructorId: firstSlot.instructorId,
         isNew: true as const,
-      })),
+      };
+    });
+
+    // Get upcoming slots
+    const upcomingSlots = [
+      // New selected slots (only one entry per hour)
+      ...newSlots,
+
       // Existing upcoming schedules that aren't being changed
       ...existingCourseSchedules
         .filter(
@@ -367,6 +464,7 @@ export default function CreateSchedule({
         .map((schedule) => ({
           date: new Date(schedule.date),
           hour: parseInt(schedule.start_time.split(":")[0]),
+          minutes: parseInt(schedule.start_time.split(":")[1] || "0"),
           instructorId: schedule.instructor_id ?? "",
           lessonId: schedule.lesson_id ?? "",
           isNew: false as const,
@@ -375,8 +473,8 @@ export default function CreateSchedule({
 
     // Sort upcoming slots chronologically
     const chronologicallySortedUpcomingSlots = upcomingSlots.sort((a, b) => {
-      const timeA = new Date(a.date).setHours(a.hour);
-      const timeB = new Date(b.date).setHours(b.hour);
+      const timeA = new Date(a.date).setHours(a.hour, a.minutes);
+      const timeB = new Date(b.date).setHours(b.hour, b.minutes);
       return timeA - timeB;
     });
 
@@ -406,6 +504,7 @@ export default function CreateSchedule({
           return {
             date: slot.date,
             hour: slot.hour,
+            minutes: slot.minutes,
             instructorId: slot.instructorId,
             lessonId: slot.lessonId,
             lessonNumber:
@@ -423,6 +522,7 @@ export default function CreateSchedule({
             return {
               date: slot.date,
               hour: slot.hour,
+              minutes: slot.minutes,
               instructorId: slot.instructorId,
               lessonId: lesson10?.id ?? "",
               lessonNumber: 10,
@@ -433,6 +533,7 @@ export default function CreateSchedule({
             return {
               date: slot.date,
               hour: slot.hour,
+              minutes: slot.minutes,
               instructorId: slot.instructorId,
               lessonId: lesson?.id ?? "",
               lessonNumber: lesson?.number ?? 0,
@@ -450,16 +551,67 @@ export default function CreateSchedule({
     });
 
     // Create final schedules array, ensuring lesson 10 is handled correctly
-    const finalSchedules = schedulesToUpdate.filter(
-      (schedule) => schedule.lessonNumber <= 9 || schedule.lessonNumber === 10,
-    );
+    const finalSchedules = schedulesToUpdate
+      .filter(
+        (schedule) =>
+          schedule.lessonNumber <= 9 || schedule.lessonNumber === 10,
+      )
+      .map((schedule) => {
+        // Format the start_time correctly with hours and minutes
+        const formattedHour = String(schedule.hour).padStart(2, "0");
+        const formattedMinutes = String(schedule.minutes || 0).padStart(2, "0");
+
+        return {
+          date: schedule.date,
+          hour: schedule.hour,
+          instructorId: schedule.instructorId,
+          lessonId: schedule.lessonId,
+          lessonNumber: schedule.lessonNumber,
+          start_time: `${formattedHour}:${formattedMinutes}`, // Add formatted start time
+          status: "booked",
+          otp: generateRandomOTP(),
+        };
+      });
 
     onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
   };
 
+  // Utility function to group array items by a key
+  function groupBy<T>(array: T[], keyFn: (item: T) => string) {
+    return array.reduce((result: Record<string, T[]>, item) => {
+      const key = keyFn(item);
+      if (!result[key]) {
+        result[key] = [];
+      }
+      result[key].push(item);
+      return result;
+    }, {});
+  }
+
   const getSlotColor = (slot: HourlySlot) => {
     if (!slot.timeSlot) return "bg-gray-50";
-    if (slot.state.isSelected) return "bg-primary";
+
+    const dateStr = format(slot.timestamp, "yyyy-MM-dd");
+    const hour = slot.timestamp.getHours();
+    const minutes = slot.timestamp.getMinutes();
+
+    // Check if this slot is part of a selected pair
+    const isSelected =
+      minutes === 0
+        ? selectedSlots.some(
+            (s) =>
+              format(s.date, "yyyy-MM-dd") === dateStr &&
+              s.hour === hour &&
+              s.minutes === 0,
+          )
+        : selectedSlots.some(
+            (s) =>
+              format(s.date, "yyyy-MM-dd") === dateStr &&
+              s.hour === hour &&
+              s.minutes === 30,
+          );
+
+    if (isSelected) return "bg-primary";
     if (slot.state.isLearnerSchedule) return "bg-blue-200";
     if (slot.state.existingSchedule) return "bg-gray-100";
     if (slot.state.isCurrentSchedule) return "bg-yellow-200";
@@ -546,15 +698,13 @@ export default function CreateSchedule({
                     {daySchedule.map((slot, idx) => (
                       <button
                         key={idx}
-                        className={`h-10 w-full rounded ${getSlotColor(
-                          slot,
-                        )} hover:opacity-80 ${
+                        className={`h-10 w-full rounded ${getSlotColor(slot)} hover:opacity-80 ${
                           !slot.timeSlot ? "cursor-default" : "cursor-pointer"
                         }`}
                         onClick={() => handleSlotClick(date, slot)}
                         title={
-                          slot.hour
-                            ? `${format(new Date().setHours(slot.hour, 0), "h:mm a")} ${
+                          slot.timestamp
+                            ? `${format(slot.timestamp, "h:mm a")} ${
                                 slot.state.existingSchedule
                                   ? `- Scheduled for ${slot.state.existingSchedule.learner_name}`
                                   : ""
@@ -562,7 +712,7 @@ export default function CreateSchedule({
                             : undefined
                         }
                       >
-                        {format(new Date().setHours(slot.hour, 0), "h:mm a")}
+                        {format(slot.timestamp, "h:mm a")}
                       </button>
                     ))}
                   </div>
@@ -599,7 +749,7 @@ export default function CreateSchedule({
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500">
-            Selected: {selectedSlots.length} of {request.lesson_ids.length}{" "}
+            Selected: {selectedSlots.length/2} of {request.lesson_ids.length}{" "}
             hours
           </div>
 

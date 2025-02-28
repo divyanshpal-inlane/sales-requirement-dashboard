@@ -22,6 +22,7 @@ export type Schedule = {
   instructorId: string;
   lessonId: string;
   lessonNumber: number;
+  otp: string;
 };
 
 export default function AdminSchedules() {
@@ -77,6 +78,7 @@ export default function AdminSchedules() {
           start_time: `${schedule.hour}:00:00`,
           end_time: `${schedule.hour + 1}:00:00`,
           enabled: true,
+          otp: schedule.otp,
         })),
       );
 

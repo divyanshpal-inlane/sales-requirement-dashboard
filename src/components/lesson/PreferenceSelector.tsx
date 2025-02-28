@@ -117,55 +117,65 @@ function PreferenceSelector({
   return (
     <div className="flex h-full flex-col">
       <Card className="flex-1 border-none shadow-none">
-        <CardContent className="relative h-full px-0 pr-6 pt-4">
-          <ScrollArea className="h-full w-full">
-            <div className="min-w-[700px]">
-              {/* Time slot headers */}
-              <div className="grid grid-cols-[120px,1fr] gap-4">
-                <div /> {/* Empty cell for alignment */}
-                <div className="grid grid-cols-5 gap-6">
-                  {TIME_SLOTS.map((slot) => (
-                    <div key={slot} className="text-sm font-medium">
-                      {TIME_SLOT_LABELS[slot]}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Days and slot buttons */}
+        <CardContent className="relative h-full px-0 pt-4">
+          <div className="grid grid-cols-[120px,1fr]">
+            {/* Fixed days column */}
+            <div className="relative z-10 bg-white">
+              <div className="h-8" /> {/* Space for time slot headers */}
               <div className="mt-4 space-y-3">
-                {DAYS_OF_WEEK.map((day, index) => (
-                  <div key={day} className="grid grid-cols-[120px,1fr] gap-4">
-                    <div className="text-right font-medium">{day}</div>
-                    <div className="grid grid-cols-5 gap-6">
-                      {TIME_SLOTS.map((slot) => {
-                        const isSelected = selectedSlots.has(
-                          `${index}-${slot}`,
-                        );
-                        return (
-                          <Button
-                            key={`${day}-${slot}`}
-                            variant={isSelected ? "default" : "outline"}
-                            className={`h-12 rounded-lg border-2 ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                : "border-gray-200 hover:bg-gray-50"
-                            }`}
-                            onClick={() => handleSlotToggle(index, slot)}
-                          >
-                            {isSelected ? "✓" : ""}
-                          </Button>
-                        );
-                      })}
-                    </div>
+                {DAYS_OF_WEEK.map((day) => (
+                  <div key={day} className="h-12 pr-4 text-right font-medium">
+                    {day}
                   </div>
                 ))}
               </div>
             </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-          {/* Fade effect */}
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-white to-transparent" />
+            
+
+            {/* Scrollable time slots */}
+            <div className="relative overflow-hidden pr-8">
+              <ScrollArea className="h-full w-full">
+                <div className="min-w-[700px]">
+                  {/* Time slot headers */}
+                  <div className="grid grid-cols-5 gap-6">
+                    {TIME_SLOTS.map((slot) => (
+                      <div key={slot} className="text-sm font-medium">
+                        {TIME_SLOT_LABELS[slot]}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Time slot buttons */}
+                  <div className="mt-4 space-y-3">
+                    {DAYS_OF_WEEK.map((_, index) => (
+                      <div key={index} className="grid grid-cols-5 gap-6">
+                        {TIME_SLOTS.map((slot) => {
+                          const isSelected = selectedSlots.has(`${index}-${slot}`);
+                          return (
+                            <Button
+                              key={`${index}-${slot}`}
+                              variant={isSelected ? "default" : "outline"}
+                              className={`h-12 rounded-lg border-2 ${
+                                isSelected
+                                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                  : "border-gray-200 hover:bg-gray-50"
+                              }`}
+                              onClick={() => handleSlotToggle(index, slot)}
+                            >
+                              {isSelected ? "✓" : ""}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+              {/* Fade effect */}
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-white to-transparent" />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

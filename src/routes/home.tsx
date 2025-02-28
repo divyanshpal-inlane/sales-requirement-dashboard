@@ -23,6 +23,8 @@ import {
 } from "@/queries/learner";
 import { useLatestPayment } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
+import { supabase } from "@/lib/supabaseClient";
+import { isBefore } from "date-fns";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -157,7 +159,7 @@ export default function Home() {
       <main className="flex flex-grow flex-col p-4 pb-20">
         {scheduleRequests && scheduleRequests.length > 0 ? (
           renderScheduleCreationState()
-        ) : learner && !learner.has_a_DL ? (
+        ) : learner && !learner.LL_result ? (
           <LLFlow />
         ) : learner && learner.LL_result === true ? (
           scheduledLessons && scheduledLessons.length === 0 ? (
@@ -298,7 +300,23 @@ export default function Home() {
                       onClick={() =>
                         navigate("/createSchedule/preferences?type=lesson10")
                       }
-                      // disabled={isLesson9Completed && !isLesson10Completed}
+                      disabled={
+                        isLesson9Completed &&
+                        !isLesson10Completed &&
+                        supabase
+                          .from("Learner")
+                          .select("DL_test_date")
+                          .eq("id", learner?.id)
+                          .single()
+                          .then(({ data }) =>
+                            data?.DL_test_date
+                              ? isBefore(
+                                  new Date(),
+                                  addDays(new Date(data.DL_test_date), -7),
+                                )
+                              : true,
+                          )
+                      }
                     >
                       Schedule Lesson 10
                     </Button>

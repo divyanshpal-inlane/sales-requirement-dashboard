@@ -13,7 +13,7 @@ export function LLTestPreparation() {
   const handleTestCompletion = (completed: boolean) => {
     setHasCompletedTest(completed);
     if (completed) {
-      updateLearner({ LL_result: true, has_a_DL: true });
+      updateLearner({ LL_result: true });
     }
   };
 

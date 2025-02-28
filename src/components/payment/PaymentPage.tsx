@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,18 +29,64 @@ function PaymentPage() {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPrefilled, setIsPrefilled] = useState(false);
   const { data: courses, isLoading: coursesLoading } = useCourses();
 
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
-    amount: Number(searchParams.get("amount")) || 0,
-    email: searchParams.get("email") || "",
-    phone: searchParams.get("phone") || "",
-    paymentType:
-      (searchParams.get("type") as "course" | "reschedule") || "course",
-    courseId: searchParams.get("courseId") || "",
-    requestId: searchParams.get("requestId") || undefined,
-    name: searchParams.get("name") || "",
+    amount: 0,
+    email: "",
+    phone: "",
+    paymentType: "course",
+    courseId: "",
+    requestId: undefined,
+    name: "",
   });
+
+  useEffect(() => {
+    const fetchLearnerDetails = async () => {
+      const phone = searchParams.get("phone");
+      if (phone) {
+        try {
+          const { data: learner, error } = await supabase
+            .from("Learner")
+            .select("email, phone, name, id")
+            .eq("phone", phone)
+            .single();
+
+          if (error) throw new Error("Failed to fetch learner details");
+
+          const { data: enrollment, error: enrollmentError } = await supabase
+            .from("enrollment")
+            .select("course_id,amount")
+            .eq("learner_id", learner.id)
+            .single();
+
+          if (enrollmentError)
+            throw new Error("Failed to fetch enrollment details");
+
+          const { data: course, error: courseError } = await supabase
+            .from("Courses")
+            .select("price")
+            .eq("id", enrollment.course_id)
+            .single();
+
+          setPaymentDetails((prev) => ({
+            ...prev,
+            email: learner.email,
+            phone: learner.phone,
+            name: learner.name,
+            courseId: enrollment.course_id,
+            amount: enrollment.amount || course.price,
+          }));
+          setIsPrefilled(true);
+        } catch (err) {
+          setError(err.message);
+        }
+      }
+    };
+
+    fetchLearnerDetails();
+  }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -142,7 +188,7 @@ function PaymentPage() {
                 <Select
                   value={paymentDetails.courseId}
                   onValueChange={handleCourseChange}
-                  disabled={coursesLoading}
+                  disabled={isPrefilled}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a course" />
@@ -178,12 +224,12 @@ function PaymentPage() {
               <>
                 <div>
                   <label
-                  htmlFor="name"
-                  className="mb-1 block text-sm font-medium"
+                    htmlFor="name"
+                    className="mb-1 block text-sm font-medium"
                   >
                     Name
-                    </label>
-                    <Input
+                  </label>
+                  <Input
                     id="name"
                     name="name"
                     type="text"
@@ -191,7 +237,8 @@ function PaymentPage() {
                     onChange={handleInputChange}
                     required
                     className="w-full"
-                    />
+                    disabled={isPrefilled}
+                  />
                 </div>
                 <div>
                   <label
@@ -208,6 +255,7 @@ function PaymentPage() {
                     onChange={handleInputChange}
                     required
                     className="w-full"
+                    disabled={isPrefilled}
                   />
                 </div>
                 <div>
@@ -227,6 +275,7 @@ function PaymentPage() {
                     className="w-full"
                     pattern="[0-9]{10}"
                     title="Please enter a valid 10-digit phone number"
+                    disabled={isPrefilled}
                   />
                 </div>
               </>

@@ -258,7 +258,7 @@ export function LessonPlan({
               }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0]/60 p-4"
+              className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0]/80 p-4"
             >
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Session Details</h3>
