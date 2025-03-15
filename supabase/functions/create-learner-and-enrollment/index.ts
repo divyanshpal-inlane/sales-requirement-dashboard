@@ -26,8 +26,22 @@ export async function createLearnerAndEnrollment(data: {
   phone: string;
   courseId: string;
   amount: number;
+  installmentType: string;
+  installment1Amount: number;
+  installment2Amount: number;
+  unlockedLessons: number[];
 }) {
-  const { name, email, phone, courseId, amount } = data;
+  const {
+    name,
+    email,
+    phone,
+    courseId,
+    amount,
+    installmentType,
+    installment1Amount,
+    installment2Amount,
+    unlockedLessons,
+  } = data;
 
   // Create learner entry
   const { data: learners, error: learnerError } = await supabase
@@ -44,7 +58,17 @@ export async function createLearnerAndEnrollment(data: {
   // Create enrollment entry
   const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollment")
-    .insert([{ learner_id: learners.id, course_id: courseId, amount }])
+    .insert([
+      {
+        learner_id: learners.id,
+        course_id: courseId,
+        amount,
+        installment_mode: installmentType,
+        installment1_amount: installment1Amount,
+        installment2_amount: installment2Amount,
+        unlocked_lessons: unlockedLessons,
+      },
+    ])
     .select()
     .maybeSingle();
 

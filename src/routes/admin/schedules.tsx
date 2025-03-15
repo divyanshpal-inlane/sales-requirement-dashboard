@@ -1,6 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,13 +10,17 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { useNavigate } from "react-router-dom";
 import { useMutationCompleteRescheduleRequest } from "@/queries/learner";
 import {
   SchedulingRequests,
   useSchedulingRequests,
 } from "@/queries/preferences";
-import { DAYS_OF_WEEK, TIME_SLOT_LABELS, TIME_SLOTS, TimeSlot } from "@/types/schedule";
+import {
+  DAYS_OF_WEEK,
+  TIME_SLOT_LABELS,
+  TIME_SLOTS,
+  TimeSlot,
+} from "@/types/schedule";
 
 export type Schedule = {
   date: Date;
@@ -22,8 +28,19 @@ export type Schedule = {
   instructorId: string;
   lessonId: string;
   lessonNumber: number;
+  start_time: string;
+  end_time: string;
   otp: string;
 };
+
+type RequestType = "new" | "reschedule" | "lesson10";
+
+// Extend the SchedulingRequests type to include lesson10
+declare module "@/queries/preferences" {
+  interface SchedulingRequests {
+    type: RequestType;
+  }
+}
 
 export default function AdminSchedules() {
   const navigate = useNavigate();
@@ -69,17 +86,24 @@ export default function AdminSchedules() {
 
       // Create schedules
       const { error } = await supabase.from("Schedule").insert(
-        schedules.map((schedule) => ({
-          learner_id: learnerId,
-          course_id: courseId,
-          lesson_id: schedule.lessonId,
-          instructor_id: schedule.instructorId,
-          date: schedule.date.toISOString().split("T")[0],
-          start_time: `${schedule.hour}:00:00`,
-          end_time: `${schedule.hour + 1}:00:00`,
-          enabled: true,
-          otp: schedule.otp,
-        })),
+        schedules.map((schedule) => {
+          // Parse start time and add 1 hour for end time
+          const [hours, minutes] = schedule.start_time.split(":").map(Number);
+          const endHours = (hours + 1) % 24;
+          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+          return {
+            learner_id: learnerId,
+            course_id: courseId,
+            lesson_id: schedule.lessonId,
+            instructor_id: schedule.instructorId,
+            date: schedule.date.toISOString().split("T")[0],
+            start_time: schedule.start_time,
+            end_time: endTime,
+            enabled: true,
+            otp: schedule.otp,
+          };
+        }),
       );
 
       if (error) throw error;
@@ -100,13 +124,40 @@ export default function AdminSchedules() {
                 selectedRequest.type === "reschedule"
                   ? Math.min(...variables.schedules.map((s) => s.lessonNumber))
                   : 1;
+              if (selectedRequest.type === "new") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "SCHEDULE_PREPARED",
+                    learner_id: selectedRequest.learner_id,
 
-              supabase.functions.invoke("learner-daily-schedule", {
-                body: {
-                  learner_id: selectedRequest.learner_id,
-                  reschedule_lesson_number: rescheduleLessonNumber,
-                },
-              });
+                    start_date: variables.schedules[0].date,
+                    start_time: variables.schedules[0].start_time,
+                  },
+                });
+              }
+              if (selectedRequest.type === "reschedule") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+                    learner_id: selectedRequest.learner_id,
+                  },
+                });
+              }
+              if (selectedRequest.type === "lesson10") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "WEBAPP_LESSON_10_SCHEDULED",
+                    learner_id: selectedRequest.learner_id,
+                  },
+                });
+              }
+              // supabase.functions.invoke("learner-daily-schedule", {
+              //   body: {
+              //     learner_id: selectedRequest.learner_id,
+              //     reschedule_lesson_number: rescheduleLessonNumber,
+              //   },
+              // });
+
             },
           },
         );
@@ -130,12 +181,35 @@ export default function AdminSchedules() {
     courseId: string,
   ) => {
     if (!selectedRequest) return;
-  
+
+    // For lesson10 requests, only allow one lesson and ensure it's lesson 10
+    if ((selectedRequest.type as string) === "lesson10") {
+      if (schedules.length > 1) {
+        toast({
+          title: "Error",
+          description:
+            "Only one lesson can be scheduled for 10th lesson requests",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (schedules[0]?.lessonNumber !== 10) {
+        toast({
+          title: "Error",
+          description: "You can only schedule lesson 10 for this request",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const rescheduleLessonNumber =
-      selectedRequest.type === "reschedule" || selectedRequest.type === "lesson10"
+      (selectedRequest.type as string) === "reschedule" ||
+      (selectedRequest.type as string) === "lesson10"
         ? Math.min(...schedules.map((s) => s.lessonNumber))
         : 1;
-  
+
     createScheduleMutation.mutate({
       learnerId: selectedRequest.learner_id,
       schedules,
@@ -143,17 +217,18 @@ export default function AdminSchedules() {
       rescheduleLessonNumber,
     });
   };
+
   const newRequests = useMemo(
-    () => requests?.filter((r) => r.type === "new"),
+    () => requests?.filter((r) => (r.type as string) === "new"),
     [requests],
   );
   const rescheduleRequests = useMemo(
-    () => requests?.filter((r) => r.type === "reschedule"),
+    () => requests?.filter((r) => (r.type as string) === "reschedule"),
     [requests],
   );
 
   const tenthLessonRequests = useMemo(
-    () => requests?.filter((r) => r.type === "lesson10"),
+    () => requests?.filter((r) => (r.type as string) === "lesson10"),
     [requests],
   );
 

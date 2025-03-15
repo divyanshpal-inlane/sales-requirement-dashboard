@@ -200,7 +200,9 @@ export default function CreateSchedule({
         // Check if this slot is currently scheduled for rescheduling
         const isCurrentSchedule = schedulesToChange?.some(
           (s) =>
-            s.date === dateStr && parseInt(s.start_time.split(":")[0]) === hour,
+            s.date === dateStr && 
+            parseInt(s.start_time.split(":")[0]) === hour &&
+            parseInt(s.start_time.split(":")[1] || "0") === minute,
         );
 
         // Check if this slot has other schedules for the same learner
@@ -208,6 +210,7 @@ export default function CreateSchedule({
           (s) =>
             s.date === dateStr &&
             parseInt(s.start_time.split(":")[0]) === hour &&
+            parseInt(s.start_time.split(":")[1] || "0") === minute &&
             s.learner_id === learnerId &&
             !request.lesson_ids.includes(s.lesson_id ?? ""),
         );
@@ -248,7 +251,9 @@ export default function CreateSchedule({
               !isDayBlocked,
             isSelected: selectedSlots.some(
               (s) =>
-                format(s.date, "yyyy-MM-dd") === dateStr && s.hour === hour,
+                format(s.date, "yyyy-MM-dd") === dateStr && 
+                s.hour === hour &&
+                s.minutes === minute,
             ),
             isPreferred: !!isPreferred,
             isCurrentSchedule,
@@ -560,6 +565,8 @@ export default function CreateSchedule({
         // Format the start_time correctly with hours and minutes
         const formattedHour = String(schedule.hour).padStart(2, "0");
         const formattedMinutes = String(schedule.minutes || 0).padStart(2, "0");
+        const endHour = schedule.minutes === 30 ? schedule.hour + 1 : schedule.hour;
+        const endMinutes = schedule.minutes === 30 ? "00" : "30";
 
         return {
           date: schedule.date,
@@ -567,7 +574,8 @@ export default function CreateSchedule({
           instructorId: schedule.instructorId,
           lessonId: schedule.lessonId,
           lessonNumber: schedule.lessonNumber,
-          start_time: `${formattedHour}:${formattedMinutes}`, // Add formatted start time
+          start_time: `${formattedHour}:${formattedMinutes}:00`,
+          end_time: `${String(endHour).padStart(2, "0")}:${endMinutes}:00`,
           status: "booked",
           otp: generateRandomOTP(),
         };
@@ -617,6 +625,11 @@ export default function CreateSchedule({
     if (slot.state.isCurrentSchedule) return "bg-yellow-200";
     if (slot.state.isPreferred) return "bg-primary/10";
     return "bg-white";
+  };
+
+  // Format the time for display
+  const formatTimeDisplay = (timestamp: Date) => {
+    return format(timestamp, "h:mm a");
   };
 
   return (
@@ -704,7 +717,7 @@ export default function CreateSchedule({
                         onClick={() => handleSlotClick(date, slot)}
                         title={
                           slot.timestamp
-                            ? `${format(slot.timestamp, "h:mm a")} ${
+                            ? `${formatTimeDisplay(slot.timestamp)} ${
                                 slot.state.existingSchedule
                                   ? `- Scheduled for ${slot.state.existingSchedule.learner_name}`
                                   : ""
@@ -712,7 +725,7 @@ export default function CreateSchedule({
                             : undefined
                         }
                       >
-                        {format(slot.timestamp, "h:mm a")}
+                        {formatTimeDisplay(slot.timestamp)}
                       </button>
                     ))}
                   </div>

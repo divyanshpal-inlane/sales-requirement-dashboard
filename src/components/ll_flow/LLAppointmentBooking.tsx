@@ -1,11 +1,14 @@
 import { getCalApi } from "@calcom/embed-react";
 import { useEffect } from "react";
+import { useLearner } from "@/queries/learner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
 
 export default function LLAppointmentBooking() {
+  const learner = useLearner();
   const { mutate: updateLearner } = useLearnerUpdate();
   useEffect(() => {
     (async function () {
@@ -21,10 +24,17 @@ export default function LLAppointmentBooking() {
         callback: (e) => {
           console.log(e);
           updateLearner({ LL_team_appointment_booked: true });
+
+          supabase.functions.invoke("send-message", {
+            body: JSON.stringify({
+              message_type: "LL_DETAILS_BOOK_APPOINTMENT",
+              learner_id: learner.data?.id,
+            }),
+          });
         },
       });
     })();
-  }, [updateLearner]);
+  }, [updateLearner, learner]);
 
   return (
     <div className="flex w-full grow flex-col">
@@ -78,3 +88,4 @@ export default function LLAppointmentBooking() {
     </div>
   );
 }
+

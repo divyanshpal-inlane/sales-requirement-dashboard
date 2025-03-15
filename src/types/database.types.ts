@@ -76,6 +76,8 @@ export type Database = {
           progress: Json
           status: Database["public"]["Enums"]["enrollment_status"]
           updated_at: string
+          payment_status: "full_paid" | "half_paid"
+          unlocked_lessons: number[]
         }
         Insert: {
           course_id: string
@@ -86,6 +88,8 @@ export type Database = {
           progress?: Json
           status?: Database["public"]["Enums"]["enrollment_status"]
           updated_at?: string
+          payment_status?: "full_paid" | "half_paid"
+          unlocked_lessons?: number[]
         }
         Update: {
           course_id?: string
@@ -96,6 +100,8 @@ export type Database = {
           progress?: Json
           status?: Database["public"]["Enums"]["enrollment_status"]
           updated_at?: string
+          payment_status?: "full_paid" | "half_paid"
+          unlocked_lessons?: number[]
         }
         Relationships: [
           {
@@ -372,10 +378,13 @@ export type Database = {
           gateway_reference: string | null
           id: string
           learner_id: string
-          payment_type: Database["public"]["Enums"]["payment_type"]
+          name: string | null
+          payment_type: string
           phone: string | null
           status: string
-          updated_at: string
+          installment_type: "full" | "first_half" | "second_half"
+          total_amount: number | null
+          parent_payment_id: string | null
         }
         Insert: {
           amount: number
@@ -384,10 +393,13 @@ export type Database = {
           gateway_reference?: string | null
           id?: string
           learner_id: string
-          payment_type: Database["public"]["Enums"]["payment_type"]
+          name?: string | null
+          payment_type: string
           phone?: string | null
           status?: string
-          updated_at?: string
+          installment_type?: "full" | "first_half" | "second_half"
+          total_amount?: number | null
+          parent_payment_id?: string | null
         }
         Update: {
           amount?: number
@@ -396,10 +408,13 @@ export type Database = {
           gateway_reference?: string | null
           id?: string
           learner_id?: string
-          payment_type?: Database["public"]["Enums"]["payment_type"]
+          name?: string | null
+          payment_type?: string
           phone?: string | null
           status?: string
-          updated_at?: string
+          installment_type?: "full" | "first_half" | "second_half"
+          total_amount?: number | null
+          parent_payment_id?: string | null
         }
         Relationships: [
           {
@@ -640,7 +655,7 @@ export type Database = {
         | "pending"
         | "completed"
         | "cancelled"
-      reschedule_request_type: "new" | "reschedule"
+      reschedule_request_type: "new" | "reschedule" | "lesson10"
       time_slot: "6-9" | "9-12" | "12-15" | "15-18" | "18-21"
     }
     CompositeTypes: {

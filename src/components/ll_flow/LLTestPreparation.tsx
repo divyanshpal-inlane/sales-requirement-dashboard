@@ -1,18 +1,45 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
 
-export function LLTestPreparation() {
+export function LLTestPreparation({ learnerId }: { learnerId: string }) {
   const [hasCompletedTest, setHasCompletedTest] = useState<boolean | null>(
     null,
   );
+  const [learner, setLearner] = useState<any>(null);
   const { mutate: updateLearner } = useLearnerUpdate();
+
+  useEffect(() => {
+    // Fetch learner details
+    const fetchLearnerDetails = async () => {
+      const { data: learnerData, error } = await supabase
+        .from("Learner")
+        .select("*")
+        .eq("id", learnerId) // Use the learnerId parameter to fetch the correct learner
+        .single();
+
+      if (error) {
+        console.error("Error fetching learner details:", error);
+      } else {
+        setLearner(learnerData);
+      }
+    };
+
+    fetchLearnerDetails();
+  }, [learnerId]);
 
   const handleTestCompletion = (completed: boolean) => {
     setHasCompletedTest(completed);
-    if (completed) {
+    if (completed && learner) {
+      supabase.functions.invoke("send-message", {
+        body: JSON.stringify({
+          message_type: "LL_RECEIVED",
+          learner_id: learner.id,
+        }),
+      });
       updateLearner({ LL_result: true });
     }
   };

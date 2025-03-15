@@ -1,8 +1,8 @@
 /* eslint-disable prettier/prettier */
 import { format, isSameDay } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -20,6 +20,7 @@ import {
   useLearnerEnrollment,
   useLearnerSchedule,
 } from "@/queries/learner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type CustomDayProps = {
   date: Date;
@@ -27,6 +28,8 @@ type CustomDayProps = {
 };
 
 export default function Schedule() {
+  const navigate = useNavigate();
+
   function formatTimeTo12Hour(time: string): string {
     // Validate input time format
     const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
@@ -242,48 +245,84 @@ export default function Schedule() {
         </TabsContent>
         <ScrollArea className="relative">
           <TabsContent value="lesson" className="h-full overflow-y-auto">
+            {enrollment?.payment_status === "half_paid" && (
+              <Alert className="mb-4 bg-white border-primary">
+                <AlertDescription>
+                  You have paid the first installment. Some lessons are locked until you complete the payment.   
+                  
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto text-primary"
+                    onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+                  >
+                    Pay remaining amount
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="grid grid-cols-2 gap-4 pb-6">
               {enrollment?.course_id &&
                 Object.values(
                   COURSES_DATA[enrollment.course_id].lessonsData,
-                ).map((lesson) => (
-                  <div
-                    key={lesson.id}
-                    className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 shadow-md"
-                  >
-                    <p className="text-accent-purple">Lesson {lesson.id}</p>
-                    <div className="relative">
-                      <img src={lesson.image_path} alt="Lesson-pic" />
-                      <div className="absolute -bottom-1.5 right-1 flex w-[75%] flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
-                        <Link
-                          to={`/lesson/${
-                            courseLessons.find(
-                              (l) => l.number === parseInt(lesson.id),
-                            )?.id
-                          }`}
-                          className="text-xs text-primary"
-                        >
-                          More details
-                        </Link>
-                        <ChevronRight
-                          color="white"
-                          className="rounded-full bg-primary"
-                          size={16}
-                        />
-                      </div>
-                    </div>
-                    <Link
-                      to={`/lesson/${
-                        courseLessons.find(
-                          (l) => l.number === parseInt(lesson.id),
-                        )?.id
-                      }`}
-                      className="text-md mt-1.5"
+                ).map((lesson) => {
+                  const lessonNumber = parseInt(lesson.id);
+                  const isLocked = 
+                    enrollment.payment_status === "half_paid" && 
+                    (!enrollment.unlocked_lessons || !enrollment.unlocked_lessons.includes(lessonNumber));
+                  
+                  return (
+                    <div
+                      key={lesson.id}
+                      className={`flex flex-col gap-1 rounded-md ${
+                        isLocked ? "bg-gray-100" : "bg-gray-50"
+                      } p-3 shadow-md relative`}
                     >
-                      {lesson.description}
-                    </Link>
-                  </div>
-                ))}
+                      {isLocked && (
+                        <div className="absolute inset-0 bg-gray-200/70 backdrop-blur-[1px] flex items-center justify-center rounded-md z-10">
+                          <div className="text-center p-3">
+                            <Lock className="h-8 w-8 mx-auto mb-2 text-gray-500" />
+                            <p className="text-sm font-medium text-gray-700">
+                              Complete payment to unlock
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-accent-purple">Lesson {lesson.id}</p>
+                      <div className="relative">
+                        <img src={lesson.image_path} alt="Lesson-pic" />
+                        <div className="absolute -bottom-1.5 right-1 flex w-[75%] flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
+                          <Link
+                            to={`/lesson/${
+                              courseLessons.find(
+                                (l) => l.number === parseInt(lesson.id),
+                              )?.id
+                            }`}
+                            className={`text-xs ${isLocked ? "text-gray-400" : "text-primary"}`}
+                            onClick={(e) => isLocked && e.preventDefault()}
+                          >
+                            More details
+                          </Link>
+                          <ChevronRight
+                            color={isLocked ? "gray" : "white"}
+                            className={`rounded-full ${isLocked ? "bg-gray-400" : "bg-primary"}`}
+                            size={16}
+                          />
+                        </div>
+                      </div>
+                      <Link
+                        to={`/lesson/${
+                          courseLessons.find(
+                            (l) => l.number === parseInt(lesson.id),
+                          )?.id
+                        }`}
+                        className={`text-md mt-1.5 ${isLocked ? "text-gray-400 pointer-events-none" : ""}`}
+                        onClick={(e) => isLocked && e.preventDefault()}
+                      >
+                        {lesson.description}
+                      </Link>
+                    </div>
+                  );
+                })}
             </div>
           </TabsContent>
         </ScrollArea>

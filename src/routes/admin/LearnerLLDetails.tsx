@@ -70,10 +70,19 @@ const LearnerLLDetails = () => {
 
   const handleSaveAppointmentId = () => {
     if (!selectedLearner || !appointmentId) return;
+    
     updateLearnerMutation.mutate({
       learnerId: selectedLearner.id,
       appointmentId,
       llApproved: false,
+    });
+    console.log(`Submitting LL application...:${appointmentId}`);
+    supabase.functions.invoke("send-message", {
+      body: {
+        message_type: "LL_APPLICATION_SUBMITTED",
+        learner_id: selectedLearner.id,
+        appointment_number: appointmentId,
+      },
     });
   };
 
@@ -83,6 +92,12 @@ const LearnerLLDetails = () => {
       learnerId: selectedLearner.id,
       appointmentId,
       llApproved: true,
+    });
+    supabase.functions.invoke("send-message", {
+      body: {
+        message_type: "LL_APPLICATION_UPDATE",
+        learner_id: selectedLearner.id,
+      },
     });
   };
 

@@ -77,6 +77,12 @@ const DLTestDates = () => {
       learnerId: selectedLearner.id,
       testDate: selectedDate,
     });
+    supabase.functions.invoke("send-message", {
+      body: {
+        message_type: "WEBAPP_SCHEDULE_LESSON_10",
+        learner_id: selectedLearner.id,
+      },
+    });
   };
 
   if (isLoading) return <div>Loading...</div>;

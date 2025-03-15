@@ -1,11 +1,11 @@
-import { ArrowRight, BookOpen, Clock, User } from "lucide-react";
+import { ArrowRight, BookOpen, Clock, Scroll, User } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import LLFlow from "@/components/ll_flow";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
 import { SessionDetails } from "@/components/SessionDetails";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -24,7 +24,9 @@ import {
 import { useLatestPayment } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
 import { supabase } from "@/lib/supabaseClient";
-import { isBefore } from "date-fns";
+
+import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { addDays, isBefore } from "date-fns";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -81,7 +83,7 @@ export default function Home() {
     );
   }
 
-  if (!learner?.onboarding_completed) {
+  if (!learner?.onboarding_completed && !learner?.dob) {
     return <Navigate to="/onboard/birthday" />;
   }
 
@@ -97,6 +99,9 @@ export default function Home() {
   if (error || LessonError) {
     return <p>Error: {error?.message || LessonError?.message}</p>;
   }
+
+  // Show payment completion prompt for half-paid enrollments
+  const showPaymentCompletion = enrolledCourse?.payment_status === "half_paid";
 
   const renderScheduleCreationState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
@@ -134,14 +139,18 @@ export default function Home() {
   );
 
   const lesson9 = scheduledLessons?.find(
-    (lesson) => lesson.lesson.number === 9,
+    (lesson) => lesson.lesson?.number === 9
   );
   const lesson10 = scheduledLessons?.find(
-    (lesson) => lesson.lesson.number === 10,
+    (lesson) => lesson.lesson?.number === 10
   );
 
   const isLesson9Completed = lesson9 && isLessonCompleted(lesson9);
   const isLesson10Completed = lesson10 && isLessonCompleted(lesson10);
+  console.log(isLesson9Completed)
+                  console.log(learner?.DL_test_date)
+                  
+                  console.log(isLesson10Completed)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -156,7 +165,27 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex flex-grow flex-col p-4 pb-20">
+      <main className="flex flex-col p-4 pb-20 overflow-y-auto h-[calc(100vh-50px)]">
+        {showPaymentCompletion && (
+          <Card className="mb-6 bg-white border-primary">
+            <CardHeader>
+              <CardTitle className="text-primary">Complete Your Payment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-primary mb-4">
+                You've completed the first installment. Pay the remaining amount to unlock all lessons.
+              </p>
+              <Button 
+                onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+                className="w-full bg-primary hover:bg-primary-dark"
+              
+              >
+                Pay Remaining Amount
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {scheduleRequests && scheduleRequests.length > 0 ? (
           renderScheduleCreationState()
         ) : learner && !learner.LL_result ? (
@@ -294,30 +323,20 @@ export default function Home() {
               ) : (
                 <div className="mt-24 text-center text-xl">
                   No Upcoming Lesson. 😓
-                  {scheduledLessons && scheduledLessons.length === 9 && (
+                  
+                  {scheduledLessons && scheduledLessons.length === 9 && isLesson10Completed===undefined && (
                     <Button
                       className="mt-4 w-full"
                       onClick={() =>
                         navigate("/createSchedule/preferences?type=lesson10")
                       }
+                      
                       disabled={
-                        isLesson9Completed &&
-                        !isLesson10Completed &&
-                        supabase
-                          .from("Learner")
-                          .select("DL_test_date")
-                          .eq("id", learner?.id)
-                          .single()
-                          .then(({ data }) =>
-                            data?.DL_test_date
-                              ? isBefore(
-                                  new Date(),
-                                  addDays(new Date(data.DL_test_date), -7),
-                                )
-                              : true,
-                          )
+                        !isLesson9Completed && 
+                        !(learner?.DL_test_date && isBefore(new Date(), addDays(new Date(learner.DL_test_date), 7)))
                       }
                     >
+                      
                       Schedule Lesson 10
                     </Button>
                   )}

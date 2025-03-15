@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CircleCheckBig,
   ExternalLinkIcon,
@@ -28,6 +29,7 @@ function Instructor() {
   } = useInstructor(phone ?? "");
   const updateScheduleStatus = useUpdateScheduleStatus();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   if (instructorLoading) return <div>Loading...</div>;
   if (instructorError)
@@ -39,6 +41,8 @@ function Instructor() {
         scheduleId,
         status: "completed",
       });
+      // Invalidate the query to refetch the data and update the UI
+      queryClient.invalidateQueries(["instructorSchedule"]);
     } catch (error) {
       console.error("Failed to update lesson status:", error);
     }

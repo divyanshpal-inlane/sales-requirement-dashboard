@@ -16,6 +16,7 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
+import { supabase } from "@/lib/supabaseClient";
 
 interface PreferenceSelectorProps {
   learnerId: string;
@@ -103,11 +104,23 @@ function PreferenceSelector({
               },
             );
           } else {
+            supabase.functions.invoke("send-message", {
+              body: {
+                message_type: "WEBAPP_RESCHEDULE_REQUEST",
+                learner_id: learnerId,
+              },
+            });
             navigate("/home");
           }
         },
       },
     );
+    supabase.functions.invoke("send-message", {
+      body: {
+        message_type: "THANKS_FOR_AVAILABILITY",
+        learner_id: learnerId,
+      },
+    });
   };
 
   if (isLoading) {

@@ -6,12 +6,14 @@ import {
   ChevronDown,
   ChevronUp,
   Home,
+  Lock,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import invariant from "tiny-invariant";
 
 import TriviaCard from "@/components/lesson/trivia";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -40,10 +42,49 @@ export default function Plan() {
   const { data: learner, isLoading: isLearnerLoading } = useLearner();
   const { data: enrollment, isLoading: isEnrollmentLoading } =
     useLearnerEnrollment({ learnerId: learner?.id });
+  const navigate = useNavigate();
 
   if (isLessonLoading || isLearnerLoading || isEnrollmentLoading)
     return <div>Loading...</div>;
   if (!lesson || !learner || !enrollment) return null;
+  
+  // Check if lesson is locked (for installment payments)
+  const isLessonLocked = 
+    enrollment.payment_status === "half_paid" && 
+    lesson.number && 
+    (!enrollment.unlocked_lessons || !enrollment.unlocked_lessons.includes(lesson.number));
+  
+  // If lesson is locked, show a message and redirect
+  if (isLessonLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-6 bg-gray-50">
+        <div className="text-center max-w-md">
+          <Lock className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Lesson Locked</h2>
+          <p className="text-gray-600 mb-6">
+            This lesson is locked because you've only completed the first installment payment.
+            Complete your payment to unlock all lessons.
+          </p>
+          <div className="space-y-3">
+            <Button 
+              onClick={() => navigate(`/payment?phone=${learner.phone}`)}
+              className="w-full"
+            >
+              Complete Payment
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/schedule")}
+              className="w-full"
+            >
+              View Available Lessons
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   const enrolledCourse = enrollment.Courses;
   const enrolledLessons = enrollment.Courses?.Lesson ?? [];
   const nextLessonId =

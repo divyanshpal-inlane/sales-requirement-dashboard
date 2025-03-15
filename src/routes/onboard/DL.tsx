@@ -1,11 +1,46 @@
 import { useNavigate } from "react-router";
-
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLearnerUpdate } from "@/queries/learner";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
+  const [learner, setLearner] = useState<any>(null);
+
+  useEffect(() => {
+    // Fetch learner details
+    const fetchLearnerDetails = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error("Error fetching session:", sessionError);
+        return;
+      }
+
+      const learnerId = session?.user?.id;
+
+      if (!learnerId) {
+        console.error("Learner ID not found in session");
+        return;
+      }
+
+      const { data: learnerData, error } = await supabase
+        .from("Learner")
+        .select("*")
+        .eq("id", learnerId) // Use the learnerId parameter to fetch the correct learner
+        .single();
+
+      if (error) {
+        console.error("Error fetching learner details:", error);
+      } else {
+        setLearner(learnerData);
+      }
+    };
+
+    fetchLearnerDetails();
+  }, []);
 
   const handleDLResponse = (response: boolean) => {
     if (response) {
@@ -32,6 +67,14 @@ export default function DLQuestion() {
           onSuccess: () => {
             window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
             navigate("/home");
+            if (learner) {
+              supabase.functions.invoke("send-message", {
+                body: {
+                  message_type: "LL_DETAILS_BOOK_APPOINTMENT",
+                  learner_id: learner.id,
+                },
+              });
+            }
           },
         },
       );

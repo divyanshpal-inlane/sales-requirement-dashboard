@@ -116,8 +116,10 @@ serve(async (req) => {
         `
         learner_id,
         payment_type,
+        amount,
         Learner (
-          phone
+          phone,
+          has_a_DL,
         )
         `,
       )
@@ -130,31 +132,63 @@ serve(async (req) => {
     if (status === "completed") {
       try {
         if (payment.payment_type === "course") {
-          // Get enrollment record
+          // Get enrollment record with existing unlocked lessons
           const { data: enrollment, error: enrollmentQueryError } =
             await supabaseClient
               .from("enrollment")
-              .select()
+              .select("*, unlocked_lessons")
               .eq("payment_id", paymentId)
               .single();
 
           if (enrollmentQueryError) throw enrollmentQueryError;
           if (!enrollment) throw new Error("Enrollment record not found");
 
-          // Update enrollment status to active
+          // Update enrollment status based on payment type
+          let newPaymentStatus = enrollment.payment_status;
+          let unlockedLessons = enrollment.unlocked_lessons || [];
+
+          if (responseData["UDF01"] === "full") {
+            // For full payment, unlock all lessons
+            unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
+            newPaymentStatus = "full_paid";
+          } else if (responseData["UDF01"] === "first_half") {
+            // For first installment, ONLY unlock first 5 lessons
+            unlockedLessons = [1, 2, 3, 4, 5];
+            newPaymentStatus = "half_paid";
+          } else if (
+            responseData["UDF01"] === "second_half" &&
+            enrollment.payment_status === "half_paid"
+          ) {
+            // For second installment, verify first payment and then unlock all lessons
+            unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
+            newPaymentStatus = "full_paid";
+          }
+
+          console.log("Updating enrollment:", {
+            paymentStatus: newPaymentStatus,
+            unlockedLessons,
+            enrollmentId: enrollment.id,
+          });
+
+          // Update the enrollment
           const { error: enrollmentError } = await supabaseClient
             .from("enrollment")
             .update({
+              payment_status: newPaymentStatus,
+              unlocked_lessons: unlockedLessons,
               status: "active",
               progress: {
-                completed_lessons: [],
-                current_lesson: 1,
+                completed_lessons: enrollment.progress?.completed_lessons || [],
+                current_lesson: enrollment.progress?.current_lesson || 1,
                 last_accessed: new Date().toISOString(),
               },
             })
             .eq("id", enrollment.id);
 
-          if (enrollmentError) throw enrollmentError;
+          if (enrollmentError) {
+            console.error("Error updating enrollment:", enrollmentError);
+            throw enrollmentError;
+          }
         } else if (payment.payment_type === "reschedule") {
           // Handle reschedule payment success
           const { error: scheduleError } = await supabaseClient
@@ -167,6 +201,34 @@ serve(async (req) => {
 
           if (scheduleError) throw scheduleError;
         }
+
+        // Send thank you message
+        const { error: messageError } = await supabaseClient.functions.invoke(
+          "send-message",
+          {
+            body: {
+              message_type: "THANK_YOU_PAYMENT",
+              learner_id: payment.learner_id,
+              has_dl: payment.Learner.has_a_DL,
+              payment_amount: payment.amount,
+            },
+          },
+        );
+
+        if (messageError) throw messageError;
+
+        // Send sign-up reminder message
+        const { error: messageError2 } = await supabaseClient.functions.invoke(
+          "send-message",
+          {
+            body: {
+              message_type: "SIGN_UP_REMINDER",
+              learner_id: payment.learner_id,
+            },
+          },
+        );
+
+        if (messageError2) throw messageError2;
       } catch (error) {
         console.error("Error updating related records:", error);
         // Don't throw here, we still want to redirect the user
