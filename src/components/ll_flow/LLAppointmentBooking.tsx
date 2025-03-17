@@ -25,12 +25,12 @@ export default function LLAppointmentBooking() {
           console.log(e);
           updateLearner({ LL_team_appointment_booked: true });
 
-          supabase.functions.invoke("send-message", {
-            body: JSON.stringify({
-              message_type: "LL_DETAILS_BOOK_APPOINTMENT",
-              learner_id: learner.data?.id,
-            }),
-          });
+          // supabase.functions.invoke("send-message", {
+          //   body: JSON.stringify({
+          //     message_type: "LL_DETAILS_BOOK_APPOINTMENT",
+          //     learner_id: learner.data?.id,
+          //   }),
+          // });
         },
       });
     })();

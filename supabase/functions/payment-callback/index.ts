@@ -118,8 +118,7 @@ serve(async (req) => {
         payment_type,
         amount,
         Learner (
-          phone,
-          has_a_DL,
+          phone
         )
         `,
       )

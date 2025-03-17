@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Send the sign-up done message
     await supabase.functions.invoke("send-message", {
       body: {
-        message_type: "SIGN_UP_DONE_SCHEDULE_PLEASE",
+        message_type: "SIGN_UP_DONE_NEED_SCHEDULE",
         learner_id: userData.id,
       },
     });
