@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (phone: string, password: string, role: UserRole) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       phone,
       password,
       options: {
@@ -65,6 +65,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) throw error;
+
+    // Fetch the newly created user details
+    const { data: userData, error: userError } = await supabase
+      .from("Learner")
+      .select("*")
+      .eq("phone", phone)
+      .single();
+
+    if (userError) throw userError;
+
+    // Send the sign-up done message
+    await supabase.functions.invoke("send-message", {
+      body: {
+        message_type: "SIGN_UP_DONE_NEED_SCHEDULE",
+        learner_id: userData.id,
+      },
+    });
   };
 
   const logout = async () => {

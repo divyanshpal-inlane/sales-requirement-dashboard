@@ -29,8 +29,10 @@ import {
   ProtectedInstructorRoute,
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
-import AdminLogin from "@/routes/admin-login";
+import AdminHome from "@/routes/admin/AdminHome";
+import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import AdminSchedules from "@/routes/admin/schedules";
+import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
 import Home from "@/routes/home";
@@ -45,6 +47,8 @@ import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
+
+import DLTestDates from "./routes/admin/DLTestDates";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -181,7 +185,10 @@ export default function App() {
                 </ProtectedAdminRoute>
               }
             >
+              <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
+              <Route path="learner-ll-details" element={<LearnerLLDetails />} />
+              <Route path="dl-test-dates" element={<DLTestDates />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

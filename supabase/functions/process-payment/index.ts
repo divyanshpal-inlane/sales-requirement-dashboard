@@ -16,6 +16,10 @@ interface PaymentDetails {
   phone: string;
   paymentType: "course";
   courseId?: string;
+  name: string;
+  installmentType?: "full" | "installment" | "second_half" | "first_half";
+  installment1Amount?: number;
+  installment2Amount?: number;
 }
 
 // Utility functions for encryption and hash generation
@@ -48,6 +52,8 @@ function generateSecureHash(
   return hashed.toString(CryptoJS.enc.Hex);
 }
 
+// TODO: if the user with the same phone number already has an active enrolled course
+// then don't allow them to make this payment, return the error message and show it on the UI with a a way to go back to login page or automatically incorrect
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -59,8 +65,17 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { amount, email, phone, paymentType, courseId } =
-      (await req.json()) as PaymentDetails;
+    const {
+      amount,
+      email,
+      phone,
+      paymentType,
+      courseId,
+      name,
+      installmentType,
+      installment1Amount,
+      installment2Amount,
+    } = (await req.json()) as PaymentDetails;
 
     // 1. Find or create learner
     const { data: existingLearners, error: learnerQueryError } =
@@ -69,6 +84,7 @@ serve(async (req) => {
         .select()
         .eq("email", email)
         .eq("phone", phone)
+        .eq("name", name)
         .limit(1);
 
     if (learnerQueryError) throw learnerQueryError;
@@ -84,6 +100,7 @@ serve(async (req) => {
             {
               email,
               phone,
+              name,
               onboarding_completed: false,
             },
           ])
@@ -105,6 +122,10 @@ serve(async (req) => {
           phone,
           payment_type: paymentType,
           status: "pending",
+          name,
+          installment_type: installmentType,
+          installment1_amount: installment1Amount,
+          installment2_amount: installment2Amount,
         },
       ])
       .select()
@@ -114,20 +135,72 @@ serve(async (req) => {
 
     // 3. Update related records based on payment type
     if (paymentType === "course" && courseId) {
-      console.log("courseId ---> ", courseId);
-      const { error: courseError } = await supabaseClient
-        .from("enrollment")
-        .insert([
-          {
-            learner_id: learnerId,
-            course_id: courseId,
+      // Check for existing enrollment
+      const { data: existingEnrollment, error: enrollmentQueryError } =
+        await supabaseClient
+          .from("enrollment")
+          .select("*")
+          .eq("learner_id", learnerId)
+          .eq("course_id", courseId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (enrollmentQueryError) throw enrollmentQueryError;
+
+      if (existingEnrollment) {
+        // If enrollment exists, update it with new payment details
+        if (existingEnrollment.payment_status === "full_paid") {
+          throw new Error("This course is already fully paid for");
+        }
+
+        if (
+          installmentType === "second_half" &&
+          existingEnrollment.payment_status !== "half_paid"
+        ) {
+          throw new Error(
+            "Cannot process second installment before first payment",
+          );
+        }
+
+        // Update the existing enrollment
+        const { error: updateError } = await supabaseClient
+          .from("enrollment")
+          .update({
             payment_id: paymentRecord.id,
             status: "pending",
-          },
-        ]);
+            installment_mode:
+              installmentType || existingEnrollment.installment_mode,
+            installment1_amount:
+              installment1Amount || existingEnrollment.installment1_amount,
+            installment2_amount:
+              installment2Amount || existingEnrollment.installment2_amount,
+          })
+          .eq("id", existingEnrollment.id);
 
-      console.log("courseError ---> ", courseError);
-      if (courseError) throw courseError;
+        if (updateError) throw updateError;
+      } else {
+        // Only create new enrollment if one doesn't exist
+        const { error: courseError } = await supabaseClient
+          .from("enrollment")
+          .insert([
+            {
+              learner_id: learnerId,
+              course_id: courseId,
+              payment_id: paymentRecord.id,
+              status: "pending",
+              payment_status:
+                installmentType === "full" ? "pending" : "pending",
+              installment_mode: installmentType,
+              installment1_amount: installment1Amount,
+              installment2_amount: installment2Amount,
+              unlocked_lessons:
+                installmentType === "first_half" ? [1, 2, 3, 4, 5] : [],
+            },
+          ]);
+
+        if (courseError) throw courseError;
+      }
     }
 
     // 4. Get payment gateway parameters from environment
@@ -164,9 +237,9 @@ serve(async (req) => {
       OrderInfo: txnRefNo,
       Email: email,
       Phone: phone,
-      UDF01: "",
-      UDF02: "",
-      UDF03: "",
+      UDF01: installmentType || "",
+      UDF02: installment1Amount?.toString() || "",
+      UDF03: installment2Amount?.toString() || "",
       UDF04: "",
       UDF05: "",
       UDF06: "",

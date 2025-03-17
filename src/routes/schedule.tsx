@@ -1,7 +1,8 @@
+/* eslint-disable prettier/prettier */
 import { format, isSameDay } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,52 +12,24 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useLearner, useLearnerSchedule } from "@/queries/learner";
+import { COURSES_DATA } from "@/constants/courses";
+import {
+  useLearner,
+  useLearnerEnrollment,
+  useLearnerSchedule,
+} from "@/queries/learner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type CustomDayProps = {
   date: Date;
   displayMonth?: Date;
 };
 
-const lessonIds = [
-  { id: 1, img_path: "/assets/lesson-pic-1.png", desc: "Get to know your car" },
-  { id: 2, img_path: "/assets/lesson-pic-2.png", desc: "Balancing the pedals" },
-  {
-    id: 3,
-    img_path: "/assets/lesson-pic-3.png",
-    desc: "Gearbox & Steering Control",
-  },
-  { id: 4, img_path: "/assets/lesson-pic-4.png", desc: "Conquering Parking" },
-  {
-    id: 5,
-    img_path: "/assets/lesson-pic-5.png",
-    desc: "Driving at steady speed ",
-  },
-  {
-    id: 6,
-    img_path: "/assets/lesson-pic-6.png",
-    desc: "Hitting the main road",
-  },
-  {
-    id: 7,
-    img_path: "/assets/lesson-pic-7.png",
-    desc: "Bumper to bumper traffic",
-  },
-  { id: 8, img_path: "/assets/lesson-pic-8.png", desc: "Evening driving" },
-  {
-    id: 9,
-    img_path: "/assets/lesson-pic-9.png",
-    desc: "Comfortable with flyovers",
-  },
-  {
-    id: 10,
-    img_path: "/assets/lesson-pic-10.png",
-    desc: "Mini challenges -  Test Prep",
-  },
-];
-
 export default function Schedule() {
+  const navigate = useNavigate();
+
   function formatTimeTo12Hour(time: string): string {
     // Validate input time format
     const regex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
@@ -80,9 +53,10 @@ export default function Schedule() {
   const { data: learner, isLoading, error } = useLearner();
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const learnerId = learner?.id;
-
+  const { data: enrollment } = useLearnerEnrollment({ learnerId });
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId,
+    courseId: enrollment?.course_id,
   });
 
   useEffect(() => {
@@ -174,6 +148,10 @@ export default function Schedule() {
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
 
+  const lessonData = enrollment?.course_id
+    ? COURSES_DATA[enrollment.course_id].lessonsData
+    : undefined;
+  const courseLessons = enrollment?.Courses?.Lesson || [];
   return (
     <div className="flex h-full w-full p-6 pb-20">
       <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
@@ -185,7 +163,6 @@ export default function Schedule() {
             Lesson
           </TabsTrigger>
         </TabsList>
-
         <TabsContent
           value="calendar"
           className="flex h-full flex-col overflow-y-auto"
@@ -226,17 +203,14 @@ export default function Schedule() {
                   </p>
                   <div className="flex w-full flex-col gap-2 rounded-md shadow-sm">
                     <Link
-                      to={`/lesson/${nextLesson.lesson.number}`}
+                      to={`/lesson/${nextLesson.lesson.id}`}
                       className="text-md flex flex-col justify-between"
                     >
                       <p>
-                        {
-                          lessonIds[
-                            nextLesson.lesson?.number
-                              ? nextLesson.lesson.number - 1
-                              : 0
-                          ].desc
-                        }
+                        {nextLesson.lesson.number && lessonData
+                          ? lessonData[nextLesson.lesson.number.toString()]
+                              ?.description
+                          : ""}
                       </p>
                     </Link>
                     <div className="relative">
@@ -247,7 +221,7 @@ export default function Schedule() {
                       />
                       <div className="absolute bottom-0 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
                         <Link
-                          to={`/lesson/${nextLesson.lesson.number}`}
+                          to={`/lesson/${nextLesson.lesson.id}`}
                           className="font-medium text-primary"
                         >
                           More details
@@ -269,38 +243,89 @@ export default function Schedule() {
             )}
           </div>
         </TabsContent>
-
-        <TabsContent value="lesson" className="h-full overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4 pb-6">
-            {lessonIds.map((lesson) => (
-              <div
-                key={lesson.id}
-                className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 shadow-md"
-              >
-                <p className="text-accent-purple">Lesson {lesson.id}</p>
-                <div className="relative">
-                  <img src={lesson.img_path} alt="Lesson-pic" />
-                  <div className="absolute -bottom-1.5 right-1 flex w-[75%] flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
-                    <Link
-                      to={`/lesson/${lesson.id}`}
-                      className="text-xs text-primary"
+        <ScrollArea className="relative">
+          <TabsContent value="lesson" className="h-full overflow-y-auto">
+            {enrollment?.payment_status === "half_paid" && (
+              <Alert className="mb-4 bg-white border-primary">
+                <AlertDescription>
+                  You have paid the first installment. Some lessons are locked until you complete the payment.   
+                  
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto text-primary"
+                    onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+                  >
+                    Pay remaining amount
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="grid grid-cols-2 gap-4 pb-6">
+              {enrollment?.course_id &&
+                Object.values(
+                  COURSES_DATA[enrollment.course_id].lessonsData,
+                ).map((lesson) => {
+                  const lessonNumber = parseInt(lesson.id);
+                  const isLocked = 
+                    enrollment.payment_status === "half_paid" && 
+                    (!enrollment.unlocked_lessons || !enrollment.unlocked_lessons.includes(lessonNumber));
+                  
+                  return (
+                    <div
+                      key={lesson.id}
+                      className={`flex flex-col gap-1 rounded-md ${
+                        isLocked ? "bg-gray-100" : "bg-gray-50"
+                      } p-3 shadow-md relative`}
                     >
-                      More details
-                    </Link>
-                    <ChevronRight
-                      color="white"
-                      className="rounded-full bg-primary"
-                      size={16}
-                    />
-                  </div>
-                </div>
-                <Link to={`/lesson/${lesson.id}`} className="text-md mt-1.5">
-                  {lesson.desc}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
+                      {isLocked && (
+                        <div className="absolute inset-0 bg-gray-200/70 backdrop-blur-[1px] flex items-center justify-center rounded-md z-10">
+                          <div className="text-center p-3">
+                            <Lock className="h-8 w-8 mx-auto mb-2 text-gray-500" />
+                            <p className="text-sm font-medium text-gray-700">
+                              Complete payment to unlock
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-accent-purple">Lesson {lesson.id}</p>
+                      <div className="relative">
+                        <img src={lesson.image_path} alt="Lesson-pic" />
+                        <div className="absolute -bottom-1.5 right-1 flex w-[75%] flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
+                          <Link
+                            to={`/lesson/${
+                              courseLessons.find(
+                                (l) => l.number === parseInt(lesson.id),
+                              )?.id
+                            }`}
+                            className={`text-xs ${isLocked ? "text-gray-400" : "text-primary"}`}
+                            onClick={(e) => isLocked && e.preventDefault()}
+                          >
+                            More details
+                          </Link>
+                          <ChevronRight
+                            color={isLocked ? "gray" : "white"}
+                            className={`rounded-full ${isLocked ? "bg-gray-400" : "bg-primary"}`}
+                            size={16}
+                          />
+                        </div>
+                      </div>
+                      <Link
+                        to={`/lesson/${
+                          courseLessons.find(
+                            (l) => l.number === parseInt(lesson.id),
+                          )?.id
+                        }`}
+                        className={`text-md mt-1.5 ${isLocked ? "text-gray-400 pointer-events-none" : ""}`}
+                        onClick={(e) => isLocked && e.preventDefault()}
+                      >
+                        {lesson.description}
+                      </Link>
+                    </div>
+                  );
+                })}
+            </div>
+          </TabsContent>
+        </ScrollArea>
       </Tabs>
     </div>
   );

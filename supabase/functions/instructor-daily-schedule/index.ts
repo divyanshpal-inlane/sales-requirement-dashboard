@@ -125,7 +125,9 @@ Deno.serve(async (req) => {
       const scheduleMessages = instructorSchedules.map((schedule, index) => {
         const startTime = formatTime(schedule.start_time);
         const endTime = formatTime(schedule.end_time);
-        return `${index + 1}. ${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Learner.name} at ${schedule.Learner.pick_up_location}`;
+        return `${
+          index + 1
+        }. ${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Learner.name} at ${schedule.Learner.pick_up_location}`;
       });
 
       // Fill remaining slots with empty strings if less than 6 schedules
@@ -182,7 +184,8 @@ Deno.serve(async (req) => {
       );
       if (!response.ok) {
         throw new Error(
-          `Failed to send message to instructor ${instructor.name}: ${await response.text()}`,
+          `Failed to send message to instructor ${instructor.name}: ${await response
+            .text()}`,
         );
       }
     }

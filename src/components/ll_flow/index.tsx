@@ -6,6 +6,7 @@ import { LLApplicationStatus } from "./LLApplicationStatus";
 import LLAppointmentBooking from "./LLAppointmentBooking";
 import { LLTestPreparation } from "./LLTestPreparation";
 import { LLTestResult } from "./LLTestResult";
+import Home from "@/routes/home";
 
 function LLFlow() {
   const { data: learner, isLoading, error } = useLearner();
@@ -35,10 +36,12 @@ function LLFlow() {
   }
 
   if (!learner.LL_test_date) {
-    return <LLTestPreparation />;
+    return <LLTestPreparation learnerId={learner.id} />;
   }
-
-  return <LLTestResult learner={learner} />;
+  if (!learner.LL_result) {
+    return <LLTestResult learner={learner} />;
+  }
+  return <Home />;
 }
 
 export default LLFlow;

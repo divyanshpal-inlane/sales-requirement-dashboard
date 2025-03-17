@@ -8,7 +8,12 @@ import RescheduleConfirmationSheet from "@/components/lesson/RescheduleConfirmat
 import RescheduleSelector from "@/components/lesson/RescheduleSelector";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
-import { Schedule, useLearner, useLearnerSchedule } from "@/queries/learner";
+import {
+  Schedule,
+  useLearner,
+  useLearnerEnrollment,
+  useLearnerSchedule,
+} from "@/queries/learner";
 
 interface Lesson {
   id: string;
@@ -26,23 +31,27 @@ function RescheduleView() {
   const { data: learner } = useLearner();
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
+  const { data: enrolledCourse } = useLearnerEnrollment({ learnerId: learner?.id });
 
   const { data: lesson } = useQuery<Lesson>({
-    queryKey: ["lesson", lessonId],
+    queryKey: ["lesson", lessonId, enrolledCourse?.course_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Lesson")
         .select("*, Courses(*)")
         .eq("id", lessonId)
+        .eq("course_id", enrolledCourse?.course_id)
         .single();
       if (error) throw error;
       if (!data) throw new Error("Lesson not found");
       return data as Lesson;
     },
+    enabled: !!enrolledCourse?.course_id, // Only run the query if course_id is available
   });
 
   const { data: schedules } = useLearnerSchedule({
     learnerId: learner?.id || "",
+    courseId: enrolledCourse?.course_id,
   });
 
   const handleLessonsSelected = (schedules: Schedule[]) => {
@@ -52,16 +61,37 @@ function RescheduleView() {
 
   const calculateTotalFee = () => {
     if (!schedules) return 0;
-    return schedules.reduce((total: number, schedule) => {
-      if (selectedSchedules.some((s) => s.id === schedule.id)) {
-        const scheduleDate = new Date(`${schedule.date}T${schedule.startTime}`);
-        const now = new Date();
-        const diffHours =
-          (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-        return total + (diffHours < 72 ? 300 : 0);
-      }
-      return total;
-    }, 0);
+
+    // Group schedules by date
+    const groupedByDate = schedules.reduce(
+      (groups: { [key: string]: Schedule[] }, schedule) => {
+        const date = schedule.date;
+        if (!groups[date]) {
+          groups[date] = [];
+        }
+        groups[date].push(schedule);
+        return groups;
+      },
+      {},
+    );
+
+    // Calculate fee for each day that has selected lessons
+    return Object.entries(groupedByDate).reduce(
+      (total, [date, daySchedules]) => {
+        const hasSelectedLessonInDay = daySchedules.some((schedule) =>
+          selectedSchedules.some((s) => s.id === schedule.id),
+        );
+        if (hasSelectedLessonInDay) {
+          const scheduleDate = new Date(`${date}T00:00:00`);
+          const now = new Date();
+          const diffHours =
+            (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+          return total + (diffHours < 72 ? 300 : 0);
+        }
+        return total;
+      },
+      0,
+    );
   };
 
   if (!learner || !lesson || !schedules) {
@@ -78,7 +108,7 @@ function RescheduleView() {
             className="text-primary-foreground"
             asChild
           >
-            <Link to={`/lesson/${lesson.number}`}>
+            <Link to={`/home`}>
               <ArrowLeft className="h-6 w-6" />
             </Link>
           </Button>
@@ -97,6 +127,7 @@ function RescheduleView() {
       <div className="flex-1 overflow-auto p-4">
         <RescheduleSelector
           learnerId={learner.id}
+          courseId={enrolledCourse?.course_id}
           onLessonsSelected={handleLessonsSelected}
         />
       </div>
@@ -107,6 +138,7 @@ function RescheduleView() {
         selectedSchedules={selectedSchedules || []}
         totalFee={calculateTotalFee()}
         learnerId={learner.id}
+        courseId={enrolledCourse?.course_id}
       />
     </div>
   );

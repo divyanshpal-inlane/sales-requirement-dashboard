@@ -1,10 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -13,20 +15,41 @@ import {
   SchedulingRequests,
   useSchedulingRequests,
 } from "@/queries/preferences";
+import {
+  DAYS_OF_WEEK,
+  TIME_SLOT_LABELS,
+  TIME_SLOTS,
+  TimeSlot,
+} from "@/types/schedule";
 
 export type Schedule = {
   date: Date;
   hour: number;
   instructorId: string;
   lessonId: string;
+  lessonNumber: number;
+  start_time: string;
+  end_time: string;
+  otp: string;
 };
 
+type RequestType = "new" | "reschedule" | "lesson10";
+
+// Extend the SchedulingRequests type to include lesson10
+declare module "@/queries/preferences" {
+  interface SchedulingRequests {
+    type: RequestType;
+  }
+}
+
 export default function AdminSchedules() {
+  const navigate = useNavigate();
   const { data: requests, isLoading, isRefetching } = useSchedulingRequests();
   const [selectedRequest, setSelectedRequest] = useState<
     SchedulingRequests[number] | null
   >(null);
   const { toast } = useToast();
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isRefetching) {
@@ -46,6 +69,7 @@ export default function AdminSchedules() {
       learnerId: string;
       schedules: Schedule[];
       courseId: string;
+      rescheduleLessonNumber?: number;
     }) => {
       // delete existing lessonId schedule for learner
       const { error: deleteError } = await supabase
@@ -62,33 +86,82 @@ export default function AdminSchedules() {
 
       // Create schedules
       const { error } = await supabase.from("Schedule").insert(
-        schedules.map((schedule) => ({
-          learner_id: learnerId,
-          course_id: courseId,
-          lesson_id: schedule.lessonId,
-          instructor_id: schedule.instructorId,
-          date: schedule.date.toISOString().split("T")[0],
-          start_time: `${schedule.hour}:00:00`,
-          end_time: `${schedule.hour + 1}:00:00`,
-          enabled: true,
-        })),
+        schedules.map((schedule) => {
+          // Parse start time and add 1 hour for end time
+          const [hours, minutes] = schedule.start_time.split(":").map(Number);
+          const endHours = (hours + 1) % 24;
+          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+          return {
+            learner_id: learnerId,
+            course_id: courseId,
+            lesson_id: schedule.lessonId,
+            instructor_id: schedule.instructorId,
+            date: schedule.date.toISOString().split("T")[0],
+            start_time: schedule.start_time,
+            end_time: endTime,
+            enabled: true,
+            otp: schedule.otp,
+          };
+        }),
       );
 
       if (error) throw error;
-
-      // Update needs_scheduling flag
-      const { error: updateError } = await supabase
-        .from("Learner")
-        .update({ needs_scheduling: false })
-        .eq("id", learnerId);
-
-      if (updateError) throw updateError;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
         title: "Schedule created",
         description: "The schedule has been created successfully.",
       });
+      if (selectedRequest) {
+        completeRescheduleRequestMutation.mutate(
+          {
+            requestId: selectedRequest.id,
+          },
+          {
+            onSuccess: () => {
+              const rescheduleLessonNumber =
+                selectedRequest.type === "reschedule"
+                  ? Math.min(...variables.schedules.map((s) => s.lessonNumber))
+                  : 1;
+              if (selectedRequest.type === "new") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "SCHEDULE_PREPARED",
+                    learner_id: selectedRequest.learner_id,
+
+                    start_date: variables.schedules[0].date,
+                    start_time: variables.schedules[0].start_time,
+                  },
+                });
+              }
+              if (selectedRequest.type === "reschedule") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+                    learner_id: selectedRequest.learner_id,
+                  },
+                });
+              }
+              if (selectedRequest.type === "lesson10") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "WEBAPP_LESSON_10_SCHEDULED",
+                    learner_id: selectedRequest.learner_id,
+                  },
+                });
+              }
+              // supabase.functions.invoke("learner-daily-schedule", {
+              //   body: {
+              //     learner_id: selectedRequest.learner_id,
+              //     reschedule_lesson_number: rescheduleLessonNumber,
+              //   },
+              // });
+
+            },
+          },
+        );
+      }
     },
     onError: (error) => {
       toast({
@@ -109,22 +182,65 @@ export default function AdminSchedules() {
   ) => {
     if (!selectedRequest) return;
 
-    await createScheduleMutation.mutateAsync({
+    // For lesson10 requests, only allow one lesson and ensure it's lesson 10
+    if ((selectedRequest.type as string) === "lesson10") {
+      if (schedules.length > 1) {
+        toast({
+          title: "Error",
+          description:
+            "Only one lesson can be scheduled for 10th lesson requests",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (schedules[0]?.lessonNumber !== 10) {
+        toast({
+          title: "Error",
+          description: "You can only schedule lesson 10 for this request",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const rescheduleLessonNumber =
+      (selectedRequest.type as string) === "reschedule" ||
+      (selectedRequest.type as string) === "lesson10"
+        ? Math.min(...schedules.map((s) => s.lessonNumber))
+        : 1;
+
+    createScheduleMutation.mutate({
       learnerId: selectedRequest.learner_id,
       schedules,
       courseId,
-    });
-    await completeRescheduleRequestMutation.mutateAsync({
-      requestId: selectedRequest.id,
+      rescheduleLessonNumber,
     });
   };
 
-  const [newRequests, rescheduleRequests] = useMemo(() => {
-    return [
-      requests?.filter((r) => r.type === "new"),
-      requests?.filter((r) => r.type === "reschedule"),
-    ];
-  }, [requests]);
+  const newRequests = useMemo(
+    () => requests?.filter((r) => (r.type as string) === "new"),
+    [requests],
+  );
+  const rescheduleRequests = useMemo(
+    () => requests?.filter((r) => (r.type as string) === "reschedule"),
+    [requests],
+  );
+
+  const tenthLessonRequests = useMemo(
+    () => requests?.filter((r) => (r.type as string) === "lesson10"),
+    [requests],
+  );
+
+  const handleSlotToggle = (dayOfWeek: number, timeSlot: TimeSlot) => {
+    const key = `${dayOfWeek}-${timeSlot}`;
+    setSelectedSlot((prev) => (prev === key ? null : key));
+  };
+
+  const handleSubmit = () => {
+    // Handle the submission logic here
+    console.log("Selected Slot:", selectedSlot);
+  };
 
   if (isLoading) {
     return (
@@ -136,15 +252,34 @@ export default function AdminSchedules() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-bold">Schedule Management</h1>
+      <div className="border-b bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/admin")}
+              className="h-10 w-10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">Schedule Management</h1>
+          </div>
+        </div>
       </div>
 
       <Tabs defaultValue="new" className="flex h-[calc(100%-73px)] flex-col">
         <div className="border-b px-6">
           <TabsList>
-            <TabsTrigger value="new">New Schedules</TabsTrigger>
-            <TabsTrigger value="reschedule">Reschedule Requests</TabsTrigger>
+            <TabsTrigger value="new">
+              New Schedules {newRequests?.length || 0}
+            </TabsTrigger>
+            <TabsTrigger value="reschedule">
+              Reschedule Requests {rescheduleRequests?.length || 0}
+            </TabsTrigger>
+            <TabsTrigger value="lesson10">
+              10th Lesson Requests {tenthLessonRequests?.length || 0}
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -223,6 +358,70 @@ export default function AdminSchedules() {
                 <CardContent>
                   <ScrollArea className="h-[calc(100vh-280px)]">
                     {rescheduleRequests?.map((request) => (
+                      <div key={request.id} className="mb-2">
+                        <Button
+                          variant={
+                            selectedRequest?.id === request.id
+                              ? "default"
+                              : "outline"
+                          }
+                          className="w-full justify-start"
+                          onClick={() => handleRequestSelect(request)}
+                        >
+                          <div className="text-left">
+                            <div className="font-medium">
+                              {request.Learner?.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {request.Learner?.area}
+                            </div>
+                          </div>
+                        </Button>
+                      </div>
+                    ))}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Schedule Creation */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>
+                    {selectedRequest
+                      ? `${selectedRequest.Learner?.name}'s Schedule`
+                      : "Select a Learner"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedRequest ? (
+                    <CreateSchedule
+                      request={selectedRequest}
+                      learnerId={selectedRequest.Learner?.id || ""}
+                      learnerArea={
+                        selectedRequest.Learner?.area || "Indiranagar"
+                      }
+                      onScheduleCreate={handleScheduleCreate}
+                    />
+                  ) : (
+                    <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
+                      Select a learner to create their schedule
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="lesson10" className="h-full">
+            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+              {/* Learners List */}
+              <Card className="md:col-span-1">
+                <CardHeader>
+                  <CardTitle>10th Lesson Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[calc(100vh-280px)]">
+                    {tenthLessonRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
                         <Button
                           variant={

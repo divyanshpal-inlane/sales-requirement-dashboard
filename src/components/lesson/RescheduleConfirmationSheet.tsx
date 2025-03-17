@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { format } from "date-fns";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +23,12 @@ interface RescheduleConfirmationSheetProps {
   learnerId: string;
 }
 
+interface GroupedSchedule {
+  date: string;
+  schedules: Schedule[];
+  fee: number;
+}
+
 export default function RescheduleConfirmationSheet({
   isOpen,
   onOpenChange,
@@ -31,6 +38,30 @@ export default function RescheduleConfirmationSheet({
 }: RescheduleConfirmationSheetProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Group schedules by date
+  const groupedSchedules = selectedSchedules.reduce((groups: GroupedSchedule[], schedule) => {
+    const date = schedule.date;
+    const existingGroup = groups.find(g => g.date === date);
+    
+    if (existingGroup) {
+      existingGroup.schedules.push(schedule);
+    } else {
+      // Calculate fee for the day
+      const scheduleDate = new Date(`${date}T00:00:00`);
+      const now = new Date();
+      const diffHours = (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const fee = diffHours < 72 ? 300 : 0;
+      
+      groups.push({ 
+        date, 
+        schedules: [schedule],
+        fee
+      });
+    }
+    
+    return groups;
+  }, [])
 
   const handleConfirm = async () => {
     try {
@@ -104,7 +135,7 @@ export default function RescheduleConfirmationSheet({
         document.body.removeChild(form);
       } else {
         // If no payment required, redirect to home
-        navigate("/");
+        navigate("/createSchedule/preferences?type=reschedule");
       }
     } catch (error) {
       console.error("Error creating reschedule request:", error);
@@ -127,29 +158,45 @@ export default function RescheduleConfirmationSheet({
           <div className="space-y-4">
             <h3 className="font-medium">Selected Lessons</h3>
             <div className="space-y-2">
-              {selectedSchedules.map((lesson) => (
+              {groupedSchedules.map((group) => (
                 <div
-                  key={lesson.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
+                  key={group.date}
+                  className="rounded-lg border p-4"
                 >
-                  <div>
+                  <div className="mb-2 flex items-center justify-between border-b pb-2">
                     <div className="font-medium">
-                      Lesson {lesson.lesson?.number}
+                      {format(new Date(group.date), "EEEE, MMMM d")}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {format(new Date(lesson.date), "EEEE, MMMM d")}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {format(
-                        new Date(`2000-01-01T${lesson.startTime}`),
-                        "h:mm a",
-                      )}{" "}
-                      -{" "}
-                      {format(
-                        new Date(`2000-01-01T${lesson.endTime}`),
-                        "h:mm a",
-                      )}
-                    </div>
+                    {group.fee > 0 && (
+                      <div className="text-sm text-destructive">
+                        ₹{group.fee} fee applies
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {group.schedules.map((lesson) => (
+                      <div
+                        key={lesson.id}
+                        className="flex items-center justify-between rounded-lg bg-accent/50 p-3"
+                      >
+                        <div>
+                          <div className="font-medium">
+                            Lesson {lesson.lesson?.number}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {format(
+                              new Date(`2000-01-01T${lesson.startTime}`),
+                              "h:mm a",
+                            )}{" "}
+                            -{" "}
+                            {format(
+                              new Date(`2000-01-01T${lesson.endTime}`),
+                              "h:mm a",
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

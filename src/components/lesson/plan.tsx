@@ -6,13 +6,14 @@ import {
   ChevronDown,
   ChevronUp,
   Home,
-  TowerControl,
+  Lock,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import invariant from "tiny-invariant";
 
 import TriviaCard from "@/components/lesson/trivia";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -21,32 +22,107 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { COURSES_DATA } from "@/constants/courses";
-import { LESSON_CONTENT } from "@/constants/Lesson";
 import { numberToText } from "@/lib/utils";
-import { useLearner, useLesson, useSchedule } from "@/queries/learner";
+import {
+  useLearner,
+  useLearnerEnrollment,
+  useLesson,
+  useSchedule,
+} from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
 import Signature from "./signature";
 
 export default function Plan() {
-  const { lessonId: lessonNumber } = useParams();
-  const { data: lesson } = useLesson({
-    number: Number(lessonNumber),
-    courseId: COURSES_DATA["BEGINNER"].id,
+  const { lessonId } = useParams();
+  invariant(typeof lessonId === "string", "lessonId is required");
+  const { data: lesson, isLoading: isLessonLoading } = useLesson({
+    id: lessonId,
   });
-  const { data: learner } = useLearner();
-  invariant(typeof lessonNumber === "string", "lessonId is required");
+  const { data: learner, isLoading: isLearnerLoading } = useLearner();
+  const { data: enrollment, isLoading: isEnrollmentLoading } =
+    useLearnerEnrollment({ learnerId: learner?.id });
+  const navigate = useNavigate();
 
-  if (!learner || !lesson) return <div>Loading...</div>;
-  return <LessonPlan key={lessonNumber} learner={learner} lesson={lesson} />;
+  if (isLessonLoading || isLearnerLoading || isEnrollmentLoading)
+    return <div>Loading...</div>;
+  if (!lesson || !learner || !enrollment) return null;
+  
+  // Check if lesson is locked (for installment payments)
+  const isLessonLocked = 
+    enrollment.payment_status === "half_paid" && 
+    lesson.number && 
+    (!enrollment.unlocked_lessons || !enrollment.unlocked_lessons.includes(lesson.number));
+  
+  // If lesson is locked, show a message and redirect
+  if (isLessonLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-6 bg-gray-50">
+        <div className="text-center max-w-md">
+          <Lock className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Lesson Locked</h2>
+          <p className="text-gray-600 mb-6">
+            This lesson is locked because you've only completed the first installment payment.
+            Complete your payment to unlock all lessons.
+          </p>
+          <div className="space-y-3">
+            <Button 
+              onClick={() => navigate(`/payment?phone=${learner.phone}`)}
+              className="w-full"
+            >
+              Complete Payment
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/schedule")}
+              className="w-full"
+            >
+              View Available Lessons
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  const enrolledCourse = enrollment.Courses;
+  const enrolledLessons = enrollment.Courses?.Lesson ?? [];
+  const nextLessonId =
+    enrolledCourse &&
+    lesson.number &&
+    lesson.number < enrolledCourse.total_lessons
+      ? enrolledLessons[
+          enrolledLessons.findIndex((l) => l.number === lesson.number + 1)
+        ].id
+      : null;
+  const prevLessonId =
+    enrolledCourse && lesson.number && lesson.number > 1
+      ? enrolledLessons[
+          enrolledLessons.findIndex((l) => l.number === lesson.number - 1)
+        ].id
+      : null;
+
+  return (
+    <LessonPlan
+      key={lessonId}
+      learner={learner}
+      lesson={lesson}
+      nextLessonId={nextLessonId}
+      prevLessonId={prevLessonId}
+    />
+  );
 }
 
 export function LessonPlan({
   lesson,
   learner,
+  nextLessonId,
+  prevLessonId,
 }: {
   lesson: Database["public"]["Tables"]["Lesson"]["Row"];
   learner: Database["public"]["Tables"]["Learner"]["Row"];
+  nextLessonId: string | null;
+  prevLessonId: string | null;
 }) {
   const { data: schedule } = useSchedule({
     lessonId: lesson.id,
@@ -56,7 +132,7 @@ export function LessonPlan({
   const {
     menu,
     content: { game, remember, title, points },
-  } = LESSON_CONTENT[lesson.number as unknown as keyof typeof LESSON_CONTENT];
+  } = COURSES_DATA[lesson.course_id!].lessonsData[lesson.number?.toString()];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
@@ -176,18 +252,18 @@ export function LessonPlan({
               size={"icon"}
               variant={"ghost"}
               className="text-white"
-              onClick={() => navigate("/schedule")}
+              onClick={() => navigate("/home")}
             >
               <Home />
             </Button>
 
             <div className="flex flex-row items-center justify-center gap-1">
-              {lesson.number && lesson.number > 1 ? (
+              {prevLessonId ? (
                 <Button
                   size={"icon"}
                   variant={"ghost"}
                   className="text-white"
-                  onClick={() => navigate(`/lesson/${lesson.number - 1}`)}
+                  onClick={() => navigate(`/lesson/${prevLessonId}`)}
                 >
                   <ArrowLeft />
                 </Button>
@@ -197,16 +273,12 @@ export function LessonPlan({
               <p className="text-2xl leading-none text-white">
                 Lesson {numberToText(lesson.number)}
               </p>
-              {lesson.number && lesson.number < 10 && (
+              {nextLessonId && (
                 <Button
                   variant={"link"}
                   size={"icon"}
                   className="text-white"
-                  onClick={() =>
-                    navigate(
-                      `/lesson/${Number(lesson.number) < 10 ? Number(lesson.number) + 1 : 1}`,
-                    )
-                  }
+                  onClick={() => navigate(`/lesson/${nextLessonId}`)}
                 >
                   <ArrowRight />
                 </Button>
@@ -227,7 +299,7 @@ export function LessonPlan({
               }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0]/60 p-4"
+              className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0]/80 p-4"
             >
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Session Details</h3>
@@ -385,9 +457,13 @@ export function LessonPlan({
                   <div className="mt-4">
                     <h3 className="mb-4 text-lg font-semibold">{title}</h3>
                     <div className="space-y-4">
-                      {points.map(({ desc, header }) => (
+                      {points.map(({ desc, header, icon }) => (
                         <div key={header} className="flex items-center gap-2">
-                          <TowerControl className="h-6 w-6" />
+                          <img
+                            src={`/assets/icons/${icon}`}
+                            className="h-6 w-6"
+                            alt={icon}
+                          />
                           <div>
                             <p className="font-medium text-primary">{header}</p>
                             <p className="text-sm text-muted-foreground">

@@ -64,7 +64,7 @@ function ReschedulePaymentCallback() {
         if (functionError) throw functionError;
 
         // Navigate to home on success
-        navigate("/");
+        navigate("/createSchedule/preferences?type=reschedule");
       } catch (err) {
         console.error("Payment callback error:", err);
         setError(
