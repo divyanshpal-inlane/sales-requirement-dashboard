@@ -9,6 +9,13 @@ const corsHeaders = {
 
 // Template definitions with their IDs and content
 export const TEMPLATES = {
+  PASSWORD_RESET_OTP: {
+    name: "webapp_forgot_pass_otp",
+    id: "1882962382451209",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nWe received a request to reset your password for the *Lane App* 😊  \nYour one-time password (OTP) is: {{2}}  \n\nPlease use it to create a new password 🔢  \n\nIf you didn't request this password reset, please contact us  \n\nThank you, \nLane Team 🚗",
+  },
   PAYMENT_LINK: {
     name: "webapp_payment_link",
     id: "1249356756155909",
@@ -28,7 +35,7 @@ export const TEMPLATES = {
     id: "1999611653847364",
     language: "en",
     content:
-      "Hey {{1}},  Woohoo! 🎉 Thanks for completing your payment of {{2}}. We're so pumped to be your driving buddies 🛞🚘  *Here's what's next:*  *Please sign up and share your details:* It will help us start with your application process  *Learn about road rules and car controls:* Dive into our fun game to help you ace your learner's test  Once you’ve filled in the details, do book an appointment and our team will reach out to guide you through the next steps. We can’t wait to get started!  Thank you for choosing Lane! 😊",
+      "Hey {{1}},  Woohoo! 🎉 Thanks for completing your payment of {{2}}. We're so pumped to be your driving buddies 🛞🚘  *Here's what's next:*  *Please sign up and share your details:* It will help us start with your application process  *Learn about road rules and car controls:* Dive into our fun game to help you ace your learner's test  Once you've filled in the details, do book an appointment and our team will reach out to guide you through the next steps. We can't wait to get started!  Thank you for choosing Lane! 😊",
   },
   SIGN_UP_ON_APP: {
     name: "webapp_sign_up_on_the_app",
@@ -154,6 +161,41 @@ export const TEMPLATES = {
     language: "en",
     content:
       "Hey {{1}},\n\nWe are really happy and excited that you completed all your lessons. Many many congratulations on that 🥳🥳🥳 Thank you so much for choosing us in this journey\n\nWe are sharing a few socials where you can put in a review and tag us, if you wish to ❤️❤️\n\nIt will be super helpful for us 😊😊 Have the best time behind the wheel and share your driving stories with us 😍😍\n\nThank you so much 😊😊\nLane Team 🚗🚗\n*(By Your Side, Every Ride)*",
+  },
+  webapp_thank_you_for_signing_up_ll_first: {
+    name: "webapp_thank_you_for_signing_up_ll_first",
+    id: "1848840602545784",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nThank you for signing up on the *Lane App* 🎉 Let's get started with the next steps that will bring you closer to your on road practice lessons 🛞🚘\n\n*Here's what's next:*\n\n*Please fill the learners license details form and book an appointment with us:* It will help us start with your application process\n\n*Learn about road rules and car controls:* Dive into our fun game to help you ace your learner's test\n\nOnce you've filled in the details, do book an appointment and our team will reach out to guide you through the next steps. We can't wait to get started!\n\nThank you for choosing Lane! 😊",
+  },
+  webapp_restest_ll: {
+    name: "webapp_restest_ll",
+    id: "2116429285449145",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nGreetings for the day! We saw there was an update on the application. The test is just one hurdle, which we will pass together. Let's give it again and ace it 😊🥳\n\nAll the very best ❤️ Contact us for any help, we are by your side in this 😊😊\n\nDo update us on the Lane App with the results\n\nYour buddy,\nLane 🚗",
+  },
+  webapp_ll_docs_approved_test_done_and_result: {
+    name: "webapp_ll_docs_approved_test_done_and_result",
+    id: "1412944839868631",
+    language: "en",
+    content:
+      "Hey {{1}} 😊\n\nCongratulations on getting your documents approved by the Government 🥳🥳\n\nPlease do give your LL test and let us know how it went 😊 All the very best for it 👍\n\nIf you have already appeared for the test, do let us know the results on the *Lane App* ⭐️\n\nThank you,\nLane Team 🚗🚗",
+  },
+  webapp_please_fill_ll_form_and_book_appointment: {
+    name: "webapp_please_fill_ll_form_and_book_appointment",
+    id: "1195268635499254",
+    language: "en",
+    content:
+      "Hey {{1}} 😊\n\nWe hope you are having the best day! 🥳\n\nWe noticed you are yet to provide us with the details for the learners license application form and book the appointment for your application 🤔\n\nPlease do share your availability to enable us to apply with the government. Thank you ✅\n\nWe are closer to our practice lessons,\nLane Team 🚗",
+  },
+  webapp_thank_you_for_payment_generic: {
+    name: "webapp_thank_you_for_payment_generic",
+    id: "598829129823819",
+    language: "en",
+    content:
+      "Hey {{1}} 😊\n\nGreetings for the lovely day! Wohoooo 🥳🥳 Thank you so much for making the payment of {{2}}. We are so pumped up to be your driving buddy 🚗🚗\n\nPlease do sign up on the *Lane App* and have a fun time exploring our cool modules and get started with your learning process ☺️☺️\n\nWe are super excited for this. Ping us for any support, if needed ⭐️\n\nYour driving buddy,\nLane 🚘🛣",
   },
 };
 
@@ -328,6 +370,16 @@ class HeltarMessageService {
             "LL_DONE_APP_NUMBER",
             [learner.name, learner.LL_application_id],
             `ll-app-submitted-${learner_id}-${Date.now()}`,
+          );
+        }
+        case "PASSWORD_RESET_OTP": {
+          const { learner_id, otp } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "PASSWORD_RESET_OTP",
+            [learner.name, otp],
+            `password-reset-otp-${learner_id}-${Date.now()}`,
           );
         }
 
@@ -565,6 +617,56 @@ class HeltarMessageService {
             "WEBAPP_LESSONS_DONE_REVIEW_PLEASE",
             [learner.name],
             `lessons-done-review-${learner_id}-${Date.now()}`,
+          );
+        }
+        case "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "webapp_thank_you_for_signing_up_ll_first",
+            [learner.name],
+            `thank-you-ll-first-${learner_id}-${Date.now()}`,
+          );
+        }
+        case "WEBAPP_RESTEST_LL": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "webapp_restest_ll",
+            [learner.name],
+            `restest-ll-${learner_id}-${Date.now()}`,
+          );
+        }
+        case "WEBAPP_LL_DOCS_APPROVED_TEST_DONE_AND_RESULT": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "webapp_ll_docs_approved_test_done_and_result",
+            [learner.name],
+            `ll-docs-approved-${learner_id}-${Date.now()}`,
+          );
+        }
+        case "WEBAPP_PLEASE_FILL_LL_FORM_AND_BOOK_APPOINTMENT": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "webapp_please_fill_ll_form_and_book_appointment",
+            [learner.name],
+            `ll-fill-form-${learner_id}-${Date.now()}`,
+          );
+        }
+        case "WEBAPP_THANK_YOU_FOR_PAYMENT_GENERIC": {
+          const { learner_id, payment_amount } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "webapp_thank_you_for_payment_generic",
+            [learner.name, payment_amount],
+            `thank-you-payment-${learner_id}-${Date.now()}`,
           );
         }
 

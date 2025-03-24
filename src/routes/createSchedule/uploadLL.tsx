@@ -140,18 +140,16 @@ export default function UploadLL() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-4">
+            <div className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-4 cursor-pointer hover:bg-gray-100" onClick={() => document.getElementById('file-upload')?.click()}>
               <Upload className="h-12 w-12 text-gray-400" />
-              <Label htmlFor="file-upload" className="cursor-pointer">
-                <span className="text-lg font-medium">Upload the LL</span>
-                <input
-                  id="file-upload"
-                  type="file"
-                  className="sr-only"
-                  accept=".jpeg,.jpg,.pdf,.png"
-                  onChange={handleFileChange}
-                />
-              </Label>
+              <span className="text-lg font-medium">Upload the LL</span>
+              <input
+                id="file-upload"
+                type="file"
+                className="sr-only"
+                accept=".jpeg,.jpg,.pdf,.png"
+                onChange={handleFileChange}
+              />
               <p className="text-xs text-muted-foreground">
                 jpeg or pdf (4mb max)
               </p>

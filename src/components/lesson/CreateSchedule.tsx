@@ -12,6 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
@@ -50,6 +57,15 @@ interface HourlySlot {
 
 type DaySchedule = HourlySlot[];
 
+interface TimeSlotSelectionDialogProps {
+  open: boolean;
+  onClose: () => void;
+  slot: HourlySlot | null;
+  date: Date | null;
+  instructors: any[] | null;
+  onConfirm: (instructorId: string) => void;
+}
+
 export default function CreateSchedule({
   learnerId,
   learnerArea,
@@ -65,6 +81,12 @@ export default function CreateSchedule({
   const [scheduleDetails, setScheduleDetails] = useState<
     TimeSlotState["existingSchedule"] | null
   >(null);
+
+  // Dialog state for instructor selection
+  const [selectionDialogOpen, setSelectionDialogOpen] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<HourlySlot | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
 
   // Fetch instructors for the learner's area
   const { data: instructors } = useQuery({
@@ -268,67 +290,122 @@ export default function CreateSchedule({
     return daySchedule;
   };
 
+  // Instructor selection dialog component
+  const InstructorSelectionDialog = ({
+    open,
+    onClose,
+    slot,
+    date,
+    instructors,
+    onConfirm,
+  }: TimeSlotSelectionDialogProps) => {
+    const [instructorId, setInstructorId] = useState<string>(
+      slot?.state.availableInstructors[0] || ""
+    );
+
+    const availableInstructorIds = slot?.state.availableInstructors || [];
+    
+    const availableInstructors = instructors?.filter(
+      (instructor) => availableInstructorIds.includes(instructor.id_instructor)
+    ) || [];
+
+    const handleConfirm = () => {
+      onConfirm(instructorId);
+      onClose();
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Instructor</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {date && slot
+                ? `${format(date, "MMM d, yyyy")} at ${format(
+                    slot.timestamp,
+                    "h:mm a"
+                  )}`
+                : ""}
+            </p>
+            <Select value={instructorId} onValueChange={setInstructorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an instructor" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableInstructors.map((instructor) => (
+                  <SelectItem
+                    key={instructor.id_instructor}
+                    value={instructor.id_instructor}
+                  >
+                    {instructor.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm}>Confirm</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
-    if (!slot.timeSlot || !slot.state.isAvailable) {
-      if (slot.state.existingSchedule) {
-        setScheduleDetails(slot.state.existingSchedule);
+    if (!slot.state.isAvailable || slot.state.isSelected) {
+      // If slot is selected, unselect it and its paired slot
+      if (slot.state.isSelected) {
+        setSelectedSlots((prev) => {
+          const hour = slot.timestamp.getHours();
+          const minute = slot.timestamp.getMinutes();
+          const dateStr = format(date, "yyyy-MM-dd");
+          
+          // Get the slotGroupId that this slot is part of
+          const groupId = prev.find(
+            (s) => 
+              format(s.date, "yyyy-MM-dd") === dateStr && 
+              s.hour === hour && 
+              s.minutes === minute
+          )?.slotGroupId;
+          
+          // Remove all slots that have the same slotGroupId
+          return prev.filter((s) => s.slotGroupId !== groupId);
+        });
       }
       return;
     }
 
-    const slotTimestamp = slot.timestamp;
-    const hour = slotTimestamp.getHours();
-    const minutes = slotTimestamp.getMinutes();
+    // Check how many unique hourly slots are already selected
+    const currentUniqueSlots = countUniqueHourlySlots(selectedSlots);
+    const hour = slot.timestamp.getHours();
+    const minute = slot.timestamp.getMinutes();
+    const isStartSlot = minute === 0;
 
-    // Determine if this is a start slot (XX:00) or end slot (XX:30)
-    const isStartSlot = minutes === 0;
-    const isEndSlot = minutes === 30;
+    if (currentUniqueSlots >= request.lesson_ids.length) {
+      alert("Cannot select more slots than required.");
+      return;
+    }
 
+    // Open instructor selection dialog
+    setSelectedSlot(slot);
+    setSelectedDate(date);
+    setSelectionDialogOpen(true);
+  };
+
+  // Handle instructor selection from dialog
+  const handleInstructorSelect = (instructorId: string) => {
+    if (!selectedSlot || !selectedDate) return;
+    
+    const hour = selectedSlot.timestamp.getHours();
+    const minute = selectedSlot.timestamp.getMinutes();
+    const isStartSlot = minute === 0;
+    
     setSelectedSlots((prev) => {
-      // Check if either this slot or its pair is already selected
-      const dateStr = format(date, "yyyy-MM-dd");
-
-      // For start slots (XX:00), check if this slot or XX:30 is selected
-      // For end slots (XX:30), check if this slot or (XX+1):00 is selected
-      const thisPairIsSelected = isStartSlot
-        ? prev.some(
-            (s) =>
-              format(s.date, "yyyy-MM-dd") === dateStr &&
-              s.hour === hour &&
-              (s.minutes === 0 || s.minutes === 30),
-          )
-        : prev.some(
-            (s) =>
-              format(s.date, "yyyy-MM-dd") === dateStr &&
-              ((s.hour === hour && s.minutes === 30) ||
-                (s.hour === hour + 1 && s.minutes === 0)),
-          );
-
-      if (thisPairIsSelected) {
-        // If the pair is selected, deselect both slots that make up the hour
-        return prev.filter((s) => {
-          if (format(s.date, "yyyy-MM-dd") !== dateStr) return true;
-
-          if (isStartSlot) {
-            // Deselect XX:00 and XX:30
-            return !(s.hour === hour && (s.minutes === 0 || s.minutes === 30));
-          } else {
-            // Deselect XX:30 and (XX+1):00
-            return !(
-              (s.hour === hour && s.minutes === 30) ||
-              (s.hour === hour + 1 && s.minutes === 0)
-            );
-          }
-        });
-      }
-
-      // Check if adding another slot would exceed the limit
-      const currentUniqueSlots = countUniqueHourlySlots(prev);
-      if (currentUniqueSlots >= request.lesson_ids.length) {
-        alert("Cannot select more slots than required.");
-        return prev;
-      }
-
       // When selecting, add both slots that make up the full hour
       if (isStartSlot) {
         // If selecting a XX:00 slot, also select the XX:30 slot
@@ -337,17 +414,17 @@ export default function CreateSchedule({
         return [
           ...prev,
           {
-            date,
+            date: selectedDate,
             hour,
             minutes: 0,
-            instructorId: slot.state.availableInstructors[0],
+            instructorId,
             slotGroupId, // Add this to group related 30-min slots
           },
           {
-            date,
+            date: selectedDate,
             hour,
             minutes: 30,
-            instructorId: slot.state.availableInstructors[0],
+            instructorId,
             slotGroupId, // Same group ID for the second 30 min slot
           },
         ];
@@ -357,17 +434,17 @@ export default function CreateSchedule({
         return [
           ...prev,
           {
-            date,
+            date: selectedDate,
             hour,
             minutes: 30,
-            instructorId: slot.state.availableInstructors[0],
+            instructorId,
             slotGroupId,
           },
           {
-            date,
+            date: selectedDate,
             hour: hour + 1,
             minutes: 0,
-            instructorId: slot.state.availableInstructors[0],
+            instructorId,
             slotGroupId,
           },
         ];
@@ -394,8 +471,6 @@ export default function CreateSchedule({
     }
     setStartDate((prev) => addDays(prev, direction === "next" ? 10 : -10));
   };
-
-  // ... (previous imports and interface definitions remain the same)
 
   const handleCreateSchedule = () => {
     if (selectedSlots.length === 0) {
@@ -623,7 +698,7 @@ export default function CreateSchedule({
     if (slot.state.isLearnerSchedule) return "bg-blue-200";
     if (slot.state.existingSchedule) return "bg-gray-100";
     if (slot.state.isCurrentSchedule) return "bg-yellow-200";
-    if (slot.state.isPreferred) return "bg-primary/10";
+    if (slot.state.isPreferred) return "bg-primary/30";
     return "bg-white";
   };
 
@@ -740,7 +815,7 @@ export default function CreateSchedule({
       <div className="flex items-center justify-between">
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-primary/10" />
+            <div className="h-3 w-3 rounded bg-primary/30" />
             <span>Preferred</span>
           </div>
           <div className="flex items-center gap-2">
@@ -813,6 +888,16 @@ export default function CreateSchedule({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Render the instructor selection dialog */}
+      <InstructorSelectionDialog
+        open={selectionDialogOpen}
+        onClose={() => setSelectionDialogOpen(false)}
+        slot={selectedSlot}
+        date={selectedDate}
+        instructors={instructors}
+        onConfirm={handleInstructorSelect}
+      />
     </div>
   );
 }

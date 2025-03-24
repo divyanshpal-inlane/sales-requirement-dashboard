@@ -1,12 +1,11 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useLearner } from "@/queries/learner";
+import Home from "@/routes/home";
 
 import { LLApplicationStatus } from "./LLApplicationStatus";
 import LLAppointmentBooking from "./LLAppointmentBooking";
 import { LLTestPreparation } from "./LLTestPreparation";
-import { LLTestResult } from "./LLTestResult";
-import Home from "@/routes/home";
 
 function LLFlow() {
   const { data: learner, isLoading, error } = useLearner();
@@ -34,12 +33,8 @@ function LLFlow() {
   if (!learner.LL_application_approved) {
     return <LLApplicationStatus applicationId={learner.LL_application_id} />;
   }
-
   if (!learner.LL_test_date) {
     return <LLTestPreparation learnerId={learner.id} />;
-  }
-  if (!learner.LL_result) {
-    return <LLTestResult learner={learner} />;
   }
   return <Home />;
 }

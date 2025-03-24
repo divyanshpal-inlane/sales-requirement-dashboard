@@ -86,7 +86,7 @@ function RescheduleView() {
           const now = new Date();
           const diffHours =
             (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-          return total + (diffHours < 72 ? 300 : 0);
+          return total + (diffHours < 48 ? 300 : 0);
         }
         return total;
       },
@@ -118,7 +118,7 @@ function RescheduleView() {
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
           <h1 className="mb-1 text-xl font-semibold">
-            Reschedule Lesson {lesson.number} and upcoming lessons
+            Reschedule upcoming lessons
           </h1>
           <p className="">Select new time slots for your lessons</p>
         </div>

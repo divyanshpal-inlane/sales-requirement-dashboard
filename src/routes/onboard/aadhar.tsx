@@ -46,7 +46,7 @@ export default function Aadhar() {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            1/2
+            2/2
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">

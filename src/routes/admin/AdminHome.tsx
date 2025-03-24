@@ -2,6 +2,7 @@ import {
   Calendar,
   Calendar as CalendarIcon,
   ClipboardList,
+  Users,
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -23,6 +24,13 @@ export default function AdminHome() {
       icon: Calendar,
       link: "/admin/schedules",
       color: "text-blue-500",
+    },
+    {
+      title: "Instructors Management",
+      description: "Add, edit, and manage driving instructors",
+      icon: Users,
+      link: "/admin/instructors",
+      color: "text-orange-500",
     },
     {
       title: "Learner LL Details",

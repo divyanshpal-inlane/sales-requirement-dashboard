@@ -101,16 +101,22 @@ const TriviaCard = ({
       </Dialog>
 
       <div className="relative flex aspect-[2/3] w-full max-w-sm flex-col justify-center rounded-[30px] bg-white p-2 shadow-[0_10px_20px_rgba(0,0,0,0.19),_0_6px_6px_rgba(0,0,0,0.23)] transition-all duration-300 hover:shadow-[0_14px_28px_rgba(0,0,0,0.25),_0_10px_10px_rgba(0,0,0,0.22)]">
-        <PaintedText
-          className="absolute -left-2 top-14 -m-2 p-2 px-4 text-2xl font-light"
-          variant={"blue"}
+        <div
+          className="absolute -left-4 top-14 -m-2 p-2 text-2xl font-light z-10 text-white text-center"
+          style={{
+            backgroundImage: "url(/public/assets/trivia-tag.png)",
+            backgroundSize: "cover",
+            width: "70%",
+            
+          }}
         >
           Trivia time
-        </PaintedText>
+        </div>
         <PaintedText
           className={`absolute right-6 top-14 text-lg ${timeLeft <= 5 ? "text-destructive" : "text-black"}`}
         >
-          {timeLeft} secs <span className="text-2xl">⏰</span>
+          <span className="text-2xl">⏰</span>
+          {timeLeft} secs
         </PaintedText>
         <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[20px] border-2 border-gray-400 bg-white p-2 font-brico shadow-inner">
           {gameType === "image" ? (

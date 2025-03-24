@@ -115,12 +115,12 @@ function PreferenceSelector({
         },
       },
     );
-    supabase.functions.invoke("send-message", {
-      body: {
-        message_type: "THANKS_FOR_AVAILABILITY",
-        learner_id: learnerId,
-      },
-    });
+    // supabase.functions.invoke("send-message", {
+    //   body: {
+    //     message_type: "THANKS_FOR_AVAILABILITY",
+    //     learner_id: learnerId,
+    //   },
+    // });
   };
 
   if (isLoading) {

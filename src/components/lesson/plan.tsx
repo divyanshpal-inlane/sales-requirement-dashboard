@@ -299,7 +299,7 @@ export function LessonPlan({
               }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0]/80 p-4"
+              className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0] p-4"
             >
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Session Details</h3>
@@ -425,7 +425,7 @@ export function LessonPlan({
                 setIsMenuOpen(!isMenuOpen);
               }}
               size={"lg"}
-              className="w-32 text-lg"
+              className="w-32 text-lg mb-8"
             >
               {isMenuOpen ? "Info" : "Prep time"}
             </Button>
@@ -446,13 +446,6 @@ export function LessonPlan({
                 <div className="flex flex-col gap-4 p-6 pb-24">
                   <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-semibold">Lesson Plan</h2>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setIsInfoCardOpen(!isInfoCardOpen)}
-                    >
-                      {isInfoCardOpen ? <ChevronDown /> : <ChevronUp />}
-                    </Button>
                   </div>
                   <div className="mt-4">
                     <h3 className="mb-4 text-lg font-semibold">{title}</h3>
@@ -519,7 +512,7 @@ export function LessonPlan({
                   initial={{ opacity: 0, y: 40 }}
                   animate={{ opacity: 1, y: -index * 20 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`${item.color} flex cursor-pointer items-center justify-between rounded-lg p-4 py-8`}
+                  className={`${item.color} flex cursor-pointer items-center justify-between rounded-lg p-4 py-8 ${index === menuItems.length - 1 ? 'mb-8' : ''}`}
                   onClick={() => handleCardClick(index)}
                 >
                   <span className="text-3xl font-medium">{item.title}</span>

@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, LogOut, UserPen, X } from "lucide-react";
+import { ArrowLeft, Check, LogOut, UserPen, X, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -86,8 +86,9 @@ export default function Profile2() {
 
   return (
     <div className="container mx-auto flex h-full flex-col p-4">
-      {/* Back Button */}
-      <div className="mb-6 flex items-center">
+      {/* Top Bar */}
+      <div className="mb-6 flex items-center justify-between">
+        {/* Back Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -96,6 +97,19 @@ export default function Profile2() {
         >
           <ArrowLeft size={24} />
         </Button>
+
+        {/* Chat with Support */}
+        <a
+          href="https://wa.me/+919748439881?text=Hello%20I%20need%20support"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center space-x-2"
+        >
+          <MessageCircle className="h-6 w-6 text-black" />
+          <span className="text-lg font-medium text-black hover:underline">
+            Need Help?
+          </span>
+        </a>
       </div>
 
       {/* Header */}

@@ -8,6 +8,7 @@ import {
   Phone,
   User,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -119,6 +120,19 @@ const InstructorProfile = () => {
 
   return (
     <div className="animate-fadeIn mx-auto max-w-3xl space-y-6 overflow-y-auto p-4">
+      {/* Back Button */}
+      <div className="flex items-center mb-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)} // Navigate back to the previous page
+          className="flex items-center space-x-2 text-gray-700 hover:text-gray-900"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="text-sm font-medium">Back</span>
+        </Button>
+      </div>
+
       {/* Header with Profile Picture and Main Actions */}
       <div className="relative rounded-lg bg-gradient-to-r from-purple-100 to-accent-purple p-6 text-gray-700 shadow-lg">
         <div className="absolute right-4 top-4 flex flex-col gap-2">
