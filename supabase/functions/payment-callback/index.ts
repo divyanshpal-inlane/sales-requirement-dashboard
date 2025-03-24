@@ -206,28 +206,14 @@ serve(async (req) => {
           "send-message",
           {
             body: {
-              message_type: "THANK_YOU_PAYMENT",
+              message_type: "WEBAPP_THANK_YOU_FOR_PAYMENT_GENERIC",
               learner_id: payment.learner_id,
-              has_dl: payment.Learner.has_a_DL,
               payment_amount: payment.amount,
             },
           },
         );
 
         if (messageError) throw messageError;
-
-        // Send sign-up reminder message
-        const { error: messageError2 } = await supabaseClient.functions.invoke(
-          "send-message",
-          {
-            body: {
-              message_type: "SIGN_UP_REMINDER",
-              learner_id: payment.learner_id,
-            },
-          },
-        );
-
-        if (messageError2) throw messageError2;
       } catch (error) {
         console.error("Error updating related records:", error);
         // Don't throw here, we still want to redirect the user

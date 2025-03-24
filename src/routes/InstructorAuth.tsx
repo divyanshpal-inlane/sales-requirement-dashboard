@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from "lucide-react";
 import React, { useState } from "react";
 import { Navigate } from "react-router-dom";
 
@@ -10,6 +11,7 @@ export default function InstructorAuth() {
   const [active, setActive] = useState<"login" | "signup">("login");
   const [phone, setPhone] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   const onSubmitHandler = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,12 +53,24 @@ export default function InstructorAuth() {
                     onChange={(e) => setPhone(e.target.value)}
                   />
                 </div>
-                <Input
-                  type="password"
-                  placeholder="Enter Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="relative w-full">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10" // Ensure space for the button
+                  />
+                  <Button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 transform p-1"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </Button>
+                </div>
+
                 <div className="flex flex-col items-center gap-1">
                   {active === "login" ? (
                     <>

@@ -1,3 +1,4 @@
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import {
@@ -30,6 +31,8 @@ import {
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
 import AdminHome from "@/routes/admin/AdminHome";
+import DLTestDates from "@/routes/admin/DLTestDates";
+import InstructorsManagement from "@/routes/admin/instructors";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminLogin from "@/routes/admin-login";
@@ -47,8 +50,6 @@ import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
-
-import DLTestDates from "./routes/admin/DLTestDates";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -148,9 +149,13 @@ export default function App() {
             <Route
               path="/instructor"
               element={
-                <ProtectedInstructorRoute>
-                  <Instructor />
-                </ProtectedInstructorRoute>
+                <GoogleOAuthProvider
+                  clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}
+                >
+                  <ProtectedInstructorRoute>
+                    <Instructor />
+                  </ProtectedInstructorRoute>
+                </GoogleOAuthProvider>
               }
             />
             <Route
@@ -187,6 +192,7 @@ export default function App() {
             >
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
+              <Route path="instructors" element={<InstructorsManagement />} />
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
             </Route>

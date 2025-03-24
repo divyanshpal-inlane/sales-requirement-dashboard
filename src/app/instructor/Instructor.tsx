@@ -1,10 +1,22 @@
+import "react-big-calendar/lib/css/react-big-calendar.css";
+
+import {
+  googleLogout,
+  GoogleOAuthProvider,
+  useGoogleLogin,
+} from "@react-oauth/google";
 import { useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { format, getDay, parse, startOfWeek } from "date-fns";
+import enUS from "date-fns/locale/en-US";
 import {
   CircleCheckBig,
   ExternalLinkIcon,
   PhoneOutgoing,
   UserPen,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -15,10 +27,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { useUser } from "@/context/auth-context";
 import { useInstructor, useUpdateScheduleStatus } from "@/queries/instructor";
+
+const locales = {
+  "en-US": enUS,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 function Instructor() {
   const { phone } = useUser();
@@ -31,9 +63,86 @@ function Instructor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  if (instructorLoading) return <div>Loading...</div>;
-  if (instructorError)
-    return <div>An error occurred: {instructorError.message}</div>;
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(
+    null,
+  );
+  const [isCalendarLoaded, setIsCalendarLoaded] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [events, setEvents] = useState<any[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+
+  // Use more specific scopes for Google Calendar
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      console.log("Google login successful");
+      setGoogleAccessToken(tokenResponse.access_token);
+      setCalendarError(null);
+    },
+    onError: (error) => {
+      console.error("Google login failed", error);
+      setCalendarError("Failed to connect to Google Calendar");
+    },
+    scope:
+      "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly",
+    flow: "implicit",
+  });
+
+  const handleGoogleLogout = () => {
+    googleLogout();
+    setGoogleAccessToken(null);
+    setIsCalendarLoaded(false);
+    setEvents([]); // Clear events on logout
+  };
+
+  // Check for stored token on component mount
+  useEffect(() => {
+    const storedToken = localStorage.getItem("googleCalendarToken");
+    if (storedToken) {
+      setGoogleAccessToken(storedToken);
+    }
+  }, []);
+
+  // Store token when it changes
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!googleAccessToken) return;
+
+      try {
+        const response = await axios.get(
+          "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+          {
+            headers: {
+              Authorization: `Bearer ${googleAccessToken}`,
+            },
+          },
+        );
+
+        
+
+        const formattedEvents = response.data.items.map((event: any) => ({
+          id: event.id,
+          title: event.summary || "No Title",
+          start: new Date(event.start?.dateTime || event.start?.date),
+          end: new Date(event.end?.dateTime || event.end?.date),
+          description: event.description || "No Description",
+          location: event.location || "No Location",
+          creator: event.creator || {},
+          attendees: event.attendees || [],
+          htmlLink: event.htmlLink,
+          originalEvent: event,
+        }));
+
+       
+
+        setEvents(formattedEvents);
+      } catch (error) {
+        console.error("Failed to fetch events:", error);
+      }
+    };
+
+    fetchEvents();
+  }, [googleAccessToken]);
 
   const handleFinishLesson = async (scheduleId: string) => {
     try {
@@ -41,7 +150,6 @@ function Instructor() {
         scheduleId,
         status: "completed",
       });
-      // Invalidate the query to refetch the data and update the UI
       queryClient.invalidateQueries(["instructorSchedule"]);
     } catch (error) {
       console.error("Failed to update lesson status:", error);
@@ -74,12 +182,32 @@ function Instructor() {
     return `${formattedStartTime} to ${formattedEndTime}`;
   }
 
+  const handleEventClick = (event) => {
+    setSelectedEvent(event);
+    setIsEventModalOpen(true);
+  };
+
+  const formatEventTime = (date) => {
+    return format(date, "h:mm a");
+  };
+
+  const formatEventDate = (date) => {
+    return format(date, "EEEE, MMMM d, yyyy");
+  };
+
+  if (instructorLoading) return <div>Loading...</div>;
+  if (instructorError)
+    return <div>An error occurred: {instructorError.message}</div>;
+
   return (
-    <>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <div className="flex h-full w-full p-6 pb-20">
         <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
           <TabsList className="w-full">
             <TabsTrigger value="calendar" className="w-full">
+              Calendar View
+            </TabsTrigger>
+            <TabsTrigger value="schedule" className="w-full">
               Schedule For The Day (
               {instructorData?.instructorScheduleDay.length})
             </TabsTrigger>
@@ -90,6 +218,51 @@ function Instructor() {
 
           <TabsContent
             value="calendar"
+            className="flex flex-col justify-between gap-2 overflow-y-auto"
+          >
+            <div className="mb-4 flex items-center justify-center">
+              {!googleAccessToken ? (
+                <Button
+                  onClick={() => handleGoogleLogin()}
+                  className="rounded px-4 py-2 text-white"
+                >
+                  Connect Google Calendar
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleGoogleLogout}
+                  className="rounded bg-red-500 px-4 py-2 text-white"
+                >
+                  Disconnect Google Calendar
+                </Button>
+              )}
+            </div>
+
+            {googleAccessToken && events.length > 0 ? (
+              <div style={{ height: "600px" }}>
+                <Calendar
+                  localizer={localizer}
+                  events={events}
+                  startAccessor="start"
+                  endAccessor="end"
+                  style={{ height: 600 }}
+                  defaultView="week"
+                  views={["month", "week", "day"]}
+                  popup
+                  onSelectEvent={handleEventClick}
+                />
+              </div>
+            ) : (
+              <div className="text-center text-gray-500">
+                {googleAccessToken
+                  ? "No events found in your Google Calendar."
+                  : "Connect your Google Calendar to view your schedule."}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent
+            value="schedule"
             className="flex flex-col justify-between gap-2 overflow-y-auto"
           >
             {instructorData?.learnerLessonDay.map(
@@ -301,7 +474,82 @@ function Instructor() {
           </TabsContent>
         </Tabs>
       </div>
-    </>
+
+      {/* Event Details Modal */}
+      <Dialog open={isEventModalOpen} onOpenChange={setIsEventModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {selectedEvent?.title}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              {selectedEvent && (
+                <div className="mt-2 flex flex-col gap-1">
+                  <p className="font-medium">
+                    {formatEventDate(selectedEvent.start)}
+                  </p>
+                  <p>
+                    {formatEventTime(selectedEvent.start)} -{" "}
+                    {formatEventTime(selectedEvent.end)}
+                  </p>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="flex flex-col gap-4 py-2">
+              {selectedEvent.description && (
+                <div>
+                  <h4 className="mb-1 text-sm font-medium">Description</h4>
+                  <p className="text-sm text-gray-700">
+                    {selectedEvent.description}
+                  </p>
+                </div>
+              )}
+
+              {selectedEvent.location && (
+                <div>
+                  <h4 className="mb-1 text-sm font-medium">Location</h4>
+                  <p className="text-sm text-gray-700">
+                    {selectedEvent.location}
+                  </p>
+                </div>
+              )}
+
+              {selectedEvent.attendees &&
+                selectedEvent.attendees.length > 0 && (
+                  <div>
+                    <h4 className="mb-1 text-sm font-medium">Attendees</h4>
+                    <ul className="text-sm text-gray-700">
+                      {selectedEvent.attendees.map((attendee, index) => (
+                        <li key={index}>{attendee.email}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+            </div>
+          )}
+          <DialogFooter>
+            {selectedEvent?.htmlLink && (
+              <a
+                href={selectedEvent.htmlLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                View in Google Calendar
+              </a>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setIsEventModalOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </GoogleOAuthProvider>
   );
 }
 

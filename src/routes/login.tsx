@@ -1,5 +1,5 @@
-import { Eye, EyeOff } from "lucide-react"; // Add this import
-import { useState } from "react"; // Import useState
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 import { Navigate } from "react-router";
 import { useSearchParams } from "react-router-dom";
 
@@ -8,13 +8,20 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
 
 export default function Login() {
-  const { login, signUp, user } = useAuth();
+  const { login, signUp, user, requestPasswordReset, verifyOtpAndResetPassword } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active") || "login";
   const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
   const [password, setPassword] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [otp, setOtp] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState<string>("");
+  const [resetRequested, setResetRequested] = useState<boolean>(false);
+  const [otpVerified, setOtpVerified] = useState<boolean>(false);
 
   const onSubmitHandler = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,14 +29,61 @@ export default function Login() {
     try {
       if (active === "login") {
         await login(phone, password, "learner");
-      } else {
+      } else if (active === "signup") {
         await signUp(phone, password, "learner");
+      } else if (active === "forgot-password") {
+        if (!resetRequested) {
+          // Step 1: Request password reset OTP
+          if (!phone || phone.trim().length < 10) {
+            throw new Error("Please enter a valid phone number");
+          }
+          await requestPasswordReset(phone);
+          setSuccessMessage("OTP sent to your WhatsApp. Please check and enter below.");
+          setResetRequested(true);
+        } else if (!otpVerified) {
+          // Step 2: Verify OTP
+          if (!otp || otp.trim().length < 4) {
+            throw new Error("Please enter the OTP sent to your WhatsApp");
+          }
+          await verifyOtpAndResetPassword(phone, otp, null);
+          setSuccessMessage("OTP verified successfully. Set your new password.");
+          setOtpVerified(true);
+        } else {
+          // Step 3: Reset password
+          if (!newPassword || newPassword.length < 6) {
+            throw new Error("Password must be at least 6 characters long");
+          }
+          if (newPassword !== confirmPassword) {
+            throw new Error("Passwords do not match");
+          }
+          await verifyOtpAndResetPassword(phone, otp, newPassword);
+          setSuccessMessage("Password reset successfully! You can now login with your new password.");
+          
+          // Reset states and redirect to login
+          setTimeout(() => {
+            setSearchParams({ active: "login" });
+            setResetRequested(false);
+            setOtpVerified(false);
+            setSuccessMessage("");
+          }, 3000);
+        }
       }
     } catch (error) {
-      // Handle different error messages
+      setSuccessMessage("");
       setErrorMessage(error?.message || "An error occurred. Please try again.");
-      console.error("Login failed:", error);
+      console.error("Action failed:", error);
     }
+  };
+
+  const resetPasswordFlow = () => {
+    setSearchParams({ active: "forgot-password" });
+    setResetRequested(false);
+    setOtpVerified(false);
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setErrorMessage("");
+    setSuccessMessage("");
   };
 
   if (user && user.user_metadata.user_role === "learner") {
@@ -55,12 +109,19 @@ export default function Login() {
 
           <div className="flex h-full flex-col gap-6 p-6">
             <div className="flex flex-col items-center">
-              <h2 className="text-2xl">Ready to take the wheel?</h2>
-              <p className="text-lg">Let&apos;s get you driving!</p>
+              {active === "forgot-password" ? (
+                <h2 className="text-2xl">Reset Your Password</h2>
+              ) : (
+                <>
+                  <h2 className="text-2xl">Ready to take the wheel?</h2>
+                  <p className="text-lg">Let&apos;s get you driving!</p>
+                </>
+              )}
             </div>
 
             <form onSubmit={onSubmitHandler}>
               <div className="space-y-4">
+                {/* Phone input - shown in all flows */}
                 <div className="flex h-fit rounded-md shadow-md">
                   <span className="flex items-center rounded-l-md border border-r-0 bg-gray-100 px-3 text-gray-500">
                     +91
@@ -68,47 +129,108 @@ export default function Login() {
                   <Input
                     className="rounded-l-none shadow-none"
                     placeholder="Enter Mobile Number"
-                    value={phone} // Bind phone state
-                    onChange={(e) => setPhone(e.target.value)} // Update phone state
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={active === "forgot-password" && resetRequested}
                   />
                 </div>
-                <div className="space-y-1">
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder={
-                        active === "login"
-                          ? "Enter Password"
-                          : "Create Password"
-                      }
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                    >
-                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+
+                {/* Password input - shown only in login/signup */}
+                {active !== "forgot-password" && (
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder={
+                          active === "login"
+                            ? "Enter Password"
+                            : "Create Password"
+                        }
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                   </div>
-                  {errorMessage && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {errorMessage}
-                    </p>
-                  )}
-                </div>
+                )}
+
+                {/* OTP input - shown only in forgot-password after requesting OTP */}
+                {active === "forgot-password" && resetRequested && (
+                  <div className="space-y-1">
+                    <Input
+                      type="text"
+                      placeholder="Enter OTP from WhatsApp"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      disabled={otpVerified}
+                      maxLength={6}
+                    />
+                  </div>
+                )}
+
+                {/* New password input - shown only in forgot-password after OTP verification */}
+                {active === "forgot-password" && otpVerified && (
+                  <>
+                    <div className="space-y-1">
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="Enter New Password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          aria-label={
+                            showNewPassword ? "Hide password" : "Show password"
+                          }
+                        >
+                          {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="Confirm New Password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Error and success messages */}
+                {errorMessage && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {errorMessage}
+                  </p>
+                )}
+                {successMessage && (
+                  <p className="text-sm text-green-500" role="alert">
+                    {successMessage}
+                  </p>
+                )}
+
+                {/* Action buttons */}
                 <div className="flex flex-col items-center gap-1">
                   {active === "login" ? (
                     <>
                       <Button className="w-full" type="submit">
                         Login
                       </Button>
-                      <p className="text-sm text-muted-foreground">
-                        Not signed up ?
+                      <div className="flex w-full justify-between">
                         <Button
                           type="button"
                           variant={"link"}
@@ -119,15 +241,45 @@ export default function Login() {
                         >
                           Signup
                         </Button>
-                      </p>
+                        <Button
+                          type="button"
+                          variant={"link"}
+                          onClick={resetPasswordFlow}
+                        >
+                          Forgot Password?
+                        </Button>
+                      </div>
                     </>
-                  ) : (
+                  ) : active === "signup" ? (
                     <>
                       <Button className="w-full" type="submit">
                         Signup
                       </Button>
                       <p className="text-sm text-muted-foreground">
-                        Already signed up ?
+                        Already signed up?
+                        <Button
+                          type="button"
+                          variant={"link"}
+                          onClick={() => {
+                            setSearchParams({ active: "login" });
+                            setErrorMessage("");
+                          }}
+                        >
+                          Login
+                        </Button>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Button className="w-full" type="submit">
+                        {!resetRequested 
+                          ? "Send OTP" 
+                          : !otpVerified 
+                          ? "Verify OTP" 
+                          : "Reset Password"}
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        Remember your password?
                         <Button
                           type="button"
                           variant={"link"}

@@ -7,13 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export default function Prep() {
   const games = [
     {
-      image: "/assets/hazard-hero.png",
-      title: "Sharpen your reflexes:",
-      description: "Spot hazards while driving",
-      link: "https://staging.d3dib7h5q2vkq4.amplifyapp.com/",
-      // link: "https://staging.d2faprkm3jkt4j.amplifyapp.com/",
-    },
-    {
       image: "/assets/master-the-roads.png",
       title: "Master the roads:",
       description: "Ace real-life driving scenarios",
@@ -24,6 +17,13 @@ export default function Prep() {
       title: "Crush it:",
       description: "Know your road signs",
       link: "https://staging.dlv8h2fl9238x.amplifyapp.com/",
+    },
+    {
+      image: "/assets/hazard-hero.png",
+      title: "Sharpen your reflexes:",
+      description: "Spot hazards while driving",
+      link: "https://staging.d3dib7h5q2vkq4.amplifyapp.com/",
+      // link: "https://staging.d2faprkm3jkt4j.amplifyapp.com/",
     },
     {
       image: "/assets/speed-test.png",

@@ -15,14 +15,14 @@ export const SLOPES_LESSON_CONTENT: LessonContent = {
         {
           title: "3 seconds is all it takes",
           icon: "⏰",
-          color: "bg-indigo-500",
+          color: "bg-[#6257FF]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
         },
         {
           title: "slay slopes like a pro",
           icon: "⏰",
-          color: "bg-lime-500",
+          color: "bg-[#D9FF7A]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
@@ -109,14 +109,14 @@ export const SLOPES_LESSON_CONTENT: LessonContent = {
         {
           title: "When to change Gears?",
           icon: "⚙️",
-          color: "bg-green-500",
+          color: "bg-[#D9FF7A]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
         },
         {
           title: "slay slopes like a pro",
           icon: "⏰",
-          color: "bg-lime-500",
+          color: "bg-[#D9FF7A]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },

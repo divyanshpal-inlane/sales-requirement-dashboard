@@ -22,9 +22,19 @@ function Preferences() {
     courseId: enrolledCourse?.[0]?.course_id,
   });
 
-  // Get the first 9 lessons for new zschedule generation
-  const lessonsToSchedule =
-    type === "new" ? lessons?.slice(0, 9) : type === "lesson10" ? lessons?.slice(9, 10) : lessons;
+  // Determine lessons to schedule based on has_a_DL
+  let lessonsToSchedule;
+
+  if (type === "new") {
+    // console.log(learner?.has_a_DL);
+    lessonsToSchedule = learner?.has_a_DL
+      ? lessons?.slice(0, 10)
+      : lessons?.slice(0, 9);
+  } else if (type === "lesson10") {
+    lessonsToSchedule = lessons?.slice(9, 10);
+  } else {
+    lessonsToSchedule = lessons;
+  }
 
   if (enrolledCourseLoading || lessonsLoading) {
     return <div>Loading...</div>;
@@ -52,8 +62,8 @@ function Preferences() {
             {type === "new"
               ? "Schedule Preferences"
               : type === "lesson10"
-              ? "Schedule Lesson 10"
-              : "Reschedule Preferences"}
+                ? "Schedule Lesson 10"
+                : "Reschedule Preferences"}
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">

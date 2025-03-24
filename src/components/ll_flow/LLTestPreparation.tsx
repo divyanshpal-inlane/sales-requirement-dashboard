@@ -9,6 +9,8 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
   const [hasCompletedTest, setHasCompletedTest] = useState<boolean | null>(
     null,
   );
+  const [hasPassedTest, setHasPassedTest] = useState<boolean | null>(null);
+  const [hasReceivedLL, setHasReceivedLL] = useState<boolean | null>(null);
   const [learner, setLearner] = useState<any>(null);
   const { mutate: updateLearner } = useLearnerUpdate();
 
@@ -31,15 +33,30 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
     fetchLearnerDetails();
   }, [learnerId]);
 
-  const handleTestCompletion = (completed: boolean) => {
-    setHasCompletedTest(completed);
-    if (completed && learner) {
+  const handleTestCompletion = (passed: boolean) => {
+    if(passed) {
       supabase.functions.invoke("send-message", {
         body: JSON.stringify({
           message_type: "LL_RECEIVED",
           learner_id: learner.id,
         }),
       });
+    }
+    setHasPassedTest(passed);
+    if (!passed) {
+      supabase.functions.invoke("send-message", {
+        body: JSON.stringify({
+          message_type: "WEBAPP_RESTEST_LL",
+          learner_id: learner.id,
+        }),
+      });
+      setHasCompletedTest(false);
+    }
+  };
+
+  const handleLLReceived = (received: boolean) => {
+    setHasReceivedLL(received);
+    if (received && learner) {
       updateLearner({ LL_result: true });
     }
   };
@@ -80,28 +97,56 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
             </li>
           </ul>
         </div>
-        {hasCompletedTest === null ? (
+        {hasPassedTest === null ? (
           <div className="space-y-4">
             <p className="text-lg font-medium">
-              Have you completed your LL test and received your license?
+              Did you pass your LL test?
             </p>
             <div className="flex justify-center space-x-4">
               <Button onClick={() => handleTestCompletion(true)}>
-                Yes, I&apos;ve received my LL
+                Yes, I passed
               </Button>
               <Button
                 variant="outline"
                 onClick={() => handleTestCompletion(false)}
               >
+                No, I didn&apos;t pass
+              </Button>
+            </div>
+          </div>
+        ) : hasPassedTest && hasReceivedLL === null ? (
+          <div className="space-y-4">
+            <p className="text-lg font-medium">
+              Have you received your Learner&apos;s License?
+            </p>
+            <div className="flex justify-center space-x-4">
+              <Button onClick={() => handleLLReceived(true)}>
+                Yes, I&apos;ve received it
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleLLReceived(false)}
+              >
                 Not yet
               </Button>
             </div>
           </div>
-        ) : hasCompletedTest ? (
+        ) : hasPassedTest && hasReceivedLL ? (
           <p className="text-lg font-medium text-green-600">
-            Congratulations! You&apos;re now ready to start your practical
-            driving lessons.
+            Congratulations! The government is printing your Learner&apos;s
+            License. As soon as you receive a message from the government, do
+            let us know and book your on-road practice lessons.
           </p>
+        ) : hasPassedTest && !hasReceivedLL ? (
+          <div className="space-y-4">
+            <p className="text-lg font-medium">
+              No problem! The government is processing your Learner&apos;s
+              License. Please wait for the confirmation message.
+            </p>
+            <Button onClick={() => setHasReceivedLL(null)}>
+              I&apos;ve received it now
+            </Button>
+          </div>
         ) : (
           <div className="space-y-4">
             <p className="text-lg font-medium">
@@ -111,8 +156,8 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               When you&apos;ve completed your test and received your LL, come
               back here to update your status.
             </p>
-            <Button onClick={() => setHasCompletedTest(null)}>
-              I&apos;ve completed my test now
+            <Button onClick={() => setHasPassedTest(null)}>
+              I&apos;ve passed my test now
             </Button>
           </div>
         )}
