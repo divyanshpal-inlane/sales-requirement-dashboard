@@ -100,14 +100,13 @@ const TriviaCard = ({
         </DialogContent>
       </Dialog>
 
-      <div className="relative flex aspect-[2/3] w-full max-w-sm flex-col justify-center rounded-[30px] bg-white p-2 shadow-[0_10px_20px_rgba(0,0,0,0.19),_0_6px_6px_rgba(0,0,0,0.23)] transition-all duration-300 hover:shadow-[0_14px_28px_rgba(0,0,0,0.25),_0_10px_10px_rgba(0,0,0,0.22)]">
+      <div className="relative flex aspect-[4/5] w-full max-w-md flex-col justify-center rounded-[30px] bg-white p-2 shadow-[0_10px_20px_rgba(0,0,0,0.19),_0_6px_6px_rgba(0,0,0,0.23)] transition-all duration-300 hover:shadow-[0_14px_28px_rgba(0,0,0,0.25),_0_10px_10px_rgba(0,0,0,0.22)]">
         <div
-          className="absolute -left-4 top-14 -m-2 p-2 text-2xl font-light z-10 text-white text-center"
+          className="absolute -left-4 top-14 z-10 -m-2 p-2 text-center text-2xl font-light text-white"
           style={{
             backgroundImage: "url(/public/assets/trivia-tag.png)",
             backgroundSize: "cover",
             width: "70%",
-            
           }}
         >
           Trivia time

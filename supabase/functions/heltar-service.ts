@@ -17,11 +17,11 @@ export const TEMPLATES = {
       "Hey {{1}},\n\nWe received a request to reset your password for the *Lane App* 😊  \nYour one-time password (OTP) is: {{2}}  \n\nPlease use it to create a new password 🔢  \n\nIf you didn't request this password reset, please contact us  \n\nThank you, \nLane Team 🚗",
   },
   PAYMENT_LINK: {
-    name: "webapp_payment_link",
-    id: "1249356756155909",
+    name: "webapp_payment_for_course",
+    id: "672562828631823",
     language: "en",
     content:
-      "Hey {{1}}, \n\nHere's your payment link: {{2}}\n\nClick on it to complete your payment and secure your spot!\n\nThank you!\nThe Lane Team 🚗",
+      "Hey {{1}},  \n\nGreat choice with the {{2}}! You're one step away from starting your driving journey 🚗.  \n\n*Amount Due:* {{3}} \n*Duration:* {{4}}  \n\nTo complete the registration, you can pay here: {{5}}  \n\nThank you so much 🤩. We're in this together - everyone starts from the beginning, and soon you'll be driving with the breeze in your hair! 🌬️   \n\nIf you need any help, please ping us. We can't wait to see you behind the wheel!  \n\nLet's go, \nLane 😊🚘",
   },
   THANK_YOU_PAYMENT_DL: {
     name: "webapp_thank_you_payment_book_classes",
@@ -309,13 +309,20 @@ class HeltarMessageService {
     try {
       switch (messageType) {
         case "PAYMENT_LINK": {
-          const { learner_id, payment_link } = data;
+          const {
+            learner_id,
+            course_name,
+            payment_amount,
+            duration,
+            payment_link,
+          } = data;
           const learner = await this.getLearnerDetails(learner_id);
           return this.sendTemplate(
             learner.phone,
+            
             "PAYMENT_LINK",
-            [learner.name, payment_link],
-            `payment-${learner_id}-${Date.now()}`,
+            [learner.name, course_name, payment_amount, duration, payment_link],
+            `payment-link-${learner_id}-${Date.now()}`,
           );
         }
 

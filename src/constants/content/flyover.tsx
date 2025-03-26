@@ -126,7 +126,7 @@ export const FLYOVER_LESSON_CONTENT: LessonContent = {
         {
           title: "pass like a pro",
           icon: "👀",
-          color: "bg-indigo-500",
+          color: "bg-[#00CE84]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
         },
@@ -140,14 +140,14 @@ export const FLYOVER_LESSON_CONTENT: LessonContent = {
         {
           title: "slay slopes like a pro",
           icon: "⏰",
-          color: "bg-[#D9FF7A]",
+          color: "bg-[#00CE84]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
         {
           title: "pause, bump, then go!",
           icon: "🛑",
-          color: "bg-[#00CE84]",
+          color: "bg-[#D9FF7A]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
         },

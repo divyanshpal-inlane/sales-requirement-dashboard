@@ -85,7 +85,7 @@ export default function Profile2() {
   };
 
   return (
-    <div className="container mx-auto flex h-full flex-col p-4">
+    <div className="container mx-auto flex h-full flex-col overflow-y-auto p-4 scrollbar-none" style={{ scrollbarWidth: "none" }}>
       {/* Top Bar */}
       <div className="mb-6 flex items-center justify-between">
         {/* Back Button */}
@@ -100,7 +100,7 @@ export default function Profile2() {
 
         {/* Chat with Support */}
         <a
-          href="https://wa.me/+919748439881?text=Hello%20I%20need%20support"
+          href="https://wa.me/+919831270111?text=Hello%20I%20need%20support"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center space-x-2"

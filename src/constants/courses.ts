@@ -117,4 +117,5 @@ export const AREAS = [
   "Hoodi",
   "Ramamurthy Nagar",
   "TC Palya",
+  "Others",
 ] as const;

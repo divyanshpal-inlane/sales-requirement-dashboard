@@ -165,7 +165,7 @@ export default function Schedule() {
         </TabsList>
         <TabsContent
           value="calendar"
-          className="flex h-full flex-col overflow-y-auto"
+          className="flex h-full flex-col overflow-y-auto scrollbar-none" style={{ scrollbarWidth: "none" }}
         >
           <div className="flex min-h-full flex-col">
             <Card className="flex-none">

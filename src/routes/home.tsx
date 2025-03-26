@@ -165,7 +165,7 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex flex-col p-4 pb-20 overflow-y-auto h-[calc(100vh-50px)]">
+      <main className="flex flex-col p-4 pb-20 overflow-y-auto p-4 scrollbar-none  h-[calc(100vh-50px)]"style={{ scrollbarWidth: "none" }}>
         {showPaymentCompletion && (
           <Card className="mb-6 bg-white border-primary">
             <CardHeader>

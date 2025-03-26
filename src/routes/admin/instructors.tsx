@@ -44,12 +44,24 @@ interface InstructorData {
   id_instructor?: string;
   name: string;
   phone: string;
+  email: string;
+  DL_number: string;
+  car_make: string;
+  car_mode: string;
+  experience: string;
+  car_number: string;
   areas: string[];
 }
 
 const initialInstructorData: InstructorData = {
   name: "",
   phone: "",
+  email: "",
+  DL_number: "",
+  car_make: "",
+  car_mode: "",
+  experience: "",
+  car_number: "",
   areas: [],
 };
 
@@ -61,20 +73,30 @@ export default function InstructorsManagement() {
     initialInstructorData,
   );
   const [newArea, setNewArea] = useState<string>("");
+  const [openScheduleDialogId, setOpenScheduleDialogId] = useState<string | null>(null); // Track which instructor's schedule dialog is open
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch all instructors
+  // Fetch all instructors along with their schedules
   const { data: instructors, isLoading } = useQuery({
     queryKey: ["instructors"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Instructor")
-        .select("*")
+        .select(`
+          *,
+          schedules:Schedule (
+            id,
+            date,
+            start_time,
+            end_time,
+            learner:learner_id ( name )
+          )
+        `)
         .order("name");
 
       if (error) throw error;
-      return data as InstructorFromDB[];
+      return data as (InstructorFromDB & { schedules: Schedule[] })[];
     },
   });
 
@@ -88,6 +110,12 @@ export default function InstructorsManagement() {
             {
               name: data.name,
               phone: data.phone,
+              email: data.email,
+              DL_number: data.DL_number,
+              car_make: data.car_make,
+              car_mode: data.car_mode,
+              experience: data.experience,
+              car_number: data.car_number,
               areas: data.areas,
             },
           ])
@@ -105,6 +133,12 @@ export default function InstructorsManagement() {
           .update({
             name: data.name,
             phone: data.phone,
+            email: data.email,
+            DL_number: data.DL_number,
+            car_make: data.car_make,
+            car_mode: data.car_mode,
+            experience: data.experience,
+            car_number: data.car_number,
             areas: data.areas,
           })
           .eq("id_instructor", data.id_instructor)
@@ -174,6 +208,12 @@ export default function InstructorsManagement() {
       id_instructor: instructor.id_instructor,
       name: instructor.name,
       phone: instructor.phone,
+      email: instructor.email || "",
+      DL_number: instructor.DL_number || "",
+      car_make: instructor.car_make || "",
+      car_mode: instructor.car_mode || "",
+      experience: instructor.experience || "",
+      car_number: instructor.car_number || "",
       areas: instructor.areas || [],
     });
     setIsDialogOpen(true);
@@ -224,6 +264,14 @@ export default function InstructorsManagement() {
     }
   };
 
+  const handleOpenScheduleDialog = (id: string) => {
+    setOpenScheduleDialogId(id); // Set the ID of the instructor whose dialog is open
+  };
+
+  const handleCloseScheduleDialog = () => {
+    setOpenScheduleDialogId(null); // Close the dialog
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex items-center justify-between mb-6">
@@ -247,26 +295,39 @@ export default function InstructorsManagement() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {instructors?.map((instructor) => (
-            <Card key={instructor.id_instructor} className="overflow-hidden">
-              <CardHeader className="bg-muted">
-                <CardTitle>
-                  <span>{instructor.name}</span>
-                </CardTitle>
+            <Card key={instructor.id_instructor} className="overflow-hidden shadow-lg rounded-lg">
+              <CardHeader className="bg-primary text-white p-4">
+                <CardTitle className="text-lg font-bold">{instructor.name}</CardTitle>
+                <p className="text-sm">{instructor.email || "No email provided"}</p>
               </CardHeader>
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-4">
                 <div className="space-y-2">
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Phone:</span>
                     <p>{instructor.phone}</p>
                   </div>
                   <div>
+                    <span className="text-sm font-medium text-muted-foreground">DL Number:</span>
+                    <p>{instructor.DL_number || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Car Details:</span>
+                    <p>
+                      {instructor.car_make || "N/A"} - {instructor.car_mode || "N/A"} ({instructor.car_number || "N/A"})
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Experience:</span>
+                    <p>{instructor.experience || "Not provided"}</p>
+                  </div>
+                  <div>
                     <span className="text-sm font-medium text-muted-foreground">Areas:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-2 mt-1">
                       {instructor.areas?.map((area: string) => (
-                        <span 
-                          key={area} 
+                        <span
+                          key={area}
                           className="inline-block bg-muted text-xs px-2 py-1 rounded"
                         >
                           {area}
@@ -274,17 +335,47 @@ export default function InstructorsManagement() {
                       )) || "No areas assigned"}
                     </div>
                   </div>
-                  <div className="pt-4">
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => handleEditInstructor(instructor)}
-                    >
-                      Edit Details
-                    </Button>
-                  </div>
+                </div>
+
+                {/* View Schedule Button */}
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleOpenScheduleDialog(instructor.id_instructor)}
+                  >
+                    View Schedule
+                  </Button>
                 </div>
               </CardContent>
+              <div className="p-4 border-t">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleEditInstructor(instructor)}
+                >
+                  Edit Details
+                </Button>
+              </div>
+
+              {/* Schedule Dialog */}
+              {openScheduleDialogId === instructor.id_instructor && (
+                <Dialog open={true} onOpenChange={handleCloseScheduleDialog}>
+                  <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                      <DialogTitle>{instructor.name}'s Schedule</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      <ScheduleCalendar schedules={instructor.schedules} />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={handleCloseScheduleDialog}>
+                        Close
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </Card>
           ))}
         </div>
@@ -319,6 +410,99 @@ export default function InstructorsManagement() {
                   id="phone"
                   value={instructorData.phone}
                   onChange={(e) => setInstructorData({ ...instructorData, phone: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  value={instructorData.email}
+                  onChange={(e) =>
+                    setInstructorData({ ...instructorData, email: e.target.value })
+                  }
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="DL_number" className="text-right">
+                  DL Number
+                </Label>
+                <Input
+                  id="DL_number"
+                  value={instructorData.DL_number}
+                  onChange={(e) =>
+                    setInstructorData({
+                      ...instructorData,
+                      DL_number: e.target.value,
+                    })
+                  }
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="car_make" className="text-right">
+                  Car Make
+                </Label>
+                <Input
+                  id="car_make"
+                  value={instructorData.car_make}
+                  onChange={(e) =>
+                    setInstructorData({
+                      ...instructorData,
+                      car_make: e.target.value,
+                    })
+                  }
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="car_mode" className="text-right">
+                  Car Model
+                </Label>
+                <Input
+                  id="car_mode"
+                  value={instructorData.car_mode}
+                  onChange={(e) =>
+                    setInstructorData({
+                      ...instructorData,
+                      car_mode: e.target.value,
+                    })
+                  }
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="experience" className="text-right">
+                  Experience
+                </Label>
+                <Input
+                  id="experience"
+                  value={instructorData.experience}
+                  onChange={(e) =>
+                    setInstructorData({
+                      ...instructorData,
+                      experience: e.target.value,
+                    })
+                  }
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="car_number" className="text-right">
+                  Car Number
+                </Label>
+                <Input
+                  id="car_number"
+                  value={instructorData.car_number}
+                  onChange={(e) =>
+                    setInstructorData({
+                      ...instructorData,
+                      car_number: e.target.value,
+                    })
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -386,4 +570,90 @@ export default function InstructorsManagement() {
       </Dialog>
     </div>
   );
-} 
+}
+
+function ScheduleCalendar({ schedules }: { schedules: Schedule[] }) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const daysInMonth = getDaysInMonth(currentMonth);
+  const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+
+  const filteredSchedules = schedules.filter((schedule) => {
+    const scheduleDate = new Date(schedule.date);
+    return (
+      scheduleDate.getFullYear() === currentMonth.getFullYear() &&
+      scheduleDate.getMonth() === currentMonth.getMonth()
+    );
+  });
+
+  return (
+    <div>
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between mb-4">
+        <Button variant="outline" onClick={handlePrevMonth}>
+          Previous
+        </Button>
+        <h3 className="text-lg font-semibold">
+          {currentMonth.toLocaleString("default", { month: "long" })} {currentMonth.getFullYear()}
+        </h3>
+        <Button variant="outline" onClick={handleNextMonth}>
+          Next
+        </Button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-2 text-center">
+        {/* Days of the Week */}
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          <div key={day} className="font-medium text-sm text-muted-foreground">
+            {day}
+          </div>
+        ))}
+
+        {/* Empty Cells for Days Before the First Day of the Month */}
+        {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+          <div key={index} className="p-2"></div>
+        ))}
+
+        {/* Days of the Month */}
+        {Array.from({ length: daysInMonth }).map((_, dayIndex) => {
+          const day = dayIndex + 1;
+          const schedule = filteredSchedules.find(
+            (s) => new Date(s.date).getDate() === day
+          );
+
+          return (
+            <div
+              key={day}
+              className={`p-2 border rounded-md ${
+                schedule ? "bg-primary text-white" : "bg-gray-100"
+              }`}
+            >
+              {day}
+              {schedule && (
+                <div className="text-xs mt-1">
+                  <p>{schedule.start_time} - {schedule.end_time}</p>
+                  <p>{schedule.learner?.name || "No Learner"}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

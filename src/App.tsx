@@ -8,7 +8,7 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
-
+import LearnerManagement from "@/routes/admin/LearnerManagement";
 import Instructor from "@/app/instructor/Instructor";
 import InstructorProfile from "@/app/instructor/InstructorProfile";
 import OTP from "@/app/instructor/OTP";
@@ -195,6 +195,10 @@ export default function App() {
               <Route path="instructors" element={<InstructorsManagement />} />
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
+              <Route
+                path="learner-management"
+                element={<LearnerManagement />}
+              />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />
