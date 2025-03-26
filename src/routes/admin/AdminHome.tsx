@@ -2,6 +2,7 @@ import {
   Calendar,
   Calendar as CalendarIcon,
   ClipboardList,
+  UserPlus,
   Users,
 } from "lucide-react";
 import React from "react";
@@ -19,6 +20,13 @@ import {
 export default function AdminHome() {
   const adminFeatures = [
     {
+      title: "Learner Management",
+      description: "Create and manage learner enrollments",
+      icon: UserPlus,
+      link: "/admin/learner-management",
+      color: "text-teal-500",
+    },
+    {
       title: "Schedule Management",
       description: "Manage and organize training schedules for learners",
       icon: Calendar,
@@ -26,14 +34,14 @@ export default function AdminHome() {
       color: "text-blue-500",
     },
     {
-      title: "Instructors Management",
+      title: "Instructor Management",
       description: "Add, edit, and manage driving instructors",
       icon: Users,
       link: "/admin/instructors",
       color: "text-orange-500",
     },
     {
-      title: "Learner LL Details",
+      title: "Learner's LL Details",
       description: "Process and update learner license applications",
       icon: ClipboardList,
       link: "/admin/learner-ll-details",

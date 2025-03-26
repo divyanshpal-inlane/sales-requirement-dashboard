@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router";
 import { useSearchParams } from "react-router-dom";
 
@@ -22,6 +22,48 @@ export default function Login() {
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [resetRequested, setResetRequested] = useState<boolean>(false);
   const [otpVerified, setOtpVerified] = useState<boolean>(false);
+  const [timer, setTimer] = useState<number>(0); // Timer for resend OTP
+  const [isRequestingOtp, setIsRequestingOtp] = useState<boolean>(false); // Prevent multiple OTP requests
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (interval) {
+      clearInterval(interval);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timer]);
+
+  const handleSendOtp = async () => {
+    if (isRequestingOtp) return; // Prevent multiple clicks
+
+    try {
+      setIsRequestingOtp(true); // Disable button
+      await requestPasswordReset(phone);
+      setResetRequested(true);
+      setTimer(30); // Start 30-second timer
+    } catch (error) {
+      console.error("Failed to send OTP:", error);
+    } finally {
+      setIsRequestingOtp(false); // Re-enable button after request
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      await verifyOtpAndResetPassword(phone, otp, null);
+      setOtpVerified(true);
+    } catch (error) {
+      console.error("Failed to verify OTP:", error);
+    }
+  };
 
   const onSubmitHandler = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,13 +313,38 @@ export default function Login() {
                     </>
                   ) : (
                     <>
-                      <Button className="w-full" type="submit">
-                        {!resetRequested 
-                          ? "Send OTP" 
-                          : !otpVerified 
-                          ? "Verify OTP" 
-                          : "Reset Password"}
-                      </Button>
+                      {!resetRequested ? (
+                        <></>
+                      ) : !otpVerified ? (
+                        <Button className="w-full" type="submit">
+                          Verify OTP
+                        </Button>
+                      ) : (
+                        <Button className="w-full" type="submit">
+                          Reset Password
+                        </Button>
+                      )}
+                      {!resetRequested ? (
+                        <Button
+                          className="w-full"
+                          onClick={handleSendOtp}
+                          disabled={isRequestingOtp || phone.trim().length < 10}
+                        >
+                          Send OTP
+                        </Button>
+                      ) : (
+                        <>
+                          {!otpVerified && (
+                            <Button
+                              className="w-full"
+                              onClick={handleSendOtp}
+                              disabled={timer > 0 || isRequestingOtp}
+                            >
+                              Resend OTP {timer > 0 && `(${timer}s)`}
+                            </Button>
+                          )}
+                        </>
+                      )}
                       <p className="text-sm text-muted-foreground">
                         Remember your password?
                         <Button

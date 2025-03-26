@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Home,
   Lock,
+  X,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -135,7 +136,7 @@ export function LessonPlan({
   } = COURSES_DATA[lesson.course_id!].lessonsData[lesson.number?.toString()];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<number | null>(null);
+  const [ selectedCard, setSelectedCard] = useState<number | null>(null);
   const [isInfoCardOpen, setIsInfoCardOpen] = useState(true);
   const [isSessionDetailsMinimized, setIsSessionDetailsMinimized] =
     useState(true);
@@ -516,7 +517,7 @@ export function LessonPlan({
                   onClick={() => handleCardClick(index)}
                 >
                   <span className="text-3xl font-medium">{item.title}</span>
-                  <span className="text-2xl">{item.icon}</span>
+                  <span className="text-5xl">{item.icon}</span>
                 </motion.div>
               ))}
               <div className="h-20"></div>
@@ -530,28 +531,32 @@ export function LessonPlan({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className={`${menuItems[selectedCard].color} relative flex h-full w-full flex-col overflow-y-auto rounded-t-3xl`}
+              className={`${menuItems[selectedCard].color} absolute flex h-full w-full flex-col overflow-y-auto rounded-t-3xl`}
             >
-              <div className="sticky top-0 flex flex-row items-center justify-between gap-2 px-6">
-                <h2 className="text-3xl font-medium">
-                  {menuItems[selectedCard].title}
-                </h2>
-                <p className="text-[56px]">{menuItems[selectedCard].icon}</p>
-              </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-foreground mt-4 ml-4"
+            onClick={handleBackClick}
+          >
+            <X className="h-8 w-8" />
+          </Button>
+              <div className="sticky top-0 flex flex-row items-center justify-between gap-2 px-6 pt-4">
+        <h2 className="text-5xl font-medium">
+          {menuItems[selectedCard].title}
+        </h2>
+        <div className="flex items-center gap-4">
+          <p className="text-[78px]">{menuItems[selectedCard].icon}</p>
+        </div>
+      </div>
 
               <ScrollArea className="flex-grow px-6 pb-6">
-                <div className="flex h-full flex-col items-center justify-between gap-2">
+                <div className="flex h-full flex-col items-center justify-between gap-2 mt-10">
                   {menuItems[selectedCard].content}
                 </div>
                 <ScrollBar className="bg-accent-purple/60" />
               </ScrollArea>
-              <Button
-                className="absolute bottom-4 left-1/2 -translate-x-1/2"
-                variant={"secondary"}
-                onClick={handleBackClick}
-              >
-                Back to Menu
-              </Button>
+              
             </motion.div>
           )}
         </AnimatePresence>
@@ -559,3 +564,4 @@ export function LessonPlan({
     </div>
   );
 }
+

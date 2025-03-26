@@ -66,7 +66,99 @@ interface TimeSlotSelectionDialogProps {
   onConfirm: (instructorId: string) => void;
 }
 
-export default function CreateSchedule({
+export default function CreateScheduleWithInstructor({
+  learnerId,
+  learnerArea,
+  request,
+  onScheduleCreate,
+}: CreateScheduleProps) {
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
+
+  // Fetch instructors for the learner's area
+  const { data: instructors } = useQuery({
+    queryKey: ["instructors", learnerArea],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select("*")
+        .contains("areas", [learnerArea]);
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch the selected instructor's schedule
+  const { data: instructorSchedule } = useQuery({
+    queryKey: ["instructorSchedule", selectedInstructorId],
+    queryFn: async () => {
+      if (!selectedInstructorId) return [];
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("*")
+        .eq("instructor_id", selectedInstructorId);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedInstructorId,
+  });
+
+  return (
+    <div className="flex flex-col space-y-4">
+      {/* Instructor Selection */}
+      <div>
+        <h3 className="font-medium">Select Instructor</h3>
+        <Select
+          value={selectedInstructorId || ""}
+          onValueChange={(value) => setSelectedInstructorId(value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select an instructor" />
+          </SelectTrigger>
+          <SelectContent>
+            {instructors?.map((instructor) => (
+              <SelectItem key={instructor.id_instructor} value={instructor.id_instructor}>
+                {instructor.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Display Instructor's Schedule */}
+      {selectedInstructorId && (
+        <Card>
+          <CardContent>
+            <h3 className="font-medium">Instructor's Schedule</h3>
+            <ScrollArea className="h-64">
+              {instructorSchedule?.map((schedule) => (
+                <div key={schedule.id} className="p-2 border-b">
+                  <div>{schedule.date}</div>
+                  <div>
+                    {schedule.start_time} - {schedule.end_time}
+                  </div>
+                </div>
+              ))}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Learner's Schedule Creation */}
+      {selectedInstructorId && (
+        <CreateSchedule
+          learnerId={learnerId}
+          learnerArea={learnerArea}
+          request={request}
+          onScheduleCreate={onScheduleCreate}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateSchedule({
   learnerId,
   learnerArea,
   request,
@@ -843,7 +935,7 @@ export default function CreateSchedule({
 
           <Button
             onClick={handleCreateSchedule}
-            disabled={selectedSlots.length === 0}
+            disabled={selectedSlots.length/2 !== request.lesson_ids.length}
           >
             Create Schedule
           </Button>

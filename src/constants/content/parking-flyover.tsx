@@ -365,7 +365,7 @@ export const PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
         {
           title: "pass like a pro",
           icon: "👀",
-          color: "[#6257FF]",
+          color: "bg-[#00CE84]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
         },

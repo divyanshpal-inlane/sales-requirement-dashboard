@@ -135,7 +135,7 @@ export const LESSON_CONTENT: LessonContent = {
         },
         {
           title: "slay slopes like a pro",
-          icon: "⏰",
+          icon: "🔥",
           color: "bg-[#D9FF7A]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
