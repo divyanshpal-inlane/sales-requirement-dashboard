@@ -38,6 +38,9 @@ interface InstructorFromDB {
   DL_number: string | null;
   email: string | null;
   [key: string]: unknown; // Allow other properties with unknown type
+  address: string | null;
+  experience: string | null;
+  radius: number | null;
 }
 
 interface InstructorData {
@@ -51,6 +54,8 @@ interface InstructorData {
   experience: string;
   car_number: string;
   areas: string[];
+  address: string;
+  radius: number;
 }
 
 const initialInstructorData: InstructorData = {
@@ -63,6 +68,8 @@ const initialInstructorData: InstructorData = {
   experience: "",
   car_number: "",
   areas: [],
+  address: "",
+  radius: 0,
 };
 
 export default function InstructorsManagement() {
@@ -117,6 +124,8 @@ export default function InstructorsManagement() {
               experience: data.experience,
               car_number: data.car_number,
               areas: data.areas,
+              address: data.address,
+              radius: data.radius,
             },
           ])
           .select();
@@ -140,6 +149,8 @@ export default function InstructorsManagement() {
             experience: data.experience,
             car_number: data.car_number,
             areas: data.areas,
+            address: data.address,
+            radius: data.radius,
           })
           .eq("id_instructor", data.id_instructor)
           .select();
@@ -309,6 +320,14 @@ export default function InstructorsManagement() {
                     <p>{instructor.phone}</p>
                   </div>
                   <div>
+                    <span className="text-sm font-medium text-muted-foreground">Address:</span>
+                    <p>{instructor.address || "No address provided"}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Radius:</span>
+                    <p>{instructor.radius ? `${instructor.radius} km` : "No radius provided"}</p>
+                  </div>
+                  <div>
                     <span className="text-sm font-medium text-muted-foreground">DL Number:</span>
                     <p>{instructor.DL_number || "Not provided"}</p>
                   </div>
@@ -410,6 +429,29 @@ export default function InstructorsManagement() {
                   id="phone"
                   value={instructorData.phone}
                   onChange={(e) => setInstructorData({ ...instructorData, phone: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="address" className="text-right">
+                  Address
+                </Label>
+                <Input
+                  id="address"
+                  value={instructorData.address}
+                  onChange={(e) => setInstructorData({ ...instructorData, address: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="radius" className="text-right">
+                  Radius (km)
+                </Label>
+                <Input
+                  id="radius"
+                  type="number"
+                  value={instructorData.radius}
+                  onChange={(e) => setInstructorData({ ...instructorData, radius: parseFloat(e.target.value) || 0 })}
                   className="col-span-3"
                 />
               </div>

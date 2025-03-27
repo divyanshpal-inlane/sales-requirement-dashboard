@@ -104,7 +104,7 @@ const TriviaCard = ({
         <div
           className="absolute -left-4 top-14 z-10 -m-2 p-2 text-center text-2xl font-light text-white"
           style={{
-            backgroundImage: "url(/public/assets/trivia-tag.png)",
+            backgroundImage: "url(/assets/trivia-tag.png)",
             backgroundSize: "cover",
             width: "70%",
           }}
