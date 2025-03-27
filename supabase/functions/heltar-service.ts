@@ -21,7 +21,7 @@ export const TEMPLATES = {
     id: "672562828631823",
     language: "en",
     content:
-      "Hey {{1}},  \n\nGreat choice with the {{2}}! You're one step away from starting your driving journey 🚗.  \n\n*Amount Due:* {{3}} \n*Duration:* {{4}}  \n\nTo complete the registration, you can pay here: {{5}}  \n\nThank you so much 🤩. We're in this together - everyone starts from the beginning, and soon you'll be driving with the breeze in your hair! 🌬️   \n\nIf you need any help, please ping us. We can't wait to see you behind the wheel!  \n\nLet's go, \nLane 😊🚘",
+      "Hey {{1}},  \n\nGreat choice with the {{2}}! You're one step away from starting your driving journey 🚗.  \n\n*Amount Due:* {{3}} \n*Duration:* {{4}} hours  \n\nTo complete the registration, you can pay here: {{5}}  \n\nThank you so much 🤩. We're in this together - everyone starts from the beginning, and soon you'll be driving with the breeze in your hair! 🌬️   \n\nIf you need any help, please ping us. We can't wait to see you behind the wheel!  \n\nLet's go, \nLane 😊🚘",
   },
   THANK_YOU_PAYMENT_DL: {
     name: "webapp_thank_you_payment_book_classes",

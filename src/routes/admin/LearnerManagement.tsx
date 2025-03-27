@@ -43,19 +43,20 @@ export default function LearnerManagement() {
   const { toast } = useToast();
 
   const courses = [
-    { id: "e129f667-0510-4f07-9847-edb58356dc74", name: "Beginner Course" },
-    { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover" },
-    { id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb", name: "Parking + flyover" },
-    { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking" },
-    { id: "abddddb8-3f54-41ea-a64b-5ba55988b12a", name: "Slopes + Parking" },
-    { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes" },
-    { id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3", name: "Traffic + Flyover" },
+    { id: "e129f667-0510-4f07-9847-edb58356dc74", name: "Beginner Course", duration: 10 },
+    { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
+    { id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb", name: "Parking + flyover", duration: 4 },
+    { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
+    { id: "abddddb8-3f54-41ea-a64b-5ba55988b12a", name: "Slopes + Parking", duration: 4 },
+    { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
+    { id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3", name: "Traffic + Flyover", duration: 6 },
     {
       id: "b991363c-6791-411e-9cb8-6723e40d0a0a",
       name: "Traffic + Parking + Flyover",
+      duration: 8,
     },
-    { id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936", name: "Traffic + Parking" },
-    { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic" },
+    { id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936", name: "Traffic + Parking", duration: 6 },
+    { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
   ];
 
   const handleInputChange = (e) => {
@@ -146,8 +147,8 @@ export default function LearnerManagement() {
           message_type: "PAYMENT_LINK",
           learner_id: createdLearnerId,
           course_name: learnerData.courseName,
-          payment_amount: learnerData.amount,
-          duration: 10,
+          payment_amount: learnerData.installment1Amount === 0 ? learnerData.amount : learnerData.installment1Amount,
+          duration: courses.find((course) => course.id === learnerData.courseId).duration,
           payment_link: paymentLink,
         },
       });

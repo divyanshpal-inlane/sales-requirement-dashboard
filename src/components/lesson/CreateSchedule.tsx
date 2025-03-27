@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { addDays, format, isBefore } from "date-fns";
-import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { addDays, format, startOfWeek, endOfWeek, isSameDay } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,7 @@ export default function CreateScheduleWithInstructor({
   onScheduleCreate,
 }: CreateScheduleProps) {
   const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
 
   // Fetch instructors for the learner's area
   const { data: instructors } = useQuery({
@@ -80,9 +81,8 @@ export default function CreateScheduleWithInstructor({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Instructor")
-        .select("*")
-        .contains("areas", [learnerArea]);
-
+        .select("*");
+        
       if (error) throw error;
       return data;
     },
@@ -90,13 +90,17 @@ export default function CreateScheduleWithInstructor({
 
   // Fetch the selected instructor's schedule
   const { data: instructorSchedule } = useQuery({
-    queryKey: ["instructorSchedule", selectedInstructorId],
+    queryKey: ["instructorSchedule", selectedInstructorId, currentWeekStart],
     queryFn: async () => {
       if (!selectedInstructorId) return [];
+      const start = format(currentWeekStart, "yyyy-MM-dd");
+      const end = format(endOfWeek(currentWeekStart), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("Schedule")
         .select("*")
-        .eq("instructor_id", selectedInstructorId);
+        .eq("instructor_id", selectedInstructorId)
+        .gte("date", start)
+        .lte("date", end);
 
       if (error) throw error;
       return data;
@@ -104,56 +108,190 @@ export default function CreateScheduleWithInstructor({
     enabled: !!selectedInstructorId,
   });
 
-  return (
-    <div className="flex flex-col space-y-4">
-      {/* Instructor Selection */}
-      <div>
-        <h3 className="font-medium">Select Instructor</h3>
-        <Select
-          value={selectedInstructorId || ""}
-          onValueChange={(value) => setSelectedInstructorId(value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select an instructor" />
-          </SelectTrigger>
-          <SelectContent>
-            {instructors?.map((instructor) => (
-              <SelectItem key={instructor.id_instructor} value={instructor.id_instructor}>
-                {instructor.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+  // Separate instructors into two groups
+  const [matchingInstructors, otherInstructors] = useMemo(() => {
+    if (!instructors) return [[], []];
+    console.log(instructors);
+  
+    return instructors.reduce(
+      ([matching, others], instructor) => {
+        console.log(instructor.areas, instructor.name);
+        if (instructor.areas.includes(learnerArea)) {
+          matching.push(instructor);
+        } else {
+          others.push(instructor);
+        }
+        console.log(matching, others);
+        return [matching, others];
+      },
+      [[], []]
+    );
+  }, [instructors, learnerArea]);
+  
 
-      {/* Display Instructor's Schedule */}
-      {selectedInstructorId && (
+  const handleWeekChange = (direction: "prev" | "next") => {
+    setCurrentWeekStart((prev) =>
+      direction === "next" ? addDays(prev, 7) : addDays(prev, -7)
+    );
+  };
+
+  return (
+    <div className="flex space-x-4">
+      {/* Left Panel: Instructor's Schedule */}
+      <div className="w-1/2">
         <Card>
           <CardContent>
-            <h3 className="font-medium">Instructor's Schedule</h3>
-            <ScrollArea className="h-64">
-              {instructorSchedule?.map((schedule) => (
-                <div key={schedule.id} className="p-2 border-b">
-                  <div>{schedule.date}</div>
-                  <div>
-                    {schedule.start_time} - {schedule.end_time}
-                  </div>
-                </div>
-              ))}
-            </ScrollArea>
+            <h3 className="font-medium mb-4 mt-4">Select Instructor</h3>
+            <Select
+              value={selectedInstructorId || ""}
+              onValueChange={(value) => setSelectedInstructorId(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select an instructor" />
+              </SelectTrigger>
+              <SelectContent>
+                {matchingInstructors.map((instructor) => (
+                  <SelectItem key={instructor.id_instructor} value={instructor.id_instructor}>
+                    {instructor.name} (Matching Area)
+                  </SelectItem>
+                ))}
+                {otherInstructors.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-sm text-gray-500">Other Instructors</div>
+                    {otherInstructors.map((instructor) => (
+                      <SelectItem key={instructor.id_instructor} value={instructor.id_instructor}>
+                        {instructor.name}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
-      )}
+        <div className="flex justify-between mb-6"></div>
+        <Card>
+          <CardContent>
+            <h3 className="font-medium mb-4 mt-4">Instructor's Weekly Schedule</h3>
+            <div className="mb-4">
+              <h4 className="font-medium">Instructor Details:</h4>
+              {selectedInstructorId && (
+                <>
+                  <p className="text-sm">
+                    Address: {
+                      instructors.find(instructor => instructor.id_instructor === selectedInstructorId)?.address
+                    }
+                  </p>
+                  <p className="text-sm">
+                    Radius: {
+                      instructors.find(instructor => instructor.id_instructor === selectedInstructorId)?.radius
+                    } km
+                  </p>
+                </>
+              )}
+            </div>
 
-      {/* Learner's Schedule Creation */}
-      {selectedInstructorId && (
-        <CreateSchedule
-          learnerId={learnerId}
-          learnerArea={learnerArea}
-          request={request}
-          onScheduleCreate={onScheduleCreate}
-        />
-      )}
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleWeekChange("prev")}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="font-medium">
+                {format(currentWeekStart, "MMM d")} -{" "}
+                {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleWeekChange("next")}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-200">
+                <thead>
+                  <tr>
+                    <th className="border border-gray-200 p-2">Time</th>
+                    {Array.from({ length: 7 }).map((_, index) => {
+                      const day = addDays(currentWeekStart, index);
+                      return (
+                        <th key={index} className="border border-gray-200 p-2">
+                          {format(day, "EEE")}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+  {Array.from({ length: 32 }).map((_, timeIndex) => {
+    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
+    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+    return (
+      <tr key={timeIndex}>
+        <td className="border border-gray-200 p-2 text-center">
+          {format(new Date().setHours(hour, minute), "h:mm a")}
+        </td>
+        {Array.from({ length: 7 }).map((_, dayIndex) => {
+          const day = addDays(currentWeekStart, dayIndex);
+
+          // Find the schedule for the current day and time
+          const schedule = instructorSchedule?.find((s) => {
+            const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+            const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+            const currentTime = new Date(day);
+            currentTime.setHours(hour, minute);
+
+            return (
+              isSameDay(scheduleStart, day) &&
+              currentTime >= scheduleStart &&
+              currentTime < scheduleEnd
+            );
+          });
+
+          // Determine if this cell is the start of a schedule
+          const isScheduleStart =
+            schedule &&
+            parseInt(schedule.start_time.split(":")[0]) === hour &&
+            parseInt(schedule.start_time.split(":")[1]) === minute;
+
+          return (
+            <td
+              key={dayIndex}
+              className={`border border-gray-200 p-2 text-center ${
+                schedule ? "bg-primary text-white" : ""
+              }`}
+            >
+              {isScheduleStart ? `${schedule.start_time} - ${schedule.end_time}` : ""}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  })}
+</tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Right Panel: Learner's Schedule Selection */}
+      <div className="w-1/2">
+
+        {/* Original Calendar for Learner's Schedule */}
+        <div className="mt-4">
+          <CreateSchedule
+            learnerId={learnerId}
+            learnerArea={learnerArea}
+            request={request}
+            onScheduleCreate={onScheduleCreate}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -186,8 +324,7 @@ function CreateSchedule({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Instructor")
-        .select("*")
-        .contains("areas", [learnerArea]);
+        .select("*");
 
       if (error) throw error;
       return data;
