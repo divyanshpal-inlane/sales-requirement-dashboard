@@ -166,7 +166,7 @@ export function LessonPlan({
             color: video.color ?? "",
             content: (
               <video
-                className="overflow-hidden rounded-lg size-[80%]"
+                className="overflow-hidden rounded-lg "
                 autoPlay
                 playsInline
                 muted={false}

@@ -396,9 +396,9 @@ export default function AdminSchedules() {
 
         <div className="flex-1 overflow-hidden">
           <TabsContent value="new" className="h-full">
-            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+            <div className="grid h-full grid-cols-12 gap-4 p-6">
               {/* Learners List */}
-              <Card className="md:col-span-1">
+              <Card className="col-span-2">
                 <CardHeader>
                   <CardTitle>Learners Needing Schedule</CardTitle>
                 </CardHeader>
@@ -431,7 +431,7 @@ export default function AdminSchedules() {
               </Card>
 
               {/* Schedule Creation */}
-              <Card className="md:col-span-2">
+              <Card className="col-span-10">
                 <CardHeader>
                   <CardTitle>
                     {selectedRequest
@@ -460,9 +460,9 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="reschedule" className="h-full">
-            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+            <div className="grid h-full grid-cols-12 gap-4 p-6 ">
               {/* Learners List */}
-              <Card className="md:col-span-1">
+              <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle>Reschedule Requests</CardTitle>
                 </CardHeader>
@@ -495,7 +495,7 @@ export default function AdminSchedules() {
               </Card>
 
               {/* Schedule Creation */}
-              <Card className="md:col-span-2">
+              <Card className="md:col-span-10">
                 <CardHeader>
                   <CardTitle>
                     {selectedRequest
@@ -524,9 +524,9 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="lesson10" className="h-full">
-            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+            <div className="grid h-full grid-cols-12 gap-4 p-6 ">
               {/* Learners List */}
-              <Card className="md:col-span-1">
+              <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle>10th Lesson Requests</CardTitle>
                 </CardHeader>
@@ -559,7 +559,7 @@ export default function AdminSchedules() {
               </Card>
 
               {/* Schedule Creation */}
-              <Card className="md:col-span-2">
+              <Card className="md:col-span-10">
                 <CardHeader>
                   <CardTitle>
                     {selectedRequest

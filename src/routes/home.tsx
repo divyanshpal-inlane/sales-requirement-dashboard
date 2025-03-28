@@ -75,7 +75,7 @@ export default function Home() {
     return <div>Loading...</div>;
   }
 
-  if (!payment || payment.status !== "completed") {
+  if (!payment ) {
     return (
       <div className="container mx-auto max-w-md py-8">
         <PaymentStatusCard />
