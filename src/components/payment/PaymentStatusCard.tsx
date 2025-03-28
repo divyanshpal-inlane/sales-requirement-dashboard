@@ -34,7 +34,7 @@ function PaymentStatusCard() {
           <p className="mb-4 text-sm text-gray-500">
             Please complete the payment to access your account.
           </p>
-          <Button onClick={() => navigate("/payment?")} className="w-full">
+          <Button onClick={() => navigate(`/payment?phone=${learner?.phone}`)} className="w-full">
             Make Payment
           </Button>
         </CardContent>

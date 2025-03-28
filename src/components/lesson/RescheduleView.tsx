@@ -7,6 +7,7 @@ import invariant from "tiny-invariant";
 import RescheduleConfirmationSheet from "@/components/lesson/RescheduleConfirmationSheet";
 import RescheduleSelector from "@/components/lesson/RescheduleSelector";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"; // Import Dialog components
 import { supabase } from "@/lib/supabaseClient";
 import {
   Schedule,
@@ -30,6 +31,7 @@ function RescheduleView() {
   invariant(lessonId, "lessonId is required");
   const { data: learner } = useLearner();
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false); // State for policy dialog
   const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
   const { data: enrolledCourse } = useLearnerEnrollment({ learnerId: learner?.id });
 
@@ -86,7 +88,7 @@ function RescheduleView() {
           const now = new Date();
           const diffHours =
             (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-          return total + (diffHours < 48 ? 300 : 0);
+          return total + (diffHours < 24 ? 300 : 0);
         }
         return total;
       },
@@ -121,6 +123,12 @@ function RescheduleView() {
             Reschedule upcoming lessons
           </h1>
           <p className="">Select new time slots for your lessons</p>
+          <p
+            className="mt-2 text-sm underline cursor-pointer"
+            onClick={() => setIsPolicyDialogOpen(true)} // Open policy dialog
+          >
+            View Reschedule Policy
+          </p>
         </div>
       </div>
 
@@ -140,6 +148,22 @@ function RescheduleView() {
         learnerId={learner.id}
         courseId={enrolledCourse?.course_id}
       />
+
+      {/* Reschedule Policy Dialog */}
+      <Dialog open={isPolicyDialogOpen} onOpenChange={setIsPolicyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lesson Reschedule Policy</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm">
+            <ul className="list-disc pl-5">
+              <li>Lessons rescheduled within 24 hours will incur a nominal fee of ₹300.</li>
+              <li>A ₹300 charge applies for missed lessons (no-show).</li>
+              <li>To avoid fees, please provide at least 24 hours' notice for rescheduling.</li>
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
