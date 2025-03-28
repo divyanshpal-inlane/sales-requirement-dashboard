@@ -168,7 +168,10 @@ serve(async (req) => {
           .from("enrollment")
           .update({
             payment_id: paymentRecord.id,
-            status: "pending",
+            status:
+              existingEnrollment?.payment_status === "half_paid"
+                ? "active"
+                : "pending",
             installment_mode:
               installmentType || existingEnrollment.installment_mode,
             installment1_amount:

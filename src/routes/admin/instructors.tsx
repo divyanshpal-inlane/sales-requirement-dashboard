@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, PlusCircle, X } from "lucide-react";
 import { useState } from "react";
-
+import { addDays, format, startOfWeek, endOfWeek, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -382,10 +382,13 @@ export default function InstructorsManagement() {
                 <Dialog open={true} onOpenChange={handleCloseScheduleDialog}>
                   <DialogContent className="sm:max-w-[600px]">
                     <DialogHeader>
-                      <DialogTitle>{instructor.name}'s Schedule</DialogTitle>
+                      <DialogTitle>{instructor.name}'s Weekly Schedule</DialogTitle>
                     </DialogHeader>
                     <div className="mt-4">
-                      <ScheduleCalendar schedules={instructor.schedules} />
+                      <WeeklyScheduleView
+                        schedules={instructor.schedules}
+                        unavailability={instructor.unavailability || []}
+                      />
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={handleCloseScheduleDialog}>
@@ -695,6 +698,126 @@ function ScheduleCalendar({ schedules }: { schedules: Schedule[] }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function WeeklyScheduleView({
+  schedules,
+  unavailability,
+}: {
+  schedules: Schedule[];
+  unavailability: Unavailability[];
+}) {
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
+
+  const handleWeekChange = (direction: "prev" | "next") => {
+    setCurrentWeekStart((prev) =>
+      direction === "next" ? addDays(prev, 7) : addDays(prev, -7)
+    );
+  };
+
+  return (
+    <div>
+      {/* Week Navigation */}
+      <div className="flex items-center justify-between mb-4 ">
+        <Button variant="outline" onClick={() => handleWeekChange("prev")}>
+          Previous Week
+        </Button>
+        <h3 className="text-lg font-semibold">
+          {format(currentWeekStart, "MMM d")} -{" "}
+          {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
+        </h3>
+        <Button variant="outline" onClick={() => handleWeekChange("next")}>
+          Next Week
+        </Button>
+      </div>
+
+      {/* Weekly Schedule Table */}
+      <div className="overflow-x-auto overflow-y-auto p-4 scrollbar-none  h-[calc(100vh-50px)] max-h-96"style={{ scrollbarWidth: "none" }}>
+        <table className="w-full border-collapse border border-gray-200">
+          <thead>
+            <tr>
+              <th className="border border-gray-200 p-2">Time</th>
+              {Array.from({ length: 7 }).map((_, index) => {
+                const day = addDays(currentWeekStart, index);
+                return (
+                  <th key={index} className="border border-gray-200 p-2">
+                    {format(day, "EEE")}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 32 }).map((_, timeIndex) => {
+              const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
+              const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+              return (
+                <tr key={timeIndex}>
+                  <td className="border border-gray-200 p-2 text-center">
+                    {format(new Date().setHours(hour, minute), "h:mm a")}
+                  </td>
+                  {Array.from({ length: 7 }).map((_, dayIndex) => {
+                    const day = addDays(currentWeekStart, dayIndex);
+
+                    // Find the schedule for the current day and time
+                    const schedule = schedules.find((s) => {
+                      const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                      const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                      const currentTime = new Date(day);
+                      currentTime.setHours(hour, minute);
+
+                      return (
+                        isSameDay(scheduleStart, day) &&
+                        currentTime >= scheduleStart &&
+                        currentTime < scheduleEnd
+                      );
+                    });
+
+                    // Find unavailability for the current day and time
+                    const unavailable = unavailability.find((u) => {
+                      const unavailableStart = new Date(
+                        `${u.booked_date}T${u.booked_start_time}`
+                      );
+                      const unavailableEnd = new Date(
+                        `${u.booked_date}T${u.booked_end_time}`
+                      );
+                      const currentTime = new Date(day);
+                      currentTime.setHours(hour, minute);
+
+                      return (
+                        isSameDay(unavailableStart, day) &&
+                        currentTime >= unavailableStart &&
+                        currentTime < unavailableEnd
+                      );
+                    });
+
+                    return (
+                      <td
+                        key={dayIndex}
+                        className={`border border-gray-200 p-2 text-center ${
+                          schedule
+                            ? "bg-primary text-white"
+                            : unavailable
+                            ? "bg-red-200 text-red-800"
+                            : ""
+                        }`}
+                      >
+                        {schedule
+                          ? `${schedule.start_time} - ${schedule.end_time}`
+                          : unavailable
+                          ? "Unavailable"
+                          : ""}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

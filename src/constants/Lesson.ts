@@ -52,8 +52,8 @@ export const LESSON_CONTENT: LessonContent = {
       },
       video: [
         {
-          title: "Car command center",
-          icon: "🚨",
+          title: "Car command center🚨",
+          icon: "",
           color: "bg-[#00CE84]",
           video_path:
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/1.mp4",

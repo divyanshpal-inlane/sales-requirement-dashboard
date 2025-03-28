@@ -938,7 +938,7 @@ function CreateSchedule({
 
   return (
     <div className="w-full space-y-4">
-      {lessons && lessons.length > 0 && (
+      {lessons && lessons.length > 0 && !request.type === "new" && (
         <Card>
           <CardContent className="p-4">
             <h3 className="mb-3 font-medium">Lessons to Reschedule</h3>
