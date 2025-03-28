@@ -71,7 +71,7 @@ export default function RescheduleSelector({
     const now = new Date();
     const diffHours =
       (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return diffHours < 48 ? 300 : 0;
+    return diffHours < 24 ? 300 : 0;
   };
 
   const getTotalFee = () => {
