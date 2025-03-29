@@ -325,15 +325,90 @@ export default function AdminSchedules() {
     scheduleId: string,
     updates: Partial<Schedule>,
   ) => {
-    const { error } = await supabase
+    // Update the selected schedule with the new date and time
+    const { error: updateError } = await supabase
       .from("Schedule")
       .update(updates)
       .eq("id", scheduleId);
-
-    if (error) {
-      throw new Error(error.message); // Throw error to be caught in the "Save" button logic
+  
+    if (updateError) {
+      throw new Error(updateError.message);
     }
+  
+    // Fetch all schedules for the learner with their associated lesson information
+    const { data: learnerSchedules, error: fetchError } = await supabase
+      .from("Schedule")
+      .select(`
+        id, 
+        date, 
+        start_time, 
+        end_time, 
+        instructor_id, 
+        lesson_id, 
+        course_id, 
+        learner_id
+      `)
+      .eq("learner_id", selectedSchedule.learner_id)
+      .eq("course_id", selectedSchedule.course_id);
+  
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+  
+    // Fetch all lessons for this course to get their lesson numbers
+    const { data: courseLessons, error: lessonError } = await supabase
+      .from("Lesson")
+      .select("id, number")
+      .eq("course_id", selectedSchedule.course_id)
+      .order("number", { ascending: true });
+  
+    if (lessonError) {
+      throw new Error(lessonError.message);
+    }
+  
+    // Sort schedules chronologically
+    const sortedSchedules = learnerSchedules.sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.start_time}`);
+      const dateB = new Date(`${b.date}T${b.start_time}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+  
+    // Create a mapping of lesson numbers to lesson IDs
+    const lessonNumberToIdMap = courseLessons.reduce((map, lesson) => {
+      map[lesson.number] = lesson.id;
+      return map;
+    }, {});
+  
+    // Update lesson IDs in the database based on chronological order
+    for (let i = 0; i < sortedSchedules.length; i++) {
+      const schedule = sortedSchedules[i];
+      const lessonNumber = i + 1;
+      
+      // Get the lesson ID that corresponds to this lesson number
+      const newLessonId = lessonNumberToIdMap[lessonNumber];
+      
+      if (!newLessonId) {
+        console.warn(`No lesson found for lesson number ${lessonNumber}`);
+        continue;
+      }
+      
+      // Only update if the lesson ID has changed
+      if (schedule.lesson_id !== newLessonId) {
+        const { error: lessonUpdateError } = await supabase
+          .from("Schedule")
+          .update({ lesson_id: newLessonId })
+          .eq("id", schedule.id);
+          
+        if (lessonUpdateError) {
+          throw new Error(`Failed to update lesson ID for schedule ${schedule.id}: ${lessonUpdateError.message}`);
+        }
+      }
+    }
+  
+    // Refetch the active learners to reflect the changes in the UI
+    await refetchActiveLearners();
   };
+  
 
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
 

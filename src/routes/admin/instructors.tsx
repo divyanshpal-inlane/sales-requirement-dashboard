@@ -39,7 +39,7 @@ interface InstructorFromDB {
   email: string | null;
   [key: string]: unknown; // Allow other properties with unknown type
   address: string | null;
-  experience: string | null;
+  experience: number | null;
   radius: number | null;
 }
 
@@ -51,7 +51,7 @@ interface InstructorData {
   DL_number: string;
   car_make: string;
   car_mode: string;
-  experience: string;
+  experience: number;
   car_number: string;
   areas: string[];
   address: string;
@@ -65,7 +65,7 @@ const initialInstructorData: InstructorData = {
   DL_number: "",
   car_make: "",
   car_mode: "",
-  experience: "",
+  experience: 0,
   car_number: "",
   areas: [],
   address: "",
@@ -223,7 +223,7 @@ export default function InstructorsManagement() {
       DL_number: instructor.DL_number || "",
       car_make: instructor.car_make || "",
       car_mode: instructor.car_mode || "",
-      experience: instructor.experience || "",
+      experience: instructor.experience || 0,
       car_number: instructor.car_number || "",
       areas: instructor.areas || [],
     });
@@ -380,7 +380,7 @@ export default function InstructorsManagement() {
               {/* Schedule Dialog */}
               {openScheduleDialogId === instructor.id_instructor && (
                 <Dialog open={true} onOpenChange={handleCloseScheduleDialog}>
-                  <DialogContent className="sm:max-w-[600px]">
+                  <DialogContent className="sm:max-w-[1200px]">
                     <DialogHeader>
                       <DialogTitle>{instructor.name}'s Weekly Schedule</DialogTitle>
                     </DialogHeader>
@@ -405,7 +405,7 @@ export default function InstructorsManagement() {
 
       {/* Add/Edit Instructor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto scrollbar-none  h-[calc(100vh-50px)]"style={{ scrollbarWidth: "none" }}>
           <DialogHeader>
             <DialogTitle>
               {formMode === "add" ? "Add New Instructor" : "Edit Instructor Details"}
@@ -415,24 +415,26 @@ export default function InstructorsManagement() {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">
-                  Name
+                  Name<span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="name"
                   value={instructorData.name}
                   onChange={(e) => setInstructorData({ ...instructorData, name: e.target.value })}
                   className="col-span-3"
+                  required
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">
-                  Phone
+                  Phone<span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="phone"
                   value={instructorData.phone}
                   onChange={(e) => setInstructorData({ ...instructorData, phone: e.target.value })}
                   className="col-span-3"
+                  required
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -491,17 +493,21 @@ export default function InstructorsManagement() {
                 <Label htmlFor="car_make" className="text-right">
                   Car Make
                 </Label>
-                <Input
-                  id="car_make"
-                  value={instructorData.car_make}
-                  onChange={(e) =>
-                    setInstructorData({
-                      ...instructorData,
-                      car_make: e.target.value,
-                    })
+                <Select
+                  value={instructorData.car_make || ""}
+                  onValueChange={(value) =>
+                    setInstructorData({ ...instructorData, car_make: value })
                   }
                   className="col-span-3"
-                />
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select Car Make" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Manual">Manual</SelectItem>
+                    <SelectItem value="Automatic">Automatic</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="car_mode" className="text-right">

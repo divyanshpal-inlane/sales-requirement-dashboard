@@ -414,6 +414,7 @@ function Instructor() {
                     <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                       <div>Lesson {lesson?.number}</div>
                       <div className="text-sm">
+                        <div>{new Date(instructorData.instructorSchedule[index].date).toLocaleDateString()}</div>
                         {formatTimeRange(
                           instructorData.instructorSchedule[index].start_time,
                           instructorData.instructorSchedule[index].end_time,
