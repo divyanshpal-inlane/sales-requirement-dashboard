@@ -132,43 +132,42 @@ function PreferenceSelector({
       <Card className="flex-1 border-none shadow-none">
         <CardContent className="relative h-full px-0 pt-4">
           <div className="grid grid-cols-[120px,1fr]">
-            {/* Fixed days column */}
+            {/* Fixed time slots column */}
             <div className="relative z-10 bg-white">
-              <div className="h-8" /> {/* Space for time slot headers */}
-              <div className="mt-4 space-y-3">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={day} className="h-12 pr-4 text-right font-medium">
-                    {day}
+              <div className="h-8" /> {/* Space for day headers */}
+              <div className="mt-10 space-y-3">
+                {TIME_SLOTS.map((slot) => (
+                  <div key={slot} className="h-24 pr-4 text-right font-medium">
+                    {TIME_SLOT_LABELS[slot]}
                   </div>
                 ))}
               </div>
             </div>
-            
 
-            {/* Scrollable time slots */}
+            {/* Scrollable days */}
             <div className="relative overflow-hidden pr-8">
               <ScrollArea className="h-full w-full">
                 <div className="min-w-[700px]">
-                  {/* Time slot headers */}
-                  <div className="grid grid-cols-5 gap-6">
-                    {TIME_SLOTS.map((slot) => (
-                      <div key={slot} className="text-sm font-medium">
-                        {TIME_SLOT_LABELS[slot]}
+                  {/* Day headers */}
+                  <div className="grid grid-cols-7 gap-6">
+                    {DAYS_OF_WEEK.map((day) => (
+                      <div key={day} className="text-sm font-medium">
+                        {day}
                       </div>
                     ))}
                   </div>
 
                   {/* Time slot buttons */}
                   <div className="mt-4 space-y-3">
-                    {DAYS_OF_WEEK.map((_, index) => (
-                      <div key={index} className="grid grid-cols-5 gap-6">
-                        {TIME_SLOTS.map((slot) => {
+                    {TIME_SLOTS.map((slot) => (
+                      <div key={slot} className="grid grid-cols-7 gap-6">
+                        {DAYS_OF_WEEK.map((_, index) => {
                           const isSelected = selectedSlots.has(`${index}-${slot}`);
                           return (
                             <Button
                               key={`${index}-${slot}`}
                               variant={isSelected ? "default" : "outline"}
-                              className={`h-12 rounded-lg border-2 ${
+                              className={`h-24 rounded-lg border-2 ${
                                 isSelected
                                   ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                   : "border-gray-200 hover:bg-gray-50"

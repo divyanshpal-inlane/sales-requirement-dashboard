@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { addDays, format, startOfWeek, endOfWeek, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,26 +108,27 @@ export default function CreateScheduleWithInstructor({
     enabled: !!selectedInstructorId,
   });
 
-  // Separate instructors into two groups
+  // Case-insensitive matching for instructor locations
   const [matchingInstructors, otherInstructors] = useMemo(() => {
     if (!instructors) return [[], []];
-    console.log(instructors);
-  
+
     return instructors.reduce(
       ([matching, others], instructor) => {
-        console.log(instructor.areas, instructor.name);
-        if (instructor.areas.includes(learnerArea)) {
+        if (
+          instructor.areas.some(
+            (area: string) =>
+              area.toLowerCase() === learnerArea.toLowerCase() // Case-insensitive comparison
+          )
+        ) {
           matching.push(instructor);
         } else {
           others.push(instructor);
         }
-        console.log(matching, others);
         return [matching, others];
       },
       [[], []]
     );
   }, [instructors, learnerArea]);
-  
 
   const handleWeekChange = (direction: "prev" | "next") => {
     setCurrentWeekStart((prev) =>
@@ -227,52 +228,52 @@ export default function CreateScheduleWithInstructor({
                   </tr>
                 </thead>
                 <tbody>
-  {Array.from({ length: 32 }).map((_, timeIndex) => {
-    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
-    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
-    return (
-      <tr key={timeIndex}>
-        <td className="border border-gray-200 p-2 text-center">
-          {format(new Date().setHours(hour, minute), "h:mm a")}
-        </td>
-        {Array.from({ length: 7 }).map((_, dayIndex) => {
-          const day = addDays(currentWeekStart, dayIndex);
+                  {Array.from({ length: 32 }).map((_, timeIndex) => {
+                    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
+                    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+                    return (
+                      <tr key={timeIndex}>
+                        <td className="border border-gray-200 p-2 text-center">
+                          {format(new Date().setHours(hour, minute), "h:mm a")}
+                        </td>
+                        {Array.from({ length: 7 }).map((_, dayIndex) => {
+                          const day = addDays(currentWeekStart, dayIndex);
 
-          // Find the schedule for the current day and time
-          const schedule = instructorSchedule?.find((s) => {
-            const scheduleStart = new Date(`${s.date}T${s.start_time}`);
-            const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
-            const currentTime = new Date(day);
-            currentTime.setHours(hour, minute);
+                          // Find the schedule for the current day and time
+                          const schedule = instructorSchedule?.find((s) => {
+                            const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                            const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                            const currentTime = new Date(day);
+                            currentTime.setHours(hour, minute);
 
-            return (
-              isSameDay(scheduleStart, day) &&
-              currentTime >= scheduleStart &&
-              currentTime < scheduleEnd
-            );
-          });
+                            return (
+                              isSameDay(scheduleStart, day) &&
+                              currentTime >= scheduleStart &&
+                              currentTime < scheduleEnd
+                            );
+                          });
 
-          // Determine if this cell is the start of a schedule
-          const isScheduleStart =
-            schedule &&
-            parseInt(schedule.start_time.split(":")[0]) === hour &&
-            parseInt(schedule.start_time.split(":")[1]) === minute;
+                          // Determine if this cell is the start of a schedule
+                          const isScheduleStart =
+                            schedule &&
+                            parseInt(schedule.start_time.split(":")[0]) === hour &&
+                            parseInt(schedule.start_time.split(":")[1]) === minute;
 
-          return (
-            <td
-              key={dayIndex}
-              className={`border border-gray-200 p-2 text-center ${
-                schedule ? "bg-primary text-white" : ""
-              }`}
-            >
-              {isScheduleStart ? `${schedule.start_time} - ${schedule.end_time}` : ""}
-            </td>
-          );
-        })}
-      </tr>
-    );
-  })}
-</tbody>
+                          return (
+                            <td
+                              key={dayIndex}
+                              className={`border border-gray-200 p-2 text-center ${
+                                schedule ? "bg-primary text-white" : ""
+                              }`}
+                            >
+                              {isScheduleStart ? `${schedule.start_time} - ${schedule.end_time}` : ""}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
           </CardContent>
@@ -281,14 +282,13 @@ export default function CreateScheduleWithInstructor({
 
       {/* Right Panel: Learner's Schedule Selection */}
       <div className="w-1/2">
-
-        {/* Original Calendar for Learner's Schedule */}
         <div className="mt-4">
           <CreateSchedule
             learnerId={learnerId}
             learnerArea={learnerArea}
             request={request}
             onScheduleCreate={onScheduleCreate}
+            defaultInstructorId={selectedInstructorId} // Pass the selected instructor as default
           />
         </div>
       </div>
@@ -296,18 +296,19 @@ export default function CreateScheduleWithInstructor({
   );
 }
 
+// Update the CreateSchedule component to accept defaultInstructorId
 function CreateSchedule({
   learnerId,
   learnerArea,
   request,
   onScheduleCreate,
-}: CreateScheduleProps) {
+  defaultInstructorId,
+}: CreateScheduleProps & { defaultInstructorId: string | null }) {
   const { data: preferences } = usePreferences(learnerId);
   const [startDate, setStartDate] = useState(addDays(new Date(), 1));
   const [selectedSlots, setSelectedSlots] = useState<
     Array<Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId: string }>
   >([]);
-  // const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [scheduleDetails, setScheduleDetails] = useState<
     TimeSlotState["existingSchedule"] | null
   >(null);
@@ -316,7 +317,12 @@ function CreateSchedule({
   const [selectionDialogOpen, setSelectionDialogOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<HourlySlot | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(defaultInstructorId);
+
+  // Ensure the selected instructor is updated when defaultInstructorId changes
+  useEffect(() => {
+    setSelectedInstructorId(defaultInstructorId);
+  }, [defaultInstructorId]);
 
   // Fetch instructors for the learner's area
   const { data: instructors } = useQuery({
@@ -529,7 +535,7 @@ function CreateSchedule({
     onConfirm,
   }: TimeSlotSelectionDialogProps) => {
     const [instructorId, setInstructorId] = useState<string>(
-      slot?.state.availableInstructors[0] || ""
+      selectedInstructorId || slot?.state.availableInstructors[0] || ""
     );
 
     const availableInstructorIds = slot?.state.availableInstructors || [];
@@ -1066,17 +1072,20 @@ function CreateSchedule({
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500">
-            Selected: {selectedSlots.length/2} of {request.lesson_ids.length}{" "}
-            hours
           </div>
-
-          <Button
-            onClick={handleCreateSchedule}
-            disabled={selectedSlots.length/2 !== request.lesson_ids.length}
-          >
-            Create Schedule
-          </Button>
         </div>
+      </div>
+      <div className="flex justify-between items-center">
+        <div className="text-md text-gray-500 flex ">
+          Selected: {selectedSlots.length / 2} of {request.lesson_ids.length} hours
+        </div>
+        <Button
+          onClick={handleCreateSchedule}
+          disabled={selectedSlots.length / 2 !== request.lesson_ids.length}
+          className="whitespace-nowrap"
+        >
+          Create Schedule
+        </Button>
       </div>
 
       <Dialog

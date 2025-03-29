@@ -328,7 +328,7 @@ export default function LearnerManagement() {
                     id="installment2Amount"
                     name="installment2Amount"
                     type="number"
-                    value={learnerData.installment2Amount}
+                    value={learnerData.amount - learnerData.installment1Amount}
                     onChange={handleInputChange}
                     className="col-span-3"
                   />
