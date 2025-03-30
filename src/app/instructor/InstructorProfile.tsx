@@ -136,7 +136,7 @@ const InstructorProfile = () => {
       {/* Header with Profile Picture and Main Actions */}
       <div className="relative rounded-lg bg-gradient-to-r from-purple-100 to-accent-purple p-6 text-gray-700 shadow-lg">
         <div className="absolute right-4 top-4 flex flex-col gap-2">
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             className="bg- text-white hover:bg-blue-400"
@@ -147,7 +147,7 @@ const InstructorProfile = () => {
             ) : (
               <Edit2 className="h-4 w-4" />
             )}
-          </Button>
+          </Button> */}
           <Button
             variant="ghost"
             size="sm"

@@ -531,11 +531,12 @@ export default function InstructorsManagement() {
                 </Label>
                 <Input
                   id="experience"
+                  type="number"
                   value={instructorData.experience}
                   onChange={(e) =>
                     setInstructorData({
                       ...instructorData,
-                      experience: e.target.value,
+                      experience: parseFloat(e.target.value) || 0,
                     })
                   }
                   className="col-span-3"

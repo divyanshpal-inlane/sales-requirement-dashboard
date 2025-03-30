@@ -23,8 +23,14 @@ function Preferences() {
   });
 
   // Determine lessons to schedule based on has_a_DL
-  const lessonsToSchedule=
-  type === "new" ? lessons?.slice(0, 9) : type === "lesson10" ? lessons?.slice(9, 10) : lessons;
+  const lessonsToSchedule =
+    type === "new" && learner?.has_a_DL
+      ? lessons
+      : type === "new"
+      ? lessons?.slice(0, 9)
+      : type === "lesson10"
+      ? lessons?.slice(9, 10)
+      : lessons;
 
   if (enrolledCourseLoading || lessonsLoading) {
     return <div>Loading...</div>;
