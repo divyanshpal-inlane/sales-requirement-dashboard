@@ -1,13 +1,12 @@
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 import {
-  googleLogout,
+  // googleLogout,
   GoogleOAuthProvider,
-  useGoogleLogin,
+  // useGoogleLogin,
 } from "@react-oauth/google";
-import { useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import { format, getDay, parse, startOfWeek } from "date-fns";
+// import axios from "axios";
+import { format, getDay, parse, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import enUS from "date-fns/locale/en-US";
 import {
   CircleCheckBig,
@@ -39,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { useUser } from "@/context/auth-context";
 import { useInstructor, useUpdateScheduleStatus } from "@/queries/instructor";
+import { useQueryClient } from "@tanstack/react-query";
 
 const locales = {
   "en-US": enUS,
@@ -63,16 +63,22 @@ function Instructor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Commented out Google Calendar related states
+  /*
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(
     null,
   );
   const [isCalendarLoaded, setIsCalendarLoaded] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [events, setEvents] = useState<any[]>([]);
+  */
+  
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
 
-  // Use more specific scopes for Google Calendar
+  // Commented out Google Calendar login function
+  /*
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: (tokenResponse) => {
       console.log("Google login successful");
@@ -143,6 +149,7 @@ function Instructor() {
 
     fetchEvents();
   }, [googleAccessToken]);
+  */
 
   const handleFinishLesson = async (scheduleId: string) => {
     try {
@@ -195,6 +202,12 @@ function Instructor() {
     return format(date, "EEEE, MMMM d, yyyy");
   };
 
+  const handleWeekChange = (direction: "prev" | "next") => {
+    setCurrentWeekStart((prev) =>
+      direction === "next" ? addDays(prev, 7) : addDays(prev, -7)
+    );
+  };
+
   if (instructorLoading) return <div>Loading...</div>;
   if (instructorError)
     return <div>An error occurred: {instructorError.message}</div>;
@@ -220,6 +233,7 @@ function Instructor() {
             value="calendar"
             className="flex flex-col justify-between gap-2 overflow-y-auto"
           >
+            {/* Commented out Google Calendar connection buttons
             <div className="mb-4 flex items-center justify-center">
               {!googleAccessToken ? (
                 <Button
@@ -259,6 +273,109 @@ function Instructor() {
                   : "Connect your Google Calendar to view your schedule."}
               </div>
             )}
+            */}
+            
+            {/* Weekly Schedule View similar to admin/instructors.tsx */}
+            <div>
+              {/* Week Navigation */}
+              <div className="flex items-center justify-between mb-4 text-center">
+                <Button variant="outline" onClick={() => handleWeekChange("prev")} className="text-xs">
+                  Previous Week
+                </Button>
+                <h3 className="text-xs font-semibold">
+                  {format(currentWeekStart, "MMM d")} -{" "}
+                  {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
+                </h3>
+                <Button variant="outline" onClick={() => handleWeekChange("next")}className="text-xs">
+                  Next Week
+                </Button>
+              </div>
+
+              {/* Weekly Schedule Table */}
+              <div className="overflow-x-auto overflow-y-auto p-4 scrollbar-none h-[calc(100vh-50px)] max-h-85" style={{ scrollbarWidth: "none" }}>
+                <table className="w-full border-collapse border border-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-200 p-1 text-xs">Time</th>
+                      {Array.from({ length: 7 }).map((_, index) => {
+                        const day = addDays(currentWeekStart, index);
+                        return (
+                          <th key={index} className="border border-gray-200 p-1 text-xs">
+                            {format(day, "EEE")}
+                            <div className="text-xs">{format(day, "MMM d")}</div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 32 }).map((_, timeIndex) => {
+                      const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
+                      const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+                      return (
+                        <tr key={timeIndex}>
+                          <td className="border border-gray-200 p-1 text-xs text-center">
+                            {format(new Date().setHours(hour, minute), "h:mm a")}
+                          </td>
+                          {Array.from({ length: 7 }).map((_, dayIndex) => {
+                            const day = addDays(currentWeekStart, dayIndex);
+
+                            // Find the schedule for the current day and time
+                            const schedule = instructorData?.instructorSchedule.find((s) => {
+                              const scheduleDate = new Date(s.date);
+                              const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                              const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                              const currentTime = new Date(day);
+                              currentTime.setHours(hour, minute);
+
+                              return (
+                                isSameDay(scheduleDate, day) &&
+                                currentTime >= scheduleStart &&
+                                currentTime < scheduleEnd
+                              );
+                            });
+
+                            // Find the corresponding learner for this schedule
+                            let learnerName = "";
+                            if (schedule) {
+                              const learnerLesson = instructorData?.learnerLesson.find(
+                                (ll) => ll.lesson.id === schedule.lesson_id
+                              );
+                              if (learnerLesson) {
+                                learnerName = learnerLesson.learner.name;
+                              }
+                            }
+
+                            return (
+                              <td
+                                key={dayIndex}
+                                className={`border border-gray-200 p-2 text-center ${
+                                  schedule
+                                    ? schedule.status === "completed" 
+                                      ? "bg-green-200 text-green-800"
+                                      : schedule.status === "ongoing"
+                                      ? "bg-blue-200 text-blue-800"
+                                      : "bg-primary text-white"
+                                    : ""
+                                }`}
+                              >
+                                {schedule && (
+                                  <div className="text-xs">
+                                    <div>{learnerName}</div>
+                                    <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
+                                    <div className="font-semibold">{schedule.status}</div>
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent
@@ -282,12 +399,13 @@ function Instructor() {
                     <CardHeader>
                       <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                         <div>Lesson {lesson?.number}</div>
-                        <div className="text-sm">
-                          {formatTimeRange(
-                            currentSchedule.start_time,
-                            currentSchedule.end_time,
-                          )}
-                        </div>
+                        <div className="text-xs">
+                        <div className="text-base text-right">{new Date(instructorData.instructorSchedule[index].date).toLocaleDateString()}</div>
+                        {formatTimeRange(
+                          instructorData.instructorSchedule[index].start_time,
+                          instructorData.instructorSchedule[index].end_time,
+                        )}
+                      </div>
                       </CardTitle>
                       <CardDescription>
                         {lesson?.number &&
@@ -413,8 +531,8 @@ function Instructor() {
                   <CardHeader>
                     <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                       <div>Lesson {lesson?.number}</div>
-                      <div className="text-sm">
-                        <div>{new Date(instructorData.instructorSchedule[index].date).toLocaleDateString()}</div>
+                      <div className="text-xs">
+                        <div className="text-base text-right">{new Date(instructorData.instructorSchedule[index].date).toLocaleDateString()}</div>
                         {formatTimeRange(
                           instructorData.instructorSchedule[index].start_time,
                           instructorData.instructorSchedule[index].end_time,

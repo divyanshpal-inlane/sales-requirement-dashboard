@@ -59,10 +59,10 @@ function PreferenceSelector({
       if (next.has(key)) {
         next.delete(key);
       } else {
-        // Ensure only one slot is selected for lesson 10
-        if (type === "lesson10" && next.size >= 1) {
-          return prev;
-        }
+        // // Ensure only one slot is selected for lesson 10
+        // if (type === "lesson10" && next.size >= 1) {
+        //   return prev;
+        // }
         next.add(key);
       }
       return next;

@@ -625,6 +625,10 @@ function CreateSchedule({
       alert("Cannot select more slots than required.");
       return;
     }
+    if (hour === 20 && minute === 30) {
+      alert("Cannot select this time slot. Lessons require a full hour, and this is only a half-hour slot.");
+      return;
+    }
 
     // Open instructor selection dialog
     setSelectedSlot(slot);
@@ -707,7 +711,7 @@ function CreateSchedule({
     setStartDate((prev) => addDays(prev, direction === "next" ? 10 : -10));
   };
 
-  const handleCreateSchedule = () => {
+  const handleCreateSchedule = async () => {
     if (selectedSlots.length === 0) {
       alert("Please select at least one time slot");
       return;
@@ -811,6 +815,19 @@ function CreateSchedule({
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
     );
 
+    // Check if this is a 9+1 course type (learner doesn't have a driver's license)
+    const { data: learner, error: learnerError } = await supabase
+      .from("Learner")
+      .select("*")
+      .eq("id", learnerId)
+      .single();
+
+    if (learnerError) {
+      console.error("Error fetching learner:", learnerError);
+    }
+
+    const isNinePlusOneCourse = learner?.has_a_DL === false && courseLessons.length === 10;
+
     // Create new schedule array with correctly assigned lesson numbers
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
@@ -826,13 +843,13 @@ function CreateSchedule({
               courseLessons.find((l) => l.id === slot.lessonId)?.number ?? 0,
           };
         } else {
-          // Check if this slot is meant for lesson 10
-          const isLesson10Slot = request.lesson_ids.some(
+          // Check if this is a "9+1" course type and if lesson 10 is being rescheduled
+          const isLesson10Slot = isNinePlusOneCourse && request.lesson_ids.some(
             (id) => courseLessons.find((l) => l.id === id)?.number === 10,
           );
 
           if (isLesson10Slot) {
-            // If this is lesson 10, find and use lesson 10
+            // If this is lesson 10 in a 9+1 course, find and use lesson 10
             const lesson10 = availableLessons.find((l) => l.number === 10);
             return {
               date: slot.date,
@@ -843,8 +860,12 @@ function CreateSchedule({
               lessonNumber: 10,
             };
           } else {
-            // For lessons 1-9, use sequential numbering starting after maxCompletedLessonNumber
-            const lesson = availableLessons[index];
+            // For regular sequential scheduling, calculate the correct lesson number
+            // This handles both 9+1 courses (lessons 1-9) and regular courses (lessons 1-10)
+            const lessonIndex = index + maxCompletedLessonNumber;
+            const lesson = availableLessons.find(l => l.number === lessonIndex + 1) || 
+                          availableLessons[index];
+            
             return {
               date: slot.date,
               hour: slot.hour,
@@ -865,12 +886,9 @@ function CreateSchedule({
       return originalSlot.isNew || schedule.lessonId !== originalSlot.lessonId;
     });
 
-    // Create final schedules array, ensuring lesson 10 is handled correctly
+    // Create final schedules array
     const finalSchedules = schedulesToUpdate
-      .filter(
-        (schedule) =>
-          schedule.lessonNumber <= 9 || schedule.lessonNumber === 10,
-      )
+      .filter(schedule => schedule.lessonId) // Only include schedules with valid lesson IDs
       .map((schedule) => {
         // Format the start_time correctly with hours and minutes
         const formattedHour = String(schedule.hour).padStart(2, "0");
@@ -908,12 +926,12 @@ function CreateSchedule({
 
   const getSlotColor = (slot: HourlySlot) => {
     if (!slot.timeSlot) return "bg-gray-50";
-
+  
     const dateStr = format(slot.timestamp, "yyyy-MM-dd");
     const hour = slot.timestamp.getHours();
     const minutes = slot.timestamp.getMinutes();
-
-    // Check if this slot is part of a selected pair
+  
+    // Check if this slot or the adjacent slot (to make a full hour) is selected
     const isSelected =
       minutes === 0
         ? selectedSlots.some(
@@ -928,11 +946,69 @@ function CreateSchedule({
               s.hour === hour &&
               s.minutes === 30,
           );
-
+  
+    // Check if this slot is part of a current schedule to be rescheduled
+    const isCurrentSchedule = schedulesToChange?.some(
+      (s) => {
+        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+        
+        // Check if this slot falls within the scheduled time
+        return s.date === dateStr && 
+          (
+            // Check if the current time is between the start and end times
+            (hour === scheduleStartHour && minutes >= scheduleStartMinute) || 
+            (hour === scheduleEndHour && minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+            (hour > scheduleStartHour && hour < scheduleEndHour)
+          );
+      }
+    );
+  
+    // Check if this slot is part of another existing learner schedule
+    const isLearnerSchedule = existingSchedules?.some(
+      (s) => {
+        if (s.learner_id !== learnerId || request.lesson_ids.includes(s.lesson_id ?? "")) {
+          return false;
+        }
+        
+        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+        
+        // Check if this slot falls within the scheduled time
+        return s.date === dateStr && 
+          (
+            // Check if the current time is between the start and end times
+            (hour === scheduleStartHour && minutes >= scheduleStartMinute) || 
+            (hour === scheduleEndHour && minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+            (hour > scheduleStartHour && hour < scheduleEndHour)
+          );
+      }
+    );
+  
+    // Check if this slot is unavailable due to other schedules
+    const hasExistingSchedule = slot.state.existingSchedule || otherSchedules?.some(
+      (s) => {
+        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+        
+        // Check if this slot falls within the scheduled time
+        return s.date === dateStr && 
+          (
+            // Check if the current time is between the start and end times
+            (hour === scheduleStartHour && minutes >= scheduleStartMinute) || 
+            (hour === scheduleEndHour && minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+            (hour > scheduleStartHour && hour < scheduleEndHour)
+          );
+      }
+    );
+  
     if (isSelected) return "bg-primary";
-    if (slot.state.isLearnerSchedule) return "bg-blue-200";
-    if (slot.state.existingSchedule) return "bg-gray-100";
-    if (slot.state.isCurrentSchedule) return "bg-yellow-200";
+    if (isLearnerSchedule) return "bg-blue-200";
+    if (isCurrentSchedule) return "bg-yellow-200";
+    if (hasExistingSchedule) return "bg-gray-100";
     if (slot.state.isPreferred) return "bg-primary/30";
     return "bg-white";
   };
@@ -1059,11 +1135,11 @@ function CreateSchedule({
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-yellow-200" />
-            <span>Current Schedule</span>
+            <span>Reschedule Requests</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-blue-200" />
-            <span>Other Lessons</span>
+            <span>Scheduled Lessons</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-gray-100" />
