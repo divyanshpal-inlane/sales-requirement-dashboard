@@ -330,15 +330,16 @@ export default function AdminSchedules() {
       .from("Schedule")
       .update(updates)
       .eq("id", scheduleId);
-  
+
     if (updateError) {
       throw new Error(updateError.message);
     }
-  
+
     // Fetch all schedules for the learner with their associated lesson information
     const { data: learnerSchedules, error: fetchError } = await supabase
       .from("Schedule")
-      .select(`
+      .select(
+        `
         id, 
         date, 
         start_time, 
@@ -347,68 +348,70 @@ export default function AdminSchedules() {
         lesson_id, 
         course_id, 
         learner_id
-      `)
+      `,
+      )
       .eq("learner_id", selectedSchedule.learner_id)
       .eq("course_id", selectedSchedule.course_id);
-  
+
     if (fetchError) {
       throw new Error(fetchError.message);
     }
-  
+
     // Fetch all lessons for this course to get their lesson numbers
     const { data: courseLessons, error: lessonError } = await supabase
       .from("Lesson")
       .select("id, number")
       .eq("course_id", selectedSchedule.course_id)
       .order("number", { ascending: true });
-  
+
     if (lessonError) {
       throw new Error(lessonError.message);
     }
-  
+
     // Sort schedules chronologically
     const sortedSchedules = learnerSchedules.sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.start_time}`);
       const dateB = new Date(`${b.date}T${b.start_time}`);
       return dateA.getTime() - dateB.getTime();
     });
-  
+
     // Create a mapping of lesson numbers to lesson IDs
     const lessonNumberToIdMap = courseLessons.reduce((map, lesson) => {
       map[lesson.number] = lesson.id;
       return map;
     }, {});
-  
+
     // Update lesson IDs in the database based on chronological order
     for (let i = 0; i < sortedSchedules.length; i++) {
       const schedule = sortedSchedules[i];
       const lessonNumber = i + 1;
-      
+
       // Get the lesson ID that corresponds to this lesson number
       const newLessonId = lessonNumberToIdMap[lessonNumber];
-      
+
       if (!newLessonId) {
         console.warn(`No lesson found for lesson number ${lessonNumber}`);
         continue;
       }
-      
+
       // Only update if the lesson ID has changed
       if (schedule.lesson_id !== newLessonId) {
         const { error: lessonUpdateError } = await supabase
           .from("Schedule")
           .update({ lesson_id: newLessonId })
           .eq("id", schedule.id);
-          
+
         if (lessonUpdateError) {
-          throw new Error(`Failed to update lesson ID for schedule ${schedule.id}: ${lessonUpdateError.message}`);
+          throw new Error(
+            `Failed to update lesson ID for schedule ${schedule.id}: ${lessonUpdateError.message}`,
+          );
         }
       }
     }
-  
+
     // Refetch the active learners to reflect the changes in the UI
     await refetchActiveLearners();
   };
-  
 
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
 
@@ -535,7 +538,7 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="reschedule" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6 ">
+            <div className="grid h-full grid-cols-12 gap-4 p-6">
               {/* Learners List */}
               <Card className="md:col-span-2">
                 <CardHeader>
@@ -599,7 +602,7 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="lesson10" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6 ">
+            <div className="grid h-full grid-cols-12 gap-4 p-6">
               {/* Learners List */}
               <Card className="md:col-span-2">
                 <CardHeader>
@@ -713,49 +716,61 @@ export default function AdminSchedules() {
                 <CardContent>
                   {selectedRequest ? (
                     <div className="space-y-4">
-                      {selectedRequest?.schedules?.map((schedule) => (
-                        <div
-                          key={schedule.id}
-                          className="flex items-center justify-between"
-                        >
-                          <div>
-                            <div className="font-medium">
-                              {schedule.date} - {schedule.start_time} to{" "}
-                              {schedule.end_time}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              Instructor:{" "}
-                              {
-                                instructorData.find(
-                                  (i) =>
-                                    i.id_instructor === schedule.instructor_id,
-                                )?.name
-                              }
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                Actions
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleOpenInstructorChange(schedule)
+                      {selectedRequest?.schedules
+                        ?.sort((a, b) => {
+                          // Sort chronologically by date and time
+                          const dateTimeA = new Date(
+                            `${a.date}T${a.start_time}`,
+                          );
+                          const dateTimeB = new Date(
+                            `${b.date}T${b.start_time}`,
+                          );
+                          return dateTimeA.getTime() - dateTimeB.getTime();
+                        })
+                        .map((schedule) => (
+                          <div
+                            key={schedule.id}
+                            className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50"
+                          >
+                            <div>
+                              <div className="font-medium">
+                                {schedule.date} - {schedule.start_time} to{" "}
+                                {schedule.end_time}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Instructor:{" "}
+                                {
+                                  instructorData.find(
+                                    (i) =>
+                                      i.id_instructor ===
+                                      schedule.instructor_id,
+                                  )?.name
                                 }
-                              >
-                                Change Instructor
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleOpenReschedule(schedule)}
-                              >
-                                Reschedule
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      ))}
+                              </div>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  Actions
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleOpenInstructorChange(schedule)
+                                  }
+                                >
+                                  Change Instructor
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleOpenReschedule(schedule)}
+                                >
+                                  Reschedule
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        ))}
                     </div>
                   ) : (
                     <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
@@ -875,7 +890,7 @@ export default function AdminSchedules() {
                             date: e.target.value,
                           }))
                         }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 h-10"
+                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -884,23 +899,43 @@ export default function AdminSchedules() {
                       <label className="block text-sm font-medium text-gray-700">
                         Start Time
                       </label>
-                      <input
-                        type="time"
+                      <select
                         value={selectedSchedule.start_time}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const startTime = e.target.value;
+                          // Calculate end time (1 hour after start time)
+                          const [hours, minutes] = startTime
+                            .split(":")
+                            .map(Number);
+                          const endHours = (hours + 1) % 24;
+                          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
                           setSelectedSchedule((prev) => ({
                             ...prev,
-                            start_time: e.target.value,
-                          }))
-                        }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 h-10"
-                      />
+                            start_time: startTime,
+                            end_time: endTime,
+                          }));
+                        }}
+                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      >
+                        {Array.from({ length: 24 }).map((_, hour) =>
+                          [0, 15, 30, 45].map((minute) => (
+                            <option
+                              key={`${hour}-${minute}`}
+                              value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
+                            >
+                              {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
+                            </option>
+                          )),
+                        )}
+                      </select>
+
                       <div className="mt-4" />
+
                       <label className="block text-sm font-medium text-gray-700">
                         End Time
                       </label>
-                      <input
-                        type="time"
+                      <select
                         value={selectedSchedule.end_time}
                         onChange={(e) =>
                           setSelectedSchedule((prev) => ({
@@ -908,8 +943,19 @@ export default function AdminSchedules() {
                             end_time: e.target.value,
                           }))
                         }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 h-10"
-                      />
+                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      >
+                        {Array.from({ length: 24 }).map((_, hour) =>
+                          [0, 15, 30, 45].map((minute) => (
+                            <option
+                              key={`${hour}-${minute}`}
+                              value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
+                            >
+                              {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
+                            </option>
+                          )),
+                        )}
+                      </select>
                     </div>
 
                     {/* Action Buttons */}
@@ -930,6 +976,49 @@ export default function AdminSchedules() {
                               end_time: selectedSchedule.end_time,
                             });
 
+                            // Update the selected request's schedules to ensure the UI reflects the changes
+                            if (selectedRequest) {
+                              // Fetch the updated schedules for this learner
+                              const { data: updatedSchedules, error } =
+                                await supabase
+                                  .from("Schedule")
+                                  .select(
+                                    `
+            id, 
+            date, 
+            start_time, 
+            end_time, 
+            instructor_id, 
+            lesson_id, 
+            course_id, 
+            learner_id
+          `,
+                                  )
+                                  .eq("learner_id", selectedSchedule.learner_id)
+                                  .eq("course_id", selectedSchedule.course_id);
+
+                              if (!error && updatedSchedules) {
+                                // Sort the schedules chronologically
+                                const sortedSchedules = updatedSchedules.sort(
+                                  (a, b) => {
+                                    const dateA = new Date(
+                                      `${a.date}T${a.start_time}`,
+                                    );
+                                    const dateB = new Date(
+                                      `${b.date}T${b.start_time}`,
+                                    );
+                                    return dateA.getTime() - dateB.getTime();
+                                  },
+                                );
+
+                                // Update the selected request with the sorted schedules
+                                setSelectedRequest((prev) => ({
+                                  ...prev,
+                                  schedules: sortedSchedules,
+                                }));
+                              }
+                            }
+
                             toast({
                               title: "Success",
                               description: "Schedule updated successfully.",
@@ -937,6 +1026,9 @@ export default function AdminSchedules() {
 
                             // Close the modal after saving
                             setIsRescheduleModalOpen(false);
+
+                            // Refetch active learners to update the view
+                            await refetchActiveLearners();
                           } catch (error) {
                             toast({
                               title: "Error",

@@ -9,6 +9,7 @@ export function LLApplicationStatus({
   applicationId,
 }: LLApplicationStatusProps) {
   return (
+    <>
     <Card className="mx-auto mt-4 max-w-2xl">
       <CardHeader className="rounded-t-xl bg-primary text-white">
         <CardTitle className="text-2xl font-bold">Application Status</CardTitle>
@@ -40,5 +41,17 @@ export function LLApplicationStatus({
         </Button>
       </CardContent>
     </Card>
+        <p className="mt-auto text-base mb-2 text-center">
+          Shared LL details?{" "}
+          <a
+            href="https://forms.gle/4Qe8ttAhBYHE7PDq8"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            Submit now
+          </a>
+        </p>
+        </>
   );
 }

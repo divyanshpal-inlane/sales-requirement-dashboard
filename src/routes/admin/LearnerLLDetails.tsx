@@ -117,7 +117,7 @@ const LearnerLLDetails = () => {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold">Learner LL Details</h1>
+            <h1 className="text-2xl font-bold">LL Application</h1>
           </div>
         </div>
       </div>
