@@ -207,31 +207,19 @@ export default function Home() {
               <p className="text-base">
                 Share your availability, and we&apos;ll book your lessons
               </p>
-              {learner.LL_team_appointment_booked ? (
-                <p className="mt-auto text-sm">
-                  Have you filled out the{" "}
-                  <a
-                    href="https://forms.gle/4Qe8ttAhBYHE7PDq8"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    Google Form?
-                  </a>
-                </p>
-              ) : (
+              
               <p className="mt-auto">
-                <span className="text-sm">Don&apos;t have a DL?</span>
+                <span className="text-base">Don&apos;t have an LL?</span>
                 <Button
                   variant="link"
                   onClick={() => {
                     updateLearner({ has_a_DL: false, LL_result: null });
                   }}
                 >
-                  Book an appointment
+                  Book appointment
                 </Button>
               </p>
-            )}
+            
             </div>
           ) : (
             <>

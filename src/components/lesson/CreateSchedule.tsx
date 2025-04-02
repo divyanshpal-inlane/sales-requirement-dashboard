@@ -1,7 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
-import { addDays, format, startOfWeek, endOfWeek, isSameDay } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import {
+  addDays,
+  endOfWeek,
+  format,
+  isBefore,
+  isSameDay,
+  startOfWeek,
+} from "date-fns";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  MapPin,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,16 +86,15 @@ export default function CreateScheduleWithInstructor({
   onScheduleCreate,
 }: CreateScheduleProps) {
   const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
+  // Use state to track custom date range instead of week start
+  const [currentRangeStart, setCurrentRangeStart] = useState(new Date());
 
   // Fetch instructors for the learner's area
   const { data: instructors } = useQuery({
     queryKey: ["instructors", learnerArea],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Instructor")
-        .select("*");
-        
+      const { data, error } = await supabase.from("Instructor").select("*");
+
       if (error) throw error;
       return data;
     },
@@ -90,11 +102,12 @@ export default function CreateScheduleWithInstructor({
 
   // Fetch the selected instructor's schedule
   const { data: instructorSchedule } = useQuery({
-    queryKey: ["instructorSchedule", selectedInstructorId, currentWeekStart],
+    queryKey: ["instructorSchedule", selectedInstructorId, currentRangeStart],
     queryFn: async () => {
       if (!selectedInstructorId) return [];
-      const start = format(currentWeekStart, "yyyy-MM-dd");
-      const end = format(endOfWeek(currentWeekStart), "yyyy-MM-dd");
+      const start = format(currentRangeStart, "yyyy-MM-dd");
+      // Calculate end date (start date + 6 days)
+      const end = format(addDays(currentRangeStart, 6), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("Schedule")
         .select("*")
@@ -116,8 +129,7 @@ export default function CreateScheduleWithInstructor({
       ([matching, others], instructor) => {
         if (
           instructor.areas.some(
-            (area: string) =>
-              area.toLowerCase() === learnerArea.toLowerCase() // Case-insensitive comparison
+            (area: string) => area.toLowerCase() === learnerArea.toLowerCase(), // Case-insensitive comparison
           )
         ) {
           matching.push(instructor);
@@ -126,23 +138,26 @@ export default function CreateScheduleWithInstructor({
         }
         return [matching, others];
       },
-      [[], []]
+      [[], []],
     );
   }, [instructors, learnerArea]);
 
-  const handleWeekChange = (direction: "prev" | "next") => {
-    setCurrentWeekStart((prev) =>
+  // Modified to advance or go back by exactly 7 days (not tied to week concept)
+  const handleDateRangeChange = (direction: "prev" | "next") => {
+    setCurrentRangeStart((prev) =>
       direction === "next" ? addDays(prev, 7) : addDays(prev, -7)
     );
   };
-
+  
+  const [showInstructorDetails, setShowInstructorDetails] = useState(false);
+  
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
       <div className="w-1/2">
-        <Card>
+        <Card className="mb-4">
           <CardContent>
-            <h3 className="font-medium mb-4 mt-4">Select Instructor</h3>
+            <h3 className="mb-4 mt-4 font-medium">Select Instructor</h3>
             <Select
               value={selectedInstructorId || ""}
               onValueChange={(value) => setSelectedInstructorId(value)}
@@ -152,15 +167,23 @@ export default function CreateScheduleWithInstructor({
               </SelectTrigger>
               <SelectContent>
                 {matchingInstructors.map((instructor) => (
-                  <SelectItem key={instructor.id_instructor} value={instructor.id_instructor}>
+                  <SelectItem
+                    key={instructor.id_instructor}
+                    value={instructor.id_instructor}
+                  >
                     {instructor.name} (Matching Area)
                   </SelectItem>
                 ))}
                 {otherInstructors.length > 0 && (
                   <>
-                    <div className="px-2 py-1 text-sm text-gray-500">Other Instructors</div>
+                    <div className="px-2 py-1 text-sm text-gray-500">
+                      Other Instructors
+                    </div>
                     {otherInstructors.map((instructor) => (
-                      <SelectItem key={instructor.id_instructor} value={instructor.id_instructor}>
+                      <SelectItem
+                        key={instructor.id_instructor}
+                        value={instructor.id_instructor}
+                      >
                         {instructor.name}
                       </SelectItem>
                     ))}
@@ -170,44 +193,29 @@ export default function CreateScheduleWithInstructor({
             </Select>
           </CardContent>
         </Card>
-        <div className="flex justify-between mb-6"></div>
+
         <Card>
           <CardContent>
-            <h3 className="font-medium mb-4 mt-4">Instructor's Weekly Schedule</h3>
-            <div className="mb-4">
-              <h4 className="font-medium">Instructor Details:</h4>
-              {selectedInstructorId && (
-                <>
-                  <p className="text-sm">
-                    Address: {
-                      instructors.find(instructor => instructor.id_instructor === selectedInstructorId)?.address
-                    }
-                  </p>
-                  <p className="text-sm">
-                    Radius: {
-                      instructors.find(instructor => instructor.id_instructor === selectedInstructorId)?.radius
-                    } km
-                  </p>
-                </>
-              )}
-            </div>
+            <h3 className="mb-4 mt-4 font-medium">
+              Instructor's Schedule
+            </h3>
 
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => handleWeekChange("prev")}
+                onClick={() => handleDateRangeChange("prev")}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <div className="font-medium">
-                {format(currentWeekStart, "MMM d")} -{" "}
-                {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
+                {format(currentRangeStart, "MMM d")} -{" "}
+                {format(addDays(currentRangeStart, 6), "MMM d, yyyy")}
               </div>
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => handleWeekChange("next")}
+                onClick={() => handleDateRangeChange("next")}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -218,10 +226,13 @@ export default function CreateScheduleWithInstructor({
                   <tr>
                     <th className="border border-gray-200 p-2">Time</th>
                     {Array.from({ length: 7 }).map((_, index) => {
-                      const day = addDays(currentWeekStart, index);
+                      const day = addDays(currentRangeStart, index);
                       return (
                         <th key={index} className="border border-gray-200 p-2">
-                          {format(day, "EEE")}
+                          <div>{format(day, "EEE")}</div>
+                          <div className="text-sm text-gray-500">
+                            {format(day, "MMM d")}
+                          </div>
                         </th>
                       );
                     })}
@@ -237,27 +248,31 @@ export default function CreateScheduleWithInstructor({
                           {format(new Date().setHours(hour, minute), "h:mm a")}
                         </td>
                         {Array.from({ length: 7 }).map((_, dayIndex) => {
-                          const day = addDays(currentWeekStart, dayIndex);
+                          const day = addDays(currentRangeStart, dayIndex);
 
                           // Find the schedule for the current day and time
                           const schedule = instructorSchedule?.find((s) => {
-                            const scheduleStart = new Date(`${s.date}T${s.start_time}`);
-                            const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                            const scheduleStart = new Date(
+                              `${s.date}T${s.start_time}`,
+                            );
+                            const scheduleEnd = new Date(
+                              `${s.date}T${s.end_time}`,
+                            );
                             const currentTime = new Date(day);
                             currentTime.setHours(hour, minute);
-
                             return (
                               isSameDay(scheduleStart, day) &&
                               currentTime >= scheduleStart &&
                               currentTime < scheduleEnd
                             );
                           });
-
                           // Determine if this cell is the start of a schedule
                           const isScheduleStart =
                             schedule &&
-                            parseInt(schedule.start_time.split(":")[0]) === hour &&
-                            parseInt(schedule.start_time.split(":")[1]) === minute;
+                            parseInt(schedule.start_time.split(":")[0]) ===
+                              hour &&
+                            parseInt(schedule.start_time.split(":")[1]) ===
+                              minute;
 
                           return (
                             <td
@@ -266,7 +281,9 @@ export default function CreateScheduleWithInstructor({
                                 schedule ? "bg-primary text-white" : ""
                               }`}
                             >
-                              {isScheduleStart ? `${schedule.start_time} - ${schedule.end_time}` : ""}
+                              {isScheduleStart
+                                ? `${schedule.start_time} - ${schedule.end_time}`
+                                : ""}
                             </td>
                           );
                         })}
@@ -282,15 +299,75 @@ export default function CreateScheduleWithInstructor({
 
       {/* Right Panel: Learner's Schedule Selection */}
       <div className="w-1/2">
-        <div className="mt-4">
-          <CreateSchedule
-            learnerId={learnerId}
-            learnerArea={learnerArea}
-            request={request}
-            onScheduleCreate={onScheduleCreate}
-            defaultInstructorId={selectedInstructorId} // Pass the selected instructor as default
-          />
-        </div>
+        <Card className="mb-4">
+          <CardContent>
+            <div className="mb-4 mt-10">
+              <Button
+                variant="outline"
+                className="flex w-full justify-between"
+                onClick={() => setShowInstructorDetails(!showInstructorDetails)}
+              >
+                Instructor Details
+                {showInstructorDetails ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+              {showInstructorDetails && selectedInstructorId && (
+                <div className="mt-2 rounded bg-gray-50 p-2 flex gap-4">
+                  <div>
+                    <p className="mb-1 text-sm">
+                      <span className="font-medium">Address:</span>{" "}
+                      {
+                        instructors.find(
+                          (instructor) =>
+                            instructor.id_instructor === selectedInstructorId,
+                        )?.address
+                      }
+                    </p>
+                    <p className="mb-1 text-sm">
+                      <span className="font-medium">Radius:</span>{" "}
+                      {
+                        instructors.find(
+                          (instructor) =>
+                            instructor.id_instructor === selectedInstructorId,
+                        )?.radius
+                      }{" "}
+                      km
+                    </p>
+                  </div>
+                  <div>
+                    <p className="ml-48 text-sm">
+                      <span className="font-medium">Areas:</span>{" "}
+                      {instructors
+                        .find(
+                          (instructor) =>
+                            instructor.id_instructor === selectedInstructorId,
+                        )
+                        ?.areas.join(", ")}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <h3 className="mb-4 mt-4 font-medium">Create learner Schedule</h3>
+            <CreateSchedule
+              learnerId={learnerId}
+              learnerArea={learnerArea}
+              request={request}
+              onScheduleCreate={onScheduleCreate}
+              defaultInstructorId={selectedInstructorId}
+              currentRangeStart={currentRangeStart} // Pass the range start instead of week start
+              onDateChange={(newDate) => setCurrentRangeStart(newDate)} // Add this prop to sync dates
+            />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -305,7 +382,7 @@ function CreateSchedule({
   defaultInstructorId,
 }: CreateScheduleProps & { defaultInstructorId: string | null }) {
   const { data: preferences } = usePreferences(learnerId);
-  const [startDate, setStartDate] = useState(addDays(new Date(), 1));
+  const [startDate, setStartDate] = useState(new Date());
   const [selectedSlots, setSelectedSlots] = useState<
     Array<Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId: string }>
   >([]);
@@ -317,7 +394,9 @@ function CreateSchedule({
   const [selectionDialogOpen, setSelectionDialogOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<HourlySlot | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(defaultInstructorId);
+  const [selectedInstructorId, setSelectedInstructorId] = useState<
+    string | null
+  >(defaultInstructorId);
 
   // Ensure the selected instructor is updated when defaultInstructorId changes
   useEffect(() => {
@@ -328,9 +407,7 @@ function CreateSchedule({
   const { data: instructors } = useQuery({
     queryKey: ["instructors", learnerArea],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Instructor")
-        .select("*");
+      const { data, error } = await supabase.from("Instructor").select("*");
 
       if (error) throw error;
       return data;
@@ -457,7 +534,7 @@ function CreateSchedule({
         // Check if this slot is currently scheduled for rescheduling
         const isCurrentSchedule = schedulesToChange?.some(
           (s) =>
-            s.date === dateStr && 
+            s.date === dateStr &&
             parseInt(s.start_time.split(":")[0]) === hour &&
             parseInt(s.start_time.split(":")[1] || "0") === minute,
         );
@@ -508,7 +585,7 @@ function CreateSchedule({
               !isDayBlocked,
             isSelected: selectedSlots.some(
               (s) =>
-                format(s.date, "yyyy-MM-dd") === dateStr && 
+                format(s.date, "yyyy-MM-dd") === dateStr &&
                 s.hour === hour &&
                 s.minutes === minute,
             ),
@@ -535,14 +612,15 @@ function CreateSchedule({
     onConfirm,
   }: TimeSlotSelectionDialogProps) => {
     const [instructorId, setInstructorId] = useState<string>(
-      selectedInstructorId || slot?.state.availableInstructors[0] || ""
+      selectedInstructorId || slot?.state.availableInstructors[0] || "",
     );
 
     const availableInstructorIds = slot?.state.availableInstructors || [];
-    
-    const availableInstructors = instructors?.filter(
-      (instructor) => availableInstructorIds.includes(instructor.id_instructor)
-    ) || [];
+
+    const availableInstructors =
+      instructors?.filter((instructor) =>
+        availableInstructorIds.includes(instructor.id_instructor),
+      ) || [];
 
     const handleConfirm = () => {
       onConfirm(instructorId);
@@ -560,7 +638,7 @@ function CreateSchedule({
               {date && slot
                 ? `${format(date, "MMM d, yyyy")} at ${format(
                     slot.timestamp,
-                    "h:mm a"
+                    "h:mm a",
                   )}`
                 : ""}
             </p>
@@ -599,15 +677,15 @@ function CreateSchedule({
           const hour = slot.timestamp.getHours();
           const minute = slot.timestamp.getMinutes();
           const dateStr = format(date, "yyyy-MM-dd");
-          
+
           // Get the slotGroupId that this slot is part of
           const groupId = prev.find(
-            (s) => 
-              format(s.date, "yyyy-MM-dd") === dateStr && 
-              s.hour === hour && 
-              s.minutes === minute
+            (s) =>
+              format(s.date, "yyyy-MM-dd") === dateStr &&
+              s.hour === hour &&
+              s.minutes === minute,
           )?.slotGroupId;
-          
+
           // Remove all slots that have the same slotGroupId
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
@@ -626,7 +704,9 @@ function CreateSchedule({
       return;
     }
     if (hour === 20 && minute === 30) {
-      alert("Cannot select this time slot. Lessons require a full hour, and this is only a half-hour slot.");
+      alert(
+        "Cannot select this time slot. Lessons require a full hour, and this is only a half-hour slot.",
+      );
       return;
     }
 
@@ -639,11 +719,11 @@ function CreateSchedule({
   // Handle instructor selection from dialog
   const handleInstructorSelect = (instructorId: string) => {
     if (!selectedSlot || !selectedDate) return;
-    
+
     const hour = selectedSlot.timestamp.getHours();
     const minute = selectedSlot.timestamp.getMinutes();
     const isStartSlot = minute === 0;
-    
+
     setSelectedSlots((prev) => {
       // When selecting, add both slots that make up the full hour
       if (isStartSlot) {
@@ -705,10 +785,10 @@ function CreateSchedule({
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
-    if (direction === "prev" && isBefore(addDays(startDate, -10), new Date())) {
+    if (direction === "prev" && isBefore(addDays(startDate, -7), new Date())) {
       return;
     }
-    setStartDate((prev) => addDays(prev, direction === "next" ? 10 : -10));
+    setStartDate((prev) => addDays(prev, direction === "next" ? 7 : -7));
   };
 
   const handleCreateSchedule = async () => {
@@ -826,7 +906,8 @@ function CreateSchedule({
       console.error("Error fetching learner:", learnerError);
     }
 
-    const isNinePlusOneCourse = learner?.has_a_DL === false && courseLessons.length === 10;
+    const isNinePlusOneCourse =
+      learner?.has_a_DL === false && courseLessons.length === 10;
 
     // Create new schedule array with correctly assigned lesson numbers
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
@@ -844,9 +925,11 @@ function CreateSchedule({
           };
         } else {
           // Check if this is a "9+1" course type and if lesson 10 is being rescheduled
-          const isLesson10Slot = isNinePlusOneCourse && request.lesson_ids.some(
-            (id) => courseLessons.find((l) => l.id === id)?.number === 10,
-          );
+          const isLesson10Slot =
+            isNinePlusOneCourse &&
+            request.lesson_ids.some(
+              (id) => courseLessons.find((l) => l.id === id)?.number === 10,
+            );
 
           if (isLesson10Slot) {
             // If this is lesson 10 in a 9+1 course, find and use lesson 10
@@ -863,9 +946,10 @@ function CreateSchedule({
             // For regular sequential scheduling, calculate the correct lesson number
             // This handles both 9+1 courses (lessons 1-9) and regular courses (lessons 1-10)
             const lessonIndex = index + maxCompletedLessonNumber;
-            const lesson = availableLessons.find(l => l.number === lessonIndex + 1) || 
-                          availableLessons[index];
-            
+            const lesson =
+              availableLessons.find((l) => l.number === lessonIndex + 1) ||
+              availableLessons[index];
+
             return {
               date: slot.date,
               hour: slot.hour,
@@ -888,12 +972,13 @@ function CreateSchedule({
 
     // Create final schedules array
     const finalSchedules = schedulesToUpdate
-      .filter(schedule => schedule.lessonId) // Only include schedules with valid lesson IDs
+      .filter((schedule) => schedule.lessonId) // Only include schedules with valid lesson IDs
       .map((schedule) => {
         // Format the start_time correctly with hours and minutes
         const formattedHour = String(schedule.hour).padStart(2, "0");
         const formattedMinutes = String(schedule.minutes || 0).padStart(2, "0");
-        const endHour = schedule.minutes === 30 ? schedule.hour + 1 : schedule.hour;
+        const endHour =
+          schedule.minutes === 30 ? schedule.hour + 1 : schedule.hour;
         const endMinutes = schedule.minutes === 30 ? "00" : "30";
 
         return {
@@ -926,11 +1011,11 @@ function CreateSchedule({
 
   const getSlotColor = (slot: HourlySlot) => {
     if (!slot.timeSlot) return "bg-gray-50";
-  
+
     const dateStr = format(slot.timestamp, "yyyy-MM-dd");
     const hour = slot.timestamp.getHours();
     const minutes = slot.timestamp.getMinutes();
-  
+
     // Check if this slot or the adjacent slot (to make a full hour) is selected
     const isSelected =
       minutes === 0
@@ -946,65 +1031,67 @@ function CreateSchedule({
               s.hour === hour &&
               s.minutes === 30,
           );
-  
+
     // Check if this slot is part of a current schedule to be rescheduled
-    const isCurrentSchedule = schedulesToChange?.some(
-      (s) => {
-        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
-        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
-        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
-        
-        // Check if this slot falls within the scheduled time
-        return s.date === dateStr && 
-          (
-            // Check if the current time is between the start and end times
-            (hour === scheduleStartHour && minutes >= scheduleStartMinute) || 
-            (hour === scheduleEndHour && minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > scheduleStartHour && hour < scheduleEndHour)
-          );
-      }
-    );
-  
+    const isCurrentSchedule = schedulesToChange?.some((s) => {
+      const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+      const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+      const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+
+      // Check if this slot falls within the scheduled time
+      return (
+        s.date === dateStr &&
+        // Check if the current time is between the start and end times
+        ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
+          (hour === scheduleEndHour &&
+            minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+          (hour > scheduleStartHour && hour < scheduleEndHour))
+      );
+    });
+
     // Check if this slot is part of another existing learner schedule
-    const isLearnerSchedule = existingSchedules?.some(
-      (s) => {
-        if (s.learner_id !== learnerId || request.lesson_ids.includes(s.lesson_id ?? "")) {
-          return false;
-        }
-        
-        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
-        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
-        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
-        
-        // Check if this slot falls within the scheduled time
-        return s.date === dateStr && 
-          (
-            // Check if the current time is between the start and end times
-            (hour === scheduleStartHour && minutes >= scheduleStartMinute) || 
-            (hour === scheduleEndHour && minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > scheduleStartHour && hour < scheduleEndHour)
-          );
+    const isLearnerSchedule = existingSchedules?.some((s) => {
+      if (
+        s.learner_id !== learnerId ||
+        request.lesson_ids.includes(s.lesson_id ?? "")
+      ) {
+        return false;
       }
-    );
-  
+
+      const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+      const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+      const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+
+      // Check if this slot falls within the scheduled time
+      return (
+        s.date === dateStr &&
+        // Check if the current time is between the start and end times
+        ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
+          (hour === scheduleEndHour &&
+            minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+          (hour > scheduleStartHour && hour < scheduleEndHour))
+      );
+    });
+
     // Check if this slot is unavailable due to other schedules
-    const hasExistingSchedule = slot.state.existingSchedule || otherSchedules?.some(
-      (s) => {
+    const hasExistingSchedule =
+      slot.state.existingSchedule ||
+      otherSchedules?.some((s) => {
         const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
         const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
         const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
-        
+
         // Check if this slot falls within the scheduled time
-        return s.date === dateStr && 
-          (
-            // Check if the current time is between the start and end times
-            (hour === scheduleStartHour && minutes >= scheduleStartMinute) || 
-            (hour === scheduleEndHour && minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > scheduleStartHour && hour < scheduleEndHour)
-          );
-      }
-    );
-  
+        return (
+          s.date === dateStr &&
+          // Check if the current time is between the start and end times
+          ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
+            (hour === scheduleEndHour &&
+              minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+            (hour > scheduleStartHour && hour < scheduleEndHour))
+        );
+      });
+
     if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
@@ -1070,7 +1157,7 @@ function CreateSchedule({
           </Button>
           <div className="font-medium">
             {format(startDate, "MMM d")} -{" "}
-            {format(addDays(startDate, 9), "MMM d, yyyy")}
+            {format(addDays(startDate, 6), "MMM d, yyyy")}
           </div>
           <Button
             variant="outline"
@@ -1084,7 +1171,7 @@ function CreateSchedule({
 
       <ScrollArea className="relative">
         <div className="flex space-x-4">
-          {Array.from({ length: 10 }).map((_, index) => {
+          {Array.from({ length: 7 }).map((_, index) => {
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
             return (
@@ -1147,13 +1234,13 @@ function CreateSchedule({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">
-          </div>
+          <div className="text-sm text-gray-500"></div>
         </div>
       </div>
-      <div className="flex justify-between items-center">
-        <div className="text-md text-gray-500 flex ">
-          Selected: {selectedSlots.length / 2} of {request.lesson_ids.length} hours
+      <div className="flex items-center justify-between">
+        <div className="text-md flex text-gray-500">
+          Selected: {selectedSlots.length / 2} of {request.lesson_ids.length}{" "}
+          hours
         </div>
         <Button
           onClick={handleCreateSchedule}
