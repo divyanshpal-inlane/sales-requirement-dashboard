@@ -41,6 +41,7 @@ interface InstructorFromDB {
   address: string | null;
   experience: number | null;
   radius: number | null;
+  car_fuel_type: "petrol" | "diesel" | "ev" | null;
 }
 
 interface InstructorData {
@@ -56,6 +57,7 @@ interface InstructorData {
   areas: string[];
   address: string;
   radius: number;
+  car_fuel_type: "petrol" | "diesel" | "ev" | null;
 }
 
 const initialInstructorData: InstructorData = {
@@ -70,6 +72,7 @@ const initialInstructorData: InstructorData = {
   areas: [],
   address: "",
   radius: 0,
+  car_fuel_type: null,
 };
 
 export default function InstructorsManagement() {
@@ -83,6 +86,13 @@ export default function InstructorsManagement() {
   const [openScheduleDialogId, setOpenScheduleDialogId] = useState<string | null>(null); // Track which instructor's schedule dialog is open
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const handleCarFuelChange = (value: "petrol" | "diesel" | "ev" | null) => {
+    if (value === "ev") {
+        setInstructorData({ ...instructorData, car_fuel_type: value, car_make: "Automatic" });
+    } else {
+        setInstructorData({ ...instructorData, car_fuel_type: value });
+    }
+};
 
   // Fetch all instructors along with their schedules
   const { data: instructors, isLoading } = useQuery({
@@ -126,6 +136,7 @@ export default function InstructorsManagement() {
               areas: data.areas,
               address: data.address,
               radius: data.radius,
+              car_fuel_type: data.car_fuel_type,
             },
           ])
           .select();
@@ -151,6 +162,7 @@ export default function InstructorsManagement() {
             areas: data.areas,
             address: data.address,
             radius: data.radius,
+            car_fuel_type: data.car_fuel_type,
           })
           .eq("id_instructor", data.id_instructor)
           .select();
@@ -226,6 +238,9 @@ export default function InstructorsManagement() {
       experience: instructor.experience || 0,
       car_number: instructor.car_number || "",
       areas: instructor.areas || [],
+      address: instructor.address || "",
+      radius: instructor.radius || 0,
+      car_fuel_type: instructor.car_fuel_type as "petrol" | "diesel" | "ev" | null,
     });
     setIsDialogOpen(true);
   };
@@ -278,6 +293,7 @@ export default function InstructorsManagement() {
   const handleOpenScheduleDialog = (id: string) => {
     setOpenScheduleDialogId(id); // Set the ID of the instructor whose dialog is open
   };
+  
 
   const handleCloseScheduleDialog = () => {
     setOpenScheduleDialogId(null); // Close the dialog
@@ -489,6 +505,24 @@ export default function InstructorsManagement() {
                   className="col-span-3"
                 />
               </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+    <Label htmlFor="car_fuel" className="text-right">Car Fuel</Label>
+    <Select
+        value={instructorData.car_fuel_type || null}
+        onValueChange={(value) => handleCarFuelChange(value as "petrol" | "diesel" | "ev" | null)} // Type assertion here
+        className="col-span-3"
+    >
+        <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Select Car Fuel" />
+        </SelectTrigger>
+        <SelectContent>
+            <SelectItem value="petrol">Petrol</SelectItem>
+            <SelectItem value="diesel">Diesel</SelectItem>
+            <SelectItem value="ev">EV</SelectItem>
+        </SelectContent>
+    </Select>
+</div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="car_make" className="text-right">
                   Car Make

@@ -60,17 +60,17 @@ export default function UploadLL() {
             size="icon"
             className="text-primary-foreground"
           >
-            <Link to="/createSchedule/details">
+            <Link to="/createSchedule/onboardingQuestions">
               <ArrowLeft className="h-6 w-6" />
             </Link>
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            2/3
+            3/4
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
           <h1 className="mb-1 text-xl font-semibold">
-            Please upload the Learner&apos;s license
+            Please upload the Learner's license
           </h1>
           <p className="">Required for government compliance</p>
         </div>

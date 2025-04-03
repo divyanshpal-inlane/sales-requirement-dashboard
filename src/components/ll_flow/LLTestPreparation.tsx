@@ -57,7 +57,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
   const handleLLReceived = (received: boolean) => {
     setHasReceivedLL(received);
     if (received && learner) {
-      updateLearner({ LL_result: true });
+      updateLearner({ LL_result: true, LL_received: true });
     }
   };
 

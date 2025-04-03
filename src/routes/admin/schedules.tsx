@@ -877,85 +877,94 @@ export default function AdminSchedules() {
                   </DialogHeader>
                   <div className="space-y-4">
                     {/* Editable Date Field */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Date
-                      </label>
-                      <input
-                        type="date"
-                        value={selectedSchedule.date}
-                        onChange={(e) =>
-                          setSelectedSchedule((prev) => ({
-                            ...prev,
-                            date: e.target.value,
-                          }))
-                        }
-                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                      />
-                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={selectedSchedule.date}
+                          onChange={(e) =>
+                            setSelectedSchedule((prev) => ({
+                              ...prev,
+                              date: e.target.value,
+                            }))
+                          }
+                          className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                      </div>
 
-                    {/* Editable Time Field */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Start Time
-                      </label>
-                      <select
-                        value={selectedSchedule.start_time}
-                        onChange={(e) => {
-                          const startTime = e.target.value;
-                          // Calculate end time (1 hour after start time)
-                          const [hours, minutes] = startTime
-                            .split(":")
-                            .map(Number);
-                          const endHours = (hours + 1) % 24;
-                          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+                      {/* Editable Time Field */}
+                      <div className="flex items-center gap-8">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Time
+                        </label>
+                        <div className="flex flex-col">
+                          <Select
+                            value={selectedSchedule.start_time}
+                            onValueChange={(value) => {
+                              const startTime = value;
+                              // Calculate end time (1 hour after start time)
+                              const [hours, minutes] = startTime
+                                .split(":")
+                                .map(Number);
+                              const endHours = (hours + 1) % 24;
+                              const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
-                          setSelectedSchedule((prev) => ({
-                            ...prev,
-                            start_time: startTime,
-                            end_time: endTime,
-                          }));
-                        }}
-                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                      >
-                        {Array.from({ length: 24 }).map((_, hour) =>
-                          [0, 15, 30, 45].map((minute) => (
-                            <option
-                              key={`${hour}-${minute}`}
-                              value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
-                            >
-                              {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
-                            </option>
-                          )),
-                        )}
-                      </select>
-
-                      <div className="mt-4" />
-
-                      <label className="block text-sm font-medium text-gray-700">
-                        End Time
-                      </label>
-                      <select
-                        value={selectedSchedule.end_time}
-                        onChange={(e) =>
-                          setSelectedSchedule((prev) => ({
-                            ...prev,
-                            end_time: e.target.value,
-                          }))
-                        }
-                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                      >
-                        {Array.from({ length: 24 }).map((_, hour) =>
-                          [0, 15, 30, 45].map((minute) => (
-                            <option
-                              key={`${hour}-${minute}`}
-                              value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
-                            >
-                              {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
-                            </option>
-                          )),
-                        )}
-                      </select>
+                              setSelectedSchedule((prev) => ({
+                                ...prev,
+                                start_time: startTime,
+                                end_time: endTime,
+                              }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }).map((_, hour) =>
+                                [0, 15, 30, 45].map((minute) => (
+                                  <SelectItem
+                                    key={`${hour}-${minute}`}
+                                    value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
+                                  >
+                                    {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
+                                  </SelectItem>
+                                )),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <span className="text-gray-500">to</span>
+                        <div className="flex flex-col">
+                          <Select
+                            value={selectedSchedule.end_time}
+                            onValueChange={(value) =>
+                              setSelectedSchedule((prev) => ({
+                                ...prev,
+                                end_time: value,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }).map((_, hour) =>
+                                [0, 15, 30, 45].map((minute) => (
+                                  <SelectItem
+                                    key={`${hour}-${minute}`}
+                                    value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
+                                  >
+                                    {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
+                                  </SelectItem>
+                                )),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Action Buttons */}

@@ -71,8 +71,8 @@ export default function LLAppointmentBooking() {
           </Button>
         </CardContent>
       </Card>
-      <p className="mt-auto text-center text-sm">
-        <span>Already have a DL?</span>
+      <p className="mt-auto text-center text-base">
+        <span>Already have an LL?</span>
         <Button
           variant="link"
           onClick={() => {

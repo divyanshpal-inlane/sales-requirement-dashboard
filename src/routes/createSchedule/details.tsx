@@ -121,7 +121,7 @@ export default function ScheduleDetails() {
       },
       {
         onSuccess: () => {
-          navigate("/createSchedule/uploadLL");
+          navigate("/createSchedule/onboardingQuestions");
         },
       },
     );
@@ -140,7 +140,7 @@ export default function ScheduleDetails() {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            1/3
+            1/4
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
