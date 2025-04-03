@@ -42,7 +42,7 @@ export default function AdminHome() {
     },
     {
       title: "LL Applications",
-      description: "Process and update learner license applications",
+      description: "Process and update learner's license applications",
       icon: ClipboardList,
       link: "/admin/learner-ll-details",
       color: "text-green-500",

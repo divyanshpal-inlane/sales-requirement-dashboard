@@ -8,7 +8,7 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
-import LearnerManagement from "@/routes/admin/LearnerManagement";
+
 import Instructor from "@/app/instructor/Instructor";
 import InstructorProfile from "@/app/instructor/InstructorProfile";
 import OTP from "@/app/instructor/OTP";
@@ -34,6 +34,7 @@ import AdminHome from "@/routes/admin/AdminHome";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import InstructorsManagement from "@/routes/admin/instructors";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
+import LearnerManagement from "@/routes/admin/LearnerManagement";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
@@ -50,6 +51,8 @@ import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
+
+import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +121,10 @@ export default function App() {
               {/* <Route path="slots" element={<ScheduleSlots />} /> */}
               <Route path="preferences" element={<Preferences />} />
               <Route path="uploadLL" element={<UploadLL />} />
+              <Route
+                path="onboardingQuestions"
+                element={<OnboardingQuestions />}
+              />
             </Route>
             <Route
               path="/"

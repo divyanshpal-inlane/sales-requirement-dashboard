@@ -85,7 +85,9 @@ export default function CreateScheduleWithInstructor({
   request,
   onScheduleCreate,
 }: CreateScheduleProps) {
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
+  const [selectedInstructorId, setSelectedInstructorId] = useState<
+    string | null
+  >(null);
   // Use state to track custom date range instead of week start
   const [currentRangeStart, setCurrentRangeStart] = useState(new Date());
 
@@ -145,12 +147,12 @@ export default function CreateScheduleWithInstructor({
   // Modified to advance or go back by exactly 7 days (not tied to week concept)
   const handleDateRangeChange = (direction: "prev" | "next") => {
     setCurrentRangeStart((prev) =>
-      direction === "next" ? addDays(prev, 7) : addDays(prev, -7)
+      direction === "next" ? addDays(prev, 7) : addDays(prev, -7),
     );
   };
-  
+
   const [showInstructorDetails, setShowInstructorDetails] = useState(false);
-  
+
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
@@ -196,9 +198,7 @@ export default function CreateScheduleWithInstructor({
 
         <Card>
           <CardContent>
-            <h3 className="mb-4 mt-4 font-medium">
-              Instructor's Schedule
-            </h3>
+            <h3 className="mb-4 mt-4 font-medium">Instructor's Schedule</h3>
 
             <div className="mb-4 flex items-center justify-between">
               <Button
@@ -220,15 +220,20 @@ export default function CreateScheduleWithInstructor({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-200">
+            <div className="w-full overflow-x-auto">
+              <table className="table-fixed border-collapse border border-gray-200">
                 <thead>
                   <tr>
-                    <th className="border border-gray-200 p-2">Time</th>
+                    <th className="sticky left-0 z-10 min-w-24 border border-gray-200 bg-white p-2">
+                      Time
+                    </th>
                     {Array.from({ length: 7 }).map((_, index) => {
                       const day = addDays(currentRangeStart, index);
                       return (
-                        <th key={index} className="border border-gray-200 p-2">
+                        <th
+                          key={index}
+                          className="min-w-24 border border-gray-200 p-2"
+                        >
                           <div>{format(day, "EEE")}</div>
                           <div className="text-sm text-gray-500">
                             {format(day, "MMM d")}
@@ -243,9 +248,14 @@ export default function CreateScheduleWithInstructor({
                     const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
                     const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
                     return (
-                      <tr key={timeIndex}>
-                        <td className="border border-gray-200 p-2 text-center">
-                          {format(new Date().setHours(hour, minute), "h:mm a")}
+                      <tr key={timeIndex} className="h-10">
+                        <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
+                          <span className="text-base ">
+                            {format(
+                              new Date().setHours(hour, minute),
+                              "h:mm a",
+                            )}
+                          </span>
                         </td>
                         {Array.from({ length: 7 }).map((_, dayIndex) => {
                           const day = addDays(currentRangeStart, dayIndex);
@@ -277,13 +287,15 @@ export default function CreateScheduleWithInstructor({
                           return (
                             <td
                               key={dayIndex}
-                              className={`border border-gray-200 p-2 text-center ${
+                              className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
                                 schedule ? "bg-primary text-white" : ""
                               }`}
                             >
-                              {isScheduleStart
-                                ? `${schedule.start_time} - ${schedule.end_time}`
-                                : ""}
+                              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
+                                {isScheduleStart
+                                  ? `${schedule.start_time} - ${schedule.end_time}`
+                                  : ""}
+                              </div>
                             </td>
                           );
                         })}
@@ -315,7 +327,7 @@ export default function CreateScheduleWithInstructor({
                 )}
               </Button>
               {showInstructorDetails && selectedInstructorId && (
-                <div className="mt-2 rounded bg-gray-50 p-2 flex gap-4">
+                <div className="mt-2 flex gap-4 rounded bg-gray-50 p-2">
                   <div>
                     <p className="mb-1 text-sm">
                       <span className="font-medium">Address:</span>{" "}
@@ -609,6 +621,7 @@ function CreateSchedule({
     slot,
     date,
     instructors,
+    otherSchedules,
     onConfirm,
   }: TimeSlotSelectionDialogProps) => {
     const [instructorId, setInstructorId] = useState<string>(
@@ -618,9 +631,17 @@ function CreateSchedule({
     const availableInstructorIds = slot?.state.availableInstructors || [];
 
     const availableInstructors =
-      instructors?.filter((instructor) =>
-        availableInstructorIds.includes(instructor.id_instructor),
-      ) || [];
+      instructors?.filter((instructor) => {
+        return (
+          availableInstructorIds.includes(instructor.id_instructor) &&
+          !otherSchedules.some(
+            (s) =>
+              s.instructor_id === instructor.id_instructor &&
+              s.date === format(date, "yyyy-MM-dd") &&
+              s.start_time === format(slot.timestamp, "HH:mm:00"),
+          )
+        );
+      }) || [];
 
     const handleConfirm = () => {
       onConfirm(instructorId);
@@ -1075,22 +1096,19 @@ function CreateSchedule({
 
     // Check if this slot is unavailable due to other schedules
     const hasExistingSchedule =
-      slot.state.existingSchedule ||
-      otherSchedules?.some((s) => {
-        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
-        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
-        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
-
-        // Check if this slot falls within the scheduled time
-        return (
+      selectedInstructorId &&
+      otherSchedules?.some(
+        (s) =>
+          s.instructor_id === selectedInstructorId &&
           s.date === dateStr &&
           // Check if the current time is between the start and end times
-          ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
-            (hour === scheduleEndHour &&
+          ((hour === parseInt(s.start_time.split(":")[0]) &&
+            minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
+            (hour === parseInt(s.end_time.split(":")[0]) &&
               minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > scheduleStartHour && hour < scheduleEndHour))
-        );
-      });
+            (hour > parseInt(s.start_time.split(":")[0]) &&
+              hour < parseInt(s.end_time.split(":")[0]))),
+      );
 
     if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
@@ -1170,7 +1188,7 @@ function CreateSchedule({
       </div>
 
       <ScrollArea className="relative">
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 mt-4">
           {Array.from({ length: 7 }).map((_, index) => {
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
@@ -1297,6 +1315,7 @@ function CreateSchedule({
         slot={selectedSlot}
         date={selectedDate}
         instructors={instructors}
+        otherSchedules={otherSchedules}
         onConfirm={handleInstructorSelect}
       />
     </div>

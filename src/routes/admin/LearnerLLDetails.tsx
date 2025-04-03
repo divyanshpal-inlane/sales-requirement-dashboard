@@ -175,14 +175,14 @@ const LearnerLLDetails = () => {
                     id="appointmentId"
                     value={appointmentId}
                     onChange={(e) => setAppointmentId(e.target.value)}
-                    disabled={selectedLearner?.LL_application_id}
+                    
                     className="mt-1"
                   />
                 </div>
                 <Button
                   onClick={handleSaveAppointmentId}
                   disabled={
-                    !appointmentId || selectedLearner?.LL_application_id
+                    !appointmentId 
                   }
                   className="w-full"
                 >
