@@ -313,7 +313,7 @@ export default function CreateScheduleWithInstructor({
       <div className="w-1/2">
         <Card className="mb-4">
           <CardContent>
-            <div className="mb-4 mt-10">
+            <div className="mb-[19px] mt-10">
               <Button
                 variant="outline"
                 className="flex w-full justify-between"
@@ -327,37 +327,45 @@ export default function CreateScheduleWithInstructor({
                 )}
               </Button>
               {showInstructorDetails && selectedInstructorId && (
-                <div className="mt-2 flex gap-4 rounded bg-gray-50 p-2">
+                <div className="mt-2 grid grid-cols-2 gap-4 rounded bg-gray-50 p-2">
                   <div>
                     <p className="mb-1 text-sm">
-                      <span className="font-medium">Address:</span>{" "}
-                      {
-                        instructors.find(
-                          (instructor) =>
-                            instructor.id_instructor === selectedInstructorId,
-                        )?.address
-                      }
-                    </p>
-                    <p className="mb-1 text-sm">
-                      <span className="font-medium">Radius:</span>{" "}
-                      {
-                        instructors.find(
-                          (instructor) =>
-                            instructor.id_instructor === selectedInstructorId,
-                        )?.radius
-                      }{" "}
-                      km
+                      <span className="font-medium">Address:</span>
+                      <span className="ml-2">
+                        {
+                          instructors.find(
+                            (instructor) =>
+                              instructor.id_instructor === selectedInstructorId,
+                          )?.address
+                        }
+                      </span>
                     </p>
                   </div>
-                  <div>
-                    <p className="ml-48 text-sm">
-                      <span className="font-medium">Areas:</span>{" "}
-                      {instructors
-                        .find(
-                          (instructor) =>
-                            instructor.id_instructor === selectedInstructorId,
-                        )
-                        ?.areas.join(", ")}
+                  <div className="flex items-center">
+                    <p className="mb-1 text-sm">
+                      <span className="font-medium">Radius:</span>
+                      <span className="ml-2">
+                        {
+                          instructors.find(
+                            (instructor) =>
+                              instructor.id_instructor === selectedInstructorId,
+                          )?.radius
+                        }{" "}
+                        km
+                      </span>
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="mt-2 text-sm">
+                      <span className="font-medium">Areas:</span>
+                      <span className="ml-2">
+                        {instructors
+                          .find(
+                            (instructor) =>
+                              instructor.id_instructor === selectedInstructorId,
+                          )
+                          ?.areas.join(", ")}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -806,7 +814,7 @@ function CreateSchedule({
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
-    if (direction === "prev" && isBefore(addDays(startDate, -7), new Date())) {
+    if (direction === "prev" && isBefore(addDays(startDate, -6), new Date())) {
       return;
     }
     setStartDate((prev) => addDays(prev, direction === "next" ? 7 : -7));
