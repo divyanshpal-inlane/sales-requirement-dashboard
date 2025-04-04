@@ -58,7 +58,7 @@ export default function AdminHome() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/30 p-8">
+    <div className="min-h-screen bg-white p-8" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
       <div className="mx-auto max-w-3xl">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>
@@ -102,3 +102,4 @@ export default function AdminHome() {
     </div>
   );
 }
+

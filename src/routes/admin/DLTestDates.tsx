@@ -132,7 +132,7 @@ const DLTestDates = () => {
                     }}
                   >
                     <div className="font-medium">{learner.name}</div>
-                    <div className="text-sm opacity-75">ID: {learner.id}</div>
+                    <div className="text-sm opacity-75">Phone: {learner.phone}</div>
                     <div className="text-sm opacity-75">
                       LL ID: {learner.LL_application_id || "N/A"}
                     </div>
