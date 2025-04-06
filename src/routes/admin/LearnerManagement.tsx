@@ -1,4 +1,4 @@
-import { Link as LinkIcon, UserPlus, RefreshCw } from "lucide-react";
+import { Link as LinkIcon, RefreshCw, UserPlus } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -40,10 +40,9 @@ export default function LearnerManagement() {
   const [isCreateLearnerDialogOpen, setIsCreateLearnerDialogOpen] =
     useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [unpaidEnrollments, setUnpaidEnrollments] = useState([]);
   const [incompletePayments, setIncompletePayments] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingIncomplete, setIsLoadingIncomplete] = useState(false);
+  const [paymentStatuses, setPaymentStatuses] = useState({});
   const { toast } = useToast();
 
   const courses = [
@@ -95,71 +94,100 @@ export default function LearnerManagement() {
     },
   ];
 
-  // Fetch unpaid enrollments - enrollments with payment_id set to null
-  const fetchUnpaidEnrollments = async () => {
-    setIsLoading(true);
+  // Function to check payment status - returns a string, not a Promise
+  const checkPaymentStatus = async (enrollment) => {
     try {
-      // Get all enrollments where payment_id is null, with related learner and course data
-      const { data: unpaidEnrollmentsList, error: enrollmentError } =
-        await supabase
-          .from("enrollment")
-          .select(`
-            id,
-            amount,
-            payment_status,
-            unlocked_lessons,
-            installment_mode,
-            installment1_amount,
-            installment2_amount,
-            learner_id,
-            course_id,
-            learner:learner_id (id, name, phone, email),
-            course:course_id (id, name, duration)
-          `)
-          .is('payment_id', null); // This is the key filter - only get records where payment_id is null
+      // If payment_id is null, payment hasn't been attempted yet
+      if (!enrollment.payment_id) {
+        return "Payment Unattempted";
+      }
 
-      if (enrollmentError) throw enrollmentError;
-      
-      setUnpaidEnrollments(unpaidEnrollmentsList || []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch unpaid enrollments",
-        variant: "destructive",
-      });
-      console.error("Error fetching unpaid enrollments:", error);
-    } finally {
-      setIsLoading(false);
+      // Fetch the payment details from the payment table
+      const { data: payment, error } = await supabase
+        .from("payment")
+        .select("status")
+        .eq("id", enrollment.payment_id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching payment:", error);
+        return "Error checking status";
+      }
+
+      if (payment && payment.status) {
+        return `Payment ${payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}`;
+      } else {
+        return "Unknown Status";
+      }
+    } catch (err) {
+      console.error("Error in checkPaymentStatus:", err);
+      return "Error checking status";
     }
   };
+
+  // Update payment statuses after fetching incomplete payments
+  useEffect(() => {
+    const updatePaymentStatuses = async () => {
+      const newStatuses = {};
+
+      for (const enrollment of incompletePayments) {
+        try {
+          const status = await checkPaymentStatus(enrollment);
+          newStatuses[enrollment.id] = status;
+
+          // Update state for each status individually to show progress
+          setPaymentStatuses((prev) => ({ ...prev, [enrollment.id]: status }));
+        } catch (error) {
+          console.error("Error updating payment status:", error);
+          newStatuses[enrollment.id] = "Error";
+          setPaymentStatuses((prev) => ({ ...prev, [enrollment.id]: "Error" }));
+        }
+      }
+    };
+
+    if (incompletePayments.length > 0) {
+      updatePaymentStatuses();
+    }
+  }, [incompletePayments]);
 
   // Fetch all incomplete payments - both unpaid and partially paid enrollments
   const fetchIncompletePayments = async () => {
     setIsLoadingIncomplete(true);
+    setPaymentStatuses({}); // Reset statuses
+
     try {
       // Get all enrollments where payment_status is not 'completed' and amount > 0
-      const { data: incompletePaymentsList, error: enrollmentError } =
-        await supabase
-          .from("enrollment")
-          .select(`
-            id,
-            amount,
-            payment_status,
-            unlocked_lessons,
-            installment_mode,
-            installment1_amount,
-            installment2_amount,
-            payment_id,
-            learner_id,
-            course_id,
-            learner:learner_id (id, name, phone, email),
-            course:course_id (id, name, duration)
-          `)
-          .or('payment_status.neq.completed,and(amount.gt.0)');
+      const { data: enrollments, error: enrollmentError } = await supabase
+        .from("enrollment")
+        .select(
+          `
+          id,
+          amount,
+          payment_status,
+          unlocked_lessons,
+          installment_mode,
+          installment1_amount,
+          installment2_amount,
+          payment_id,
+          learner_id,
+          course_id,
+          learner:learner_id (id, name, phone, email),
+          course:course_id (id, name, duration)
+        `,
+        )
+        .or("payment_status.neq.full_paid,and(amount.gt.0)");
 
       if (enrollmentError) throw enrollmentError;
-      
-      setIncompletePayments(incompletePaymentsList || []);
+
+      // Initialize loading statuses for all enrollments
+      const initialStatuses = {};
+      (enrollments || []).forEach((enrollment) => {
+        initialStatuses[enrollment.id] = "Loading...";
+      });
+      setPaymentStatuses(initialStatuses);
+
+      // Set incomplete payments - statuses will be updated by the effect
+      setIncompletePayments(enrollments || []);
     } catch (error) {
       toast({
         title: "Error",
@@ -172,9 +200,8 @@ export default function LearnerManagement() {
     }
   };
 
-  // Fetch both unpaid enrollments and incomplete payments on component mount
+  // Fetch incomplete payments on component mount
   useEffect(() => {
-    fetchUnpaidEnrollments();
     fetchIncompletePayments();
   }, []);
 
@@ -198,7 +225,7 @@ export default function LearnerManagement() {
   const handleUnlockedLessonsChange = (value) => {
     // If value is empty, don't update the state yet
     if (value === "") return;
-    
+
     const lessonCount = parseInt(value, 10);
     setLearnerData((prev) => ({
       ...prev,
@@ -221,10 +248,15 @@ export default function LearnerManagement() {
       // If unlockedLessons is empty, set it to half the course duration
       const dataToSend = { ...learnerData };
       if (dataToSend.unlockedLessons.length === 0) {
-        const selectedCourse = courses.find(course => course.id === dataToSend.courseId);
+        const selectedCourse = courses.find(
+          (course) => course.id === dataToSend.courseId,
+        );
         if (selectedCourse) {
           const halfDuration = Math.ceil(selectedCourse.duration / 2);
-          dataToSend.unlockedLessons = Array.from({ length: halfDuration }, (_, i) => i + 1);
+          dataToSend.unlockedLessons = Array.from(
+            { length: halfDuration },
+            (_, i) => i + 1,
+          );
         }
       }
 
@@ -261,8 +293,7 @@ export default function LearnerManagement() {
           setIsPaymentDialogOpen(true);
         }
 
-        // Refresh both lists
-        fetchUnpaidEnrollments();
+        // Refresh the incomplete payments list
         fetchIncompletePayments();
       } else {
         throw new Error("No learner ID returned");
@@ -311,8 +342,7 @@ export default function LearnerManagement() {
         setIsPaymentDialogOpen(false);
       }
 
-      // Refresh both lists
-      fetchUnpaidEnrollments();
+      // Refresh the incomplete payments list
       fetchIncompletePayments();
     } catch (err) {
       toast({
@@ -338,19 +368,8 @@ export default function LearnerManagement() {
     }
   };
 
-  const getPaymentStatus = (enrollment) => {
-    if (!enrollment.payment_id) {
-      return "No payment";
-    } else if (enrollment.payment_status !== "completed" && enrollment.installment_mode === "installment") {
-      return "2nd installment pending";
-    } else if (enrollment.payment_status !== "completed") {
-      return "Payment pending";
-    }
-    return enrollment.payment_status;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50/30 p-8">
+    <div className="min-h-screen bg-white p-8 container ml-32 mx-0" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
       <div className="mx-auto max-w-3xl">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">
@@ -385,102 +404,7 @@ export default function LearnerManagement() {
             </CardContent>
           </Card>
 
-          {/* Card for Unpaid Enrollments (Original) */}
-          <Card className="transition-all hover:shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-gray-100 p-2 text-amber-500">
-                  <LinkIcon size={24} />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Unpaid Enrollments</CardTitle>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={fetchUnpaidEnrollments}
-                variant="outline"
-                className="ml-auto"
-              >
-                <RefreshCw size={16} className="mr-2" />
-                Refresh
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="relative overflow-x-auto rounded border">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-xs uppercase">
-                    <tr>
-                      <th className="px-4 py-3">Learner</th>
-                      <th className="px-4 py-3">Contact</th>
-                      <th className="px-4 py-3">Course</th>
-                      <th className="px-4 py-3">Amount</th>
-                      <th className="px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan="5" className="px-4 py-3 text-center">
-                          Loading...
-                        </td>
-                      </tr>
-                    ) : unpaidEnrollments.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="px-4 py-3 text-center">
-                          No unpaid enrollments found
-                        </td>
-                      </tr>
-                    ) : (
-                      unpaidEnrollments.map((enrollment) => (
-                        <tr
-                          key={enrollment.id}
-                          className="border-b hover:bg-gray-50"
-                        >
-                          <td className="px-4 py-3 font-medium">
-                            {enrollment.learner?.name || "N/A"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {enrollment.learner?.phone || "N/A"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {enrollment.course?.name || "N/A"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {enrollment.installment_mode === "installment"
-                              ? `₹${enrollment.installment1_amount} (1st)`
-                              : `₹${enrollment.amount}`}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                              onClick={() =>
-                                sendPaymentLink(
-                                  enrollment.learner,
-                                  enrollment.course,
-                                  enrollment.installment_mode === "installment"
-                                    ? enrollment.installment1_amount
-                                    : enrollment.amount,
-                                  enrollment.installment_mode,
-                                  enrollment.id,
-                                )
-                              }
-                            >
-                              Send Payment Link
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* NEW Card for All Incomplete Payments */}
+          {/* Card for All Incomplete Payments */}
           <Card className="transition-all hover:shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-4">
@@ -488,7 +412,9 @@ export default function LearnerManagement() {
                   <LinkIcon size={24} />
                 </div>
                 <div>
-                  <CardTitle className="text-xl">All Incomplete Payments</CardTitle>
+                  <CardTitle className="text-xl">
+                    All Incomplete Payments
+                  </CardTitle>
                 </div>
               </div>
               <Button
@@ -547,7 +473,7 @@ export default function LearnerManagement() {
                             {getPaymentInfo(enrollment)}
                           </td>
                           <td className="px-4 py-3">
-                            {getPaymentStatus(enrollment)}
+                            {paymentStatuses[enrollment.id] || "Loading..."}
                           </td>
                           <td className="px-4 py-3">
                             {enrollment.installment_mode}

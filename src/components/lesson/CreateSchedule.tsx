@@ -1,3 +1,4 @@
+import { Loader } from "@googlemaps/js-api-loader";
 import { useQuery } from "@tanstack/react-query";
 import {
   addDays,
@@ -8,6 +9,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -38,6 +41,86 @@ import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
 import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
 
+// Add interface for instructor with distance information
+interface InstructorWithDistance {
+  id_instructor: string;
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  radius: number | null;
+  areas: string[];
+  distance: number | null;
+  isWithinRadius: boolean;
+}
+
+// Function to calculate distance between two points using Haversine formula (as the crow flies)
+function calculateHaversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371; // Radius of the Earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+}
+
+// Function to fetch driving distance using Google Maps Distance Matrix API
+export async function getDrivingDistanceViaSDK(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number,
+): Promise<number | null> {
+  try {
+    const loader = new Loader({
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY!,
+      libraries: ["places"],
+    });
+
+    await loader.load();
+
+    const origin = new google.maps.LatLng(originLat, originLng);
+    const destination = new google.maps.LatLng(destLat, destLng);
+
+    const service = new google.maps.DistanceMatrixService();
+
+    return new Promise((resolve) => {
+      service.getDistanceMatrix(
+        {
+          origins: [origin],
+          destinations: [destination],
+          travelMode: google.maps.TravelMode.DRIVING,
+        },
+        (response, status) => {
+          if (
+            status === "OK" &&
+            response?.rows?.[0]?.elements?.[0]?.status === "OK"
+          ) {
+            const meters = response.rows[0].elements[0].distance.value;
+            resolve(meters / 1000); // return distance in km
+          } else {
+            console.error("DistanceMatrix failed:", status, response);
+            resolve(null);
+          }
+        },
+      );
+    });
+  } catch (err) {
+    console.error("Error loading Maps SDK or calculating distance:", err);
+    return null;
+  }
+}
+
 interface CreateScheduleProps {
   learnerId: string;
   learnerArea: string;
@@ -45,39 +128,7 @@ interface CreateScheduleProps {
   onScheduleCreate: (schedules: Schedule[], courseId: string) => void;
 }
 
-interface TimeSlotState {
-  isAvailable: boolean;
-  isSelected: boolean;
-  isPreferred: boolean;
-  isCurrentSchedule: boolean;
-  isLearnerSchedule: boolean;
-  existingSchedule?: {
-    slot_start_time: string;
-    learner_name: string | null;
-    learner_area: string | null;
-    pickup_address: string | null;
-    latitude: number | null;
-    longitude: number | null;
-  };
-  availableInstructors: string[];
-}
-
-interface HourlySlot {
-  timestamp: Date;
-  timeSlot: TimeSlot | null;
-  state: TimeSlotState;
-}
-
-type DaySchedule = HourlySlot[];
-
-interface TimeSlotSelectionDialogProps {
-  open: boolean;
-  onClose: () => void;
-  slot: HourlySlot | null;
-  date: Date | null;
-  instructors: any[] | null;
-  onConfirm: (instructorId: string) => void;
-}
+// Rest of the code remains the same...
 
 export default function CreateScheduleWithInstructor({
   learnerId,
@@ -90,6 +141,25 @@ export default function CreateScheduleWithInstructor({
   >(null);
   // Use state to track custom date range instead of week start
   const [currentRangeStart, setCurrentRangeStart] = useState(new Date());
+  const [instructorsWithDistance, setInstructorsWithDistance] = useState<
+    InstructorWithDistance[]
+  >([]);
+  const [isLoadingDistances, setIsLoadingDistances] = useState(false);
+
+  // Fetch learner details to get pickup location coordinates
+  const { data: learnerDetails } = useQuery({
+    queryKey: ["learnerDetails", learnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Learner")
+        .select("*")
+        .eq("id", learnerId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Fetch instructors for the learner's area
   const { data: instructors } = useQuery({
@@ -101,6 +171,105 @@ export default function CreateScheduleWithInstructor({
       return data;
     },
   });
+
+  // Calculate distances between learner and instructors
+  useEffect(() => {
+    const calculateDistances = async () => {
+      if (
+        !instructors ||
+        !learnerDetails ||
+        !learnerDetails.address_lat ||
+        !learnerDetails.address_lng
+      ) {
+        return;
+      }
+
+      setIsLoadingDistances(true);
+
+      const learnerLat = learnerDetails.address_lat;
+      const learnerLng = learnerDetails.address_lng;
+
+      const instructorsWithDistanceData: InstructorWithDistance[] = [];
+
+      // Process instructors in batches to avoid rate limiting
+      for (const instructor of instructors) {
+        if (instructor.latitude && instructor.longitude) {
+          // First calculate straight-line distance as a quick filter
+          const straightLineDistance = calculateHaversineDistance(
+            learnerLat,
+            learnerLng,
+            instructor.latitude,
+            instructor.longitude,
+          );
+
+          // Only fetch driving distance if straight-line distance is within a reasonable range
+          // (e.g., 1.5x the instructor's radius) to save API calls
+          let drivingDistance: number | null = null;
+
+          if (straightLineDistance <= (instructor.radius || 20) * 1.5) {
+            try {
+              drivingDistance = await getDrivingDistanceViaSDK(
+                learnerLat,
+                learnerLng,
+                instructor.latitude,
+                instructor.longitude,
+              );
+            } catch (error) {
+              console.error("Error fetching driving distance:", error);
+              // Fall back to straight-line distance if API fails
+              drivingDistance = straightLineDistance;
+            }
+          } else {
+            // Use straight-line distance if outside reasonable range
+            drivingDistance = straightLineDistance;
+          }
+
+          instructorsWithDistanceData.push({
+            ...instructor,
+            distance: drivingDistance || straightLineDistance,
+            isWithinRadius:
+              (drivingDistance || straightLineDistance) <=
+              (instructor.radius || 0),
+          });
+        } else {
+          // If instructor doesn't have coordinates, add with null distance
+          instructorsWithDistanceData.push({
+            ...instructor,
+            distance: null,
+            isWithinRadius: false,
+          });
+        }
+      }
+
+      // Sort instructors: first by whether they're within radius, then by distance
+      const sortedInstructors = instructorsWithDistanceData.sort((a, b) => {
+        // First sort by whether they're within radius
+        if (a.isWithinRadius && !b.isWithinRadius) return -1;
+        if (!a.isWithinRadius && b.isWithinRadius) return 1;
+
+        // Then sort by matching area
+        const aMatchesArea = a.areas.some(
+          (area) => area.toLowerCase() === learnerArea.toLowerCase(),
+        );
+        const bMatchesArea = b.areas.some(
+          (area) => area.toLowerCase() === learnerArea.toLowerCase(),
+        );
+        if (aMatchesArea && !bMatchesArea) return -1;
+        if (!aMatchesArea && bMatchesArea) return 1;
+
+        // Then sort by distance
+        if (a.distance === null && b.distance === null) return 0;
+        if (a.distance === null) return 1;
+        if (b.distance === null) return -1;
+        return a.distance - b.distance;
+      });
+
+      setInstructorsWithDistance(sortedInstructors);
+      setIsLoadingDistances(false);
+    };
+
+    calculateDistances();
+  }, [instructors, learnerDetails, learnerArea]);
 
   // Fetch the selected instructor's schedule
   const { data: instructorSchedule } = useQuery({
@@ -123,33 +292,78 @@ export default function CreateScheduleWithInstructor({
     enabled: !!selectedInstructorId,
   });
 
-  // Case-insensitive matching for instructor locations
-  const [matchingInstructors, otherInstructors] = useMemo(() => {
-    if (!instructors) return [[], []];
-
-    return instructors.reduce(
-      ([matching, others], instructor) => {
-        if (
-          instructor.areas.some(
-            (area: string) => area.toLowerCase() === learnerArea.toLowerCase(), // Case-insensitive comparison
-          )
-        ) {
-          matching.push(instructor);
-        } else {
-          others.push(instructor);
-        }
-        return [matching, others];
-      },
-      [[], []],
-    );
-  }, [instructors, learnerArea]);
-
   // Modified to advance or go back by exactly 7 days (not tied to week concept)
   const handleDateRangeChange = (direction: "prev" | "next") => {
     setCurrentRangeStart((prev) =>
       direction === "next" ? addDays(prev, 7) : addDays(prev, -7),
     );
   };
+  // Add this helper function before your return statement
+const isTimeSlotUnavailable = (day, hour, minute) => {
+  if (!selectedInstructorId) return false;
+  
+  // Find the selected instructor
+  const selectedInstructor = instructorsWithDistance.find(
+    instructor => instructor.id_instructor === selectedInstructorId
+  );
+  
+  // If no instructor is selected or unavailability isn't defined, return false
+  if (!selectedInstructor || !selectedInstructor.unavailability) return false;
+
+  const unavailabilityData = selectedInstructor.unavailability;
+  
+  // Make sure unavailability is an array (it should be if stored as jsonb)
+  const unavailability = Array.isArray(unavailabilityData) 
+    ? unavailabilityData 
+    : JSON.parse(unavailabilityData);
+  
+  const currentTime = new Date(day);
+  currentTime.setHours(hour, minute);
+  const dayOfWeek = format(day, 'EEEE').toLowerCase();
+  const formattedDate = format(day, 'yyyy-MM-dd');
+
+  return unavailability.some((u) => {
+    // Case 1: Single day, all day
+    if (u.booked_date && u.all_day) {
+      return formattedDate === u.booked_date;
+    }
+
+    // Case 2: Single day, specific time slot
+    if (u.booked_date && u.booked_start_time && u.booked_end_time && !u.all_day) {
+      const unavailableStart = new Date(`${u.booked_date}T${u.booked_start_time}`);
+      const unavailableEnd = new Date(`${u.booked_date}T${u.booked_end_time}`);
+      return formattedDate === u.booked_date && 
+             currentTime >= unavailableStart && 
+             currentTime < unavailableEnd;
+    }
+
+    // Case 3: Weekly recurring on specific day of week
+    if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
+      if (u.day_of_week === dayOfWeek) {
+        const [startHour, startMinute] = u.booked_start_time.split(':').map(Number);
+        const [endHour, endMinute] = u.booked_end_time.split(':').map(Number);
+        
+        const unavailableStart = new Date(day);
+        unavailableStart.setHours(startHour, startMinute);
+        
+        const unavailableEnd = new Date(day);
+        unavailableEnd.setHours(endHour, endMinute);
+        
+        return currentTime >= unavailableStart && currentTime < unavailableEnd;
+      }
+    }
+
+    // Case 4: Date range
+    if (u.start_date && u.end_date) {
+      const rangeStart = new Date(u.start_date);
+      const rangeEnd = new Date(u.end_date);
+      rangeEnd.setHours(23, 59, 59); // Set to end of day
+      return currentTime >= rangeStart && currentTime <= rangeEnd;
+    }
+
+    return false;
+  });
+};
 
   const [showInstructorDetails, setShowInstructorDetails] = useState(false);
 
@@ -165,31 +379,56 @@ export default function CreateScheduleWithInstructor({
               onValueChange={(value) => setSelectedInstructorId(value)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select an instructor" />
+                <SelectValue
+                  placeholder={
+                    isLoadingDistances
+                      ? "Calculating distances..."
+                      : "Select an instructor"
+                  }
+                />
               </SelectTrigger>
-              <SelectContent>
-                {matchingInstructors.map((instructor) => (
-                  <SelectItem
-                    key={instructor.id_instructor}
-                    value={instructor.id_instructor}
-                  >
-                    {instructor.name} (Matching Area)
-                  </SelectItem>
-                ))}
-                {otherInstructors.length > 0 && (
-                  <>
-                    <div className="px-2 py-1 text-sm text-gray-500">
-                      Other Instructors
-                    </div>
-                    {otherInstructors.map((instructor) => (
-                      <SelectItem
-                        key={instructor.id_instructor}
-                        value={instructor.id_instructor}
-                      >
-                        {instructor.name}
-                      </SelectItem>
-                    ))}
-                  </>
+              <SelectContent className="max-h-[300px]">
+                {isLoadingDistances ? (
+                  <div className="flex items-center justify-center p-4">
+                    <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                    <span>Calculating distances...</span>
+                  </div>
+                ) : (
+                  instructorsWithDistance.map((instructor) => (
+                    <SelectItem
+                      key={instructor.id_instructor}
+                      value={instructor.id_instructor}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{instructor.name}</span>
+                        {instructor.areas.some(
+                          (area) =>
+                            area.toLowerCase() === learnerArea.toLowerCase(),
+                        ) && (
+                          <Badge
+                            variant="outline"
+                            className="ml-2 border-blue-200 bg-blue-50 text-blue-700"
+                          >
+                            Matching Area
+                          </Badge>
+                        )}
+                        {instructor.isWithinRadius && (
+                          <Badge
+                            variant="outline"
+                            className="ml-2 border-green-200 bg-green-50 text-green-700"
+                          >
+                            Matching Radius
+                          </Badge>
+                        )}
+                        {instructor.distance !== null && (
+                          <span className="right-10 fixed text-xs text-gray-500">
+                            {instructor.distance.toFixed(1)} km
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))
                 )}
               </SelectContent>
             </Select>
@@ -244,64 +483,72 @@ export default function CreateScheduleWithInstructor({
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: 32 }).map((_, timeIndex) => {
-                    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
-                    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
-                    return (
-                      <tr key={timeIndex} className="h-10">
-                        <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
-                          <span className="text-base ">
-                            {format(
-                              new Date().setHours(hour, minute),
-                              "h:mm a",
-                            )}
-                          </span>
-                        </td>
-                        {Array.from({ length: 7 }).map((_, dayIndex) => {
-                          const day = addDays(currentRangeStart, dayIndex);
+                {Array.from({ length: 32 }).map((_, timeIndex) => {
+  const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
+  const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+  return (
+    <tr key={timeIndex} className="h-10">
+      <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
+        <span className="text-base">
+          {format(
+            new Date().setHours(hour, minute),
+            "h:mm a",
+          )}
+        </span>
+      </td>
+      {Array.from({ length: 7 }).map((_, dayIndex) => {
+        const day = addDays(currentRangeStart, dayIndex);
 
-                          // Find the schedule for the current day and time
-                          const schedule = instructorSchedule?.find((s) => {
-                            const scheduleStart = new Date(
-                              `${s.date}T${s.start_time}`,
-                            );
-                            const scheduleEnd = new Date(
-                              `${s.date}T${s.end_time}`,
-                            );
-                            const currentTime = new Date(day);
-                            currentTime.setHours(hour, minute);
-                            return (
-                              isSameDay(scheduleStart, day) &&
-                              currentTime >= scheduleStart &&
-                              currentTime < scheduleEnd
-                            );
-                          });
-                          // Determine if this cell is the start of a schedule
-                          const isScheduleStart =
-                            schedule &&
-                            parseInt(schedule.start_time.split(":")[0]) ===
-                              hour &&
-                            parseInt(schedule.start_time.split(":")[1]) ===
-                              minute;
+        // Find the schedule for the current day and time
+        const schedule = instructorSchedule?.find((s) => {
+          const scheduleStart = new Date(
+            `${s.date}T${s.start_time}`,
+          );
+          const scheduleEnd = new Date(
+            `${s.date}T${s.end_time}`,
+          );
+          const currentTime = new Date(day);
+          currentTime.setHours(hour, minute);
+          return (
+            isSameDay(scheduleStart, day) &&
+            currentTime >= scheduleStart &&
+            currentTime < scheduleEnd
+          );
+        });
+        
+        // Check if time slot is unavailable
+        const unavailable = isTimeSlotUnavailable(day, hour, minute);
+        
+        // Determine if this cell is the start of a schedule
+        const isScheduleStart =
+          schedule &&
+          parseInt(schedule.start_time.split(":")[0]) === hour &&
+          parseInt(schedule.start_time.split(":")[1]) === minute;
 
-                          return (
-                            <td
-                              key={dayIndex}
-                              className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
-                                schedule ? "bg-primary text-white" : ""
-                              }`}
-                            >
-                              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
-                                {isScheduleStart
-                                  ? `${schedule.start_time} - ${schedule.end_time}`
-                                  : ""}
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+        return (
+          <td
+            key={dayIndex}
+            className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
+              schedule 
+                ? "bg-primary text-white" 
+                : unavailable
+                  ? "bg-red-200 text-red-800"
+                  : ""
+            }`}
+          >
+            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
+              {isScheduleStart
+                ? `${schedule.start_time} - ${schedule.end_time}`
+                : unavailable && !schedule 
+                  ? "Unavailable" 
+                  : ""}
+            </div>
+          </td>
+        );
+      })}
+    </tr>
+  );
+})}
                 </tbody>
               </table>
             </div>
@@ -313,7 +560,7 @@ export default function CreateScheduleWithInstructor({
       <div className="w-1/2">
         <Card className="mb-4">
           <CardContent>
-            <div className="mb-[19px] mt-10">
+            <div className="mb-[18px] mt-10">
               <Button
                 variant="outline"
                 className="flex w-full justify-between"
@@ -327,13 +574,13 @@ export default function CreateScheduleWithInstructor({
                 )}
               </Button>
               {showInstructorDetails && selectedInstructorId && (
-                <div className="mt-2 grid grid-cols-2 gap-4 rounded bg-gray-50 p-2">
+                <div className="mt-2 grid grid-cols-2 gap-1 rounded bg-gray-50 p-2">
                   <div>
                     <p className="mb-1 text-sm">
-                      <span className="font-medium">Address:</span>
+                      <span className="font-bold">Address:</span>
                       <span className="ml-2">
                         {
-                          instructors.find(
+                          instructorsWithDistance.find(
                             (instructor) =>
                               instructor.id_instructor === selectedInstructorId,
                           )?.address
@@ -341,12 +588,12 @@ export default function CreateScheduleWithInstructor({
                       </span>
                     </p>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-right ml-10">
                     <p className="mb-1 text-sm">
-                      <span className="font-medium">Radius:</span>
+                      <span className="font-bold">Radius:</span>
                       <span className="ml-2">
                         {
-                          instructors.find(
+                          instructorsWithDistance.find(
                             (instructor) =>
                               instructor.id_instructor === selectedInstructorId,
                           )?.radius
@@ -356,16 +603,40 @@ export default function CreateScheduleWithInstructor({
                     </p>
                   </div>
                   <div className="col-span-2">
-                    <p className="mt-2 text-sm">
-                      <span className="font-medium">Areas:</span>
+                    <p className="mt-1 text-sm">
+                      <span className="font-bold">Areas:</span>
                       <span className="ml-2">
-                        {instructors
+                        {instructorsWithDistance
                           .find(
                             (instructor) =>
                               instructor.id_instructor === selectedInstructorId,
                           )
                           ?.areas.join(", ")}
                       </span>
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="mt-1 text-sm">
+                      <span className="font-bold">
+                        Distance from learner:
+                      </span>
+                      <span className="ml-2">
+                        {instructorsWithDistance
+                          .find(
+                            (instructor) =>
+                              instructor.id_instructor === selectedInstructorId,
+                          )
+                          ?.distance?.toFixed(1) || "Unknown"}{" "}
+                        km
+                      </span>
+                      {instructorsWithDistance.find(
+                        (instructor) =>
+                          instructor.id_instructor === selectedInstructorId,
+                      )?.isWithinRadius && (
+                        <Badge className="ml-2 border-green-200 bg-green-50 text-green-700">
+                          Within serviceable radius
+                        </Badge>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -385,6 +656,7 @@ export default function CreateScheduleWithInstructor({
               defaultInstructorId={selectedInstructorId}
               currentRangeStart={currentRangeStart} // Pass the range start instead of week start
               onDateChange={(newDate) => setCurrentRangeStart(newDate)} // Add this prop to sync dates
+              instructorsWithDistance={instructorsWithDistance} // Pass the instructors with distance info
             />
           </CardContent>
         </Card>
@@ -393,16 +665,24 @@ export default function CreateScheduleWithInstructor({
   );
 }
 
-// Update the CreateSchedule component to accept defaultInstructorId
+// Update the CreateSchedule component to accept defaultInstructorId and instructorsWithDistance
 function CreateSchedule({
   learnerId,
   learnerArea,
   request,
   onScheduleCreate,
   defaultInstructorId,
-}: CreateScheduleProps & { defaultInstructorId: string | null }) {
+  currentRangeStart,
+  onDateChange,
+  instructorsWithDistance,
+}: CreateScheduleProps & {
+  defaultInstructorId: string | null;
+  currentRangeStart: Date;
+  onDateChange: (date: Date) => void;
+  instructorsWithDistance: InstructorWithDistance[];
+}) {
   const { data: preferences } = usePreferences(learnerId);
-  const [startDate, setStartDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(currentRangeStart);
   const [selectedSlots, setSelectedSlots] = useState<
     Array<Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId: string }>
   >([]);
@@ -418,21 +698,15 @@ function CreateSchedule({
     string | null
   >(defaultInstructorId);
 
+  // Sync startDate with currentRangeStart from parent
+  useEffect(() => {
+    setStartDate(currentRangeStart);
+  }, [currentRangeStart]);
+
   // Ensure the selected instructor is updated when defaultInstructorId changes
   useEffect(() => {
     setSelectedInstructorId(defaultInstructorId);
   }, [defaultInstructorId]);
-
-  // Fetch instructors for the learner's area
-  const { data: instructors } = useQuery({
-    queryKey: ["instructors", learnerArea],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("Instructor").select("*");
-
-      if (error) throw error;
-      return data;
-    },
-  });
 
   // Fetch lessons for the selected course
   const { data: allLessons } = useQuery({
@@ -570,11 +844,15 @@ function CreateSchedule({
         );
 
         // Get available instructors for this slot
+        // Filter to only include instructors within their service radius
         const availableInstructors =
-          instructors
+          instructorsWithDistance
             ?.filter((instructor) => {
-              return !slotSchedules.some(
-                (s) => s.instructor_id === instructor.id_instructor,
+              return (
+                instructor.isWithinRadius && // Only include instructors within their radius
+                !slotSchedules.some(
+                  (s) => s.instructor_id === instructor.id_instructor,
+                )
               );
             })
             .map((i) => i.id_instructor) ?? [];
@@ -628,28 +906,39 @@ function CreateSchedule({
     onClose,
     slot,
     date,
-    instructors,
+    instructorsWithDistance,
     otherSchedules,
     onConfirm,
-  }: TimeSlotSelectionDialogProps) => {
+  }: TimeSlotSelectionDialogProps & {
+    instructorsWithDistance: InstructorWithDistance[];
+  }) => {
     const [instructorId, setInstructorId] = useState<string>(
       selectedInstructorId || slot?.state.availableInstructors[0] || "",
     );
 
     const availableInstructorIds = slot?.state.availableInstructors || [];
 
+    // Filter instructors to only those available for this slot and sort by distance
     const availableInstructors =
-      instructors?.filter((instructor) => {
-        return (
-          availableInstructorIds.includes(instructor.id_instructor) &&
-          !otherSchedules.some(
-            (s) =>
-              s.instructor_id === instructor.id_instructor &&
-              s.date === format(date, "yyyy-MM-dd") &&
-              s.start_time === format(slot.timestamp, "HH:mm:00"),
-          )
-        );
-      }) || [];
+      instructorsWithDistance
+        ?.filter((instructor) => {
+          return (
+            availableInstructorIds.includes(instructor.id_instructor) &&
+            !otherSchedules.some(
+              (s) =>
+                s.instructor_id === instructor.id_instructor &&
+                s.date === format(date, "yyyy-MM-dd") &&
+                s.start_time === format(slot.timestamp, "HH:mm:00"),
+            )
+          );
+        })
+        .sort((a, b) => {
+          // Sort by distance (null values last)
+          if (a.distance === null && b.distance === null) return 0;
+          if (a.distance === null) return 1;
+          if (b.distance === null) return -1;
+          return a.distance - b.distance;
+        }) || [];
 
     const handleConfirm = () => {
       onConfirm(instructorId);
@@ -681,7 +970,14 @@ function CreateSchedule({
                     key={instructor.id_instructor}
                     value={instructor.id_instructor}
                   >
-                    {instructor.name}
+                    <div className="flex w-full items-center justify-between">
+                      <span>{instructor.name}</span>
+                      {instructor.distance !== null && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          {instructor.distance.toFixed(1)} km
+                        </span>
+                      )}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -817,7 +1113,9 @@ function CreateSchedule({
     if (direction === "prev" && isBefore(addDays(startDate, -6), new Date())) {
       return;
     }
-    setStartDate((prev) => addDays(prev, direction === "next" ? 7 : -7));
+    const newDate = addDays(startDate, direction === "next" ? 7 : -7);
+    setStartDate(newDate);
+    onDateChange(newDate); // Sync with parent component
   };
 
   const handleCreateSchedule = async () => {
@@ -831,7 +1129,7 @@ function CreateSchedule({
       return;
     }
 
-    if (!instructors || instructors.length === 0) {
+    if (!instructorsWithDistance || instructorsWithDistance.length === 0) {
       alert("No instructors available for this area");
       return;
     }
@@ -1196,7 +1494,7 @@ function CreateSchedule({
       </div>
 
       <ScrollArea className="relative">
-        <div className="flex space-x-4 mt-4">
+        <div className="mt-4 flex space-x-4">
           {Array.from({ length: 7 }).map((_, index) => {
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
@@ -1322,10 +1620,21 @@ function CreateSchedule({
         onClose={() => setSelectionDialogOpen(false)}
         slot={selectedSlot}
         date={selectedDate}
-        instructors={instructors}
+        instructorsWithDistance={instructorsWithDistance}
         otherSchedules={otherSchedules}
         onConfirm={handleInstructorSelect}
       />
     </div>
   );
+}
+
+// Update the TimeSlotSelectionDialogProps interface
+interface TimeSlotSelectionDialogProps {
+  open: boolean;
+  onClose: () => void;
+  slot: HourlySlot | null;
+  date: Date | null;
+  instructorsWithDistance: InstructorWithDistance[];
+  otherSchedules: any[];
+  onConfirm: (instructorId: string) => void;
 }
