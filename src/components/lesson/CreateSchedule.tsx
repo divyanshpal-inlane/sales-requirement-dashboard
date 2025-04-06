@@ -41,6 +41,39 @@ import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
 import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
 
+interface TimeSlotState {
+  isAvailable: boolean;
+  isSelected: boolean;
+  isPreferred: boolean;
+  isCurrentSchedule: boolean;
+  isLearnerSchedule: boolean;
+  existingSchedule?: {
+    slot_start_time: string;
+    learner_name: string | null;
+    learner_area: string | null;
+    pickup_address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+  availableInstructors: string[];
+}
+
+interface HourlySlot {
+  timestamp: Date;
+  timeSlot: TimeSlot | null;
+  state: TimeSlotState;
+}
+
+type DaySchedule = HourlySlot[];
+
+interface TimeSlotSelectionDialogProps {
+  open: boolean;
+  onClose: () => void;
+  slot: HourlySlot | null;
+  date: Date | null;
+  instructors: any[] | null;
+  onConfirm: (instructorId: string) => void;
+}
 // Add interface for instructor with distance information
 interface InstructorWithDistance {
   id_instructor: string;
@@ -127,8 +160,6 @@ interface CreateScheduleProps {
   request: SchedulingRequests[number];
   onScheduleCreate: (schedules: Schedule[], courseId: string) => void;
 }
-
-// Rest of the code remains the same...
 
 export default function CreateScheduleWithInstructor({
   learnerId,
@@ -292,6 +323,27 @@ export default function CreateScheduleWithInstructor({
     enabled: !!selectedInstructorId,
   });
 
+  // Case-insensitive matching for instructor locations
+  const [matchingInstructors, otherInstructors] = useMemo(() => {
+    if (!instructors) return [[], []];
+
+    return instructors.reduce(
+      ([matching, others], instructor) => {
+        if (
+          instructor.areas.some(
+            (area: string) => area.toLowerCase() === learnerArea.toLowerCase(), // Case-insensitive comparison
+          )
+        ) {
+          matching.push(instructor);
+        } else {
+          others.push(instructor);
+        }
+        return [matching, others];
+      },
+      [[], []],
+    );
+  }, [instructors, learnerArea]);
+
   // Modified to advance or go back by exactly 7 days (not tied to week concept)
   const handleDateRangeChange = (direction: "prev" | "next") => {
     setCurrentRangeStart((prev) =>
@@ -299,71 +351,86 @@ export default function CreateScheduleWithInstructor({
     );
   };
   // Add this helper function before your return statement
-const isTimeSlotUnavailable = (day, hour, minute) => {
-  if (!selectedInstructorId) return false;
-  
-  // Find the selected instructor
-  const selectedInstructor = instructorsWithDistance.find(
-    instructor => instructor.id_instructor === selectedInstructorId
-  );
-  
-  // If no instructor is selected or unavailability isn't defined, return false
-  if (!selectedInstructor || !selectedInstructor.unavailability) return false;
+  const isTimeSlotUnavailable = (day, hour, minute) => {
+    if (!selectedInstructorId) return false;
 
-  const unavailabilityData = selectedInstructor.unavailability;
-  
-  // Make sure unavailability is an array (it should be if stored as jsonb)
-  const unavailability = Array.isArray(unavailabilityData) 
-    ? unavailabilityData 
-    : JSON.parse(unavailabilityData);
-  
-  const currentTime = new Date(day);
-  currentTime.setHours(hour, minute);
-  const dayOfWeek = format(day, 'EEEE').toLowerCase();
-  const formattedDate = format(day, 'yyyy-MM-dd');
+    // Find the selected instructor
+    const selectedInstructor = instructorsWithDistance.find(
+      (instructor) => instructor.id_instructor === selectedInstructorId,
+    );
 
-  return unavailability.some((u) => {
-    // Case 1: Single day, all day
-    if (u.booked_date && u.all_day) {
-      return formattedDate === u.booked_date;
-    }
+    // If no instructor is selected or unavailability isn't defined, return false
+    if (!selectedInstructor || !selectedInstructor.unavailability) return false;
 
-    // Case 2: Single day, specific time slot
-    if (u.booked_date && u.booked_start_time && u.booked_end_time && !u.all_day) {
-      const unavailableStart = new Date(`${u.booked_date}T${u.booked_start_time}`);
-      const unavailableEnd = new Date(`${u.booked_date}T${u.booked_end_time}`);
-      return formattedDate === u.booked_date && 
-             currentTime >= unavailableStart && 
-             currentTime < unavailableEnd;
-    }
+    const unavailabilityData = selectedInstructor.unavailability;
 
-    // Case 3: Weekly recurring on specific day of week
-    if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
-      if (u.day_of_week === dayOfWeek) {
-        const [startHour, startMinute] = u.booked_start_time.split(':').map(Number);
-        const [endHour, endMinute] = u.booked_end_time.split(':').map(Number);
-        
-        const unavailableStart = new Date(day);
-        unavailableStart.setHours(startHour, startMinute);
-        
-        const unavailableEnd = new Date(day);
-        unavailableEnd.setHours(endHour, endMinute);
-        
-        return currentTime >= unavailableStart && currentTime < unavailableEnd;
+    // Make sure unavailability is an array (it should be if stored as jsonb)
+    const unavailability = Array.isArray(unavailabilityData)
+      ? unavailabilityData
+      : JSON.parse(unavailabilityData);
+
+    const currentTime = new Date(day);
+    currentTime.setHours(hour, minute);
+    const dayOfWeek = format(day, "EEEE").toLowerCase();
+    const formattedDate = format(day, "yyyy-MM-dd");
+
+    return unavailability.some((u) => {
+      // Case 1: Single day, all day
+      if (u.booked_date && u.all_day) {
+        return formattedDate === u.booked_date;
       }
-    }
 
-    // Case 4: Date range
-    if (u.start_date && u.end_date) {
-      const rangeStart = new Date(u.start_date);
-      const rangeEnd = new Date(u.end_date);
-      rangeEnd.setHours(23, 59, 59); // Set to end of day
-      return currentTime >= rangeStart && currentTime <= rangeEnd;
-    }
+      // Case 2: Single day, specific time slot
+      if (
+        u.booked_date &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        const unavailableStart = new Date(
+          `${u.booked_date}T${u.booked_start_time}`,
+        );
+        const unavailableEnd = new Date(
+          `${u.booked_date}T${u.booked_end_time}`,
+        );
+        return (
+          formattedDate === u.booked_date &&
+          currentTime >= unavailableStart &&
+          currentTime < unavailableEnd
+        );
+      }
 
-    return false;
-  });
-};
+      // Case 3: Weekly recurring on specific day of week
+      if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
+        if (u.day_of_week === dayOfWeek) {
+          const [startHour, startMinute] = u.booked_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
+          const unavailableStart = new Date(day);
+          unavailableStart.setHours(startHour, startMinute);
+
+          const unavailableEnd = new Date(day);
+          unavailableEnd.setHours(endHour, endMinute);
+
+          return (
+            currentTime >= unavailableStart && currentTime < unavailableEnd
+          );
+        }
+      }
+
+      // Case 4: Date range
+      if (u.start_date && u.end_date) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      return false;
+    });
+  };
 
   const [showInstructorDetails, setShowInstructorDetails] = useState(false);
 
@@ -422,7 +489,7 @@ const isTimeSlotUnavailable = (day, hour, minute) => {
                           </Badge>
                         )}
                         {instructor.distance !== null && (
-                          <span className="right-10 fixed text-xs text-gray-500">
+                          <span className="fixed right-10 text-xs text-gray-500">
                             {instructor.distance.toFixed(1)} km
                           </span>
                         )}
@@ -483,72 +550,71 @@ const isTimeSlotUnavailable = (day, hour, minute) => {
                   </tr>
                 </thead>
                 <tbody>
-                {Array.from({ length: 32 }).map((_, timeIndex) => {
-  const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
-  const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
-  return (
-    <tr key={timeIndex} className="h-10">
-      <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
-        <span className="text-base">
-          {format(
-            new Date().setHours(hour, minute),
-            "h:mm a",
-          )}
-        </span>
-      </td>
-      {Array.from({ length: 7 }).map((_, dayIndex) => {
-        const day = addDays(currentRangeStart, dayIndex);
+                  {Array.from({ length: 32 }).map((_, timeIndex) => {
+                    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
+                    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+                    return (
+                      <tr key={timeIndex} className="h-10">
+                        <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
+                          <span className="text-base">
+                            {format(
+                              new Date().setHours(hour, minute),
+                              "h:mm a",
+                            )}
+                          </span>
+                        </td>
+                        {Array.from({ length: 7 }).map((_, dayIndex) => {
+                          const day = addDays(currentRangeStart, dayIndex);
 
-        // Find the schedule for the current day and time
-        const schedule = instructorSchedule?.find((s) => {
-          const scheduleStart = new Date(
-            `${s.date}T${s.start_time}`,
-          );
-          const scheduleEnd = new Date(
-            `${s.date}T${s.end_time}`,
-          );
-          const currentTime = new Date(day);
-          currentTime.setHours(hour, minute);
-          return (
-            isSameDay(scheduleStart, day) &&
-            currentTime >= scheduleStart &&
-            currentTime < scheduleEnd
-          );
-        });
-        
-        // Check if time slot is unavailable
-        const unavailable = isTimeSlotUnavailable(day, hour, minute);
-        
-        // Determine if this cell is the start of a schedule
-        const isScheduleStart =
-          schedule &&
-          parseInt(schedule.start_time.split(":")[0]) === hour &&
-          parseInt(schedule.start_time.split(":")[1]) === minute;
+                          // Find the schedule for the current day and time
+                          const schedule = instructorSchedule?.find((s) => {
+                            const scheduleStart = new Date(
+                              `${s.date}T${s.start_time}`,
+                            );
+                            const scheduleEnd = new Date(
+                              `${s.date}T${s.end_time}`,
+                            );
+                            const currentTime = new Date(day);
+                            currentTime.setHours(hour, minute);
+                            return (
+                              isSameDay(scheduleStart, day) &&
+                              currentTime >= scheduleStart &&
+                              currentTime < scheduleEnd
+                            );
+                          });
+                          const unavailable = isTimeSlotUnavailable(day, hour, minute);
+                          // Determine if this cell is the start of a schedule
+                          const isScheduleStart =
+                            schedule &&
+                            parseInt(schedule.start_time.split(":")[0]) ===
+                              hour &&
+                            parseInt(schedule.start_time.split(":")[1]) ===
+                              minute;
 
-        return (
-          <td
-            key={dayIndex}
-            className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
-              schedule 
-                ? "bg-primary text-white" 
-                : unavailable
-                  ? "bg-red-200 text-red-800"
-                  : ""
-            }`}
-          >
-            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
-              {isScheduleStart
-                ? `${schedule.start_time} - ${schedule.end_time}`
-                : unavailable && !schedule 
-                  ? "Unavailable" 
-                  : ""}
-            </div>
-          </td>
-        );
-      })}
-    </tr>
-  );
-})}
+                          return (
+                            <td
+                              key={dayIndex}
+                              className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
+                                schedule
+                                  ? "bg-primary text-white"
+                                  : unavailable
+                                    ? "bg-red-200 text-red-800"
+                                    : ""
+                              }`}
+                            >
+                              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
+                                {isScheduleStart
+                                  ? `${schedule.start_time} - ${schedule.end_time}`
+                                  : unavailable && !schedule
+                                    ? "Unavailable"
+                                    : ""}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -588,7 +654,7 @@ const isTimeSlotUnavailable = (day, hour, minute) => {
                       </span>
                     </p>
                   </div>
-                  <div className="flex items-right ml-10">
+                  <div className="items-right ml-10 flex">
                     <p className="mb-1 text-sm">
                       <span className="font-bold">Radius:</span>
                       <span className="ml-2">
@@ -617,9 +683,7 @@ const isTimeSlotUnavailable = (day, hour, minute) => {
                   </div>
                   <div className="col-span-2">
                     <p className="mt-1 text-sm">
-                      <span className="font-bold">
-                        Distance from learner:
-                      </span>
+                      <span className="font-bold">Distance from learner:</span>
                       <span className="ml-2">
                         {instructorsWithDistance
                           .find(
@@ -707,6 +771,17 @@ function CreateSchedule({
   useEffect(() => {
     setSelectedInstructorId(defaultInstructorId);
   }, [defaultInstructorId]);
+
+  // Fetch instructors for the learner's area
+  const { data: instructors } = useQuery({
+    queryKey: ["instructors", learnerArea],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("Instructor").select("*");
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Fetch lessons for the selected course
   const { data: allLessons } = useQuery({
@@ -848,11 +923,8 @@ function CreateSchedule({
         const availableInstructors =
           instructorsWithDistance
             ?.filter((instructor) => {
-              return (
-                instructor.isWithinRadius && // Only include instructors within their radius
-                !slotSchedules.some(
-                  (s) => s.instructor_id === instructor.id_instructor,
-                )
+              return !slotSchedules.some(
+                (s) => s.instructor_id === instructor.id_instructor,
               );
             })
             .map((i) => i.id_instructor) ?? [];
