@@ -439,7 +439,7 @@ export default function AdminSchedules() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="min-h-screen bg-white p-8 flex flex-col h-flex" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">

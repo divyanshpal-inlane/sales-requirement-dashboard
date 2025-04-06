@@ -105,7 +105,7 @@ const LearnerLLDetails = () => {
   if (isError) return <div>Error loading learners.</div>;
 
   return (
-    <>
+    <div className="min-h-screen bg-white p-8" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -232,7 +232,7 @@ const LearnerLLDetails = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 };
 
