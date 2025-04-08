@@ -160,7 +160,7 @@ const AddressAutocomplete = ({
       const options: google.maps.places.AutocompleteOptions = {
         componentRestrictions: { country: "IN" },
         fields: ["address_components", "formatted_address", "geometry"],
-        types: ["address"],
+        
       };
 
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
@@ -1064,7 +1064,7 @@ export default function InstructorsManagement() {
                 </div>
               </div>
               {/* Add this inside the form's grid of inputs */}
-              <div className="grid grid-cols-4 gap-4">
+              {/* <div className="grid grid-cols-4 gap-4">
                 <Label className="pt-2 text-right">Unavailability</Label>
                 <div className="col-span-3">
                   <Button
@@ -1130,7 +1130,7 @@ export default function InstructorsManagement() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div> */}
             </div>
             <DialogFooter>
               <Button
