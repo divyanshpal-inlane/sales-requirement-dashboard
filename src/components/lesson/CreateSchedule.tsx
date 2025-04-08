@@ -496,7 +496,7 @@ export default function CreateScheduleWithInstructor({
 
                         {/* Distance absolutely positioned to the right */}
                         {instructor.distance !== null && (
-                          <div className="absolute left-64 text-xs text-gray-500">
+                          <div className="absolute left-96 text-xs text-gray-500">
                             {instructor.distance.toFixed(1)}km
                           </div>
                         )}
