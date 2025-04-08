@@ -61,6 +61,7 @@ export default function ScheduleDetails() {
   const [area, setArea] = useState<string>("");
   const [addressLat, setAddressLat] = useState<number>();
   const [addressLng, setAddressLng] = useState<number>();
+  const [newCustomArea, setNewCustomArea] = useState<string | null>(null);
   const { toast } = useToast();
   const { data: serviceableAreas, isLoading: areasLoading } = useQuery({
     queryKey: ["serviceable-areas"],
@@ -145,51 +146,16 @@ export default function ScheduleDetails() {
   }, []);
 
   // Handle adding a custom area that's not in the suggestions
-  const handleAddCustomArea = async () => {
+  const handleAddCustomArea = () => {
     if (!areaSearchQuery.trim()) return;
-
-    try {
-      // First, check if this area already exists in the Serviceable_Areas table
-      const { data: existingArea } = await supabase
-        .from("Serviceable_Areas")
-        .select("id, name")
-        .ilike("name", areaSearchQuery.trim())
-        .maybeSingle();
-
-      if (existingArea) {
-        // If area exists, set it as the selected area
-        setArea(existingArea.name);
-        toast({
-          title: "Area selected",
-          description: `${existingArea.name} has been selected`,
-        });
-      } else {
-        // If area doesn't exist, add it to Serviceable_Areas table first
-        const { data: newAreaData, error } = await supabase
-          .from("Serviceable_Areas")
-          .insert({ name: areaSearchQuery.trim() })
-          .select("id, name")
-          .single();
-
-        if (error) throw error;
-
-        // Then set it as the selected area
-        setArea(areaSearchQuery.trim());
-
-        toast({
-          title: "New area added",
-          description: `${areaSearchQuery.trim()} has been added as a new area`,
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error adding area",
-        description:
-          error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    }
-
+  
+    // Just set the area in local state
+    setArea(areaSearchQuery.trim());
+    
+    // Track that this is a new custom area that needs to be saved later
+    setNewCustomArea(areaSearchQuery.trim());
+    
+    // Clear the search query and close the custom area input
     setAreaSearchQuery("");
     setIsAddingCustomArea(false);
   };
@@ -201,7 +167,7 @@ export default function ScheduleDetails() {
     }
   };
 
-  const onContinue = useCallback(() => {
+  const onContinue = useCallback(async () => {
     if (!area) {
       toast({
         title: "Area is required",
@@ -210,22 +176,58 @@ export default function ScheduleDetails() {
       });
       return;
     }
-
-    updateLearner(
-      {
-        pincode: pinCode,
-        pick_up_location: address,
-        area,
-        address_lat: addressLat,
-        address_lng: addressLng,
-      },
-      {
-        onSuccess: () => {
-          navigate("/createSchedule/onboardingQuestions");
+  
+    try {
+      // If we have a new custom area, save it to Supabase first
+      if (newCustomArea) {
+        // Check if this area already exists in the Serviceable_Areas table
+        const { data: existingArea } = await supabase
+          .from("Serviceable_Areas")
+          .select("id, name")
+          .ilike("name", newCustomArea)
+          .maybeSingle();
+  
+        if (!existingArea) {
+          // If area doesn't exist, add it to Serviceable_Areas table
+          await supabase
+            .from("Serviceable_Areas")
+            .insert({ name: newCustomArea });
+        }
+        
+        // Clear the new custom area tracking
+        setNewCustomArea(null);
+      }
+  
+      // Now update the learner with all the data
+      updateLearner(
+        {
+          pincode: pinCode,
+          pick_up_location: address,
+          area,
+          address_lat: addressLat,
+          address_lng: addressLng,
         },
-      },
-    );
-  }, [address, navigate, pinCode, updateLearner, area, addressLat, addressLng, toast]);
+        {
+          onSuccess: () => {
+            navigate("/createSchedule/onboardingQuestions");
+          },
+          onError: (error) => {
+            toast({
+              title: "Error updating profile",
+              description: error instanceof Error ? error.message : "An error occurred",
+              variant: "destructive",
+            });
+          }
+        },
+      );
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  }, [address, navigate, pinCode, updateLearner, area, addressLat, addressLng, toast, newCustomArea]);
 
   return (
     <div className="scrollbar-hide flex h-full w-full flex-col overflow-y-auto rounded-md">

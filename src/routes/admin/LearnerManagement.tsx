@@ -1,5 +1,5 @@
-import { Link as LinkIcon, RefreshCw, UserPlus } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { UserPlus } from "lucide-react";
+import React, { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 
 export default function LearnerManagement() {
   const [learnerData, setLearnerData] = useState({
@@ -40,9 +41,6 @@ export default function LearnerManagement() {
   const [isCreateLearnerDialogOpen, setIsCreateLearnerDialogOpen] =
     useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [incompletePayments, setIncompletePayments] = useState([]);
-  const [isLoadingIncomplete, setIsLoadingIncomplete] = useState(false);
-  const [paymentStatuses, setPaymentStatuses] = useState({});
   const { toast } = useToast();
 
   const courses = [
@@ -93,117 +91,6 @@ export default function LearnerManagement() {
       duration: 4,
     },
   ];
-
-  // Function to check payment status - returns a string, not a Promise
-  const checkPaymentStatus = async (enrollment) => {
-    try {
-      // If payment_id is null, payment hasn't been attempted yet
-      if (!enrollment.payment_id) {
-        return "Payment Unattempted";
-      }
-
-      // Fetch the payment details from the payment table
-      const { data: payment, error } = await supabase
-        .from("payment")
-        .select("status")
-        .eq("id", enrollment.payment_id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching payment:", error);
-        return "Error checking status";
-      }
-
-      if (payment && payment.status) {
-        return `Payment ${payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}`;
-      } else {
-        return "Unknown Status";
-      }
-    } catch (err) {
-      console.error("Error in checkPaymentStatus:", err);
-      return "Error checking status";
-    }
-  };
-
-  // Update payment statuses after fetching incomplete payments
-  useEffect(() => {
-    const updatePaymentStatuses = async () => {
-      const newStatuses = {};
-
-      for (const enrollment of incompletePayments) {
-        try {
-          const status = await checkPaymentStatus(enrollment);
-          newStatuses[enrollment.id] = status;
-
-          // Update state for each status individually to show progress
-          setPaymentStatuses((prev) => ({ ...prev, [enrollment.id]: status }));
-        } catch (error) {
-          console.error("Error updating payment status:", error);
-          newStatuses[enrollment.id] = "Error";
-          setPaymentStatuses((prev) => ({ ...prev, [enrollment.id]: "Error" }));
-        }
-      }
-    };
-
-    if (incompletePayments.length > 0) {
-      updatePaymentStatuses();
-    }
-  }, [incompletePayments]);
-
-  // Fetch all incomplete payments - both unpaid and partially paid enrollments
-  const fetchIncompletePayments = async () => {
-    setIsLoadingIncomplete(true);
-    setPaymentStatuses({}); // Reset statuses
-
-    try {
-      // Get all enrollments where payment_status is not 'completed' and amount > 0
-      const { data: enrollments, error: enrollmentError } = await supabase
-        .from("enrollment")
-        .select(
-          `
-          id,
-          amount,
-          payment_status,
-          unlocked_lessons,
-          installment_mode,
-          installment1_amount,
-          installment2_amount,
-          payment_id,
-          learner_id,
-          course_id,
-          learner:learner_id (id, name, phone, email),
-          course:course_id (id, name, duration)
-        `,
-        )
-        .or("payment_status.neq.full_paid,and(amount.gt.0)");
-
-      if (enrollmentError) throw enrollmentError;
-
-      // Initialize loading statuses for all enrollments
-      const initialStatuses = {};
-      (enrollments || []).forEach((enrollment) => {
-        initialStatuses[enrollment.id] = "Loading...";
-      });
-      setPaymentStatuses(initialStatuses);
-
-      // Set incomplete payments - statuses will be updated by the effect
-      setIncompletePayments(enrollments || []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch incomplete payments",
-        variant: "destructive",
-      });
-      console.error("Error fetching incomplete payments:", error);
-    } finally {
-      setIsLoadingIncomplete(false);
-    }
-  };
-
-  // Fetch incomplete payments on component mount
-  useEffect(() => {
-    fetchIncompletePayments();
-  }, []);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -292,9 +179,6 @@ export default function LearnerManagement() {
           }));
           setIsPaymentDialogOpen(true);
         }
-
-        // Refresh the incomplete payments list
-        fetchIncompletePayments();
       } else {
         throw new Error("No learner ID returned");
       }
@@ -341,9 +225,6 @@ export default function LearnerManagement() {
       if (isPaymentDialogOpen) {
         setIsPaymentDialogOpen(false);
       }
-
-      // Refresh the incomplete payments list
-      fetchIncompletePayments();
     } catch (err) {
       toast({
         title: "Error",
@@ -353,24 +234,14 @@ export default function LearnerManagement() {
     }
   };
 
-  const getPaymentInfo = (enrollment) => {
-    if (enrollment.installment_mode === "installment") {
-      // For installment payments, show which installment is pending
-      if (!enrollment.payment_id) {
-        return `₹${enrollment.installment1_amount} (1st)`;
-      } else if (enrollment.payment_status !== "completed") {
-        return `₹${enrollment.installment2_amount} (2nd)`;
-      }
-      return `₹${enrollment.installment1_amount} (1st)`;
-    } else {
-      // For full payments
-      return `₹${enrollment.amount}`;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-white p-8 container ml-32 mx-0" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
-      <div className="mx-auto max-w-3xl">
+    <div className="min-h-screen bg-white p-8" style={{ 
+      backgroundImage: 'url("/assets/bg_pattern.svg")', 
+      backgroundRepeat: 'repeat', 
+      backgroundSize: 'cover',
+      backgroundAttachment: 'fixed' // This prevents the background from getting cut off
+    }}>
+      <div className="container mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">
             Learner Management
@@ -404,110 +275,8 @@ export default function LearnerManagement() {
             </CardContent>
           </Card>
 
-          {/* Card for All Incomplete Payments */}
-          <Card className="transition-all hover:shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-gray-100 p-2 text-red-500">
-                  <LinkIcon size={24} />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">
-                    All Incomplete Payments
-                  </CardTitle>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={fetchIncompletePayments}
-                variant="outline"
-                className="ml-auto"
-              >
-                <RefreshCw size={16} className="mr-2" />
-                Refresh
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="relative overflow-x-auto rounded border">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-xs uppercase">
-                    <tr>
-                      <th className="px-4 py-3">Learner</th>
-                      <th className="px-4 py-3">Contact</th>
-                      <th className="px-4 py-3">Course</th>
-                      <th className="px-4 py-3">Amount</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoadingIncomplete ? (
-                      <tr>
-                        <td colSpan="7" className="px-4 py-3 text-center">
-                          Loading...
-                        </td>
-                      </tr>
-                    ) : incompletePayments.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" className="px-4 py-3 text-center">
-                          No incomplete payments found
-                        </td>
-                      </tr>
-                    ) : (
-                      incompletePayments.map((enrollment) => (
-                        <tr
-                          key={enrollment.id}
-                          className="border-b hover:bg-gray-50"
-                        >
-                          <td className="px-4 py-3 font-medium">
-                            {enrollment.learner?.name || "N/A"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {enrollment.learner?.phone || "N/A"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {enrollment.course?.name || "N/A"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {getPaymentInfo(enrollment)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {paymentStatuses[enrollment.id] || "Loading..."}
-                          </td>
-                          <td className="px-4 py-3">
-                            {enrollment.installment_mode}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                              onClick={() =>
-                                sendPaymentLink(
-                                  enrollment.learner,
-                                  enrollment.course,
-                                  enrollment.installment_mode === "installment"
-                                    ? enrollment.payment_id
-                                      ? enrollment.installment2_amount
-                                      : enrollment.installment1_amount
-                                    : enrollment.amount,
-                                  enrollment.installment_mode,
-                                  enrollment.id,
-                                )
-                              }
-                            >
-                              Send Payment Link
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Incomplete Payments Card */}
+          <IncompletePaymentsCard />
 
           {/* Dialog for Creating Learner */}
           <Dialog

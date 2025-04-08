@@ -269,57 +269,68 @@ export default function AdminSchedules() {
   const [instructorData, setInstructorData] = useState<any[]>([]);
 
   // Fetch learners with active enrollment and their schedules
-  const {
-    data: activeLearners,
-    isLoading: isLoadingActiveLearners,
-    refetch: refetchActiveLearners,
-  } = useQuery({
-    queryKey: ["activeLearners"],
-    queryFn: async () => {
-      // First, get active enrollment learner IDs
-      const { data: enrollmentData, error: enrollmentError } = await supabase
-        .from("enrollment")
-        .select("learner_id")
-        .eq("status", "active");
+  // Fetch learners with active enrollment and their schedules
+const {
+  data: activeLearners,
+  isLoading: isLoadingActiveLearners,
+  refetch: refetchActiveLearners,
+} = useQuery({
+  queryKey: ["activeLearners"],
+  queryFn: async () => {
+    // First, get active enrollment learner IDs
+    const { data: enrollmentData, error: enrollmentError } = await supabase
+      .from("enrollment")
+      .select("learner_id")
+      .eq("status", "active");
 
-      if (enrollmentError) throw enrollmentError;
+    if (enrollmentError) throw enrollmentError;
 
-      const { data: fetchInstructorData, error: instructorError } =
-        await supabase.from("Instructor").select("*");
-      if (instructorError) throw instructorError;
-      setInstructorData(fetchInstructorData);
+    const { data: fetchInstructorData, error: instructorError } =
+      await supabase.from("Instructor").select("*");
+    if (instructorError) throw instructorError;
+    setInstructorData(fetchInstructorData);
 
-      // Then, fetch learner details with their schedules
-      const { data: learnersData, error: learnersError } = await supabase
-        .from("Learner")
-        .select(
-          `
-          id, 
-          name, 
-          area, 
-          schedules:Schedule(
-            id,
-            date,
-            start_time,
-            end_time,
-            instructor_id,
-            lesson_id,
-            course_id,
-            learner_id
-          )
-        `,
+    // Directly fetch learners with their schedules in a single query
+    const { data: learnersData, error: learnersError } = await supabase
+      .from("Learner")
+      .select(
+        `
+        id, 
+        name, 
+        area, 
+        schedules:Schedule(
+          id,
+          date,
+          start_time,
+          end_time,
+          instructor_id,
+          lesson_id,
+          course_id,
+          learner_id
         )
-        .in(
-          "id",
-          enrollmentData.map((e) => e.learner_id),
-        );
+      `
+      )
+      .in(
+        "id",
+        enrollmentData.map((e) => e.learner_id)
+      );
 
-      if (learnersError) throw learnersError;
+    if (learnersError) throw learnersError;
 
-      return learnersData;
-    },
-    keepPreviousData: true,
-  });
+    // Filter out learners who don't have any schedules
+    const learnersWithSchedules = learnersData.filter(
+      (learner) => learner.schedules && learner.schedules.length > 0
+    );
+
+    return learnersWithSchedules;
+  },
+  keepPreviousData: true,
+});
+
+  const handleTabChange = (value: string) => {
+    // Reset selectedRequest when changing tabs
+    setSelectedRequest(null);
+  };
 
   const handleUpdateSchedule = async (
     scheduleId: string,
@@ -456,7 +467,7 @@ export default function AdminSchedules() {
         </div>
       </div>
 
-      <Tabs defaultValue="new" className="flex h-[calc(100%-73px)] flex-col">
+      <Tabs defaultValue="new" className="flex h-[calc(100%-73px)] flex-col" onValueChange={handleTabChange}>
         <div className="border-b px-6">
           <TabsList>
             <TabsTrigger value="new">

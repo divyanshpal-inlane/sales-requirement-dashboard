@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
 import { ArrowLeft, Check, ChevronsUpDown, PlusCircle, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -58,9 +58,8 @@ interface InstructorFromDB {
   longitude: number | null; // Added for storing coordinates
   experience: number | null;
   radius: number | null;
-  car_fuel_type: "petrol" | "diesel" | "ev" |"cng"|"lpg"| null;
+  car_fuel_type: "petrol" | "diesel" | "ev" | "cng" | "lpg" | null;
   unavailability: Unavailability[];
-
 }
 
 interface InstructorData {
@@ -78,9 +77,8 @@ interface InstructorData {
   latitude: number | null; // Added for storing coordinates
   longitude: number | null; // Added for storing coordinates
   radius: number;
-  car_fuel_type: "petrol" | "diesel" | "ev" |"cng"|"lpg"| null;
+  car_fuel_type: "petrol" | "diesel" | "ev" | "cng" | "lpg" | null;
   unavailability: Unavailability[];
-
 }
 
 interface ServiceableArea {
@@ -108,6 +106,7 @@ const initialInstructorData: InstructorData = {
 };
 
 // Google Maps Autocomplete Component
+// Update the AddressAutocomplete component
 const AddressAutocomplete = ({
   value,
   onChange,
@@ -116,59 +115,131 @@ const AddressAutocomplete = ({
   onChange: (address: string, lat: number | null, lng: number | null) => void;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [autocomplete, setAutocomplete] =
-    useState<google.maps.places.Autocomplete | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<string>(value);
+
+  // Update internal state when prop value changes
+  useEffect(() => {
+    setSelectedAddress(value);
+  }, [value]);
 
   useEffect(() => {
-    // Load Google Maps API script if it's not already loaded
-    if (!window.google?.maps?.places) {
+    // Check if the script is already loading or loaded
+    const existingScript = document.querySelector(
+      'script[src*="maps.googleapis.com/maps/api/js"]',
+    );
+
+    if (!window.google?.maps?.places && !existingScript) {
       const googleMapScript = document.createElement("script");
       googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
       googleMapScript.async = true;
       googleMapScript.defer = true;
-      window.document.body.appendChild(googleMapScript);
 
-      googleMapScript.onload = initAutocomplete;
-
-      return () => {
-        window.document.body.removeChild(googleMapScript);
+      googleMapScript.onload = () => {
+        setIsScriptLoaded(true);
       };
-    } else {
-      initAutocomplete();
+
+      document.head.appendChild(googleMapScript);
+    } else if (window.google?.maps?.places) {
+      setIsScriptLoaded(true);
     }
   }, []);
 
-  const initAutocomplete = () => {
-    if (!inputRef.current || !window.google?.maps?.places) return;
+  useEffect(() => {
+    if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places)
+      return;
 
-    const autocompleteInstance = new window.google.maps.places.Autocomplete(
-      inputRef.current,
-      {
-        types: ["address"],
-        fields: ["formatted_address", "geometry"],
-      },
-    );
-
-    autocompleteInstance.addListener("place_changed", () => {
-      const place = autocompleteInstance.getPlace();
-
-      if (place?.formatted_address) {
-        const lat = place.geometry?.location?.lat();
-        const lng = place.geometry?.location?.lng();
-        onChange(place.formatted_address, lat || null, lng || null);
+    try {
+      // Clear previous instance if it exists
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
-    });
 
-    setAutocomplete(autocompleteInstance);
+      // Create new autocomplete instance with specific options
+      const options: google.maps.places.AutocompleteOptions = {
+        componentRestrictions: { country: "IN" },
+        fields: ["address_components", "formatted_address", "geometry"],
+        types: ["address"],
+      };
+
+      autocompleteRef.current = new window.google.maps.places.Autocomplete(
+        inputRef.current,
+        options,
+      );
+
+      // Add place_changed listener
+      autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (!place?.formatted_address || !place.geometry?.location) return;
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+
+        // Update internal state first
+        setSelectedAddress(place.formatted_address);
+
+        // Then call the parent's onChange
+        onChange(place.formatted_address, lat, lng);
+      });
+    } catch (error) {
+      console.error("Error initializing Google Places Autocomplete:", error);
+    }
+  }, [isScriptLoaded, onChange]);
+
+  // Add CSS to ensure the dropdown is visible and clickable
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      .pac-container {
+        z-index: 10000 !important; 
+        pointer-events: auto !important;
+      }
+      .pac-item {
+        cursor: pointer !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Handle manual input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setSelectedAddress(newValue);
+    // Only update parent state when user is typing manually
+    // (not when autocomplete is filling the field)
+    onChange(newValue, null, null);
   };
 
+  // Ensure the input value reflects the selected address
+  useEffect(() => {
+    if (inputRef.current && selectedAddress !== inputRef.current.value) {
+      inputRef.current.value = selectedAddress;
+    }
+  }, [selectedAddress]);
+
   return (
-    <Input
-      ref={inputRef}
-      value={value}
-      onChange={(e) => onChange(e.target.value, null, null)}
-      placeholder="Enter address"
-    />
+    <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+      <Input
+        ref={inputRef}
+        value={selectedAddress}
+        onChange={handleInputChange}
+        placeholder="Enter address"
+        className="w-full"
+        autoComplete="off"
+        // Prevent clicks from propagating to parent elements
+        onClick={(e) => e.stopPropagation()}
+      />
+      {!isScriptLoaded && (
+        <div className="mt-1 text-sm text-gray-500">
+          Loading address autocomplete...
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -188,8 +259,12 @@ export default function InstructorsManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isAddingUnavailability, setIsAddingUnavailability] = useState(false);
-const [unavailabilityType, setUnavailabilityType] = useState<"single" | "recurring" | "range">("single");
-const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailability>>({});
+  const [unavailabilityType, setUnavailabilityType] = useState<
+    "single" | "recurring" | "range"
+  >("single");
+  const [unavailabilityData, setUnavailabilityData] = useState<
+    Partial<Unavailability>
+  >({});
 
   // Fetch all servicable areas for suggestions
   const { data: serviceableAreas, isLoading: areasLoading } = useQuery({
@@ -204,7 +279,7 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
       return data as ServiceableArea[];
     },
   });
-  
+
   // Filtered areas based on search query
   const filteredAreas =
     serviceableAreas?.filter((area) =>
@@ -229,69 +304,32 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
   };
 
   // Handle adding a custom area that's not in the suggestions
-  const handleAddCustomArea = async () => {
+  const handleAddCustomArea = () => {
     if (!areaSearchQuery.trim()) return;
 
-    try {
-      // First, check if this area already exists in the Servicable_areas table
-      const { data: existingArea } = await supabase
-        .from("Serviceable_Areas")
-        .select("id, name")
-        .ilike("name", areaSearchQuery.trim())
-        .maybeSingle();
-
-      if (existingArea) {
-        // If area exists but not in instructor's areas, add it
-        if (!instructorData.areas.includes(existingArea.name)) {
-          setInstructorData({
-            ...instructorData,
-            areas: [...instructorData.areas, existingArea.name],
-          });
-        } else {
-          toast({
-            title: "Area already exists",
-            description: "This area is already added to the instructor",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // If area doesn't exist, add it to Servicable_areas table first
-        const { data: newAreaData, error } = await supabase
-          .from("Serviceable_Areas")
-          .insert({ name: areaSearchQuery.trim() })
-          .select("id, name")
-          .single();
-
-        if (error) throw error;
-
-        // Then add to instructor areas
-        setInstructorData({
-          ...instructorData,
-          areas: [...instructorData.areas, areaSearchQuery.trim()],
-        });
-
-        toast({
-          title: "New area added",
-          description: `${areaSearchQuery.trim()} has been added to serviceable areas`,
-        });
-
-        // Refresh serviceable areas data
-        queryClient.invalidateQueries({ queryKey: ["serviceable-areas"] });
-      }
-    } catch (error) {
+    // Check if area already exists in instructor's areas
+    if (instructorData.areas.includes(areaSearchQuery.trim())) {
       toast({
-        title: "Error adding area",
-        description:
-          error instanceof Error ? error.message : "An error occurred",
+        title: "Area already exists",
+        description: "This area is already added to the instructor",
         variant: "destructive",
       });
+      return;
     }
+
+    // Add to instructor's areas in local state only
+    setInstructorData({
+      ...instructorData,
+      areas: [...instructorData.areas, areaSearchQuery.trim()],
+    });
 
     setAreaSearchQuery("");
     setIsAddingCustomArea(false);
   };
 
-  const handleCarFuelChange = (value: "petrol" | "diesel" | "ev" |"cng"|"lpg"| null) => {
+  const handleCarFuelChange = (
+    value: "petrol" | "diesel" | "ev" | "cng" | "lpg" | null,
+  ) => {
     if (value === "ev") {
       setInstructorData({
         ...instructorData,
@@ -304,18 +342,20 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
   };
 
   // Handle address change with coordinates
-  const handleAddressChange = (
-    address: string,
-    lat: number | null,
-    lng: number | null,
-  ) => {
-    setInstructorData({
-      ...instructorData,
-      address,
-      latitude: lat,
-      longitude: lng,
-    });
-  };
+  // Handle address change with coordinates
+  const handleAddressChange = useCallback(
+    (address: string, lat: number | null, lng: number | null) => {
+      console.log("Address changed:", address, lat, lng); // Add this for debugging
+
+      setInstructorData((prevData) => ({
+        ...prevData,
+        address,
+        latitude: lat,
+        longitude: lng,
+      }));
+    },
+    [], // No dependencies to avoid recreating this function
+  );
 
   // Fetch all instructors along with their schedules
   const { data: instructors, isLoading } = useQuery({
@@ -345,6 +385,27 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
   // Add or update an instructor
   const mutation = useMutation({
     mutationFn: async (data: InstructorData) => {
+      // First, check for any new areas that need to be added to Serviceable_Areas table
+      const newAreas = [];
+      for (const area of data.areas) {
+        const { data: existingArea } = await supabase
+          .from("Serviceable_Areas")
+          .select("id, name")
+          .ilike("name", area)
+          .maybeSingle();
+
+        if (!existingArea) {
+          newAreas.push(area);
+        }
+      }
+
+      // Add any new areas to the Serviceable_Areas table
+      if (newAreas.length > 0) {
+        const areasToInsert = newAreas.map((area) => ({ name: area }));
+        await supabase.from("Serviceable_Areas").insert(areasToInsert);
+      }
+
+      // Now proceed with instructor update/insert
       if (formMode === "add") {
         const { data: newInstructor, error } = await supabase
           .from("Instructor")
@@ -404,6 +465,7 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["instructors"] });
+      queryClient.invalidateQueries({ queryKey: ["serviceable-areas"] });
       setIsDialogOpen(false);
       resetForm();
       toast({
@@ -478,10 +540,10 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
         | "petrol"
         | "diesel"
         | "ev"
-        
-        | "cng"|"lpg"| null,
-        unavailability: instructor.unavailability || [],
-
+        | "cng"
+        | "lpg"
+        | null,
+      unavailability: instructor.unavailability || [],
     });
     setIsDialogOpen(true);
   };
@@ -522,7 +584,14 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
   };
 
   return (
-    <div className="min-h-screen bg-white p-8 container mx-auto" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
+    <div
+      className="container mx-auto min-h-screen bg-white p-8"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+      }}
+    >
       <div className="mb-6 flex items-center justify-between">
         <Button
           variant="ghost"
@@ -548,7 +617,7 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
           {instructors?.map((instructor) => (
             <Card
               key={instructor.id_instructor}
-              className="overflow-hidden rounded-lg shadow-lg flex flex-col h-full"
+              className="flex h-full flex-col overflow-hidden rounded-lg shadow-lg"
             >
               <CardHeader className="bg-primary p-4 text-white">
                 <CardTitle className="text-lg font-bold">
@@ -620,25 +689,26 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
                     </div>
                   </div>
                 </div>
-
-                  </CardContent>
-                {/* View Schedule Button */}
-                <div className="mt-auto flex flex-col gap-2 p-4">
-    <Button
-      variant="outline"
-      className="w-full"
-      onClick={() => handleOpenScheduleDialog(instructor.id_instructor)}
-    >
-      View Schedule
-    </Button>
-    <Button
-      variant="outline"
-      className="w-full"
-      onClick={() => handleEditInstructor(instructor)}
-    >
-      Edit Details
-    </Button>
-  </div>
+              </CardContent>
+              {/* View Schedule Button */}
+              <div className="mt-auto flex flex-col gap-2 p-4">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() =>
+                    handleOpenScheduleDialog(instructor.id_instructor)
+                  }
+                >
+                  View Schedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleEditInstructor(instructor)}
+                >
+                  Edit Details
+                </Button>
+              </div>
 
               {/* Schedule Dialog */}
               {openScheduleDialogId === instructor.id_instructor && (
@@ -672,10 +742,28 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
       )}
 
       {/* Add/Edit Instructor Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          // Only close if explicitly set to false
+          if (!open) {
+            setIsDialogOpen(false);
+          }
+        }}
+      >
         <DialogContent
           className="scrollbar-none h-[calc(100vh-50px)] max-h-[80vh] overflow-y-auto sm:max-w-[500px]"
           style={{ scrollbarWidth: "none" }}
+          // Prevent clicks inside from closing the dialog
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (
+              target.closest(".pac-container") ||
+              target.closest(".pac-item")
+            ) {
+              e.preventDefault();
+            }
+          }}
         >
           <DialogHeader>
             <DialogTitle>
@@ -788,7 +876,13 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
                   value={instructorData.car_fuel_type || undefined}
                   onValueChange={(value) =>
                     handleCarFuelChange(
-                      value as "petrol" | "diesel" | "ev" | "cng"|"lpg"|null,
+                      value as
+                        | "petrol"
+                        | "diesel"
+                        | "ev"
+                        | "cng"
+                        | "lpg"
+                        | null,
                     )
                   }
                 >
@@ -904,7 +998,10 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
                           <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                         </div>
                       ) : filteredAreas.length > 0 ? (
-                        <div className="max-h-60 overflow-y-auto">
+                        <div
+                          className="max-h-60 overflow-y-auto"
+                          onWheel={(e) => e.stopPropagation()}
+                        >
                           {filteredAreas.map((area) => (
                             <div
                               key={area.id}
@@ -912,11 +1009,6 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
                               onClick={() => handleSelectArea(area)}
                             >
                               <span>{area.name}</span>
-                              {/* {area.postal_code && (
-                                <span className="ml-2 text-xs text-muted-foreground">
-                                  {area.postal_code}
-                                </span>
-                              )} */}
                             </div>
                           ))}
                         </div>
@@ -972,56 +1064,73 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
                 </div>
               </div>
               {/* Add this inside the form's grid of inputs */}
-<div className="grid grid-cols-4 gap-4">
-  <Label className="pt-2 text-right">Unavailability</Label>
-  <div className="col-span-3">
-    <Button 
-      type="button" 
-      variant="outline" 
-      onClick={() => setIsAddingUnavailability(true)}
-    >
-      Add Unavailability Period
-    </Button>
-    
-    {instructorData.unavailability.length > 0 && (
-      <div className="mt-2 space-y-2">
-        {instructorData.unavailability.map((period, index) => (
-          <div key={index} className="flex items-center justify-between rounded bg-muted p-2 text-sm">
-            <div>
-              {period.all_day && period.booked_date && (
-                <span>All day on {period.booked_date}</span>
-              )}
-              {period.day_of_week && (
-                <span>Every {period.day_of_week}: {period.booked_start_time} - {period.booked_end_time}</span>
-              )}
-              {!period.all_day && !period.day_of_week && period.booked_date && (
-                <span>{period.booked_date}: {period.booked_start_time} - {period.booked_end_time}</span>
-              )}
-              {period.start_date && period.end_date && (
-                <span>{period.start_date} to {period.end_date}</span>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const updatedUnavailability = [...instructorData.unavailability];
-                updatedUnavailability.splice(index, 1);
-                setInstructorData({
-                  ...instructorData,
-                  unavailability: updatedUnavailability,
-                });
-              }}
-            >
-              <X size={14} />
-            </Button>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-</div>
+              <div className="grid grid-cols-4 gap-4">
+                <Label className="pt-2 text-right">Unavailability</Label>
+                <div className="col-span-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAddingUnavailability(true)}
+                  >
+                    Add Unavailability Period
+                  </Button>
+
+                  {instructorData.unavailability.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {instructorData.unavailability.map((period, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between rounded bg-muted p-2 text-sm"
+                        >
+                          <div>
+                            {period.all_day && period.booked_date && (
+                              <span>All day on {period.booked_date}</span>
+                            )}
+                            {period.day_of_week && (
+                              <span>
+                                Every {period.day_of_week}:{" "}
+                                {period.booked_start_time} -{" "}
+                                {period.booked_end_time}
+                              </span>
+                            )}
+                            {!period.all_day &&
+                              !period.day_of_week &&
+                              period.booked_date && (
+                                <span>
+                                  {period.booked_date}:{" "}
+                                  {period.booked_start_time} -{" "}
+                                  {period.booked_end_time}
+                                </span>
+                              )}
+                            {period.start_date && period.end_date && (
+                              <span>
+                                {period.start_date} to {period.end_date}
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const updatedUnavailability = [
+                                ...instructorData.unavailability,
+                              ];
+                              updatedUnavailability.splice(index, 1);
+                              setInstructorData({
+                                ...instructorData,
+                                unavailability: updatedUnavailability,
+                              });
+                            }}
+                          >
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -1043,156 +1152,216 @@ const [unavailabilityData, setUnavailabilityData] = useState<Partial<Unavailabil
         </DialogContent>
       </Dialog>
       {/* Add this outside the main Dialog but inside the component */}
-<Dialog open={isAddingUnavailability} onOpenChange={setIsAddingUnavailability}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Add Unavailability Period</DialogTitle>
-    </DialogHeader>
-    <div className="space-y-4 py-4">
-      <div className="space-y-2">
-        <Label>Type</Label>
-        <Select
-          value={unavailabilityType}
-          onValueChange={(value) => setUnavailabilityType(value as "single" | "recurring" | "range")}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="single">Single Day</SelectItem>
-            <SelectItem value="recurring">Weekly Recurring</SelectItem>
-            <SelectItem value="range">Date Range</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {unavailabilityType === "single" && (
-        <>
-          <div className="space-y-2">
-            <Label>Date</Label>
-            <Input
-              type="date"
-              value={unavailabilityData.booked_date || ""}
-              onChange={(e) => setUnavailabilityData({...unavailabilityData, booked_date: e.target.value})}
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="all-day"
-                checked={!!unavailabilityData.all_day}
-                onChange={(e) => setUnavailabilityData({...unavailabilityData, all_day: e.target.checked})}
-              />
-              <Label htmlFor="all-day">All Day</Label>
+      <Dialog
+        open={isAddingUnavailability}
+        onOpenChange={setIsAddingUnavailability}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Unavailability Period</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={unavailabilityType}
+                onValueChange={(value) =>
+                  setUnavailabilityType(
+                    value as "single" | "recurring" | "range",
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">Single Day</SelectItem>
+                  <SelectItem value="recurring">Weekly Recurring</SelectItem>
+                  <SelectItem value="range">Date Range</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-          {!unavailabilityData.all_day && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Input
-                  type="time"
-                  value={unavailabilityData.booked_start_time || ""}
-                  onChange={(e) => setUnavailabilityData({...unavailabilityData, booked_start_time: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Input
-                  type="time"
-                  value={unavailabilityData.booked_end_time || ""}
-                  onChange={(e) => setUnavailabilityData({...unavailabilityData, booked_end_time: e.target.value})}
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
 
-      {unavailabilityType === "recurring" && (
-        <>
-          <div className="space-y-2">
-            <Label>Day of Week</Label>
-            <Select
-              value={unavailabilityData.day_of_week || ""}
-              onValueChange={(value) => setUnavailabilityData({...unavailabilityData, day_of_week: value})}
+            {unavailabilityType === "single" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={unavailabilityData.booked_date || ""}
+                    onChange={(e) =>
+                      setUnavailabilityData({
+                        ...unavailabilityData,
+                        booked_date: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="all-day"
+                      checked={!!unavailabilityData.all_day}
+                      onChange={(e) =>
+                        setUnavailabilityData({
+                          ...unavailabilityData,
+                          all_day: e.target.checked,
+                        })
+                      }
+                    />
+                    <Label htmlFor="all-day">All Day</Label>
+                  </div>
+                </div>
+                {!unavailabilityData.all_day && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input
+                        type="time"
+                        value={unavailabilityData.booked_start_time || ""}
+                        onChange={(e) =>
+                          setUnavailabilityData({
+                            ...unavailabilityData,
+                            booked_start_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      <Input
+                        type="time"
+                        value={unavailabilityData.booked_end_time || ""}
+                        onChange={(e) =>
+                          setUnavailabilityData({
+                            ...unavailabilityData,
+                            booked_end_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {unavailabilityType === "recurring" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Day of Week</Label>
+                  <Select
+                    value={unavailabilityData.day_of_week || ""}
+                    onValueChange={(value) =>
+                      setUnavailabilityData({
+                        ...unavailabilityData,
+                        day_of_week: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monday">Monday</SelectItem>
+                      <SelectItem value="tuesday">Tuesday</SelectItem>
+                      <SelectItem value="wednesday">Wednesday</SelectItem>
+                      <SelectItem value="thursday">Thursday</SelectItem>
+                      <SelectItem value="friday">Friday</SelectItem>
+                      <SelectItem value="saturday">Saturday</SelectItem>
+                      <SelectItem value="sunday">Sunday</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Start Time</Label>
+                    <Input
+                      type="time"
+                      value={unavailabilityData.booked_start_time || ""}
+                      onChange={(e) =>
+                        setUnavailabilityData({
+                          ...unavailabilityData,
+                          booked_start_time: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Time</Label>
+                    <Input
+                      type="time"
+                      value={unavailabilityData.booked_end_time || ""}
+                      onChange={(e) =>
+                        setUnavailabilityData({
+                          ...unavailabilityData,
+                          booked_end_time: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {unavailabilityType === "range" && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Start Date</Label>
+                    <Input
+                      type="date"
+                      value={unavailabilityData.start_date || ""}
+                      onChange={(e) =>
+                        setUnavailabilityData({
+                          ...unavailabilityData,
+                          start_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Date</Label>
+                    <Input
+                      type="date"
+                      value={unavailabilityData.end_date || ""}
+                      onChange={(e) =>
+                        setUnavailabilityData({
+                          ...unavailabilityData,
+                          end_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddingUnavailability(false)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select day" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="monday">Monday</SelectItem>
-                <SelectItem value="tuesday">Tuesday</SelectItem>
-                <SelectItem value="wednesday">Wednesday</SelectItem>
-                <SelectItem value="thursday">Thursday</SelectItem>
-                <SelectItem value="friday">Friday</SelectItem>
-                <SelectItem value="saturday">Saturday</SelectItem>
-                <SelectItem value="sunday">Sunday</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Time</Label>
-              <Input
-                type="time"
-                value={unavailabilityData.booked_start_time || ""}
-                onChange={(e) => setUnavailabilityData({...unavailabilityData, booked_start_time: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Time</Label>
-              <Input
-                type="time"
-                value={unavailabilityData.booked_end_time || ""}
-                onChange={(e) => setUnavailabilityData({...unavailabilityData, booked_end_time: e.target.value})}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
-      {unavailabilityType === "range" && (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={unavailabilityData.start_date || ""}
-                onChange={(e) => setUnavailabilityData({...unavailabilityData, start_date: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={unavailabilityData.end_date || ""}
-                onChange={(e) => setUnavailabilityData({...unavailabilityData, end_date: e.target.value})}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-    <DialogFooter>
-      <Button variant="outline" onClick={() => setIsAddingUnavailability(false)}>
-        Cancel
-      </Button>
-      <Button onClick={() => {
-        setInstructorData({
-          ...instructorData,
-          unavailability: [...instructorData.unavailability, unavailabilityData]
-        });
-        setUnavailabilityData({});
-        setIsAddingUnavailability(false);
-      }}>
-        Add
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setInstructorData({
+                  ...instructorData,
+                  unavailability: [
+                    ...instructorData.unavailability,
+                    unavailabilityData,
+                  ],
+                });
+                setUnavailabilityData({});
+                setIsAddingUnavailability(false);
+              }}
+            >
+              Add
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1218,8 +1387,8 @@ function WeeklyScheduleView({
   const isTimeSlotUnavailable = (day: Date, hour: number, minute: number) => {
     const currentTime = new Date(day);
     currentTime.setHours(hour, minute);
-    const dayOfWeek = format(day, 'EEEE').toLowerCase();
-    const formattedDate = format(day, 'yyyy-MM-dd');
+    const dayOfWeek = format(day, "EEEE").toLowerCase();
+    const formattedDate = format(day, "yyyy-MM-dd");
 
     return unavailability.some((u) => {
       // Case 1: Single day, all day
@@ -1228,27 +1397,42 @@ function WeeklyScheduleView({
       }
 
       // Case 2: Single day, specific time slot
-      if (u.booked_date && u.booked_start_time && u.booked_end_time && !u.all_day) {
-        const unavailableStart = new Date(`${u.booked_date}T${u.booked_start_time}`);
-        const unavailableEnd = new Date(`${u.booked_date}T${u.booked_end_time}`);
-        return formattedDate === u.booked_date && 
-               currentTime >= unavailableStart && 
-               currentTime < unavailableEnd;
+      if (
+        u.booked_date &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        const unavailableStart = new Date(
+          `${u.booked_date}T${u.booked_start_time}`,
+        );
+        const unavailableEnd = new Date(
+          `${u.booked_date}T${u.booked_end_time}`,
+        );
+        return (
+          formattedDate === u.booked_date &&
+          currentTime >= unavailableStart &&
+          currentTime < unavailableEnd
+        );
       }
 
       // Case 3: Weekly recurring on specific day of week
       if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
         if (u.day_of_week === dayOfWeek) {
-          const [startHour, startMinute] = u.booked_start_time.split(':').map(Number);
-          const [endHour, endMinute] = u.booked_end_time.split(':').map(Number);
-          
+          const [startHour, startMinute] = u.booked_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
           const unavailableStart = new Date(day);
           unavailableStart.setHours(startHour, startMinute);
-          
+
           const unavailableEnd = new Date(day);
           unavailableEnd.setHours(endHour, endMinute);
-          
-          return currentTime >= unavailableStart && currentTime < unavailableEnd;
+
+          return (
+            currentTime >= unavailableStart && currentTime < unavailableEnd
+          );
         }
       }
 
@@ -1329,7 +1513,11 @@ function WeeklyScheduleView({
                     });
 
                     // Check if time slot is unavailable
-                    const unavailable = isTimeSlotUnavailable(day, hour, minute);
+                    const unavailable = isTimeSlotUnavailable(
+                      day,
+                      hour,
+                      minute,
+                    );
 
                     return (
                       <td
@@ -1343,7 +1531,7 @@ function WeeklyScheduleView({
                         }`}
                       >
                         {schedule
-                          ? `${schedule.learner?.name || 'Booked'}`
+                          ? `${schedule.learner?.name || "Booked"}`
                           : unavailable
                             ? "Unavailable"
                             : ""}
@@ -1356,7 +1544,7 @@ function WeeklyScheduleView({
           </tbody>
         </table>
       </div>
-      
+
       {/* Legend */}
       <div className="mt-4 flex items-center justify-end space-x-4">
         <div className="flex items-center">
