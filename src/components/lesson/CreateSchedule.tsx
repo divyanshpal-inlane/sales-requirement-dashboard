@@ -465,33 +465,40 @@ export default function CreateScheduleWithInstructor({
                     <SelectItem
                       key={instructor.id_instructor}
                       value={instructor.id_instructor}
-                      className="flex items-center justify-between"
+                      className="w-full"
                     >
-                      <div className="flex items-center gap-2">
-                        <span>{instructor.name}</span>
-                        {instructor.areas.some(
-                          (area) =>
-                            area.toLowerCase() === learnerArea.toLowerCase(),
-                        ) && (
-                          <Badge
-                            variant="outline"
-                            className="ml-2 border-blue-200 bg-blue-50 text-blue-700"
-                          >
-                            Matching Area
-                          </Badge>
-                        )}
-                        {instructor.isWithinRadius && (
-                          <Badge
-                            variant="outline"
-                            className="ml-2 border-green-200 bg-green-50 text-green-700"
-                          >
-                            Matching Radius
-                          </Badge>
-                        )}
+                      <div className="relative flex w-full items-center">
+                        {/* Name + badges container */}
+                        <div className="flex items-center gap-2 pr-16">
+                          <span className="truncate">{instructor.name}</span>
+
+                          {instructor.areas.some(
+                            (area) =>
+                              area.toLowerCase() === learnerArea.toLowerCase(),
+                          ) && (
+                            <Badge
+                              variant="outline"
+                              className="border-blue-200 bg-blue-50 text-blue-700"
+                            >
+                              Matching Area
+                            </Badge>
+                          )}
+
+                          {instructor.isWithinRadius && (
+                            <Badge
+                              variant="outline"
+                              className="border-green-200 bg-green-50 text-green-700"
+                            >
+                              Matching Radius
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Distance absolutely positioned to the right */}
                         {instructor.distance !== null && (
-                          <span className="fixed right-10 text-xs text-gray-500">
-                            {instructor.distance.toFixed(1)} km
-                          </span>
+                          <div className="absolute left-64 text-xs text-gray-500">
+                            {instructor.distance.toFixed(1)}km
+                          </div>
                         )}
                       </div>
                     </SelectItem>
@@ -582,7 +589,11 @@ export default function CreateScheduleWithInstructor({
                               currentTime < scheduleEnd
                             );
                           });
-                          const unavailable = isTimeSlotUnavailable(day, hour, minute);
+                          const unavailable = isTimeSlotUnavailable(
+                            day,
+                            hour,
+                            minute,
+                          );
                           // Determine if this cell is the start of a schedule
                           const isScheduleStart =
                             schedule &&
