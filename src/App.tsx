@@ -31,6 +31,7 @@ import {
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
 import AdminHome from "@/routes/admin/AdminHome";
+import CustomerInfo from "@/routes/admin/CustomerInfo";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import InstructorsManagement from "@/routes/admin/instructors";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
@@ -206,6 +207,7 @@ export default function App() {
                 path="learner-management"
                 element={<LearnerManagement />}
               />
+              <Route path="customer-info" element={<CustomerInfo />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

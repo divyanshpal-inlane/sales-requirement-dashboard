@@ -4,6 +4,7 @@ import {
   ClipboardList,
   UserPlus,
   Users,
+  UserCircle,
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -34,13 +35,6 @@ export default function AdminHome() {
       color: "text-blue-500",
     },
     {
-      title: "Instructor Management",
-      description: "Add, edit, and manage driving instructors",
-      icon: Users,
-      link: "/admin/instructors",
-      color: "text-orange-500",
-    },
-    {
       title: "LL Applications",
       description: "Process and update learner's license applications",
       icon: ClipboardList,
@@ -50,10 +44,24 @@ export default function AdminHome() {
     {
       title: "Driving Test Dates",
       description:
-        "Schedule and manage driving license test dates for learners",
+      "Schedule and manage driving license test dates for learners",
       icon: CalendarIcon,
       link: "/admin/dl-test-dates",
       color: "text-purple-500",
+    },
+    {
+      title: "Instructor Management",
+      description: "Add, edit, and manage driving instructors",
+      icon: Users,
+      link: "/admin/instructors",
+      color: "text-orange-500",
+    },
+    {
+      title: "Customer Information",
+      description: "View and manage detailed customer information",
+      icon: UserCircle,
+      link: "/admin/customer-info",
+      color: "text-indigo-500",
     },
   ];
 
@@ -102,4 +110,3 @@ export default function AdminHome() {
     </div>
   );
 }
-

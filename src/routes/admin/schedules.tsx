@@ -4,6 +4,11 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import {
+  LearnerInfo,
+  LearnerInfoCard,
+  LearnerInfoDialog,
+} from "@/components/admin/LearnerInfoCard";
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import CreateScheduleWithInstructor from "@/components/lesson/CreateSchedule";
 import { Button } from "@/components/ui/button";
@@ -73,6 +78,10 @@ export default function AdminSchedules() {
     SchedulingRequests[number] | null
   >(null);
   const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedLearnerForDialog, setSelectedLearnerForDialog] =
+    useState<LearnerInfo | null>(null);
+
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   useEffect(() => {
@@ -196,9 +205,58 @@ export default function AdminSchedules() {
       });
     },
   });
+  const handleActiveLearnerSelect = (learner: any) => {
+    // If this learner is already selected, open the dialog
+    if (selectedRequest?.id === learner.id) {
+      handleOpenLearnerInfo({
+        id: learner.id || "",
+        name: learner.name || "",
+        phone: learner.phone || "",
+        email: learner.email || "",
+        area: learner.area || "",
+        pick_up_location: learner.pick_up_location,
+        pincode: learner.pincode,
+        signed_up: learner.signed_up,
+        created_at: learner.created_at,
+        address_lat: learner.address_lat,
+        address_lng: learner.address_lng,
+        preferred_start_date: learner.preferred_start_date,
+        preferred_completion_days: learner.preferred_completion_days,
+        prefers_two_hour_classes: learner.prefers_two_hour_classes,
+      });
+    } else {
+      // Otherwise, just select the learner
+      setSelectedRequest(learner);
+    }
+  };
 
   const handleRequestSelect = (request: SchedulingRequests[number]) => {
-    setSelectedRequest(request);
+    // If this request is already selected, open the dialog
+    if (selectedRequest?.id === request.id) {
+      handleOpenLearnerInfo({
+        id: request.Learner?.id || "",
+        name: request.Learner?.name || "",
+        phone: request.Learner?.phone || "",
+        email: request.Learner?.email || "",
+        area: request.Learner?.area || "",
+        pick_up_location: request.Learner?.pick_up_location,
+        pincode: request.Learner?.pincode,
+        signed_up: request.Learner?.signed_up,
+        created_at: request.Learner?.created_at,
+        address_lat: request.Learner?.address_lat,
+        address_lng: request.Learner?.address_lng,
+        preferred_start_date: request.Learner?.preferred_start_date,
+        preferred_completion_days: request.Learner?.preferred_completion_days,
+        prefers_two_hour_classes: request.Learner?.prefers_two_hour_classes,
+      });
+    } else {
+      // Otherwise, just select the request
+      setSelectedRequest(request);
+    }
+  };
+  const handleOpenLearnerInfo = (learner: LearnerInfo) => {
+    setSelectedLearnerForDialog(learner);
+    setDialogOpen(true);
   };
 
   const handleScheduleCreate = async (
@@ -270,34 +328,44 @@ export default function AdminSchedules() {
 
   // Fetch learners with active enrollment and their schedules
   // Fetch learners with active enrollment and their schedules
-const {
-  data: activeLearners,
-  isLoading: isLoadingActiveLearners,
-  refetch: refetchActiveLearners,
-} = useQuery({
-  queryKey: ["activeLearners"],
-  queryFn: async () => {
-    // First, get active enrollment learner IDs
-    const { data: enrollmentData, error: enrollmentError } = await supabase
-      .from("enrollment")
-      .select("learner_id")
-      .eq("status", "active");
+  const {
+    data: activeLearners,
+    isLoading: isLoadingActiveLearners,
+    refetch: refetchActiveLearners,
+  } = useQuery({
+    queryKey: ["activeLearners"],
+    queryFn: async () => {
+      // First, get active enrollment learner IDs
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from("enrollment")
+        .select("learner_id")
+        .eq("status", "active");
 
-    if (enrollmentError) throw enrollmentError;
+      if (enrollmentError) throw enrollmentError;
 
-    const { data: fetchInstructorData, error: instructorError } =
-      await supabase.from("Instructor").select("*");
-    if (instructorError) throw instructorError;
-    setInstructorData(fetchInstructorData);
+      const { data: fetchInstructorData, error: instructorError } =
+        await supabase.from("Instructor").select("*");
+      if (instructorError) throw instructorError;
+      setInstructorData(fetchInstructorData);
 
-    // Directly fetch learners with their schedules in a single query
-    const { data: learnersData, error: learnersError } = await supabase
-      .from("Learner")
-      .select(
-        `
+      // Directly fetch learners with their schedules in a single query
+      const { data: learnersData, error: learnersError } = await supabase
+        .from("Learner")
+        .select(
+          `
         id, 
         name, 
-        area, 
+        area,
+        phone,
+        email,
+        preferred_start_date,
+        preferred_completion_days,
+        prefers_two_hour_classes,
+        pick_up_location,
+        created_at,
+        address_lat,
+        address_lng,
+        
         schedules:Schedule(
           id,
           date,
@@ -308,24 +376,24 @@ const {
           course_id,
           learner_id
         )
-      `
-      )
-      .in(
-        "id",
-        enrollmentData.map((e) => e.learner_id)
+      `,
+        )
+        .in(
+          "id",
+          enrollmentData.map((e) => e.learner_id),
+        );
+
+      if (learnersError) throw learnersError;
+
+      // Filter out learners who don't have any schedules
+      const learnersWithSchedules = learnersData.filter(
+        (learner) => learner.schedules && learner.schedules.length > 0,
       );
 
-    if (learnersError) throw learnersError;
-
-    // Filter out learners who don't have any schedules
-    const learnersWithSchedules = learnersData.filter(
-      (learner) => learner.schedules && learner.schedules.length > 0
-    );
-
-    return learnersWithSchedules;
-  },
-  keepPreviousData: true,
-});
+      return learnersWithSchedules;
+    },
+    keepPreviousData: true,
+  });
 
   const handleTabChange = (value: string) => {
     // Reset selectedRequest when changing tabs
@@ -450,7 +518,14 @@ const {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8 flex flex-col h-flex" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
+    <div
+      className="h-flex flex min-h-screen flex-col bg-white p-8"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+      }}
+    >
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -467,7 +542,11 @@ const {
         </div>
       </div>
 
-      <Tabs defaultValue="new" className="flex h-[calc(100%-73px)] flex-col" onValueChange={handleTabChange}>
+      <Tabs
+        defaultValue="new"
+        className="flex h-[calc(100%-73px)] flex-col"
+        onValueChange={handleTabChange}
+      >
         <div className="border-b px-6">
           <TabsList>
             <TabsTrigger value="new">
@@ -495,24 +574,32 @@ const {
                   <ScrollArea className="h-[calc(100vh-280px)]">
                     {newRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
-                        <Button
-                          variant={
-                            selectedRequest?.id === request.id
-                              ? "default"
-                              : "outline"
-                          }
-                          className="w-full justify-start"
-                          onClick={() => handleRequestSelect(request)}
-                        >
-                          <div className="text-left">
-                            <div className="font-medium">
-                              {request.Learner?.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {request.Learner?.area}
-                            </div>
-                          </div>
-                        </Button>
+                        <LearnerInfoCard
+                          learner={{
+                            id: request.Learner?.id || "",
+                            name: request.Learner?.name || "",
+                            phone: request.Learner?.phone || "",
+                            email: request.Learner?.email || "",
+                            area: request.Learner?.area || "",
+                            pick_up_location: request.Learner?.pick_up_location,
+                            pincode: request.Learner?.pincode,
+                            signed_up: request.Learner?.signed_up,
+                            created_at: request.Learner?.created_at,
+                            address_lat: request.Learner?.address_lat,
+                            address_lng: request.Learner?.address_lng,
+                            preferred_start_date:
+                              request.Learner?.preferred_start_date,
+                            preferred_completion_days:
+                              request.Learner?.preferred_completion_days,
+                            prefers_two_hour_classes:
+                              request.Learner?.prefers_two_hour_classes,
+                          }}
+                          compact={true}
+                          onClick={(learner) => {
+                            handleRequestSelect(request);
+                            
+                          }}
+                        />
                       </div>
                     ))}
                   </ScrollArea>
@@ -559,24 +646,32 @@ const {
                   <ScrollArea className="h-[calc(100vh-280px)]">
                     {rescheduleRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
-                        <Button
-                          variant={
-                            selectedRequest?.id === request.id
-                              ? "default"
-                              : "outline"
-                          }
-                          className="w-full justify-start"
-                          onClick={() => handleRequestSelect(request)}
-                        >
-                          <div className="text-left">
-                            <div className="font-medium">
-                              {request.Learner?.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {request.Learner?.area}
-                            </div>
-                          </div>
-                        </Button>
+                        <LearnerInfoCard
+                          learner={{
+                            id: request.Learner?.id || "",
+                            name: request.Learner?.name || "",
+                            phone: request.Learner?.phone || "",
+                            email: request.Learner?.email || "",
+                            area: request.Learner?.area || "",
+                            pick_up_location: request.Learner?.pick_up_location,
+                            pincode: request.Learner?.pincode,
+                            signed_up: request.Learner?.signed_up,
+                            created_at: request.Learner?.created_at,
+                            address_lat: request.Learner?.address_lat,
+                            address_lng: request.Learner?.address_lng,
+                            preferred_start_date:
+                              request.Learner?.preferred_start_date,
+                            preferred_completion_days:
+                              request.Learner?.preferred_completion_days,
+                            prefers_two_hour_classes:
+                              request.Learner?.prefers_two_hour_classes,
+                          }}
+                          compact={true}
+                          onClick={(learner) => {
+                            handleRequestSelect(request);
+                            
+                          }}
+                        />
                       </div>
                     ))}
                   </ScrollArea>
@@ -623,24 +718,32 @@ const {
                   <ScrollArea className="h-[calc(100vh-280px)]">
                     {tenthLessonRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
-                        <Button
-                          variant={
-                            selectedRequest?.id === request.id
-                              ? "default"
-                              : "outline"
-                          }
-                          className="w-full justify-start"
-                          onClick={() => handleRequestSelect(request)}
-                        >
-                          <div className="text-left">
-                            <div className="font-medium">
-                              {request.Learner?.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {request.Learner?.area}
-                            </div>
-                          </div>
-                        </Button>
+                        <LearnerInfoCard
+                          learner={{
+                            id: request.Learner?.id || "",
+                            name: request.Learner?.name || "",
+                            phone: request.Learner?.phone || "",
+                            email: request.Learner?.email || "",
+                            area: request.Learner?.area || "",
+                            pick_up_location: request.Learner?.pick_up_location,
+                            pincode: request.Learner?.pincode,
+                            signed_up: request.Learner?.signed_up,
+                            created_at: request.Learner?.created_at,
+                            address_lat: request.Learner?.address_lat,
+                            address_lng: request.Learner?.address_lng,
+                            preferred_start_date:
+                              request.Learner?.preferred_start_date,
+                            preferred_completion_days:
+                              request.Learner?.preferred_completion_days,
+                            prefers_two_hour_classes:
+                              request.Learner?.prefers_two_hour_classes,
+                          }}
+                          compact={true}
+                          onClick={(learner) => {
+                            handleRequestSelect(request);
+                            
+                          }}
+                        />
                       </div>
                     ))}
                   </ScrollArea>
@@ -692,22 +795,31 @@ const {
                     ) : (
                       activeLearners?.map((learner) => (
                         <div key={learner.id} className="mb-2">
-                          <Button
-                            variant={
-                              selectedRequest?.id === learner.id
-                                ? "default"
-                                : "outline"
-                            }
-                            className="w-full justify-start"
-                            onClick={() => setSelectedRequest(learner)}
-                          >
-                            <div className="text-left">
-                              <div className="font-medium">{learner.name}</div>
-                              <div className="text-sm text-gray-500">
-                                {learner.area}
-                              </div>
-                            </div>
-                          </Button>
+                          <LearnerInfoCard
+                            learner={{
+                              id: learner.id || "",
+                              name: learner.name || "",
+                              phone: learner.phone || "",
+                              email: learner.email || "",
+                              area: learner.area || "",
+                              pick_up_location: learner.pick_up_location,
+                              pincode: learner.pincode,
+                              signed_up: learner.signed_up,
+                              created_at: learner.created_at,
+                              address_lat: learner.address_lat,
+                              address_lng: learner.address_lng,
+                              preferred_start_date:
+                                learner.preferred_start_date,
+                              preferred_completion_days:
+                                learner.preferred_completion_days,
+                              prefers_two_hour_classes:
+                                learner.prefers_two_hour_classes,
+                            }}
+                            compact={true}
+                            onClick={(learnerInfo) => {
+                              handleActiveLearnerSelect(learner);
+                            }}
+                          />
                         </div>
                       ))
                     )}
@@ -1068,6 +1180,13 @@ const {
           </TabsContent>
         </div>
       </Tabs>
+      {selectedLearnerForDialog && (
+        <LearnerInfoDialog
+          learner={selectedLearnerForDialog}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
