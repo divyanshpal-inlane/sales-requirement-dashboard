@@ -65,7 +65,7 @@ function PaymentResult() {
               >
                 {status === "completed"
                   ? "Continue to Sign Up"
-                  : "Return to Home"}
+                  : "Lets Start your driving journey"}
               </Button>
             </div>
           </div>

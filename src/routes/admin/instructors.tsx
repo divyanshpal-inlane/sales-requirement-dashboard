@@ -1064,7 +1064,7 @@ export default function InstructorsManagement() {
                 </div>
               </div>
               {/* Add this inside the form's grid of inputs */}
-              {/* <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <Label className="pt-2 text-right">Unavailability</Label>
                 <div className="col-span-3">
                   <Button
@@ -1130,7 +1130,7 @@ export default function InstructorsManagement() {
                     </div>
                   )}
                 </div>
-              </div> */}
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -1526,14 +1526,14 @@ function WeeklyScheduleView({
                           schedule
                             ? "bg-primary text-white"
                             : unavailable
-                              ? "bg-red-200 text-red-800"
+                              ? "bg-gray-400 text-red-800"
                               : ""
                         }`}
                       >
                         {schedule
                           ? `${schedule.learner?.name || "Booked"}`
                           : unavailable
-                            ? "Unavailable"
+                            ? ""
                             : ""}
                       </td>
                     );
@@ -1552,7 +1552,7 @@ function WeeklyScheduleView({
           <span className="text-sm">Booked</span>
         </div>
         <div className="flex items-center">
-          <div className="mr-2 h-4 w-4 bg-red-200"></div>
+          <div className="mr-2 h-4 w-4 bg-gray-400"></div>
           <span className="text-sm">Unavailable</span>
         </div>
       </div>

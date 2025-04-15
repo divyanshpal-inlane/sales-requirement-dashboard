@@ -7,12 +7,15 @@ import {
   Info,
   Mail,
   MapPin,
+  MessageSquare,
   Phone,
+  Save,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -20,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { TIME_SLOT_LABELS } from "@/types/schedule";
 
@@ -38,6 +42,7 @@ export interface LearnerInfo {
   preferred_completion_days?: number;
   prefers_two_hour_classes?: boolean;
   pick_up_location?: string; // Added pickup address field
+  comments?: string; // Added comments field
 }
 
 interface SchedulePreference {
@@ -86,10 +91,42 @@ export const LearnerInfoDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
+  const [comments, setComments] = useState("");
+  const [isSavingComments, setIsSavingComments] = useState(false);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchLatestComments = async () => {
+      if (!learner.id || !open) return;
+
+      setIsLoadingComments(true);
+      try {
+        const { data, error } = await supabase
+          .from("Learner")
+          .select("comments")
+          .eq("id", learner.id)
+          .single();
+
+        if (error) throw error;
+
+        // Update comments with the latest from the database
+        setComments(data?.comments || "");
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+      } finally {
+        setIsLoadingComments(false);
+      }
+    };
+
+    if (open) {
+      fetchLatestComments();
+    }
+  }, [learner.id, open]);
 
   useEffect(() => {
     const fetchSchedulePreferences = async () => {
-      if (!learner.id) return;
+      if (!learner.id || !open) return;
 
       setIsLoading(true);
       try {
@@ -108,8 +145,8 @@ export const LearnerInfoDialog = ({
     };
 
     const fetchCurrentSchedules = async () => {
-      if (!learner.id) return;
-  
+      if (!learner.id || !open) return;
+
       setIsLoadingSchedules(true);
       try {
         // First, get the enrollment information for this learner
@@ -120,29 +157,31 @@ export const LearnerInfoDialog = ({
           .eq("status", "active")
           .order("created_at", { ascending: false })
           .limit(1);
-  
+
         if (enrollmentError) throw enrollmentError;
-        
+
         // If we have an active enrollment, use that course_id
-        const courseId = enrollmentData && enrollmentData.length > 0 
-          ? enrollmentData[0].course_id 
-          : null;
-  
+        const courseId =
+          enrollmentData && enrollmentData.length > 0
+            ? enrollmentData[0].course_id
+            : null;
+
         if (courseId) {
           // Fetch course information including total lessons
           setIsLoadingCourse(true);
-          const { data: courseDetailData, error: courseDetailError } = await supabase
-            .from("Courses")
-            .select("id, name, total_lessons")
-            .eq("id", courseId)
-            .single();
-            
+          const { data: courseDetailData, error: courseDetailError } =
+            await supabase
+              .from("Courses")
+              .select("id, name, total_lessons")
+              .eq("id", courseId)
+              .single();
+
           if (!courseDetailError && courseDetailData) {
             setCourseInfo(courseDetailData);
           }
           setIsLoadingCourse(false);
         }
-  
+
         // Fetch schedules for this learner
         const { data: scheduleData, error: scheduleError } = await supabase
           .from("Schedule")
@@ -161,9 +200,9 @@ export const LearnerInfoDialog = ({
           .eq("learner_id", learner.id)
           .order("date", { ascending: true })
           .order("start_time", { ascending: true });
-  
+
         if (scheduleError) throw scheduleError;
-  
+
         if (scheduleData && scheduleData.length > 0) {
           // Fetch instructor names
           const instructorIds = [
@@ -174,27 +213,27 @@ export const LearnerInfoDialog = ({
               .from("Instructor")
               .select("id_instructor, name")
               .in("id_instructor", instructorIds);
-  
+
           if (instructorError) throw instructorError;
-  
+
           // Fetch course names
           const courseIds = [...new Set(scheduleData.map((s) => s.course_id))];
           const { data: courseData, error: courseError } = await supabase
             .from("Courses")
             .select("id, name")
             .in("id", courseIds);
-  
+
           if (courseError) throw courseError;
-  
+
           // Fetch lesson numbers
           const lessonIds = [...new Set(scheduleData.map((s) => s.lesson_id))];
           const { data: lessonData, error: lessonError } = await supabase
             .from("Lesson")
             .select("id, number, course_id")
             .in("id", lessonIds);
-  
+
           if (lessonError) throw lessonError;
-  
+
           // Combine all data
           const enrichedSchedules = scheduleData.map((schedule) => {
             const instructor = instructorData?.find(
@@ -202,7 +241,7 @@ export const LearnerInfoDialog = ({
             );
             const course = courseData?.find((c) => c.id === schedule.course_id);
             const lesson = lessonData?.find((l) => l.id === schedule.lesson_id);
-  
+
             return {
               ...schedule,
               instructor_name: instructor?.name || "Unknown",
@@ -210,7 +249,7 @@ export const LearnerInfoDialog = ({
               lesson_number: lesson?.number || 0,
             };
           });
-  
+
           setCurrentSchedules(enrichedSchedules);
         } else {
           setCurrentSchedules([]);
@@ -221,10 +260,136 @@ export const LearnerInfoDialog = ({
         setIsLoadingSchedules(false);
       }
     };
-  
-    fetchSchedulePreferences();
-    fetchCurrentSchedules();
-  }, [learner.id]);
+    if (open) {
+      fetchSchedulePreferences();
+      fetchCurrentSchedules();
+    }
+  }, [learner.id, open]);
+
+  const saveComments = async () => {
+    if (!learner.id) return;
+
+    setIsSavingComments(true);
+    try {
+      const { error } = await supabase
+        .from("Learner") // Assuming "Learner" is the table name for learners
+        .update({ comments })
+        .eq("id", learner.id);
+
+      if (error) throw error;
+
+      // Update the learner object with the new comments
+      learner.comments = comments;
+
+      toast({
+        title: "Comments saved",
+        description: "Your comments have been saved successfully.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error saving comments:", error);
+      toast({
+        title: "Error saving comments",
+        description:
+          "There was an error saving your comments. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsSavingComments(false);
+    }
+  };
+  const saveCommentsToDb = async (newComments: string) => {
+    if (!learner.id) return;
+
+    const { error } = await supabase
+      .from("Learner")
+      .update({ comments: newComments })
+      .eq("id", learner.id);
+
+    if (error) throw error;
+
+    // Update the learner object with the new comments
+    learner.comments = newComments;
+  };
+  // Add this component outside the main LearnerInfoDialog component
+  const CommentsEditor = ({
+    initialValue,
+    onSave,
+  }: {
+    initialValue: string;
+    onSave: (value: string) => Promise<void>;
+  }) => {
+    const [localComments, setLocalComments] = useState(initialValue);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    // Update local state when initialValue changes (e.g., when dialog opens with new learner)
+    useEffect(() => {
+      setLocalComments(initialValue);
+    }, [initialValue]);
+
+    const handleChange = useCallback(
+      (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setLocalComments(e.target.value);
+      },
+      [],
+    );
+
+    const handleSave = async () => {
+      setIsSaving(true);
+      try {
+        await onSave(localComments);
+        toast({
+          title: "Comments saved",
+          description: "Your comments have been saved successfully.",
+          duration: 3000,
+        });
+      } catch (error) {
+        console.error("Error saving comments:", error);
+        toast({
+          title: "Error saving comments",
+          description:
+            "There was an error saving your comments. Please try again.",
+          variant: "destructive",
+          duration: 3000,
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    return (
+      <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+        <div className="mb-4 flex items-center justify-between border-b pb-2">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-primary">
+            <MessageSquare className="h-5 w-5" />
+            Admin Comments
+          </h3>
+          <Button
+            onClick={handleSave}
+            size="sm"
+            className="flex items-center gap-1"
+            disabled={isSaving}
+          >
+            <Save className="h-4 w-4" />
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+        </div>
+
+        <textarea
+          placeholder="Add notes or comments about this learner..."
+          className="min-h-[150px] w-full resize-y rounded-md border border-gray-300 p-3 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          value={localComments}
+          onChange={handleChange}
+        />
+        <p className="mt-2 text-xs text-gray-500">
+          Add notes about the learner's preferences, special requirements, or
+          any other important information.
+        </p>
+      </div>
+    );
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -285,7 +450,9 @@ export const LearnerInfoDialog = ({
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-4xl">
         <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle className="text-xl font-bold text-primary">Customer Details</DialogTitle>
+          <DialogTitle className="text-xl font-bold text-primary">
+            Customer Details
+          </DialogTitle>
           <DialogClose />
         </DialogHeader>
 
@@ -305,12 +472,14 @@ export const LearnerInfoDialog = ({
                 Customer since{" "}
                 {formatDate(learner.created_at || learner.signed_up)}
               </p>
-              
+
               {courseInfo && (
                 <div className="mt-3 flex items-center gap-2">
                   <BookOpen className="h-5 w-5 text-primary" />
                   <div className="rounded-md bg-primary/10 px-3 py-1">
-                    <span className="font-medium text-primary">{courseInfo.name}</span>
+                    <span className="font-medium text-primary">
+                      {courseInfo.name}
+                    </span>
                     <span className="ml-2 text-sm text-gray-600">
                       ({courseInfo.total_lessons} lessons total)
                     </span>
@@ -322,8 +491,8 @@ export const LearnerInfoDialog = ({
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-6">
-              <div className="rounded-lg bg-gray-50 p-5 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="mb-4 text-lg font-semibold text-primary border-b pb-2">
+              <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+                <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
                   Contact Information
                 </h3>
                 <div className="space-y-4">
@@ -338,7 +507,9 @@ export const LearnerInfoDialog = ({
                     <Mail className="h-5 w-5 text-primary" />
                     <div>
                       <p className="font-medium">Email</p>
-                      <p className="text-gray-700">{learner.email || "Not provided"}</p>
+                      <p className="text-gray-700">
+                        {learner.email || "Not provided"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -351,8 +522,7 @@ export const LearnerInfoDialog = ({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 ml-8">
-                    
+                  <div className="ml-8 flex items-start gap-3">
                     <div>
                       <p className="font-medium">Pickup Address</p>
                       <p className="text-gray-700">
@@ -373,8 +543,8 @@ export const LearnerInfoDialog = ({
                 </div>
               </div>
 
-              <div className="rounded-lg bg-gray-50 p-5 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="mb-4 text-lg font-semibold text-primary border-b pb-2">
+              <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+                <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
                   Class Preferences
                 </h3>
                 <div className="space-y-4">
@@ -382,7 +552,9 @@ export const LearnerInfoDialog = ({
                     <Calendar className="h-5 w-5 text-primary" />
                     <div>
                       <p className="font-medium">Preferred Start Date</p>
-                      <p className="text-gray-700">{formatDate(learner.preferred_start_date)}</p>
+                      <p className="text-gray-700">
+                        {formatDate(learner.preferred_start_date)}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -406,11 +578,13 @@ export const LearnerInfoDialog = ({
                   </div>
                 </div>
               </div>
-              <div className="rounded-lg bg-gray-50 p-5 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="mb-4 text-lg font-semibold text-primary border-b pb-2">Current Schedule</h3>
+              <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+                <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
+                  Current Schedule
+                </h3>
                 {isLoadingSchedules ? (
                   <div className="flex items-center justify-center p-6">
-                                        <div className="border-3 h-6 w-6 animate-spin rounded-full border-primary border-t-transparent"></div>
+                    <div className="border-3 h-6 w-6 animate-spin rounded-full border-primary border-t-transparent"></div>
                   </div>
                 ) : currentSchedules.length === 0 ? (
                   <div className="rounded-md bg-gray-100 p-4 text-gray-500">
@@ -421,24 +595,29 @@ export const LearnerInfoDialog = ({
                     {currentSchedules.map((schedule) => (
                       <div
                         key={schedule.id}
-                        className="rounded-md bg-white p-3 shadow-sm hover:shadow transition-shadow"
+                        className="rounded-md bg-white p-3 shadow-sm transition-shadow hover:shadow"
                       >
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="flex items-center gap-2">
                               <h4 className="font-medium">
                                 Lesson {schedule.lesson_number} -{" "}
-                                
                               </h4>
                               {getStatusBadge(schedule.status || "booked")}
                             </div>
                             <p className="mt-1 text-sm">
-                              <span className="font-medium">{formatDate(schedule.date)}</span> •{" "}
-                              <span className="text-primary">{schedule.start_time.substring(0, 5)} to{" "}
-                              {schedule.end_time.substring(0, 5)}</span>
+                              <span className="font-medium">
+                                {formatDate(schedule.date)}
+                              </span>{" "}
+                              •{" "}
+                              <span className="text-primary">
+                                {schedule.start_time.substring(0, 5)} to{" "}
+                                {schedule.end_time.substring(0, 5)}
+                              </span>
                             </p>
                             <p className="mt-1 text-sm text-gray-600">
-                              <span className="font-medium">Instructor:</span> {schedule.instructor_name}
+                              <span className="font-medium">Instructor:</span>{" "}
+                              {schedule.instructor_name}
                             </p>
                           </div>
                         </div>
@@ -450,8 +629,78 @@ export const LearnerInfoDialog = ({
             </div>
 
             <div className="space-y-6">
-              <div className="rounded-lg bg-gray-50 p-5 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="mb-4 text-lg font-semibold text-primary border-b pb-2">
+              {courseInfo && (
+                <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+                  <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
+                    Course Progress
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="h-5 w-5 text-primary" />
+                      <div className="flex-1">
+                        <p className="font-medium">{courseInfo.name}</p>
+                        <p className="text-sm text-gray-600">
+                          {courseInfo.total_lessons} lessons total
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-1 flex justify-between text-sm">
+                        <span>Progress</span>
+                        <span className="font-medium">
+                          {
+                            currentSchedules.filter(
+                              (s) => s.status === "completed",
+                            ).length
+                          }{" "}
+                          / {courseInfo.total_lessons} lessons
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{
+                            width: `${(currentSchedules.filter((s) => s.status === "completed").length / courseInfo.total_lessons) * 100}%`,
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-md bg-primary/5 p-3">
+                      <div>
+                        <p className="text-sm font-medium">Next Lesson</p>
+                        {currentSchedules.find(
+                          (s) => s.status !== "completed",
+                        ) ? (
+                          <p className="text-sm text-gray-600">
+                            Lesson{" "}
+                            {
+                              currentSchedules.find(
+                                (s) => s.status !== "completed",
+                              )?.lesson_number
+                            }{" "}
+                            on{" "}
+                            {formatDate(
+                              currentSchedules.find(
+                                (s) => s.status !== "completed",
+                              )?.date,
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-600">
+                            No upcoming lessons
+                          </p>
+                        )}
+                      </div>
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+                <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
                   Schedule Preferences
                 </h3>
                 {isLoading ? (
@@ -468,7 +717,7 @@ export const LearnerInfoDialog = ({
                       ([dayNum, timeSlots]) => (
                         <div
                           key={dayNum}
-                          className="rounded-md bg-white p-3 shadow-sm hover:shadow transition-shadow"
+                          className="rounded-md bg-white p-3 shadow-sm transition-shadow hover:shadow"
                         >
                           <h4 className="font-medium text-primary">
                             {getDayName(parseInt(dayNum))}
@@ -489,58 +738,11 @@ export const LearnerInfoDialog = ({
                   </div>
                 )}
               </div>
-              
-              {courseInfo && (
-                <div className="rounded-lg bg-gray-50 p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <h3 className="mb-4 text-lg font-semibold text-primary border-b pb-2">
-                    Course Progress
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                      <div className="flex-1">
-                        <p className="font-medium">{courseInfo.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {courseInfo.total_lessons} lessons total
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="mb-1 flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span className="font-medium">
-                          {currentSchedules.filter(s => s.status === 'completed').length} / {courseInfo.total_lessons} lessons
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                        <div 
-                          className="h-full bg-primary transition-all" 
-                          style={{ 
-                            width: `${(currentSchedules.filter(s => s.status === 'completed').length / courseInfo.total_lessons) * 100}%` 
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between rounded-md bg-primary/5 p-3">
-                      <div>
-                        <p className="text-sm font-medium">Next Lesson</p>
-                        {currentSchedules.find(s => s.status !== 'completed') ? (
-                          <p className="text-sm text-gray-600">
-                            Lesson {currentSchedules.find(s => s.status !== 'completed')?.lesson_number} on {
-                              formatDate(currentSchedules.find(s => s.status !== 'completed')?.date)
-                            }
-                          </p>
-                        ) : (
-                          <p className="text-sm text-gray-600">No upcoming lessons</p>
-                        )}
-                      </div>
-                      <Calendar className="h-5 w-5 text-primary" />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* New Comments Section */}
+              <CommentsEditor
+                initialValue={comments}
+                onSave={saveCommentsToDb}
+              />
             </div>
           </div>
         </div>
@@ -594,4 +796,3 @@ export const LearnerInfoCard = ({
     </div>
   );
 };
-

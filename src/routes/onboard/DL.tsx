@@ -41,45 +41,81 @@ export default function DLQuestion() {
 
     fetchLearnerDetails();
   }, []);
-
-  const handleDLResponse = (response: boolean) => {
-    if (response) {
-      mutate(
-        {
-          LL_result: true,
-          has_a_DL: true,
-          onboarding_completed: true,
-        },
-        {
-          onSuccess: () => {
-            navigate("/home");
-          },
-        },
-      );
-    } else {
-      mutate(
-        {
-          LL_result: null,
-          has_a_DL: false,
-          onboarding_completed: true,
-        },
-        {
-          onSuccess: () => {
-            window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
-            navigate("/home");
-            if (learner) {
-              supabase.functions.invoke("send-message", {
-                body: {
-                  message_type: "LL_DETAILS_BOOK_APPOINTMENT",
-                  learner_id: learner.id,
-                },
-              });
-            }
-          },
-        },
-      );
+  const sendAdminEmail = async (subject: string, message: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-admin-email', {
+        body: { subject, message }
+      });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error sending admin email:', error);
+      throw error;
     }
   };
+
+  const handleDLResponse = async (response: boolean) => {
+    try {
+      if (response) {
+        // User has a DL
+        await mutate(
+          {
+            LL_result: true,
+            has_a_DL: true,
+            onboarding_completed: true,
+          },
+          {
+            onSuccess: async () => {
+              // Send message for users who already have a DL
+              if (learner?.id) {
+                await supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "SIGN_UP_DONE_SCHEDULE_PLEASE", // This is the closest match to what you requested
+                    learner_id: learner.id
+                  }
+                });
+              }
+              navigate("/home");
+            },
+          }
+        );
+      } else {
+        // User does not have a DL
+        await mutate(
+          {
+            LL_result: null,
+            has_a_DL: false,
+            onboarding_completed: true,
+          },
+          {
+            onSuccess: async () => {
+              // Send message for users who need to get a learner's license first
+              if (learner?.id) {
+                console.log("Sending message to learner:", learner.id);
+                await supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST",
+                    learner_id: learner.id
+                  }
+                });
+                await sendAdminEmail(
+                  "New Learner's License Application Needed",
+                  `A new learner needs to apply for a Learner's License. 
+                   Please fill in their application ID when completed.`
+                );
+              }
+              window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
+              navigate("/home");
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error handling DL response:", error);
+    }
+  };
+  
 
   return (
     <div className="flex h-full w-full flex-col">

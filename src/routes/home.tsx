@@ -101,8 +101,12 @@ export default function Home() {
   }
 
   // Show payment completion prompt for half-paid enrollments
-  const showPaymentCompletion = enrolledCourse?.payment_status === "half_paid";
-
+  const showPaymentCompletion = enrolledCourse?.payment_status === "half_paid" &&
+  scheduledLessons &&
+  scheduledLessons.some(
+  (scheduleItem) =>
+    scheduleItem.lesson?.number === 2 && scheduleItem.status?.toUpperCase() === "COMPLETED",
+);
   const renderScheduleCreationState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-md">
@@ -166,7 +170,7 @@ export default function Home() {
 
       {/* Main content */}
       <main className="flex flex-col p-4 pb-20 overflow-y-auto p-4 scrollbar-none  h-[calc(100vh-50px)]"style={{ scrollbarWidth: "none" }}>
-        {showPaymentCompletion && (
+        {showPaymentCompletion ? (
           <Card className="mb-6 bg-white border-primary">
             <CardHeader>
               <CardTitle className="text-primary">Complete Your Payment</CardTitle>
@@ -178,14 +182,16 @@ export default function Home() {
               <Button 
                 onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
                 className="w-full bg-primary hover:bg-primary-dark"
-              
               >
                 Pay Remaining Amount
               </Button>
             </CardContent>
           </Card>
+        ) : (
+          <p className="text-center text-xl font-medium">
+            Let's start your journey!
+          </p>
         )}
-
         {scheduleRequests && scheduleRequests.length > 0 ? (
           renderScheduleCreationState()
         ) : learner && !learner.LL_result ? (

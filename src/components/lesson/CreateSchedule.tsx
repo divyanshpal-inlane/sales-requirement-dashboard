@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  LearnerInfo,
+  LearnerInfoDialog,
+} from "@/components/admin/LearnerInfoCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { sendCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
@@ -176,6 +181,10 @@ export default function CreateScheduleWithInstructor({
     InstructorWithDistance[]
   >([]);
   const [isLoadingDistances, setIsLoadingDistances] = useState(false);
+  const [selectedLearner, setSelectedLearner] = useState<LearnerInfo | null>(
+    null,
+  );
+  const [showLearnerDialog, setShowLearnerDialog] = useState(false);
 
   // Fetch learner details to get pickup location coordinates
   const { data: learnerDetails } = useQuery({
@@ -322,6 +331,240 @@ export default function CreateScheduleWithInstructor({
     },
     enabled: !!selectedInstructorId,
   });
+  // Add these helper functions before your component
+
+// Function to get day name from index
+const getDayName = (dayIndex: number): string => {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return days[dayIndex];
+};
+
+// Function to get day index from name
+const getDayIndex = (dayName: string): number => {
+  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  return days.indexOf(dayName.toLowerCase());
+};
+
+// Function to format time in 12-hour format
+const formatTime = (timeString: string): string => {
+  const [hourStr, minuteStr] = timeString.split(":");
+  const hour = parseInt(hourStr);
+  const minute = parseInt(minuteStr);
+  
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${minute.toString().padStart(2, "0")} ${period}`;
+};
+
+// Function to parse time string to minutes since midnight
+const timeToMinutes = (timeString: string): number => {
+  const [hours, minutes] = timeString.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+// Function to convert minutes since midnight to time string
+const minutesToTime = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+};
+
+// Function to calculate working hours for an instructor
+const calculateWorkingHours = (unavailability: Unavailability[] | null | undefined) => {
+  // Default working hours: 6 AM to 9 PM for all days
+  const defaultWorkingHours = Array(7).fill(null).map(() => {
+    return {
+      // Each day has one continuous working period by default
+      periods: [{ start: "06:00", end: "21:00" }]
+    };
+  });
+  
+  if (!unavailability || !Array.isArray(unavailability) || unavailability.length === 0) {
+    return defaultWorkingHours;
+  }
+  
+  // Deep copy the default working hours
+  const workingHours = JSON.parse(JSON.stringify(defaultWorkingHours));
+  
+  // Process each unavailability entry
+  unavailability.forEach(entry => {
+    // Handle recurring weekly unavailability
+    if (entry.day_of_week) {
+      const dayIndex = getDayIndex(entry.day_of_week);
+      
+      if (dayIndex !== -1 && entry.booked_start_time && entry.booked_end_time) {
+        // Remove the unavailable time from the working hours
+        workingHours[dayIndex].periods = subtractTimeRange(
+          workingHours[dayIndex].periods,
+          entry.booked_start_time,
+          entry.booked_end_time
+        );
+      }
+    }
+    
+    // Handle specific date unavailability
+    else if (entry.booked_date) {
+      // For full day unavailability
+      if (entry.all_day) {
+        // We'll mark this in a separate structure for specific dates
+        const date = new Date(entry.booked_date);
+        const dayIndex = date.getDay();
+        
+        // For the UI, we'll just note that there are exceptions to the regular schedule
+        workingHours[dayIndex].hasExceptions = true;
+      }
+      // For specific time range on a specific date
+      else if (entry.booked_start_time && entry.booked_end_time) {
+        const date = new Date(entry.booked_date);
+        const dayIndex = date.getDay();
+        
+        // For the UI, we'll just note that there are exceptions to the regular schedule
+        workingHours[dayIndex].hasExceptions = true;
+      }
+    }
+    
+    // Handle date range unavailability
+    else if (entry.start_date && entry.end_date) {
+      // For the UI, we'll just note that there are exceptions to the regular schedule
+      for (let i = 0; i < 7; i++) {
+        workingHours[i].hasExceptions = true;
+      }
+    }
+  });
+  
+  return workingHours;
+};
+
+// Function to subtract a time range from a list of time periods
+const subtractTimeRange = (periods: { start: string, end: string }[], startTime: string, endTime: string) => {
+  const unavailableStart = timeToMinutes(startTime);
+  const unavailableEnd = timeToMinutes(endTime);
+  
+  // If invalid time range, return original periods
+  if (unavailableStart >= unavailableEnd) {
+    return periods;
+  }
+  
+  const result: { start: string, end: string }[] = [];
+  
+  periods.forEach(period => {
+    const periodStart = timeToMinutes(period.start);
+    const periodEnd = timeToMinutes(period.end);
+    
+    // If period is completely before or after unavailable time, keep it as is
+    if (periodEnd <= unavailableStart || periodStart >= unavailableEnd) {
+      result.push(period);
+      return;
+    }
+    
+    // If unavailable time completely covers the period, skip it
+    if (unavailableStart <= periodStart && unavailableEnd >= periodEnd) {
+      return;
+    }
+    
+    // If unavailable time is in the middle of the period, split into two periods
+    if (unavailableStart > periodStart && unavailableEnd < periodEnd) {
+      result.push({
+        start: period.start,
+        end: minutesToTime(unavailableStart)
+      });
+      result.push({
+        start: minutesToTime(unavailableEnd),
+        end: period.end
+      });
+      return;
+    }
+    
+    // If unavailable time overlaps with the start of the period
+    if (unavailableStart <= periodStart && unavailableEnd < periodEnd) {
+      result.push({
+        start: minutesToTime(unavailableEnd),
+        end: period.end
+      });
+      return;
+    }
+    
+    // If unavailable time overlaps with the end of the period
+    if (unavailableStart > periodStart && unavailableEnd >= periodEnd) {
+      result.push({
+        start: period.start,
+        end: minutesToTime(unavailableStart)
+      });
+      return;
+    }
+  });
+  
+  return result;
+};
+
+// Function to format working hours for display
+const formatWorkingHours = (workingHours: any[]) => {
+  return workingHours.map((dayHours, index) => {
+    const dayName = getDayName(index);
+    
+    if (dayHours.periods.length === 0) {
+      return { day: dayName, hours: "Not available" };
+    }
+    
+    // Sort periods by start time
+    const sortedPeriods = [...dayHours.periods].sort((a, b) => 
+      timeToMinutes(a.start) - timeToMinutes(b.start)
+    );
+    
+    // Format each period
+    const timeRanges = sortedPeriods.map(period => 
+      `${formatTime(period.start)} - ${formatTime(period.end)}`
+    ).join(", ");
+    
+    let displayHours = timeRanges;
+    
+    // Add note about exceptions if needed
+    if (dayHours.hasExceptions) {
+      displayHours += "";
+    }
+    
+    return { day: dayName, hours: displayHours };
+  });
+};
+
+
+  const handleOccupiedSlotClick = async (schedule: any) => {
+    if (!schedule || !schedule.learner_id) return;
+
+    try {
+      // Fetch the learner details
+      const { data: learnerData, error } = await supabase
+        .from("Learner")
+        .select("*")
+        .eq("id", schedule.learner_id)
+        .single();
+
+      if (error) throw error;
+
+      // Format the learner data to match LearnerInfo interface
+      const learnerInfo: LearnerInfo = {
+        id: learnerData.id,
+        name: learnerData.name,
+        phone: learnerData.phone,
+        email: learnerData.email || "",
+        area: learnerData.area,
+        pincode: learnerData.pincode,
+        signed_up: learnerData.signed_up,
+        created_at: learnerData.created_at,
+        address_lat: learnerData.address_lat,
+        address_lng: learnerData.address_lng,
+        preferred_start_date: learnerData.preferred_start_date,
+        preferred_completion_days: learnerData.preferred_completion_days,
+        prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
+        pick_up_location: learnerData.pick_up_location,
+      };
+
+      setSelectedLearner(learnerInfo);
+      setShowLearnerDialog(true);
+    } catch (error) {
+      console.error("Error fetching learner details:", error);
+    }
+  };
 
   // Case-insensitive matching for instructor locations
   const [matchingInstructors, otherInstructors] = useMemo(() => {
@@ -609,15 +852,18 @@ export default function CreateScheduleWithInstructor({
                                 schedule
                                   ? "bg-primary text-white"
                                   : unavailable
-                                    ? "bg-red-200 text-red-800"
+                                    ? "bg-gray-400 text-red-800"
                                     : ""
-                              }`}
+                              } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
+                              onClick={() =>
+                                schedule && handleOccupiedSlotClick(schedule)
+                              }
                             >
                               <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
                                 {isScheduleStart
                                   ? `${schedule.start_time} - ${schedule.end_time}`
                                   : unavailable && !schedule
-                                    ? "Unavailable"
+                                    ? ""
                                     : ""}
                               </div>
                             </td>
@@ -714,6 +960,47 @@ export default function CreateScheduleWithInstructor({
                       )}
                     </p>
                   </div>
+                  <div className="col-span-2 mt-3">
+      <p className="mb-2 font-bold">Regular Working Hours:</p>
+      <div className="max-h-40 overflow-y-auto rounded border border-gray-200 p-2">
+        {(() => {
+          const selectedInstructor = instructorsWithDistance.find(
+            (instructor) => instructor.id_instructor === selectedInstructorId
+          );
+          
+          // Parse unavailability if it's a string
+          let unavailabilityData = selectedInstructor?.unavailability;
+          if (typeof unavailabilityData === 'string') {
+            try {
+              unavailabilityData = JSON.parse(unavailabilityData);
+            } catch (e) {
+              console.error("Error parsing unavailability data:", e);
+              unavailabilityData = [];
+            }
+          }
+          
+          const workingHours = calculateWorkingHours(unavailabilityData);
+          const formattedHours = formatWorkingHours(workingHours);
+          
+          return (
+            <table className="w-full text-sm">
+              <tbody>
+                {formattedHours.map((dayHours, index) => (
+                  <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
+                    <td className="py-1 pr-2 font-medium" style={{ width: "100px" }}>{dayHours.day}</td>
+                    <td className="py-1">{dayHours.hours}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
+      </div>
+      <p className="mt-2 text-xs text-gray-500">
+        Note: Working hours may vary on specific dates due to instructor unavailability.
+        Check the calendar view for the most accurate availability.
+      </p>
+    </div>
                 </div>
               )}
             </div>
@@ -736,6 +1023,14 @@ export default function CreateScheduleWithInstructor({
           </CardContent>
         </Card>
       </div>
+
+      {selectedLearner && (
+        <LearnerInfoDialog
+          learner={selectedLearner}
+          open={showLearnerDialog}
+          onClose={() => setShowLearnerDialog(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1405,6 +1700,74 @@ function CreateSchedule({
       });
 
     onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+    try {
+      // Fetch learner details
+      const { data: learnerData } = await supabase
+        .from("Learner")
+        .select("email, pick_up_location, address_lat, address_lng, name")
+        .eq("id", learnerId)
+        .single();
+
+      if (!learnerData?.email) {
+        console.error("Missing email for learner");
+        return;
+      }
+
+      // For each schedule, send calendar invites
+      for (const schedule of finalSchedules) {
+        // Get instructor details
+        const { data: instructorData } = await supabase
+          .from("Instructor")
+          .select("email, name")
+          .eq("id_instructor", schedule.instructorId)
+          .single();
+
+        if (!instructorData?.email) {
+          console.error("Missing email for instructor");
+          continue;
+        }
+
+        // Create start and end date objects
+        const startDate = new Date(schedule.date);
+        const [startHour, startMinute] = schedule.start_time
+          .split(":")
+          .map(Number);
+        startDate.setHours(startHour, startMinute, 0);
+
+        const endDate = new Date(schedule.date);
+        const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
+        endDate.setHours(endHour, endMinute, 0);
+
+        // Get lesson details
+        const { data: lessonData } = await supabase
+          .from("Lesson")
+          .select("number")
+          .eq("id", schedule.lessonId)
+          .single();
+
+        // Determine pickup location
+        const pickupLocation =
+          learnerData.pick_up_location ||
+          (learnerData.address_lat && learnerData.address_lng
+            ? `${learnerData.address_lat},${learnerData.address_lng}`
+            : "To be confirmed");
+
+        // Send calendar invites
+        await sendCalendarInvite(
+          learnerData.email,
+          instructorData.email,
+          startDate,
+          endDate,
+          lessonData?.number || schedule.lessonNumber,
+          pickupLocation,
+          instructorData.name || "Your Instructor",
+          learnerData.name || "Student",
+        );
+      }
+    } catch (error) {
+      console.error("Error sending calendar invites:", error);
+      // Don't block the UI flow if calendar invites fail
+    }
   };
 
   // Utility function to group array items by a key

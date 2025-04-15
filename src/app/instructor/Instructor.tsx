@@ -5,10 +5,21 @@ import {
   GoogleOAuthProvider,
   // useGoogleLogin,
 } from "@react-oauth/google";
+import { useQueryClient } from "@tanstack/react-query";
 // import axios from "axios";
-import { format, getDay, parse, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
+import {
+  addDays,
+  endOfWeek,
+  format,
+  getDay,
+  isSameDay,
+  parse,
+  startOfWeek,
+} from "date-fns";
 import enUS from "date-fns/locale/en-US";
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleCheckBig,
   ExternalLinkIcon,
   PhoneOutgoing,
@@ -36,9 +47,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
-import { useUser } from "@/context/auth-context";
+import { supabase, useUser } from "@/context/auth-context";
 import { useInstructor, useUpdateScheduleStatus } from "@/queries/instructor";
-import { useQueryClient } from "@tanstack/react-query";
 
 const locales = {
   "en-US": enUS,
@@ -63,100 +73,145 @@ function Instructor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Commented out Google Calendar related states
-  /*
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(
-    null,
-  );
-  const [isCalendarLoaded, setIsCalendarLoaded] = useState(false);
-  const [calendarError, setCalendarError] = useState<string | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
-  */
-  
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState(
+    startOfWeek(new Date()),
+  );
+  function isTimeUnavailable(
+    unavailability: any[] | null | undefined,
+    day: Date,
+    hour: number,
+    minute: number,
+  ): boolean {
+    if (
+      !unavailability ||
+      !Array.isArray(unavailability) ||
+      unavailability.length === 0
+    ) {
+      return false;
+    }
 
-  // Commented out Google Calendar login function
-  /*
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      console.log("Google login successful");
-      setGoogleAccessToken(tokenResponse.access_token);
-      setCalendarError(null);
-    },
-    onError: (error) => {
-      console.error("Google login failed", error);
-      setCalendarError("Failed to connect to Google Calendar");
-    },
-    scope:
-      "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly",
-    flow: "implicit",
+    const currentTime = new Date(day);
+    currentTime.setHours(hour, minute);
+    const dayOfWeek = format(day, "EEEE").toLowerCase();
+    const formattedDate = format(day, "yyyy-MM-dd");
+
+    return unavailability.some((u) => {
+      // Case 1: Single day, all day
+      if (u.booked_date && u.all_day) {
+        return formattedDate === u.booked_date;
+      }
+
+      // Case 2: Single day, specific time slot
+      if (
+        u.booked_date &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        const unavailableStart = new Date(
+          `${u.booked_date}T${u.booked_start_time}`,
+        );
+        const unavailableEnd = new Date(
+          `${u.booked_date}T${u.booked_end_time}`,
+        );
+        return (
+          formattedDate === u.booked_date &&
+          currentTime >= unavailableStart &&
+          currentTime < unavailableEnd
+        );
+      }
+
+      // Case 3: Weekly recurring on specific day of week
+      if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
+        if (u.day_of_week === dayOfWeek) {
+          const [startHour, startMinute] = u.booked_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
+          const unavailableStart = new Date(day);
+          unavailableStart.setHours(startHour, startMinute);
+
+          const unavailableEnd = new Date(day);
+          unavailableEnd.setHours(endHour, endMinute);
+
+          return (
+            currentTime >= unavailableStart && currentTime < unavailableEnd
+          );
+        }
+      }
+
+      // Case 4: Date range
+      if (u.start_date && u.end_date) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      return false;
+    });
+  }
+
+  const [scheduleDetailDialog, setScheduleDetailDialog] = useState({
+    open: false,
+    schedule: null,
+    learner: null,
   });
 
-  const handleGoogleLogout = () => {
-    googleLogout();
-    setGoogleAccessToken(null);
-    setIsCalendarLoaded(false);
-    setEvents([]); // Clear events on logout
+  const handleScheduleClick = (schedule: any, learner: any) => {
+    setScheduleDetailDialog({
+      open: true,
+      schedule,
+      learner,
+    });
   };
-
-  // Check for stored token on component mount
-  useEffect(() => {
-    const storedToken = localStorage.getItem("googleCalendarToken");
-    if (storedToken) {
-      setGoogleAccessToken(storedToken);
-    }
-  }, []);
-
-  // Store token when it changes
-  useEffect(() => {
-    const fetchEvents = async () => {
-      if (!googleAccessToken) return;
-
-      try {
-        const response = await axios.get(
-          "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-          {
-            headers: {
-              Authorization: `Bearer ${googleAccessToken}`,
-            },
-          },
-        );
-
-        
-
-        const formattedEvents = response.data.items.map((event: any) => ({
-          id: event.id,
-          title: event.summary || "No Title",
-          start: new Date(event.start?.dateTime || event.start?.date),
-          end: new Date(event.end?.dateTime || event.end?.date),
-          description: event.description || "No Description",
-          location: event.location || "No Location",
-          creator: event.creator || {},
-          attendees: event.attendees || [],
-          htmlLink: event.htmlLink,
-          originalEvent: event,
-        }));
-
-       
-
-        setEvents(formattedEvents);
-      } catch (error) {
-        console.error("Failed to fetch events:", error);
-      }
-    };
-
-    fetchEvents();
-  }, [googleAccessToken]);
-  */
-
-  const handleFinishLesson = async (scheduleId: string) => {
+  const handleFinishLesson = async (scheduleId: string, learnerId: string) => {
     try {
+      // First, update the current lesson status to completed
       await updateScheduleStatus.mutateAsync({
         scheduleId,
         status: "completed",
       });
+
+      // Fetch all schedules for this learner
+      const { data: learnerSchedules, error: schedulesError } = await supabase
+        .from("Schedule")
+        .select("id, status")
+        .eq("learner_id", learnerId);
+
+      if (schedulesError) {
+        console.error("Error fetching learner schedules:", schedulesError);
+        return;
+      }
+
+      // Check if all lessons are completed
+      const totalLessons = learnerSchedules.length;
+      const completedLessons = learnerSchedules.filter(
+        (schedule) => schedule.status === "completed",
+      ).length;
+
+      // If all lessons are completed, send the review request message
+      if (totalLessons > 0 && completedLessons === totalLessons) {
+        const { data, error } = await supabase.functions.invoke(
+          "send-message",
+          {
+            body: {
+              message_type: "WEBAPP_LESSONS_DONE_REVIEW_PLEASE",
+              learner_id: learnerId,
+            },
+          },
+        );
+
+        if (error) {
+          console.error("Error sending review request message:", error);
+          return;
+        }
+      }
+
+      // Refresh the instructor schedule data
       queryClient.invalidateQueries(["instructorSchedule"]);
     } catch (error) {
       console.error("Failed to update lesson status:", error);
@@ -204,7 +259,7 @@ function Instructor() {
 
   const handleWeekChange = (direction: "prev" | "next") => {
     setCurrentWeekStart((prev) =>
-      direction === "next" ? addDays(prev, 7) : addDays(prev, -7)
+      direction === "next" ? addDays(prev, 7) : addDays(prev, -7),
     );
   };
 
@@ -233,76 +288,52 @@ function Instructor() {
             value="calendar"
             className="flex flex-col justify-between gap-2 overflow-y-auto"
           >
-            {/* Commented out Google Calendar connection buttons
-            <div className="mb-4 flex items-center justify-center">
-              {!googleAccessToken ? (
-                <Button
-                  onClick={() => handleGoogleLogin()}
-                  className="rounded px-4 py-2 text-white"
-                >
-                  Connect Google Calendar
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleGoogleLogout}
-                  className="rounded bg-red-500 px-4 py-2 text-white"
-                >
-                  Disconnect Google Calendar
-                </Button>
-              )}
-            </div>
-
-            {googleAccessToken && events.length > 0 ? (
-              <div style={{ height: "600px" }}>
-                <Calendar
-                  localizer={localizer}
-                  events={events}
-                  startAccessor="start"
-                  endAccessor="end"
-                  style={{ height: 600 }}
-                  defaultView="week"
-                  views={["month", "week", "day"]}
-                  popup
-                  onSelectEvent={handleEventClick}
-                />
-              </div>
-            ) : (
-              <div className="text-center text-gray-500">
-                {googleAccessToken
-                  ? "No events found in your Google Calendar."
-                  : "Connect your Google Calendar to view your schedule."}
-              </div>
-            )}
-            */}
-            
-            {/* Weekly Schedule View similar to admin/instructors.tsx */}
+            {/* Weekly Schedule View similar to CreateSchedule.tsx */}
             <div>
               {/* Week Navigation */}
-              <div className="flex items-center justify-between mb-4 text-center">
-                <Button variant="outline" onClick={() => handleWeekChange("prev")} className="text-xs">
-                  Previous Week
+              <div className="mb-4 flex items-center justify-between text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => handleWeekChange("prev")}
+                  className="text-xs"
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
                 </Button>
                 <h3 className="text-xs font-semibold">
                   {format(currentWeekStart, "MMM d")} -{" "}
                   {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
                 </h3>
-                <Button variant="outline" onClick={() => handleWeekChange("next")}className="text-xs">
-                  Next Week
+                <Button
+                  variant="outline"
+                  onClick={() => handleWeekChange("next")}
+                  className="text-xs"
+                >
+                  <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
 
               {/* Weekly Schedule Table */}
-              <div className="overflow-x-auto overflow-y-auto p-4 scrollbar-none h-[calc(100vh-50px)] max-h-85" style={{ scrollbarWidth: "none" }}>
+              <div
+                className="scrollbar-none max-h-85 h-[calc(100vh-50px)] overflow-x-auto overflow-y-auto p-4"
+                style={{ scrollbarWidth: "none" }}
+              >
                 <table className="w-full border-collapse border border-gray-200">
                   <thead>
                     <tr>
-                      <th className="border border-gray-200 p-1 text-xs">Time</th>
+                      <th className="sticky left-0 z-10 min-w-24 border border-gray-200 bg-white p-1 text-xs">
+                        Time
+                      </th>
                       {Array.from({ length: 7 }).map((_, index) => {
                         const day = addDays(currentWeekStart, index);
                         return (
-                          <th key={index} className="border border-gray-200 p-1 text-xs">
-                            {format(day, "EEE")}
-                            <div className="text-xs">{format(day, "MMM d")}</div>
+                          <th
+                            key={index}
+                            className="min-w-24 border border-gray-200 p-1 text-xs"
+                          >
+                            <div>{format(day, "EEE")}</div>
+                            <div className="text-xs">
+                              {format(day, "MMM d")}
+                            </div>
                           </th>
                         );
                       })}
@@ -313,59 +344,102 @@ function Instructor() {
                       const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
                       const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
                       return (
-                        <tr key={timeIndex}>
-                          <td className="border border-gray-200 p-1 text-xs text-center">
-                            {format(new Date().setHours(hour, minute), "h:mm a")}
+                        <tr key={timeIndex} className="h-10">
+                          <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
+                            <span className="text-xs">
+                              {format(
+                                new Date().setHours(hour, minute),
+                                "h:mm a",
+                              )}
+                            </span>
                           </td>
                           {Array.from({ length: 7 }).map((_, dayIndex) => {
                             const day = addDays(currentWeekStart, dayIndex);
+                            const currentDate = format(day, "yyyy-MM-dd");
 
                             // Find the schedule for the current day and time
-                            const schedule = instructorData?.instructorSchedule.find((s) => {
-                              const scheduleDate = new Date(s.date);
-                              const scheduleStart = new Date(`${s.date}T${s.start_time}`);
-                              const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
-                              const currentTime = new Date(day);
-                              currentTime.setHours(hour, minute);
+                            const schedule =
+                              instructorData?.instructorSchedule.find((s) => {
+                                const scheduleDate = new Date(s.date);
+                                const scheduleStart = new Date(
+                                  `${s.date}T${s.start_time}`,
+                                );
+                                const scheduleEnd = new Date(
+                                  `${s.date}T${s.end_time}`,
+                                );
+                                const currentTime = new Date(day);
+                                currentTime.setHours(hour, minute);
 
-                              return (
-                                isSameDay(scheduleDate, day) &&
-                                currentTime >= scheduleStart &&
-                                currentTime < scheduleEnd
-                              );
-                            });
+                                return (
+                                  isSameDay(scheduleDate, day) &&
+                                  currentTime >= scheduleStart &&
+                                  currentTime < scheduleEnd
+                                );
+                              });
+
+                            // Check if this time is unavailable based on instructor's unavailability
+                            const isUnavailable = isTimeUnavailable(
+                              instructorData?.unavailability,
+                              day,
+                              hour,
+                              minute,
+                            );
 
                             // Find the corresponding learner for this schedule
                             let learnerName = "";
+                            let learnerInfo = null;
                             if (schedule) {
-                              const learnerLesson = instructorData?.learnerLesson.find(
-                                (ll) => ll.lesson.id === schedule.lesson_id
-                              );
+                              const learnerLesson =
+                                instructorData?.learnerLesson.find(
+                                  (ll) => ll.lesson.id === schedule.lesson_id,
+                                );
                               if (learnerLesson) {
                                 learnerName = learnerLesson.learner.name;
+                                learnerInfo = learnerLesson.learner;
                               }
                             }
+
+                            // Determine if this cell is the start of a schedule
+                            const isScheduleStart =
+                              schedule &&
+                              parseInt(schedule.start_time.split(":")[0]) ===
+                                hour &&
+                              parseInt(schedule.start_time.split(":")[1]) ===
+                                minute;
 
                             return (
                               <td
                                 key={dayIndex}
-                                className={`border border-gray-200 p-2 text-center ${
+                                className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
                                   schedule
-                                    ? schedule.status === "completed" 
+                                    ? schedule.status === "completed"
                                       ? "bg-green-200 text-green-800"
                                       : schedule.status === "ongoing"
-                                      ? "bg-blue-200 text-blue-800"
-                                      : "bg-primary text-white"
-                                    : ""
-                                }`}
+                                        ? "bg-blue-200 text-blue-800"
+                                        : "bg-primary text-white"
+                                    : isUnavailable
+                                      ? "bg-gray-400 text-red-800"
+                                      : ""
+                                } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
+                                onClick={() =>
+                                  schedule &&
+                                  handleScheduleClick(schedule, learnerInfo)
+                                }
                               >
-                                {schedule && (
-                                  <div className="text-xs">
-                                    <div>{learnerName}</div>
-                                    <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
-                                    <div className="font-semibold">{schedule.status}</div>
-                                  </div>
-                                )}
+                                <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
+                                  {isScheduleStart ? (
+                                    <>
+                                      <div className="font-semibold">
+                                        {learnerName}
+                                      </div>
+                                      <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
+                                    </>
+                                  ) : isUnavailable && !schedule ? (
+                                    ""
+                                  ) : (
+                                    ""
+                                  )}
+                                </div>
                               </td>
                             );
                           })}
@@ -400,12 +474,16 @@ function Instructor() {
                       <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                         <div>Lesson {lesson?.number}</div>
                         <div className="text-xs">
-                        <div className="text-base text-right">{new Date(instructorData.instructorSchedule[index].date).toLocaleDateString()}</div>
-                        {formatTimeRange(
-                          instructorData.instructorSchedule[index].start_time,
-                          instructorData.instructorSchedule[index].end_time,
-                        )}
-                      </div>
+                          <div className="text-right text-base">
+                            {new Date(
+                              instructorData.instructorSchedule[index].date,
+                            ).toLocaleDateString()}
+                          </div>
+                          {formatTimeRange(
+                            instructorData.instructorSchedule[index].start_time,
+                            instructorData.instructorSchedule[index].end_time,
+                          )}
+                        </div>
                       </CardTitle>
                       <CardDescription>
                         {lesson?.number &&
@@ -475,6 +553,7 @@ function Instructor() {
                               onClick={() =>
                                 handleFinishLesson(
                                   currentSchedule.id.toString(),
+                                  learner.id,
                                 )
                               }
                               size="sm"
@@ -532,7 +611,11 @@ function Instructor() {
                     <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                       <div>Lesson {lesson?.number}</div>
                       <div className="text-xs">
-                        <div className="text-base text-right">{new Date(instructorData.instructorSchedule[index].date).toLocaleDateString()}</div>
+                        <div className="text-right text-base">
+                          {new Date(
+                            instructorData.instructorSchedule[index].date,
+                          ).toLocaleDateString()}
+                        </div>
                         {formatTimeRange(
                           instructorData.instructorSchedule[index].start_time,
                           instructorData.instructorSchedule[index].end_time,
@@ -671,5 +754,4 @@ function Instructor() {
     </GoogleOAuthProvider>
   );
 }
-
 export default Instructor;
