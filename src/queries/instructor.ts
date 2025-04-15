@@ -158,7 +158,8 @@ export const useInstructor = (phone: string) => {
         instructorSchedule,
         instructorScheduleDay,
         learnerLessonDay,
-        learnerLesson, // Added this to include all schedules' learner and lesson data
+        learnerLesson,
+        unavailability:instructorInfo.unavailability, // Added this to include all schedules' learner and lesson data
       };
     },
   });

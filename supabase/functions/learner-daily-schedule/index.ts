@@ -40,9 +40,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { learner_id, reschedule_lesson_number = 1 } = await req.json();
+    const { learner_id } = await req.json();
     console.log(learner_id, "called");
-    // Fetch all schedules for tomorrow with related data
+
+    // Calculate the next day's date
+    const nextDay = new Date();
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayString = nextDay.toISOString().split("T")[0]; // Format as YYYY-MM-DD
+
+    // Fetch schedules for the next day with related data
     const { data: schedules, error: schedulesError } = await supabaseClient
       .from("Schedule")
       .select(
@@ -57,14 +63,21 @@ Deno.serve(async (req) => {
           id,
           number
         )
-      `,
-      )
+      `)
       .eq("learner_id", learner_id)
-      .order("date")
+      .eq("date", nextDayString) // Filter for the next day's date
       .order("start_time");
 
     if (schedulesError) {
       throw schedulesError;
+    }
+
+    // Check if there are any schedules for the next day
+    if (schedules.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "No schedules for tomorrow." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
     const { data: learner, error: learnerError } = await supabaseClient
@@ -76,83 +89,77 @@ Deno.serve(async (req) => {
     if (learnerError) {
       throw learnerError;
     }
-
-    // Filter schedules based on reschedule_lesson_number
-    const filteredSchedules = schedules.filter(schedule => 
-      schedule.Lesson.number >= reschedule_lesson_number
-    );
-
-    // Format time function
     const formatTime = (time: string): string => {
       const [hours, minutes] = time.split(":");
       let period = "AM";
       let hourNum = parseInt(hours);
-
+    
       if (hourNum >= 12) {
         period = "PM";
         if (hourNum > 12) {
           hourNum -= 12;
         }
       }
-
+    
       if (hourNum === 0) {
         hourNum = 12;
       }
-
+    
       return `${hourNum}:${minutes} ${period}`;
     };
+    
 
-    const formatDate = (date: string): string => {
-      const [year, month, day] = date.split("-");
-      return  `${day}/${month}/${year}`;
-    };
+    // Format schedule messages for multiple lessons
+    // Format schedule messages for multiple lessons
+const scheduleMessages = schedules.map((schedule) => {
+  const startTime = formatTime(schedule.start_time);
+  const endTime = formatTime(schedule.end_time);
+  return `${startTime} - ${endTime}: Lesson ${schedule.Lesson.number}`;
+});
 
-    // Format schedule messages
-    const scheduleMessages = filteredSchedules.map((schedule, index) => {
-      const date = formatDate(schedule.date);
-      const startTime = formatTime(schedule.start_time);
-      const endTime = formatTime(schedule.end_time);
-      return `${
-        index + 1
-      }.${date}. ${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Instructor.name}`;
-    });
-
-    // Fill remaining slots with empty strings if less than 6 schedules
-    while (scheduleMessages.length < 6) {
-      scheduleMessages.push("");
-    }
-
-    // Prepare the message payload
-    const messagePayload = {
-      messages: [
+// Prepare the message payload
+const messagePayload = {
+  messages: [
+    {
+      clientWaNumber: learner.phone,
+      templateName: "webapp_reminder_customer_for_class_tomorrow",
+      templateContent:
+        "Hey {{1}}, We hope you are having the best day. You have lessons tomorrow 📔🚗. Do check the details below: {{2}} Check the Lane App for more details 🥳 Thank you, Lane Team 🚗🚗",
+      templateHeader: "",
+      languageCode: "en",
+      variables: [
         {
-          clientWaNumber: learner.phone,
-          templateName: "instructor_daily_schedule",
-          templateContent:
-            "Hey {{1}},\nWe hope your day went well and you had the best time! Here is your schedule for tomorrow:\n \n{{2}}\n{{3}}\n{{4}}\n{{5}}\n{{6}}\n{{7}}\nPlease check your calendar for more details 😊\nThank you!\nThe Lane Team 🚗",
-          templateHeader: "",
-          languageCode: "en",
-          variables: [
+          type: "body",
+          parameters: [
             {
-              type: "body",
-              parameters: [
-                {
-                  type: "text",
-                  text: learner.name,
-                },
-                // only 6 schedules for testing, fix this later
-                ...scheduleMessages.slice(0, 6).map((msg) => ({
-                  type: "text",
-                  text: msg || " ",
-                })),
-              ],
+              type: "text",
+              text: learner.name, // Parameter 1: Learner's name
+            },
+            {
+              type: "text",
+              text: nextDayString, // Parameter 2: Date of the lesson
+            },
+            {
+              type: "text",
+              text: scheduleMessages.join(", "), // Parameter 3: Time and lesson details
+            },
+            {
+              type: "text",
+              text: schedules[0].Instructor.name, // Parameter 4: Driving buddy's name
+            },
+            {
+              type: "text",
+              text: schedules[0].Instructor.phone, // Parameter 5: Driving buddy's contact details
             },
           ],
-          messageType: "template",
-          refId: `schedule-${learner.id}-${Date.now()}`,
         },
       ],
-    };
+      messageType: "template",
+      refId: `schedule-${learner.id}-${Date.now()}`,
+    },
+  ],
+};
+
 
     // Send WhatsApp message
     const response = await fetch("https://api.heltar.com/v1/messages/send", {
@@ -172,8 +179,7 @@ Deno.serve(async (req) => {
     );
     if (!response.ok) {
       throw new Error(
-        `Failed to send message to learner ${learner.name}: ${await response
-          .text()}`,
+        `Failed to send message to learner ${learner.name}: ${await response.text()}`,
       );
     }
 
@@ -189,3 +195,5 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+

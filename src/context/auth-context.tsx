@@ -91,12 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (userError) throw userError;
 
     // Send the sign-up done message
-    await supabase.functions.invoke("send-message", {
-      body: {
-        message_type: "SIGN_UP_DONE_NEED_SCHEDULE",
-        learner_id: userData.id,
-      },
-    });
+    // await supabase.functions.invoke("send-message", {
+    //   body: {
+    //     message_type: "SIGN_UP_DONE_NEED_SCHEDULE",
+    //     learner_id: userData.id,
+    //   },
+    // });
   };
 
   const logout = async () => {

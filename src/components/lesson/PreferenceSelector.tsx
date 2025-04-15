@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { supabase } from "@/lib/supabaseClient";
 import { useMutationRescheduleRequest } from "@/queries/learner";
 import {
   useSchedulePreferences,
@@ -16,7 +17,6 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
-import { supabase } from "@/lib/supabaseClient";
 
 interface PreferenceSelectorProps {
   learnerId: string;
@@ -68,6 +68,22 @@ function PreferenceSelector({
       return next;
     });
   };
+  const sendAdminEmail = async (subject: string, message: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "send-admin-email",
+        {
+          body: { subject, message },
+        },
+      );
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error sending admin email:", error);
+      throw error;
+    }
+  };
 
   const handleSubmit = async () => {
     // Convert selected slots to preferences format
@@ -88,9 +104,26 @@ function PreferenceSelector({
         preferences,
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           const requestType = type === "lesson10" ? "lesson10" : type;
           if (type === "lesson10" || type === "new") {
+            if (type === "lesson10") {
+              await sendAdminEmail(
+                "New 10th Lesson Scheduling Request",
+                `A learner has submitted availability for their 10th lesson scheduling.`,
+              );
+            } else if (type === "new") {
+              supabase.functions.invoke("send-message", {
+                body: {
+                  message_type: "THANKS_FOR_AVAILABILITY",
+                  learner_id: learnerId,
+                },
+              });
+              await sendAdminEmail(
+                "New Lesson Scheduling Request",
+                `A new learner has submitted their availability for lesson scheduling.`,
+              );
+            }
             rescheduleRequest(
               {
                 learnerId,
@@ -110,17 +143,16 @@ function PreferenceSelector({
                 learner_id: learnerId,
               },
             });
+            await sendAdminEmail(
+              "New Reschedule Request",
+              `Someone has requested to reschedule lesson.`,
+            );
+
             navigate("/home");
           }
         },
       },
     );
-    // supabase.functions.invoke("send-message", {
-    //   body: {
-    //     message_type: "THANKS_FOR_AVAILABILITY",
-    //     learner_id: learnerId,
-    //   },
-    // });
   };
 
   if (isLoading) {
@@ -162,7 +194,9 @@ function PreferenceSelector({
                     {TIME_SLOTS.map((slot) => (
                       <div key={slot} className="grid grid-cols-7 gap-6">
                         {DAYS_OF_WEEK.map((_, index) => {
-                          const isSelected = selectedSlots.has(`${index}-${slot}`);
+                          const isSelected = selectedSlots.has(
+                            `${index}-${slot}`,
+                          );
                           return (
                             <Button
                               key={`${index}-${slot}`}

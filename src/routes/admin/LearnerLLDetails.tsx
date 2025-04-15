@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,7 +70,7 @@ const LearnerLLDetails = () => {
 
   const handleSaveAppointmentId = () => {
     if (!selectedLearner || !appointmentId) return;
-    
+
     updateLearnerMutation.mutate({
       learnerId: selectedLearner.id,
       appointmentId,
@@ -85,27 +85,69 @@ const LearnerLLDetails = () => {
       },
     });
   };
+  const sendAdminEmail = async (subject: string, message: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "send-admin-email",
+        {
+          body: { subject, message },
+        },
+      );
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error sending admin email:", error);
+      throw error;
+    }
+  };
 
   const handleSaveLLApproval = () => {
     if (!selectedLearner || !appointmentId) return;
-    updateLearnerMutation.mutate({
-      learnerId: selectedLearner.id,
-      appointmentId,
-      llApproved: true,
-    });
-    supabase.functions.invoke("send-message", {
-      body: {
-        message_type: "LL_APPLICATION_UPDATE",
-        learner_id: selectedLearner.id,
+    updateLearnerMutation.mutate(
+      {
+        learnerId: selectedLearner.id,
+        appointmentId,
+        llApproved: true,
       },
-    });
+      {
+        onSuccess: async () => {
+          // Send WhatsApp message to learner about LL approval
+          await supabase.functions.invoke("send-message", {
+            body: {
+              message_type: "LL_APPLICATION_UPDATE",
+              learner_id: selectedLearner.id,
+            },
+          });
+
+          // Send admin email notification about scheduling DL test date
+          await sendAdminEmail(
+            "Schedule DL Test Date - LL Approved",
+            `Learner's License has been approved a learner      
+           Please schedule a driving test date for this learner in the DL Test Dates section.`,
+          );
+
+          toast({
+            title: "Success",
+            description: "LL approval updated and notifications sent.",
+          });
+        },
+      },
+    );
   };
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error loading learners.</div>;
 
   return (
-    <div className="min-h-screen bg-white p-8" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
+    <div
+      className="min-h-screen bg-white p-8"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+      }}
+    >
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -175,15 +217,12 @@ const LearnerLLDetails = () => {
                     id="appointmentId"
                     value={appointmentId}
                     onChange={(e) => setAppointmentId(e.target.value)}
-                    
                     className="mt-1"
                   />
                 </div>
                 <Button
                   onClick={handleSaveAppointmentId}
-                  disabled={
-                    !appointmentId 
-                  }
+                  disabled={!appointmentId}
                   className="w-full"
                 >
                   Save Application ID

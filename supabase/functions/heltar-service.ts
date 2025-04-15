@@ -169,6 +169,13 @@ export const TEMPLATES = {
     content:
       "Hey {{1}},\n\nThank you for signing up on the *Lane App* 🎉 Let's get started with the next steps that will bring you closer to your on road practice lessons 🛞🚘\n\n*Here's what's next:*\n\n*Please fill the learners license details form and book an appointment with us:* It will help us start with your application process\n\n*Learn about road rules and car controls:* Dive into our fun game to help you ace your learner's test\n\nOnce you've filled in the details, do book an appointment and our team will reach out to guide you through the next steps. We can't wait to get started!\n\nThank you for choosing Lane! 😊",
   },
+  webapp_thank_you_signup_availabilty_for_lessons: {
+    name: "webapp_thank_you_signup_availabilty_for_lessons",
+    id: "993656192751946",
+    language: "en",
+    content:
+      "Hey {{1}} 😊\n\nThank you for signing up with Lane 🥳🥳  Let's get started with the next steps, bringing you closer to your on road practice lessons 🛞🚗  *Here's what's next:*  *Please do share your availability for the on road practice lessons:* It will help us prepare the best lesson plan for you 📆📆  *Dive deep into the gaming modules:* It will help you gain confidence on the road rules 🌟🌟  Thank you for trusting us with this. Do check the learning module while we prepare your lesson plan 😇  Catch up soon,  Lane Team 🚗",
+  },
   webapp_restest_ll: {
     name: "webapp_restest_ll",
     id: "2116429285449145",
@@ -635,6 +642,17 @@ class HeltarMessageService {
             [learner.name],
             `thank-you-ll-first-${learner_id}-${Date.now()}`,
           );
+        }
+        case 
+        "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS",
+            [learner.name],
+            `thank-you-signup-availability-${learner_id}-${Date.now()}`,
+            );
         }
         case "WEBAPP_RESTEST_LL": {
           const { learner_id } = data;

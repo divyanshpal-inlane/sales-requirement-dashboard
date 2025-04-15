@@ -315,6 +315,7 @@ export function useSchedule({
 }
 
 export type Schedule = {
+  status:string;
   id: number;
   date: string;
   startTime: string;
@@ -342,7 +343,7 @@ export function useLearnerSchedule({
       const { data, error } = await supabase
         .from("Schedule")
         .select(
-          "id, date, start_time, end_time, lesson_id, learner_id, Lesson (id, number, description)",
+          "id, date, start_time, end_time, lesson_id,status, learner_id, Lesson (id, number, description)",
         )
         .eq("learner_id", learnerId)
         .eq("course_id", courseId)
@@ -358,6 +359,7 @@ export function useLearnerSchedule({
         lessonId: lesson.lesson_id,
         endTime: lesson.end_time,
         lesson: lesson.Lesson,
+        status: lesson.status,
       }));
     },
     staleTime: Infinity,
