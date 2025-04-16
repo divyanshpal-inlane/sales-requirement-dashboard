@@ -59,7 +59,7 @@ export default function DLQuestion() {
     try {
       if (response) {
         // User has a DL
-        await mutate(
+        mutate(
           {
             LL_result: true,
             has_a_DL: true,
@@ -82,7 +82,7 @@ export default function DLQuestion() {
         );
       } else {
         // User does not have a DL
-        await mutate(
+        mutate(
           {
             LL_result: null,
             has_a_DL: false,
@@ -101,7 +101,7 @@ export default function DLQuestion() {
                 });
                 await sendAdminEmail(
                   "New Learner's License Application Needed",
-                  `A new learner needs to apply for a Learner's License. 
+                  `${learner.name} needs to apply for a Learner's License. 
                    Please fill in their application ID when completed.`
                 );
               }

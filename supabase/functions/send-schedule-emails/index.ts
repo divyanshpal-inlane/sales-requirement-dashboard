@@ -64,6 +64,62 @@ async function sendEmailWithRetry(
   }
 }
 
+// Function to send admin notification when emails fail
+async function notifyAdminOfFailedEmails(
+  supabaseClient: any,
+  details: {
+    learnerEmail: string;
+    instructorEmail: string;
+    lessonNumber: number;
+    startTime: string;
+    endTime: string;
+    errors: string[];
+  }
+) {
+  try {
+    const formattedDate = format(new Date(details.startTime), "dd/MM/yyyy");
+    const subject = `Failed Email Notifications for Lesson ${details.lessonNumber}`;
+    const message = `
+      We were unable to send schedule notification emails after multiple attempts.
+      
+      Lesson Details:
+      - Lesson Number: ${details.lessonNumber}
+      - Date: ${formattedDate}
+      - Start Time: ${details.startTime}
+      - End Time: ${details.endTime}
+      
+      Recipients:
+      - Learner: ${details.learnerEmail}
+      - Instructor: ${details.instructorEmail}
+      
+      Error Details:
+      ${details.errors.join('\n')}
+      
+      Please check the email_errors table for more information and consider sending these notifications manually.
+    `;
+
+    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-admin-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": supabaseClient.auth.headers().Authorization,
+      },
+      body: JSON.stringify({ subject, message }),
+    });
+
+    if (!response.ok) {
+      console.error("Failed to send admin notification:", await response.text());
+      return false;
+    }
+
+    console.log("Admin notification sent successfully");
+    return true;
+  } catch (error) {
+    console.error("Error sending admin notification:", error);
+    return false;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -331,6 +387,18 @@ serve(async (req) => {
             instructor_ics: instructorICS,
           },
         ]);
+        
+        // If either email failed after all retries, notify admin
+        if (emailResults.errors.length > 0) {
+          await notifyAdminOfFailedEmails(supabaseClient, {
+            learnerEmail,
+            instructorEmail,
+            lessonNumber,
+            startTime,
+            endTime,
+            errors: emailResults.errors
+          });
+        }
       }
 
       return new Response(
@@ -360,6 +428,16 @@ serve(async (req) => {
           },
         },
       ]);
+      
+      // Notify admin about SMTP failure
+      await notifyAdminOfFailedEmails(supabaseClient, {
+        learnerEmail,
+        instructorEmail,
+        lessonNumber,
+        startTime,
+        endTime,
+        errors: [`SMTP configuration error: ${smtpError.message}`]
+      });
 
       throw new Error(`SMTP error: ${smtpError.message}`);
     }

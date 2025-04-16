@@ -333,200 +333,265 @@ export default function CreateScheduleWithInstructor({
   });
   // Add these helper functions before your component
 
-// Function to get day name from index
-const getDayName = (dayIndex: number): string => {
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return days[dayIndex];
-};
+  // Function to get day name from index
+  const getDayName = (dayIndex: number): string => {
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[dayIndex];
+  };
 
-// Function to get day index from name
-const getDayIndex = (dayName: string): number => {
-  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-  return days.indexOf(dayName.toLowerCase());
-};
+  // Function to get day index from name
+  const getDayIndex = (dayName: string): number => {
+    const days = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+    return days.indexOf(dayName.toLowerCase());
+  };
 
-// Function to format time in 12-hour format
-const formatTime = (timeString: string): string => {
-  const [hourStr, minuteStr] = timeString.split(":");
-  const hour = parseInt(hourStr);
-  const minute = parseInt(minuteStr);
-  
-  const period = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${displayHour}:${minute.toString().padStart(2, "0")} ${period}`;
-};
+  // Function to format time in 12-hour format
+  const formatTime = (timeString: string): string => {
+    const [hourStr, minuteStr] = timeString.split(":");
+    const hour = parseInt(hourStr);
+    const minute = parseInt(minuteStr);
 
-// Function to parse time string to minutes since midnight
-const timeToMinutes = (timeString: string): number => {
-  const [hours, minutes] = timeString.split(":").map(Number);
-  return hours * 60 + minutes;
-};
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+    return `${displayHour}:${minute.toString().padStart(2, "0")} ${period}`;
+  };
 
-// Function to convert minutes since midnight to time string
-const minutesToTime = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
-};
+  // Function to parse time string to minutes since midnight
+  const timeToMinutes = (timeString: string): number => {
+    const [hours, minutes] = timeString.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
 
-// Function to calculate working hours for an instructor
-const calculateWorkingHours = (unavailability: Unavailability[] | null | undefined) => {
-  // Default working hours: 6 AM to 9 PM for all days
-  const defaultWorkingHours = Array(7).fill(null).map(() => {
-    return {
-      // Each day has one continuous working period by default
-      periods: [{ start: "06:00", end: "21:00" }]
-    };
-  });
-  
-  if (!unavailability || !Array.isArray(unavailability) || unavailability.length === 0) {
-    return defaultWorkingHours;
-  }
-  
-  // Deep copy the default working hours
-  const workingHours = JSON.parse(JSON.stringify(defaultWorkingHours));
-  
-  // Process each unavailability entry
-  unavailability.forEach(entry => {
-    // Handle recurring weekly unavailability
-    if (entry.day_of_week) {
-      const dayIndex = getDayIndex(entry.day_of_week);
-      
-      if (dayIndex !== -1 && entry.booked_start_time && entry.booked_end_time) {
-        // Remove the unavailable time from the working hours
-        workingHours[dayIndex].periods = subtractTimeRange(
-          workingHours[dayIndex].periods,
-          entry.booked_start_time,
+  // Function to convert minutes since midnight to time string
+  const minutesToTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+  };
+
+  // Function to calculate working hours for an instructor
+  // Function to calculate working hours for an instructor
+  const calculateWorkingHours = (
+    unavailability: Unavailability[] | null | undefined,
+  ) => {
+    // Default working hours: 6 AM to 9 PM for all days
+    const defaultWorkingHours = Array(7)
+      .fill(null)
+      .map(() => {
+        return {
+          // Each day has one continuous working period by default
+          periods: [{ start: "06:00", end: "21:00" }],
+        };
+      });
+
+    if (
+      !unavailability ||
+      !Array.isArray(unavailability) ||
+      unavailability.length === 0
+    ) {
+      return defaultWorkingHours;
+    }
+
+    // Deep copy the default working hours
+    const workingHours = JSON.parse(JSON.stringify(defaultWorkingHours));
+
+    // Process each unavailability entry
+    unavailability.forEach((entry) => {
+      // Handle recurring weekly unavailability (all day)
+      if (entry.day_of_week && entry.all_day) {
+        const dayIndex = getDayIndex(entry.day_of_week);
+
+        if (dayIndex !== -1) {
+          // If all day, remove all periods for that day
+          workingHours[dayIndex].periods = [];
+        }
+      }
+      // Handle recurring weekly unavailability (specific time)
+      else if (entry.day_of_week && !entry.all_day) {
+        const dayIndex = getDayIndex(entry.day_of_week);
+
+        if (
+          dayIndex !== -1 &&
+          entry.booked_start_time &&
           entry.booked_end_time
-        );
+        ) {
+          // Remove the unavailable time from the working hours
+          workingHours[dayIndex].periods = subtractTimeRange(
+            workingHours[dayIndex].periods,
+            entry.booked_start_time,
+            entry.booked_end_time,
+          );
+        }
       }
-    }
-    
-    // Handle specific date unavailability
-    else if (entry.booked_date) {
-      // For full day unavailability
-      if (entry.all_day) {
-        // We'll mark this in a separate structure for specific dates
-        const date = new Date(entry.booked_date);
-        const dayIndex = date.getDay();
-        
+
+      // Handle specific date unavailability
+      else if (entry.booked_date) {
+        // For full day unavailability
+        if (entry.all_day) {
+          // We'll mark this in a separate structure for specific dates
+          const date = new Date(entry.booked_date);
+          const dayIndex = date.getDay();
+
+          // For the UI, we'll just note that there are exceptions to the regular schedule
+          workingHours[dayIndex].hasExceptions = true;
+        }
+        // For specific time range on a specific date
+        else if (entry.booked_start_time && entry.booked_end_time) {
+          const date = new Date(entry.booked_date);
+          const dayIndex = date.getDay();
+
+          // For the UI, we'll just note that there are exceptions to the regular schedule
+          workingHours[dayIndex].hasExceptions = true;
+        }
+      }
+
+      // Handle date range unavailability (all day)
+      else if (entry.start_date && entry.end_date && entry.range_all_day) {
         // For the UI, we'll just note that there are exceptions to the regular schedule
-        workingHours[dayIndex].hasExceptions = true;
+        for (let i = 0; i < 7; i++) {
+          workingHours[i].hasExceptions = true;
+        }
       }
-      // For specific time range on a specific date
-      else if (entry.booked_start_time && entry.booked_end_time) {
-        const date = new Date(entry.booked_date);
-        const dayIndex = date.getDay();
-        
+
+      // Handle date range unavailability (specific time)
+      else if (
+        entry.start_date &&
+        entry.end_date &&
+        !entry.range_all_day &&
+        entry.range_start_time &&
+        entry.range_end_time
+      ) {
         // For the UI, we'll just note that there are exceptions to the regular schedule
-        workingHours[dayIndex].hasExceptions = true;
+        for (let i = 0; i < 7; i++) {
+          workingHours[i].hasExceptions = true;
+        }
       }
-    }
-    
-    // Handle date range unavailability
-    else if (entry.start_date && entry.end_date) {
-      // For the UI, we'll just note that there are exceptions to the regular schedule
-      for (let i = 0; i < 7; i++) {
-        workingHours[i].hasExceptions = true;
+
+      // Handle old format date range unavailability
+      else if (entry.start_date && entry.end_date) {
+        // For the UI, we'll just note that there are exceptions to the regular schedule
+        for (let i = 0; i < 7; i++) {
+          workingHours[i].hasExceptions = true;
+        }
       }
-    }
-  });
-  
-  return workingHours;
-};
+    });
 
-// Function to subtract a time range from a list of time periods
-const subtractTimeRange = (periods: { start: string, end: string }[], startTime: string, endTime: string) => {
-  const unavailableStart = timeToMinutes(startTime);
-  const unavailableEnd = timeToMinutes(endTime);
-  
-  // If invalid time range, return original periods
-  if (unavailableStart >= unavailableEnd) {
-    return periods;
-  }
-  
-  const result: { start: string, end: string }[] = [];
-  
-  periods.forEach(period => {
-    const periodStart = timeToMinutes(period.start);
-    const periodEnd = timeToMinutes(period.end);
-    
-    // If period is completely before or after unavailable time, keep it as is
-    if (periodEnd <= unavailableStart || periodStart >= unavailableEnd) {
-      result.push(period);
-      return;
-    }
-    
-    // If unavailable time completely covers the period, skip it
-    if (unavailableStart <= periodStart && unavailableEnd >= periodEnd) {
-      return;
-    }
-    
-    // If unavailable time is in the middle of the period, split into two periods
-    if (unavailableStart > periodStart && unavailableEnd < periodEnd) {
-      result.push({
-        start: period.start,
-        end: minutesToTime(unavailableStart)
-      });
-      result.push({
-        start: minutesToTime(unavailableEnd),
-        end: period.end
-      });
-      return;
-    }
-    
-    // If unavailable time overlaps with the start of the period
-    if (unavailableStart <= periodStart && unavailableEnd < periodEnd) {
-      result.push({
-        start: minutesToTime(unavailableEnd),
-        end: period.end
-      });
-      return;
-    }
-    
-    // If unavailable time overlaps with the end of the period
-    if (unavailableStart > periodStart && unavailableEnd >= periodEnd) {
-      result.push({
-        start: period.start,
-        end: minutesToTime(unavailableStart)
-      });
-      return;
-    }
-  });
-  
-  return result;
-};
+    return workingHours;
+  };
 
-// Function to format working hours for display
-const formatWorkingHours = (workingHours: any[]) => {
-  return workingHours.map((dayHours, index) => {
-    const dayName = getDayName(index);
-    
-    if (dayHours.periods.length === 0) {
-      return { day: dayName, hours: "Not available" };
-    }
-    
-    // Sort periods by start time
-    const sortedPeriods = [...dayHours.periods].sort((a, b) => 
-      timeToMinutes(a.start) - timeToMinutes(b.start)
-    );
-    
-    // Format each period
-    const timeRanges = sortedPeriods.map(period => 
-      `${formatTime(period.start)} - ${formatTime(period.end)}`
-    ).join(", ");
-    
-    let displayHours = timeRanges;
-    
-    // Add note about exceptions if needed
-    if (dayHours.hasExceptions) {
-      displayHours += "";
-    }
-    
-    return { day: dayName, hours: displayHours };
-  });
-};
+  // Function to subtract a time range from a list of time periods
+  const subtractTimeRange = (
+    periods: { start: string; end: string }[],
+    startTime: string,
+    endTime: string,
+  ) => {
+    const unavailableStart = timeToMinutes(startTime);
+    const unavailableEnd = timeToMinutes(endTime);
 
+    // If invalid time range, return original periods
+    if (unavailableStart >= unavailableEnd) {
+      return periods;
+    }
+
+    const result: { start: string; end: string }[] = [];
+
+    periods.forEach((period) => {
+      const periodStart = timeToMinutes(period.start);
+      const periodEnd = timeToMinutes(period.end);
+
+      // If period is completely before or after unavailable time, keep it as is
+      if (periodEnd <= unavailableStart || periodStart >= unavailableEnd) {
+        result.push(period);
+        return;
+      }
+
+      // If unavailable time completely covers the period, skip it
+      if (unavailableStart <= periodStart && unavailableEnd >= periodEnd) {
+        return;
+      }
+
+      // If unavailable time is in the middle of the period, split into two periods
+      if (unavailableStart > periodStart && unavailableEnd < periodEnd) {
+        result.push({
+          start: period.start,
+          end: minutesToTime(unavailableStart),
+        });
+        result.push({
+          start: minutesToTime(unavailableEnd),
+          end: period.end,
+        });
+        return;
+      }
+
+      // If unavailable time overlaps with the start of the period
+      if (unavailableStart <= periodStart && unavailableEnd < periodEnd) {
+        result.push({
+          start: minutesToTime(unavailableEnd),
+          end: period.end,
+        });
+        return;
+      }
+
+      // If unavailable time overlaps with the end of the period
+      if (unavailableStart > periodStart && unavailableEnd >= periodEnd) {
+        result.push({
+          start: period.start,
+          end: minutesToTime(unavailableStart),
+        });
+        return;
+      }
+    });
+
+    return result;
+  };
+
+  // Function to format working hours for display
+  const formatWorkingHours = (workingHours: any[]) => {
+    return workingHours.map((dayHours, index) => {
+      const dayName = getDayName(index);
+
+      if (dayHours.periods.length === 0) {
+        return { day: dayName, hours: "Not available" };
+      }
+
+      // Sort periods by start time
+      const sortedPeriods = [...dayHours.periods].sort(
+        (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start),
+      );
+
+      // Format each period
+      const timeRanges = sortedPeriods
+        .map(
+          (period) => `${formatTime(period.start)} - ${formatTime(period.end)}`,
+        )
+        .join(", ");
+
+      let displayHours = timeRanges;
+
+      // Add note about exceptions if needed
+      if (dayHours.hasExceptions) {
+        displayHours += "";
+      }
+
+      return { day: dayName, hours: displayHours };
+    });
+  };
 
   const handleOccupiedSlotClick = async (schedule: any) => {
     if (!schedule || !schedule.learner_id) return;
@@ -643,8 +708,18 @@ const formatWorkingHours = (workingHours: any[]) => {
         );
       }
 
-      // Case 3: Weekly recurring on specific day of week
-      if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
+      // Case 3a: Weekly recurring on specific day of week (all day)
+      if (u.day_of_week && u.all_day) {
+        return u.day_of_week === dayOfWeek;
+      }
+
+      // Case 3b: Weekly recurring on specific day of week (specific time)
+      if (
+        u.day_of_week &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
         if (u.day_of_week === dayOfWeek) {
           const [startHour, startMinute] = u.booked_start_time
             .split(":")
@@ -663,8 +738,50 @@ const formatWorkingHours = (workingHours: any[]) => {
         }
       }
 
-      // Case 4: Date range
-      if (u.start_date && u.end_date) {
+      // Case 4a: Date range (all day)
+      if (u.start_date && u.end_date && u.range_all_day) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      // Case 4b: Date range (specific time)
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        u.range_start_time &&
+        u.range_end_time
+      ) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+
+        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+          // Check if current time falls within the specified time range
+          const [startHour, startMinute] = u.range_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+
+          const todayStart = new Date(day);
+          todayStart.setHours(startHour, startMinute);
+
+          const todayEnd = new Date(day);
+          todayEnd.setHours(endHour, endMinute);
+
+          return currentTime >= todayStart && currentTime < todayEnd;
+        }
+      }
+
+      // For backward compatibility, handle the old date range format
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        !u.range_start_time
+      ) {
         const rangeStart = new Date(u.start_date);
         const rangeEnd = new Date(u.end_date);
         rangeEnd.setHours(23, 59, 59); // Set to end of day
@@ -961,46 +1078,63 @@ const formatWorkingHours = (workingHours: any[]) => {
                     </p>
                   </div>
                   <div className="col-span-2 mt-3">
-      <p className="mb-2 font-bold">Regular Working Hours:</p>
-      <div className="max-h-40 overflow-y-auto rounded border border-gray-200 p-2">
-        {(() => {
-          const selectedInstructor = instructorsWithDistance.find(
-            (instructor) => instructor.id_instructor === selectedInstructorId
-          );
-          
-          // Parse unavailability if it's a string
-          let unavailabilityData = selectedInstructor?.unavailability;
-          if (typeof unavailabilityData === 'string') {
-            try {
-              unavailabilityData = JSON.parse(unavailabilityData);
-            } catch (e) {
-              console.error("Error parsing unavailability data:", e);
-              unavailabilityData = [];
-            }
-          }
-          
-          const workingHours = calculateWorkingHours(unavailabilityData);
-          const formattedHours = formatWorkingHours(workingHours);
-          
-          return (
-            <table className="w-full text-sm">
-              <tbody>
-                {formattedHours.map((dayHours, index) => (
-                  <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
-                    <td className="py-1 pr-2 font-medium" style={{ width: "100px" }}>{dayHours.day}</td>
-                    <td className="py-1">{dayHours.hours}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          );
-        })()}
-      </div>
-      <p className="mt-2 text-xs text-gray-500">
-        Note: Working hours may vary on specific dates due to instructor unavailability.
-        Check the calendar view for the most accurate availability.
-      </p>
-    </div>
+                    <p className="mb-2 font-bold">Regular Working Hours:</p>
+                    <div className="max-h-40 overflow-y-auto rounded border border-gray-200 p-2">
+                      {(() => {
+                        const selectedInstructor = instructorsWithDistance.find(
+                          (instructor) =>
+                            instructor.id_instructor === selectedInstructorId,
+                        );
+
+                        // Parse unavailability if it's a string
+                        let unavailabilityData =
+                          selectedInstructor?.unavailability;
+                        if (typeof unavailabilityData === "string") {
+                          try {
+                            unavailabilityData = JSON.parse(unavailabilityData);
+                          } catch (e) {
+                            console.error(
+                              "Error parsing unavailability data:",
+                              e,
+                            );
+                            unavailabilityData = [];
+                          }
+                        }
+
+                        const workingHours =
+                          calculateWorkingHours(unavailabilityData);
+                        const formattedHours = formatWorkingHours(workingHours);
+
+                        return (
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {formattedHours.map((dayHours, index) => (
+                                <tr
+                                  key={index}
+                                  className={
+                                    index % 2 === 0 ? "bg-gray-50" : ""
+                                  }
+                                >
+                                  <td
+                                    className="py-1 pr-2 font-medium"
+                                    style={{ width: "100px" }}
+                                  >
+                                    {dayHours.day}
+                                  </td>
+                                  <td className="py-1">{dayHours.hours}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        );
+                      })()}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Note: Working hours may vary on specific dates due to
+                      instructor unavailability. Check the calendar view for the
+                      most accurate availability.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -1179,10 +1313,16 @@ function CreateSchedule({
     const isDayBlocked = schedulesToChange.some(
       (s) => format(new Date(s.date), "yyyy-MM-dd") === dateStr,
     );
+    const isToday = isSameDay(date, new Date());
+    const currentTime = new Date();
+
     for (let hour = 6; hour < 21; hour++) {
       for (const minute of [0, 30]) {
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
+
+        // Check if the slot is in the past for today
+        const isInPast = isToday && timestamp < currentTime;
 
         // Find which time slot this time belongs to
         const timeSlot = TIME_SLOTS.find((slot) => {
@@ -1258,7 +1398,8 @@ function CreateSchedule({
             isAvailable:
               availableInstructors.length > 0 &&
               !isLearnerSchedule &&
-              !isDayBlocked,
+              !isDayBlocked &&
+              !isInPast, // Add this condition to prevent selecting past slots
             isSelected: selectedSlots.some(
               (s) =>
                 format(s.date, "yyyy-MM-dd") === dateStr &&
@@ -1788,6 +1929,8 @@ function CreateSchedule({
     const dateStr = format(slot.timestamp, "yyyy-MM-dd");
     const hour = slot.timestamp.getHours();
     const minutes = slot.timestamp.getMinutes();
+    const isToday = isSameDay(slot.timestamp, new Date());
+    const isInPast = isToday && slot.timestamp < new Date();
 
     // Check if this slot or the adjacent slot (to make a full hour) is selected
     const isSelected =
@@ -1862,6 +2005,7 @@ function CreateSchedule({
               hour < parseInt(s.end_time.split(":")[0]))),
       );
 
+    if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
     if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
@@ -2001,6 +2145,10 @@ function CreateSchedule({
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-gray-100" />
             <span>Unavailable</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded bg-gray-300" />
+            <span>Past Time</span>
           </div>
         </div>
         <div className="flex items-center gap-4">

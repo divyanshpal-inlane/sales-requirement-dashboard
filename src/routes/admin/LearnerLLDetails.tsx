@@ -123,7 +123,7 @@ const LearnerLLDetails = () => {
           // Send admin email notification about scheduling DL test date
           await sendAdminEmail(
             "Schedule DL Test Date - LL Approved",
-            `Learner's License has been approved a learner      
+            `Learner's License has been approved for ${selectedLearner.name} (ID: ${selectedLearner.id}).     
            Please schedule a driving test date for this learner in the DL Test Dates section.`,
           );
 

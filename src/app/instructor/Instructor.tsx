@@ -91,18 +91,18 @@ function Instructor() {
     ) {
       return false;
     }
-
+  
     const currentTime = new Date(day);
     currentTime.setHours(hour, minute);
     const dayOfWeek = format(day, "EEEE").toLowerCase();
     const formattedDate = format(day, "yyyy-MM-dd");
-
+  
     return unavailability.some((u) => {
       // Case 1: Single day, all day
       if (u.booked_date && u.all_day) {
         return formattedDate === u.booked_date;
       }
-
+  
       // Case 2: Single day, specific time slot
       if (
         u.booked_date &&
@@ -122,38 +122,73 @@ function Instructor() {
           currentTime < unavailableEnd
         );
       }
-
-      // Case 3: Weekly recurring on specific day of week
-      if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
+  
+      // Case 3a: Weekly recurring on specific day of week (all day)
+      if (u.day_of_week && u.all_day) {
+        return u.day_of_week === dayOfWeek;
+      }
+  
+      // Case 3b: Weekly recurring on specific day of week (specific time)
+      if (u.day_of_week && u.booked_start_time && u.booked_end_time && !u.all_day) {
         if (u.day_of_week === dayOfWeek) {
           const [startHour, startMinute] = u.booked_start_time
             .split(":")
             .map(Number);
           const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
-
+  
           const unavailableStart = new Date(day);
           unavailableStart.setHours(startHour, startMinute);
-
+  
           const unavailableEnd = new Date(day);
           unavailableEnd.setHours(endHour, endMinute);
-
+  
           return (
             currentTime >= unavailableStart && currentTime < unavailableEnd
           );
         }
       }
-
-      // Case 4: Date range
-      if (u.start_date && u.end_date) {
+  
+      // Case 4a: Date range (all day)
+      if (u.start_date && u.end_date && u.range_all_day) {
         const rangeStart = new Date(u.start_date);
         const rangeEnd = new Date(u.end_date);
         rangeEnd.setHours(23, 59, 59); // Set to end of day
         return currentTime >= rangeStart && currentTime <= rangeEnd;
       }
-
+  
+      // Case 4b: Date range (specific time)
+      if (u.start_date && u.end_date && !u.range_all_day && u.range_start_time && u.range_end_time) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+        
+        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+          // Check if current time falls within the specified time range
+          const [startHour, startMinute] = u.range_start_time.split(":").map(Number);
+          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+          
+          const todayStart = new Date(day);
+          todayStart.setHours(startHour, startMinute);
+          
+          const todayEnd = new Date(day);
+          todayEnd.setHours(endHour, endMinute);
+          
+          return currentTime >= todayStart && currentTime < todayEnd;
+        }
+      }
+  
+      // For backward compatibility, handle the old date range format
+      if (u.start_date && u.end_date && !u.range_all_day && !u.range_start_time) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+  
       return false;
     });
   }
+  
 
   const [scheduleDetailDialog, setScheduleDetailDialog] = useState({
     open: false,
