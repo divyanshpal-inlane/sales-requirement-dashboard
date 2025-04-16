@@ -39,6 +39,9 @@ interface Unavailability {
   day_of_week?: string;
   start_date?: string;
   end_date?: string;
+  range_all_day?: boolean;
+  range_start_time?: string;
+  range_end_time?: string;
 }
 interface InstructorFromDB {
   id_instructor: string;
@@ -160,7 +163,6 @@ const AddressAutocomplete = ({
       const options: google.maps.places.AutocompleteOptions = {
         componentRestrictions: { country: "IN" },
         fields: ["address_components", "formatted_address", "geometry"],
-        
       };
 
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
@@ -1086,7 +1088,10 @@ export default function InstructorsManagement() {
                             {period.all_day && period.booked_date && (
                               <span>All day on {period.booked_date}</span>
                             )}
-                            {period.day_of_week && (
+                            {period.day_of_week && period.all_day && (
+                              <span>All day every {period.day_of_week}</span>
+                            )}
+                            {period.day_of_week && !period.all_day && (
                               <span>
                                 Every {period.day_of_week}:{" "}
                                 {period.booked_start_time} -{" "}
@@ -1102,11 +1107,23 @@ export default function InstructorsManagement() {
                                   {period.booked_end_time}
                                 </span>
                               )}
-                            {period.start_date && period.end_date && (
-                              <span>
-                                {period.start_date} to {period.end_date}
-                              </span>
-                            )}
+                            {period.start_date &&
+                              period.end_date &&
+                              period.range_all_day && (
+                                <span>
+                                  All day from {period.start_date} to{" "}
+                                  {period.end_date}
+                                </span>
+                              )}
+                            {period.start_date &&
+                              period.end_date &&
+                              !period.range_all_day && (
+                                <span>
+                                  {period.start_date} to {period.end_date}:{" "}
+                                  {period.range_start_time} -{" "}
+                                  {period.range_end_time}
+                                </span>
+                              )}
                           </div>
                           <Button
                             type="button"
@@ -1273,34 +1290,52 @@ export default function InstructorsManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Start Time</Label>
-                    <Input
-                      type="time"
-                      value={unavailabilityData.booked_start_time || ""}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="recurring-all-day"
+                      checked={!!unavailabilityData.all_day}
                       onChange={(e) =>
                         setUnavailabilityData({
                           ...unavailabilityData,
-                          booked_start_time: e.target.value,
+                          all_day: e.target.checked,
                         })
                       }
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>End Time</Label>
-                    <Input
-                      type="time"
-                      value={unavailabilityData.booked_end_time || ""}
-                      onChange={(e) =>
-                        setUnavailabilityData({
-                          ...unavailabilityData,
-                          booked_end_time: e.target.value,
-                        })
-                      }
-                    />
+                    <Label htmlFor="recurring-all-day">All Day</Label>
                   </div>
                 </div>
+                {!unavailabilityData.all_day && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input
+                        type="time"
+                        value={unavailabilityData.booked_start_time || ""}
+                        onChange={(e) =>
+                          setUnavailabilityData({
+                            ...unavailabilityData,
+                            booked_start_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      <Input
+                        type="time"
+                        value={unavailabilityData.booked_end_time || ""}
+                        onChange={(e) =>
+                          setUnavailabilityData({
+                            ...unavailabilityData,
+                            booked_end_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -1334,6 +1369,52 @@ export default function InstructorsManagement() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="range-all-day"
+                      checked={!!unavailabilityData.range_all_day}
+                      onChange={(e) =>
+                        setUnavailabilityData({
+                          ...unavailabilityData,
+                          range_all_day: e.target.checked,
+                        })
+                      }
+                    />
+                    <Label htmlFor="range-all-day">All Day</Label>
+                  </div>
+                </div>
+                {!unavailabilityData.range_all_day && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input
+                        type="time"
+                        value={unavailabilityData.range_start_time || ""}
+                        onChange={(e) =>
+                          setUnavailabilityData({
+                            ...unavailabilityData,
+                            range_start_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      <Input
+                        type="time"
+                        value={unavailabilityData.range_end_time || ""}
+                        onChange={(e) =>
+                          setUnavailabilityData({
+                            ...unavailabilityData,
+                            range_end_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1384,6 +1465,7 @@ function WeeklyScheduleView({
   };
 
   // Helper function to check if a time slot is unavailable
+  // Helper function to check if a time slot is unavailable
   const isTimeSlotUnavailable = (day: Date, hour: number, minute: number) => {
     const currentTime = new Date(day);
     currentTime.setHours(hour, minute);
@@ -1416,8 +1498,18 @@ function WeeklyScheduleView({
         );
       }
 
-      // Case 3: Weekly recurring on specific day of week
-      if (u.day_of_week && u.booked_start_time && u.booked_end_time) {
+      // Case 3a: Weekly recurring on specific day of week (all day)
+      if (u.day_of_week && u.all_day) {
+        return u.day_of_week === dayOfWeek;
+      }
+
+      // Case 3b: Weekly recurring on specific day of week (specific time)
+      if (
+        u.day_of_week &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
         if (u.day_of_week === dayOfWeek) {
           const [startHour, startMinute] = u.booked_start_time
             .split(":")
@@ -1436,12 +1528,41 @@ function WeeklyScheduleView({
         }
       }
 
-      // Case 4: Date range
-      if (u.start_date && u.end_date) {
+      // Case 4a: Date range (all day)
+      if (u.start_date && u.end_date && u.range_all_day) {
         const rangeStart = new Date(u.start_date);
         const rangeEnd = new Date(u.end_date);
         rangeEnd.setHours(23, 59, 59); // Set to end of day
         return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      // Case 4b: Date range (specific time)
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        u.range_start_time &&
+        u.range_end_time
+      ) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59); // Set to end of day
+
+        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+          // Check if current time falls within the specified time range
+          const [startHour, startMinute] = u.range_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+
+          const todayStart = new Date(day);
+          todayStart.setHours(startHour, startMinute);
+
+          const todayEnd = new Date(day);
+          todayEnd.setHours(endHour, endMinute);
+
+          return currentTime >= todayStart && currentTime < todayEnd;
+        }
       }
 
       return false;

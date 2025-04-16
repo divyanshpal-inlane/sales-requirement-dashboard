@@ -38,117 +38,150 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    // Get the instructor ID from the request body
-    const { instructor_id } = await req.json();
-    console.log(instructor_id, "called");
-
     // Calculate the next day's date
     const nextDay = new Date();
     nextDay.setDate(nextDay.getDate() + 1);
     const nextDayString = nextDay.toISOString().split("T")[0]; // Format as YYYY-MM-DD
 
-    // Fetch schedules for the next day with related data
-    const { data: schedules, error: schedulesError } = await supabaseClient
+    // First, get all instructors who have schedules for tomorrow
+    const { data: instructorsWithSchedules, error: instructorsError } = await supabaseClient
       .from("Schedule")
-      .select(
-        `
-        *,
-        Instructor (
-          id_instructor,
-          name,
-          phone
-        ),
-        Learner (
-          id,
-          name
-        ),
-        Lesson (
-          id,
-          number
-        )
-      `)
-      .eq("instructor_id", instructor_id)
-      .eq("date", nextDayString) // Filter for the next day's date
-      .order("start_time");
+      .select(`instructor_id`)
+      .eq("date", nextDayString)
+      .order("instructor_id");
 
-    if (schedulesError) {
-      throw schedulesError;
+    if (instructorsError) {
+      throw instructorsError;
     }
 
-    // Check if there are any schedules for the next day
-    if (schedules.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "No schedules for tomorrow." }), {
+    // Extract unique instructor IDs
+    const uniqueInstructorIds = [...new Set(instructorsWithSchedules.map(s => s.instructor_id))];
+    
+    if (uniqueInstructorIds.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "No instructors have schedules for tomorrow." 
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    // Get the instructor's phone number
-    const instructorPhone = schedules[0].Instructor.phone;
+    // Process each instructor
+    const results = [];
+    
+    for (const instructor_id of uniqueInstructorIds) {
+      // Fetch schedules for this instructor for tomorrow
+      const { data: schedules, error: schedulesError } = await supabaseClient
+        .from("Schedule")
+        .select(
+          `
+          *,
+          Instructor (
+            id_instructor,
+            name,
+            phone
+          ),
+          Learner (
+            id,
+            name
+          ),
+          Lesson (
+            id,
+            number
+          )
+        `)
+        .eq("instructor_id", instructor_id)
+        .eq("date", nextDayString)
+        .order("start_time");
 
-    // Format schedule messages for multiple lessons
-    const scheduleMessages = schedules.map((schedule) => {
-      const startTime = formatTime(schedule.start_time);
-      const endTime = formatTime(schedule.end_time);
-      return `${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Learner.name}`;
-    });
+      if (schedulesError) {
+        console.error(`Error fetching schedules for instructor ${instructor_id}:`, schedulesError);
+        continue;
+      }
 
-    // Ensure there are 8 slots in the message, filling with empty strings if necessary
-    const filledScheduleMessages = [...scheduleMessages, ...Array(8).fill("")].slice(0, 8);
+      if (schedules.length === 0) {
+        continue; // Skip if no schedules (shouldn't happen based on our first query)
+      }
 
-    // Prepare the message payload for the instructor
-    const messagePayload = {
-      messages: [
-        {
-          clientWaNumber: instructorPhone, // Send to the instructor's phone
-          templateName: "instructor_reminder_class_message_1_day_before",
-          templateContent:
-            "Hey {{1}}, We hope your day went well and you had the best time! Here is your schedule for tomorrow: {{2}} {{3}} {{4}} {{5}} {{6}} {{7}} {{8}} Please check your calendar for more details and plan your day accordingly! 😊 Thank you! The Lane Team 🚘",
-          templateHeader: "",
-          languageCode: "en",
-          variables: [
-            {
-              type: "body",
-              parameters: [
-                {
-                  type: "text",
-                  text: schedules[0].Instructor.name, // Parameter 1: Instructor's name
-                },
-                ...filledScheduleMessages.map((msg) => ({
-                  type: "text",
-                  text: msg || " ", // Fill with empty string if undefined
-                })),
-              ].slice(0, 8), // Ensure only 8 parameters are sent
-            },
-          ],
-          messageType: "template",
-          refId: `schedule-${instructor_id}-${Date.now()}`,
+      // Get the instructor's phone number
+      const instructorPhone = schedules[0].Instructor.phone;
+      const instructorName = schedules[0].Instructor.name;
+
+      // Format schedule messages for multiple lessons
+      const scheduleMessages = schedules.map((schedule) => {
+        const startTime = formatTime(schedule.start_time);
+        const endTime = formatTime(schedule.end_time);
+        return `${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Learner.name}`;
+      });
+
+      // Ensure there are 8 slots in the message, filling with empty strings if necessary
+      const filledScheduleMessages = [...scheduleMessages, ...Array(8).fill("")].slice(0, 8);
+
+      // Prepare the message payload for the instructor
+      const messagePayload = {
+        messages: [
+          {
+            clientWaNumber: instructorPhone,
+            templateName: "instructor_reminder_class_message_1_day_before",
+            templateContent:
+              "Hey {{1}}, We hope your day went well and you had the best time! Here is your schedule for tomorrow: {{2}} {{3}} {{4}} {{5}} {{6}} {{7}} {{8}} Please check your calendar for more details and plan your day accordingly! 😊 Thank you! The Lane Team 🚘",
+            templateHeader: "",
+            languageCode: "en",
+            variables: [
+              {
+                type: "body",
+                parameters: [
+                  {
+                    type: "text",
+                    text: instructorName,
+                  },
+                  ...filledScheduleMessages.map((msg) => ({
+                    type: "text",
+                    text: msg || " ",
+                  })),
+                ].slice(0, 8), // Ensure only 9 parameters are sent (1 for name + 8 for schedule)
+              },
+            ],
+            messageType: "template",
+            refId: `schedule-${instructor_id}-${Date.now()}`,
+          },
+        ],
+      };
+
+      // Send WhatsApp message
+      const response = await fetch("https://api.heltar.com/v1/messages/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("HELTAR_API_KEY")}`,
         },
-      ],
-    };
+        body: JSON.stringify(messagePayload),
+      });
 
-    // Send WhatsApp message
-    const response = await fetch("https://api.heltar.com/v1/messages/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("HELTAR_API_KEY")}`,
-      },
-      body: JSON.stringify(messagePayload),
-    });
-
-    console.log(
-      `Message sent to instructor ${schedules[0].Instructor.name}`,
-      messagePayload,
-      response.ok,
-      response.status,
-    );
-    if (!response.ok) {
-      const errorResponse = await response.json();
-      throw new Error(`Failed to send message to instructor: ${errorResponse.message}`);
+      const result = {
+        instructor_id,
+        name: instructorName,
+        success: response.ok,
+        status: response.status,
+      };
+      
+      console.log(`Message sent to instructor ${instructorName}:`, result);
+      
+      if (!response.ok) {
+        const errorResponse = await response.text();
+        console.error(`Failed to send message to instructor: ${errorResponse}`);
+        result.error = errorResponse;
+      }
+      
+      results.push(result);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true,
+      processed: results.length,
+      results 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

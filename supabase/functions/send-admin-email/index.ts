@@ -129,7 +129,7 @@ serve(async (req) => {
               <h2 style="color: #2563eb;">${subject}</h2>
               <p>${message}</p>
               <div style="margin: 30px 0;">
-                <a href="${Deno.env.get("APP_URL") || "https://inlane-web-app.vercel.app"}/admin" 
+                <a href="${Deno.env.get("APP_URL") || "https://inlane-web-app.vercel.app"}/admin-login" 
                    style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                   Go to Admin Portal
                 </a>

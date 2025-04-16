@@ -84,6 +84,12 @@ function PreferenceSelector({
       throw error;
     }
   };
+  const { data: learner } = supabase
+    .from("Learner")
+    .select("name")
+    .eq("id", learnerId)
+    .single();
+  const learnerName = learner?.name;
 
   const handleSubmit = async () => {
     // Convert selected slots to preferences format
@@ -110,7 +116,7 @@ function PreferenceSelector({
             if (type === "lesson10") {
               await sendAdminEmail(
                 "New 10th Lesson Scheduling Request",
-                `A learner has submitted availability for their 10th lesson scheduling.`,
+                `${learnerName} has submitted availability for their 10th lesson scheduling.`,
               );
             } else if (type === "new") {
               supabase.functions.invoke("send-message", {
@@ -121,7 +127,7 @@ function PreferenceSelector({
               });
               await sendAdminEmail(
                 "New Lesson Scheduling Request",
-                `A new learner has submitted their availability for lesson scheduling.`,
+                `${learnerName} has submitted their availability for lesson scheduling.`,
               );
             }
             rescheduleRequest(
@@ -145,7 +151,7 @@ function PreferenceSelector({
             });
             await sendAdminEmail(
               "New Reschedule Request",
-              `Someone has requested to reschedule lesson.`,
+              `${learnerName} has requested to reschedule lesson.`,
             );
 
             navigate("/home");
