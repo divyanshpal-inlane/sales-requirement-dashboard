@@ -19,9 +19,9 @@ export default function DLQuestion() {
         return;
       }
 
-      const learnerId = session?.user?.id;
+      const learnerPhone = session?.user?.phone;
 
-      if (!learnerId) {
+      if (!learnerPhone) {
         console.error("Learner ID not found in session");
         return;
       }
@@ -29,7 +29,7 @@ export default function DLQuestion() {
       const { data: learnerData, error } = await supabase
         .from("Learner")
         .select("*")
-        .eq("id", learnerId) // Use the learnerId parameter to fetch the correct learner
+        .eq("phone", learnerPhone) // Use the learnerPhone parameter to fetch the correct learner
         .single();
 
       if (error) {
@@ -68,12 +68,12 @@ export default function DLQuestion() {
           {
             onSuccess: async () => {
               // Send message for users who already have a DL
-              if (learner?.id) {
+              if (learner) {
                 await supabase.functions.invoke("send-message", {
                   body: {
                     message_type: "SIGN_UP_DONE_SCHEDULE_PLEASE", // This is the closest match to what you requested
-                    learner_id: learner.id
-                  }
+                    learner_id: learner.id,
+                  },
                 });
               }
               navigate("/home");
@@ -91,24 +91,23 @@ export default function DLQuestion() {
           {
             onSuccess: async () => {
               // Send message for users who need to get a learner's license first
-              if (learner?.id) {
+              if (learner) {
                 console.log("Sending message to learner:", learner.id);
                 await supabase.functions.invoke("send-message", {
                   body: {
                     message_type: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST",
-                    learner_id: learner.id
-                  }
+                    learner_id: learner.id,
+                  },
                 });
                 await sendAdminEmail(
                   "New Learner's License Application Needed",
-                  `${learner.name} needs to apply for a Learner's License. 
-                   Please fill in their application ID when completed.`
+                  `${learner.name} needs to apply for a Learner's License.\nPlease fill in their application ID when completed.`
                 );
               }
               window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
               navigate("/home");
             },
-          }
+          },
         );
       }
     } catch (error) {

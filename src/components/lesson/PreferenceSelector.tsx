@@ -30,6 +30,7 @@ function PreferenceSelector({
   type,
 }: PreferenceSelectorProps) {
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false); // New state to track the entire save process
 
   // Fetch existing preferences
   const { data: existingPreferences, isLoading } =
@@ -41,7 +42,7 @@ function PreferenceSelector({
     useMutationRescheduleRequest();
   const navigate = useNavigate();
 
-  // Initialize selected slots from existing data
+  // Initialize selected slots from existing preferences
   useEffect(() => {
     if (existingPreferences) {
       const slots = new Set<string>();
@@ -59,15 +60,12 @@ function PreferenceSelector({
       if (next.has(key)) {
         next.delete(key);
       } else {
-        // // Ensure only one slot is selected for lesson 10
-        // if (type === "lesson10" && next.size >= 1) {
-        //   return prev;
-        // }
         next.add(key);
       }
       return next;
     });
   };
+
   const sendAdminEmail = async (subject: string, message: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -84,82 +82,126 @@ function PreferenceSelector({
       throw error;
     }
   };
-  const { data: learner } = supabase
-    .from("Learner")
-    .select("name")
-    .eq("id", learnerId)
-    .single();
-  const learnerName = learner?.name;
+
+  // Add this at the component level
+  const [learnerName, setLearnerName] = useState<string>("");
+
+  // Add this useEffect to fetch the learner name when the component mounts
+  useEffect(() => {
+    const fetchLearnerName = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("Learner")
+          .select("name")
+          .eq("id", learnerId)
+          .single();
+        
+        if (error) throw error;
+        if (data) setLearnerName(data.name);
+      } catch (error) {
+        console.error("Error fetching learner name:", error);
+      }
+    };
+    
+    fetchLearnerName();
+  }, [learnerId]);
 
   const handleSubmit = async () => {
-    // Convert selected slots to preferences format
-    const preferences = Array.from(selectedSlots).map((key) => {
-      const slot = key.split("-");
-      const dayOfWeek = slot[0];
-      const timeSlot = `${slot[1]}-${slot[2]}`;
-      return {
-        day: parseInt(dayOfWeek),
-        timeSlot: timeSlot as TimeSlot,
-      };
-    });
-
-    // Update preferences
-    updatePreference(
-      {
-        learnerId,
-        preferences,
-      },
-      {
-        onSuccess: async () => {
-          const requestType = type === "lesson10" ? "lesson10" : type;
-          if (type === "lesson10" || type === "new") {
-            if (type === "lesson10") {
-              await sendAdminEmail(
-                "New 10th Lesson Scheduling Request",
-                `${learnerName} has submitted availability for their 10th lesson scheduling.`,
+    if (isSaving) return; // Prevent multiple submissions
+    
+    try {
+      setIsSaving(true); // Set saving state to true at the beginning
+      
+      // Convert selected slots to preferences format
+      const preferences = Array.from(selectedSlots).map((key) => {
+        const slot = key.split("-");
+        const dayOfWeek = slot[0];
+        const timeSlot = `${slot[1]}-${slot[2]}`;
+        return {
+          day: parseInt(dayOfWeek),
+          timeSlot: timeSlot as TimeSlot,
+        };
+      });
+  
+      // Update preferences
+      updatePreference(
+        {
+          learnerId,
+          preferences,
+        },
+        {
+          onSuccess: () => {
+            const requestType = type === "lesson10" ? "lesson10" : type;
+            
+            // Navigate to home immediately after preferences are updated
+            navigate("/home");
+            
+            // Continue with email and message operations in the background
+            if (type === "lesson10" || type === "new") {
+              if (type === "lesson10") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "THANKS_FOR_AVAILABILITY",
+                    learner_id: learnerId,
+                  },
+                }).catch(err => console.error("Error sending message:", err));
+                
+                sendAdminEmail(
+                  "New 10th Lesson Scheduling Request",
+                  `${learnerName} has submitted availability for their 10th lesson scheduling.`,
+                ).catch(err => console.error("Error sending admin email:", err));
+              } else if (type === "new") {
+                supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "THANKS_FOR_AVAILABILITY",
+                    learner_id: learnerId,
+                  },
+                }).catch(err => console.error("Error sending message:", err));
+                
+                sendAdminEmail(
+                  "New Lesson Scheduling Request",
+                  `${learnerName} has submitted their availability for lesson scheduling.`,
+                ).catch(err => console.error("Error sending admin email:", err));
+              }
+              
+              rescheduleRequest(
+                {
+                  learnerId,
+                  lessonIds: lessons,
+                  type: requestType,
+                },
+                {
+                  onError: (error) => {
+                    console.error("Error with reschedule request:", error);
+                  }
+                },
               );
-            } else if (type === "new") {
+            } else {
               supabase.functions.invoke("send-message", {
                 body: {
-                  message_type: "THANKS_FOR_AVAILABILITY",
+                  message_type: "WEBAPP_RESCHEDULE_REQUEST",
                   learner_id: learnerId,
                 },
-              });
-              await sendAdminEmail(
-                "New Lesson Scheduling Request",
-                `${learnerName} has submitted their availability for lesson scheduling.`,
-              );
+              }).catch(err => console.error("Error sending message:", err));
+              
+              sendAdminEmail(
+                "New Reschedule Request",
+                `${learnerName} has requested to reschedule lesson.`,
+              ).catch(err => console.error("Error sending admin email:", err));
             }
-            rescheduleRequest(
-              {
-                learnerId,
-                lessonIds: lessons,
-                type: requestType,
-              },
-              {
-                onSuccess: () => {
-                  navigate("/home");
-                },
-              },
-            );
-          } else {
-            supabase.functions.invoke("send-message", {
-              body: {
-                message_type: "WEBAPP_RESCHEDULE_REQUEST",
-                learner_id: learnerId,
-              },
-            });
-            await sendAdminEmail(
-              "New Reschedule Request",
-              `${learnerName} has requested to reschedule lesson.`,
-            );
-
-            navigate("/home");
+          },
+          onError: (error) => {
+            console.error("Error updating preferences:", error);
+            setIsSaving(false);
           }
         },
-      },
-    );
+      );
+    } catch (error) {
+      console.error("Error saving preferences:", error);
+      setIsSaving(false);
+    }
   };
+  
 
   if (isLoading) {
     return <div>Loading preferences...</div>;
@@ -213,6 +255,7 @@ function PreferenceSelector({
                                   : "border-gray-200 hover:bg-gray-50"
                               }`}
                               onClick={() => handleSlotToggle(index, slot)}
+                              disabled={isSaving} // Disable during saving
                             >
                               {isSelected ? "✓" : ""}
                             </Button>
@@ -234,10 +277,10 @@ function PreferenceSelector({
       <div className="pb-16">
         <Button
           onClick={handleSubmit}
-          disabled={isPending || isRescheduleRequestPending}
+          disabled={isPending || isRescheduleRequestPending || isSaving} // Disable during any async operation
           className="w-full"
         >
-          {isPending || isRescheduleRequestPending ? (
+          {isPending || isRescheduleRequestPending || isSaving ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : (
             "Save"

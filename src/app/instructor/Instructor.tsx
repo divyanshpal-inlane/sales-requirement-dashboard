@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { useNavigate } from "react-router-dom";
 
+import { LessonPlan } from "@/components/lesson/plan";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -78,6 +79,13 @@ function Instructor() {
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date()),
   );
+  // Add this to your existing state declarations
+  const [lessonPlanDialog, setLessonPlanDialog] = useState({
+    open: false,
+    lesson: null,
+    learner: null,
+  });
+
   function isTimeUnavailable(
     unavailability: any[] | null | undefined,
     day: Date,
@@ -91,18 +99,18 @@ function Instructor() {
     ) {
       return false;
     }
-  
+
     const currentTime = new Date(day);
     currentTime.setHours(hour, minute);
     const dayOfWeek = format(day, "EEEE").toLowerCase();
     const formattedDate = format(day, "yyyy-MM-dd");
-  
+
     return unavailability.some((u) => {
       // Case 1: Single day, all day
       if (u.booked_date && u.all_day) {
         return formattedDate === u.booked_date;
       }
-  
+
       // Case 2: Single day, specific time slot
       if (
         u.booked_date &&
@@ -122,32 +130,37 @@ function Instructor() {
           currentTime < unavailableEnd
         );
       }
-  
+
       // Case 3a: Weekly recurring on specific day of week (all day)
       if (u.day_of_week && u.all_day) {
         return u.day_of_week === dayOfWeek;
       }
-  
+
       // Case 3b: Weekly recurring on specific day of week (specific time)
-      if (u.day_of_week && u.booked_start_time && u.booked_end_time && !u.all_day) {
+      if (
+        u.day_of_week &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
         if (u.day_of_week === dayOfWeek) {
           const [startHour, startMinute] = u.booked_start_time
             .split(":")
             .map(Number);
           const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
-  
+
           const unavailableStart = new Date(day);
           unavailableStart.setHours(startHour, startMinute);
-  
+
           const unavailableEnd = new Date(day);
           unavailableEnd.setHours(endHour, endMinute);
-  
+
           return (
             currentTime >= unavailableStart && currentTime < unavailableEnd
           );
         }
       }
-  
+
       // Case 4a: Date range (all day)
       if (u.start_date && u.end_date && u.range_all_day) {
         const rangeStart = new Date(u.start_date);
@@ -155,40 +168,59 @@ function Instructor() {
         rangeEnd.setHours(23, 59, 59); // Set to end of day
         return currentTime >= rangeStart && currentTime <= rangeEnd;
       }
-  
+
       // Case 4b: Date range (specific time)
-      if (u.start_date && u.end_date && !u.range_all_day && u.range_start_time && u.range_end_time) {
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        u.range_start_time &&
+        u.range_end_time
+      ) {
         const rangeStart = new Date(u.start_date);
         const rangeEnd = new Date(u.end_date);
         rangeEnd.setHours(23, 59, 59); // Set to end of day
-        
+
         if (currentTime >= rangeStart && currentTime <= rangeEnd) {
           // Check if current time falls within the specified time range
-          const [startHour, startMinute] = u.range_start_time.split(":").map(Number);
+          const [startHour, startMinute] = u.range_start_time
+            .split(":")
+            .map(Number);
           const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
-          
+
           const todayStart = new Date(day);
           todayStart.setHours(startHour, startMinute);
-          
+
           const todayEnd = new Date(day);
           todayEnd.setHours(endHour, endMinute);
-          
+
           return currentTime >= todayStart && currentTime < todayEnd;
         }
       }
-  
+
       // For backward compatibility, handle the old date range format
-      if (u.start_date && u.end_date && !u.range_all_day && !u.range_start_time) {
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        !u.range_start_time
+      ) {
         const rangeStart = new Date(u.start_date);
         const rangeEnd = new Date(u.end_date);
         rangeEnd.setHours(23, 59, 59); // Set to end of day
         return currentTime >= rangeStart && currentTime <= rangeEnd;
       }
-  
+
       return false;
     });
   }
-  
+  const handleOpenLessonPlan = (lesson, learner) => {
+    setLessonPlanDialog({
+      open: true,
+      lesson,
+      learner,
+    });
+  };
 
   const [scheduleDetailDialog, setScheduleDetailDialog] = useState({
     open: false,
@@ -560,6 +592,15 @@ function Instructor() {
                             </a>
                           </div>
                         </div>
+
+                        <Button
+                          onClick={() => handleOpenLessonPlan(lesson, learner)}
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 w-full text-xs"
+                        >
+                          View Lesson Plan
+                        </Button>
                       </div>
                       <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
                         <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-xs">
@@ -780,6 +821,41 @@ function Instructor() {
             <Button
               variant="outline"
               onClick={() => setIsEventModalOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Add this at the end of your component, just before the closing GoogleOAuthProvider tag */}
+      <Dialog
+        open={lessonPlanDialog.open}
+        onOpenChange={(open) =>
+          setLessonPlanDialog((prev) => ({ ...prev, open }))
+        }
+      >
+        <DialogContent className="h-[90vh] max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Lesson Plan</DialogTitle>
+            <DialogDescription>
+              Lesson details for {lessonPlanDialog.learner?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-full overflow-auto">
+            {lessonPlanDialog.lesson && lessonPlanDialog.learner && (
+              <LessonPlan
+                lesson={lessonPlanDialog.lesson}
+                learner={lessonPlanDialog.learner}
+                nextLessonId={null}
+                prevLessonId={null}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() =>
+                setLessonPlanDialog((prev) => ({ ...prev, open: false }))
+              }
             >
               Close
             </Button>

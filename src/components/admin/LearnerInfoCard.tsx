@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { LearnerLLDisplay } from "./LLDisplay";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -738,6 +739,9 @@ export const LearnerInfoDialog = ({
                   </div>
                 )}
               </div>
+              {learner.phone && (
+                <LearnerLLDisplay learnerPhone={learner.phone} />
+              )}
               {/* New Comments Section */}
               <CommentsEditor
                 initialValue={comments}

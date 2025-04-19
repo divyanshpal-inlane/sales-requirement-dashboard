@@ -47,6 +47,7 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
+import { format } from "date-fns";
 
 export type Schedule = {
   date: Date;
@@ -57,6 +58,7 @@ export type Schedule = {
   start_time: string;
   end_time: string;
   otp: string;
+  calendar_uid?: string;
 };
 
 type RequestType = "new" | "reschedule" | "lesson10";
@@ -118,26 +120,33 @@ export default function AdminSchedules() {
       if (deleteError) throw deleteError;
 
       // Create schedules
-      const { error } = await supabase.from("Schedule").insert(
-        schedules.map((schedule) => {
-          // Parse start time and add 1 hour for end time
-          const [hours, minutes] = schedule.start_time.split(":").map(Number);
-          const endHours = (hours + 1) % 24;
-          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+      // In the createScheduleMutation function:
 
-          return {
-            learner_id: learnerId,
-            course_id: courseId,
-            lesson_id: schedule.lessonId,
-            instructor_id: schedule.instructorId,
-            date: schedule.date.toISOString().split("T")[0],
-            start_time: schedule.start_time,
-            end_time: endTime,
-            enabled: true,
-            otp: schedule.otp,
-          };
-        }),
-      );
+      // Create schedules
+      const { error, data: createdSchedules } = await supabase
+        .from("Schedule")
+        .insert(
+          schedules.map((schedule) => {
+            // Parse start time and add 1 hour for end time
+            const [hours, minutes] = schedule.start_time.split(":").map(Number);
+            const endHours = (hours + 1) % 24;
+            const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+            return {
+              learner_id: learnerId,
+              course_id: courseId,
+              lesson_id: schedule.lessonId,
+              instructor_id: schedule.instructorId,
+              date: schedule.date.toISOString().split("T")[0],
+              start_time: schedule.start_time,
+              end_time: endTime,
+              enabled: true,
+              otp: schedule.otp,
+              calendar_uid: schedule.calendar_uid || "", // Include the calendar_uid
+            };
+          }),
+        )
+        .select(); // Add .select() to get the created records
 
       if (error) throw error;
     },
@@ -163,9 +172,10 @@ export default function AdminSchedules() {
                     message_type: "SCHEDULE_PREPARED",
                     learner_id: selectedRequest.learner_id,
 
-                    start_date: variables.schedules[0].date
-                      .toISOString()
-                      .split("T")[0],
+                    start_date: format(
+                      new Date(variables.schedules[0].date),
+                      "dd/MM/yyyy",
+                    ),
                     start_time: variables.schedules[0].start_time,
                   },
                 });
@@ -597,7 +607,6 @@ export default function AdminSchedules() {
                           compact={true}
                           onClick={(learner) => {
                             handleRequestSelect(request);
-                            
                           }}
                         />
                       </div>
@@ -669,7 +678,6 @@ export default function AdminSchedules() {
                           compact={true}
                           onClick={(learner) => {
                             handleRequestSelect(request);
-                            
                           }}
                         />
                       </div>
@@ -741,7 +749,6 @@ export default function AdminSchedules() {
                           compact={true}
                           onClick={(learner) => {
                             handleRequestSelect(request);
-                            
                           }}
                         />
                       </div>

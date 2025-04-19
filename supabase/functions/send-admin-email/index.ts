@@ -198,7 +198,7 @@ serve(async (req) => {
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     } catch (smtpError) {
       console.error("SMTP Error:", smtpError);

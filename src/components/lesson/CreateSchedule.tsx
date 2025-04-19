@@ -39,7 +39,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { sendCalendarInvite } from "@/lib/calendarUtils";
+import {
+  sendCalendarCancellation,
+  sendCalendarInvite,
+} from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
@@ -1642,17 +1645,17 @@ function CreateSchedule({
       alert("Please select at least one time slot");
       return;
     }
-
+  
     if (!lessons || lessons.length < countUniqueHourlySlots(selectedSlots)) {
       alert("Not enough lessons available for the course");
       return;
     }
-
+  
     if (!instructorsWithDistance || instructorsWithDistance.length === 0) {
       alert("No instructors available for this area");
       return;
     }
-
+  
     // Get all existing schedules for the course (excluding ones being rescheduled)
     const existingCourseSchedules =
       existingSchedules?.filter(
@@ -1661,18 +1664,21 @@ function CreateSchedule({
           !request.lesson_ids.includes(s.lesson_id ?? "") &&
           allLessons?.some((l) => l.id === s.lesson_id),
       ) ?? [];
-
+  
     // Get completed lessons to maintain their numbers
     const completedLessons = existingCourseSchedules.filter(
       (s) => new Date(s.date).setHours(s.hour) < new Date().getTime(),
     );
-
+  
     // Group selected slots by their slotGroupId
     const selectedSlotGroups = groupBy(
       selectedSlots,
       (slot) => slot.slotGroupId || "",
     );
-
+    console.log("hellllllllo");
+    console.log(selectedSlots);
+    console.log(selectedSlotGroups);
+  
     // Convert each pair of 30-minute slots into a single hour entry
     // We'll use the first slot in each group as the starting point
     const newSlots = Object.values(selectedSlotGroups).map((group) => {
@@ -1682,7 +1688,7 @@ function CreateSchedule({
         const timeB = new Date(b.date).setHours(b.hour, b.minutes);
         return timeA - timeB;
       });
-
+  
       // Use the first slot as the start time
       const firstSlot = sortedGroup[0];
       return {
@@ -1693,12 +1699,12 @@ function CreateSchedule({
         isNew: true as const,
       };
     });
-
+  
     // Get upcoming slots
     const upcomingSlots = [
       // New selected slots (only one entry per hour)
       ...newSlots,
-
+  
       // Existing upcoming schedules that aren't being changed
       ...existingCourseSchedules
         .filter(
@@ -1715,19 +1721,23 @@ function CreateSchedule({
           isNew: false as const,
         })),
     ];
-
+  console.log("hellllllllo");
+  console.log(upcomingSlots);
+  console.log(existingCourseSchedules);
+  console.log(newSlots);
     // Sort upcoming slots chronologically
     const chronologicallySortedUpcomingSlots = upcomingSlots.sort((a, b) => {
       const timeA = new Date(a.date).setHours(a.hour, a.minutes);
       const timeB = new Date(b.date).setHours(b.hour, b.minutes);
       return timeA - timeB;
     });
-
+  console.log("chronology");
+  console.log(chronologicallySortedUpcomingSlots);  
     // Get all lessons for the course
     const courseLessons = allLessons
       ? [...allLessons].sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
       : [];
-
+  
     // Find the next lesson number after completed lessons
     const maxCompletedLessonNumber = Math.max(
       ...completedLessons.map(
@@ -1735,50 +1745,39 @@ function CreateSchedule({
       ),
       0,
     );
-
+  
     // Get available lessons for upcoming slots (lessons after the completed ones)
     const availableLessons = courseLessons.filter(
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
     );
-
+  
     // Check if this is a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
       .from("Learner")
       .select("*")
       .eq("id", learnerId)
       .single();
-
+  
     if (learnerError) {
       console.error("Error fetching learner:", learnerError);
     }
-
+  
     const isNinePlusOneCourse =
       learner?.has_a_DL === false && courseLessons.length === 10;
-
+  
+    // FIXED LOGIC: Assign lesson numbers sequentially based on chronological order
     // Create new schedule array with correctly assigned lesson numbers
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
-        if (!slot.isNew) {
-          // This is an existing schedule that's not being changed
-          return {
-            date: slot.date,
-            hour: slot.hour,
-            minutes: slot.minutes,
-            instructorId: slot.instructorId,
-            lessonId: slot.lessonId,
-            lessonNumber:
-              courseLessons.find((l) => l.id === slot.lessonId)?.number ?? 0,
-          };
-        } else {
-          // Check if this is a "9+1" course type and if lesson 10 is being rescheduled
-          const isLesson10Slot =
-            isNinePlusOneCourse &&
-            request.lesson_ids.some(
-              (id) => courseLessons.find((l) => l.id === id)?.number === 10,
-            );
-
-          if (isLesson10Slot) {
-            // If this is lesson 10 in a 9+1 course, find and use lesson 10
+        // For 9+1 courses, handle lesson 10 specially
+        if (isNinePlusOneCourse) {
+          // Check if this slot is for lesson 10 (which should always be the last lesson)
+          const isLesson10Slot = request.lesson_ids.some(
+            (id) => courseLessons.find((l) => l.id === id)?.number === 10
+          );
+  
+          if (isLesson10Slot && index === chronologicallySortedUpcomingSlots.length - 1) {
+            // If this is lesson 10 in a 9+1 course and it's the last slot, use lesson 10
             const lesson10 = availableLessons.find((l) => l.number === 10);
             return {
               date: slot.date,
@@ -1787,46 +1786,49 @@ function CreateSchedule({
               instructorId: slot.instructorId,
               lessonId: lesson10?.id ?? "",
               lessonNumber: 10,
-            };
-          } else {
-            // For regular sequential scheduling, calculate the correct lesson number
-            // This handles both 9+1 courses (lessons 1-9) and regular courses (lessons 1-10)
-            const lessonIndex = index + maxCompletedLessonNumber;
-            const lesson =
-              availableLessons.find((l) => l.number === lessonIndex + 1) ||
-              availableLessons[index];
-
-            return {
-              date: slot.date,
-              hour: slot.hour,
-              minutes: slot.minutes,
-              instructorId: slot.instructorId,
-              lessonId: lesson?.id ?? "",
-              lessonNumber: lesson?.number ?? 0,
+              isNew: slot.isNew,
             };
           }
         }
-      },
+  
+        // For all other cases, assign lesson numbers sequentially
+        const lessonNumber = maxCompletedLessonNumber + index + 1;
+        const lesson = availableLessons.find((l) => l.number === lessonNumber);
+  
+        return {
+          date: slot.date,
+          hour: slot.hour,
+          minutes: slot.minutes,
+          instructorId: slot.instructorId,
+          lessonId: lesson?.id ?? "",
+          lessonNumber: lessonNumber,
+          isNew: slot.isNew,
+        };
+      }
     );
-
+  
+    // Get the schedules that are being rescheduled to send cancellation emails
+    const schedulesToCancel = schedulesToChange || [];
+  
     // Filter out only the schedules that need to be created/updated
     const schedulesToUpdate = schedulesWithIds.filter((schedule, index) => {
       const originalSlot = chronologicallySortedUpcomingSlots[index];
       // Include if it's a new slot or if the lesson number has changed
       return originalSlot.isNew || schedule.lessonId !== originalSlot.lessonId;
     });
-
+  
     // Create final schedules array
     const finalSchedules = schedulesToUpdate
       .filter((schedule) => schedule.lessonId) // Only include schedules with valid lesson IDs
       .map((schedule) => {
+        console.log("schedule", schedule);
         // Format the start_time correctly with hours and minutes
         const formattedHour = String(schedule.hour).padStart(2, "0");
         const formattedMinutes = String(schedule.minutes || 0).padStart(2, "0");
         const endHour =
           schedule.minutes === 30 ? schedule.hour + 1 : schedule.hour;
         const endMinutes = schedule.minutes === 30 ? "00" : "30";
-
+  
         return {
           date: schedule.date,
           hour: schedule.hour,
@@ -1837,10 +1839,13 @@ function CreateSchedule({
           end_time: `${String(endHour).padStart(2, "0")}:${endMinutes}:00`,
           status: "booked",
           otp: generateRandomOTP(),
+          calendar_uid: "", // Will be populated for new schedules only
         };
       });
-
-    onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+  console.log(schedulesToCancel);
+  console.log(schedulesToChange);
+  console.log(schedulesToUpdate);
+  console.log(finalSchedules);
     try {
       // Fetch learner details
       const { data: learnerData } = await supabase
@@ -1848,69 +1853,185 @@ function CreateSchedule({
         .select("email, pick_up_location, address_lat, address_lng, name")
         .eq("id", learnerId)
         .single();
-
+  
       if (!learnerData?.email) {
         console.error("Missing email for learner");
         return;
       }
-
-      // For each schedule, send calendar invites
-      for (const schedule of finalSchedules) {
-        // Get instructor details
-        const { data: instructorData } = await supabase
-          .from("Instructor")
-          .select("email, name")
-          .eq("id_instructor", schedule.instructorId)
-          .single();
-
-        if (!instructorData?.email) {
-          console.error("Missing email for instructor");
-          continue;
+  
+      // Create a map to track which lesson IDs are being rescheduled
+      const rescheduledLessonIds = new Set(request.lesson_ids);
+      
+      // Map to store calendar UIDs from cancelled lessons to reuse for new schedules
+      const lessonIdToCalendarUid = new Map();
+  
+      // Step 1: Send cancellation emails ONLY for lessons being rescheduled
+      for (const scheduleToCancel of schedulesToCancel) {
+        try {
+          // Only process if this is one of the lessons being rescheduled
+          if (!rescheduledLessonIds.has(scheduleToCancel.lesson_id)) {
+            continue;
+          }
+  
+          // Get instructor details
+          const { data: instructorData } = await supabase
+            .from("Instructor")
+            .select("email, name")
+            .eq("id_instructor", scheduleToCancel.instructor_id)
+            .single();
+  
+          if (!instructorData?.email) {
+            console.error("Missing email for instructor");
+            continue;
+          }
+  
+          // Create start and end date objects for the cancelled lesson
+          const startDate = new Date(scheduleToCancel.date);
+          const [startHour, startMinute] = scheduleToCancel.start_time
+            .split(":")
+            .map(Number);
+          startDate.setHours(startHour, startMinute, 0);
+  
+          const endDate = new Date(scheduleToCancel.date);
+          const [endHour, endMinute] = scheduleToCancel.end_time
+            .split(":")
+            .map(Number);
+          endDate.setHours(endHour, endMinute, 0);
+  
+          // Get lesson details
+          const { data: lessonData } = await supabase
+            .from("Lesson")
+            .select("number, id")
+            .eq("id", scheduleToCancel.lesson_id)
+            .single();
+  
+          // Determine pickup location
+          const pickupLocation =
+            learnerData.pick_up_location ||
+            (learnerData.address_lat && learnerData.address_lng
+              ? `${learnerData.address_lat},${learnerData.address_lng}`
+              : "To be confirmed");
+  
+          // Store the calendar_uid for this lesson ID to reuse later
+          if (scheduleToCancel.calendar_uid) {
+            lessonIdToCalendarUid.set(scheduleToCancel.lesson_id, scheduleToCancel.calendar_uid);
+            console.log(`Stored calendar_uid for lesson ${scheduleToCancel.lesson_id}: ${scheduleToCancel.calendar_uid}`);
+            console.log(lessonIdToCalendarUid);
+            
+            // Send cancellation email using the existing calendar_uid
+            await sendCalendarCancellation(
+              learnerData.email,
+              instructorData.email,
+              startDate,
+              endDate,
+              lessonData?.number || scheduleToCancel.lesson_number,
+              pickupLocation,
+              instructorData.name || "Your Instructor",
+              learnerData.name || "Student",
+              scheduleToCancel.calendar_uid
+            );
+  
+            console.log(`Sent cancellation for lesson ${lessonData?.number || scheduleToCancel.lesson_number}`);
+          } else {
+            console.log(`No calendar_uid found for schedule ${scheduleToCancel.id}, skipping cancellation`);
+          }
+        } catch (error) {
+          console.error("Error sending cancellation email:", error);
+          // Continue with the process even if cancellation fails
         }
-
-        // Create start and end date objects
-        const startDate = new Date(schedule.date);
-        const [startHour, startMinute] = schedule.start_time
-          .split(":")
-          .map(Number);
-        startDate.setHours(startHour, startMinute, 0);
-
-        const endDate = new Date(schedule.date);
-        const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
-        endDate.setHours(endHour, endMinute, 0);
-
-        // Get lesson details
-        const { data: lessonData } = await supabase
-          .from("Lesson")
-          .select("number")
-          .eq("id", schedule.lessonId)
-          .single();
-
-        // Determine pickup location
-        const pickupLocation =
-          learnerData.pick_up_location ||
-          (learnerData.address_lat && learnerData.address_lng
-            ? `${learnerData.address_lat},${learnerData.address_lng}`
-            : "To be confirmed");
-
-        // Send calendar invites
-        await sendCalendarInvite(
-          learnerData.email,
-          instructorData.email,
-          startDate,
-          endDate,
-          lessonData?.number || schedule.lessonNumber,
-          pickupLocation,
-          instructorData.name || "Your Instructor",
-          learnerData.name || "Student",
-        );
       }
+  
+      // Step 2: Send new calendar invites ONLY for the rescheduled lessons
+      for (let i = 0; i < finalSchedules.length; i++) {
+        const schedule = finalSchedules[i];
+        
+        // Find if this schedule corresponds to a lesson being rescheduled
+        const matchingLessonId = request.lesson_ids.find(id => {
+          const lessonNumber = courseLessons.find(l => l.id === id)?.number;
+          console.log(request);
+          console.log(schedule);
+          console.log(lessonNumber);
+          return lessonNumber === schedule.lessonNumber;
+        });
+        
+        
+        // Only send calendar invites for lessons being rescheduled
+        if (matchingLessonId) {
+          console.log("true");
+          try {
+            // Get instructor details
+            const { data: instructorData } = await supabase
+              .from("Instructor")
+              .select("email, name")
+              .eq("id_instructor", schedule.instructorId)
+              .single();
+  
+            if (!instructorData?.email) {
+              console.error("Missing email for instructor");
+              continue;
+            }
+  
+            // Create start and end date objects
+            const startDate = new Date(schedule.date);
+            const [startHour, startMinute] = schedule.start_time
+              .split(":")
+              .map(Number);
+            startDate.setHours(startHour, startMinute, 0);
+  
+            const endDate = new Date(schedule.date);
+            const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
+            endDate.setHours(endHour, endMinute, 0);
+  
+            // Determine pickup location
+            const pickupLocation =
+              learnerData.pick_up_location ||
+              (learnerData.address_lat && learnerData.address_lng
+                ? `${learnerData.address_lat},${learnerData.address_lng}`
+                : "To be confirmed");
+  
+            // Reuse the calendar_uid from the cancelled lesson if available
+            const existingUid = lessonIdToCalendarUid.get(matchingLessonId);
+            
+            // Send calendar invite and get the UID (reusing existing UID if available)
+            const calendarUid = await sendCalendarInvite(
+              learnerData.email,
+              instructorData.email,
+              startDate,
+              endDate,
+              schedule.lessonNumber,
+              pickupLocation,
+              instructorData.name || "Your Instructor",
+              learnerData.name || "Student",
+              existingUid // Pass the existing UID to reuse it
+            );
+  
+            // Update the schedule with the calendar UID
+            finalSchedules[i] = {
+              ...schedule,
+              calendar_uid: calendarUid
+            };
+  
+            console.log(`Sent new invite for lesson ${schedule.lessonNumber} with UID ${calendarUid}`);
+          } catch (error) {
+            console.error(`Error sending calendar invite for schedule ${i}:`, error);
+          }
+        } else {
+          // For lessons not being rescheduled, keep their existing calendar_uid
+          // This is handled by the database since we're not updating these records
+        }
+      }
+  
+      // Now call onScheduleCreate with the updated finalSchedules that include calendar_uid
+      onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+      
     } catch (error) {
-      console.error("Error sending calendar invites:", error);
-      // Don't block the UI flow if calendar invites fail
+      console.error("Error handling calendar invites:", error);
+      // Still call onScheduleCreate even if there are errors with calendar invites
+      onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
     }
   };
-
+  
+  
   // Utility function to group array items by a key
   function groupBy<T>(array: T[], keyFn: (item: T) => string) {
     return array.reduce((result: Record<string, T[]>, item) => {

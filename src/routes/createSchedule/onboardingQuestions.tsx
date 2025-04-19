@@ -21,7 +21,7 @@ export default function OnboardingQuestions() {
 
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [completionDays, setCompletionDays] = useState<string>("");
-  const [twoHourClasses, setTwoHourClasses] = useState<string>("no");
+  const [twoHourClasses, setTwoHourClasses] = useState<string>("yes");
 
   const handleSubmit = () => {
     updateLearner(
