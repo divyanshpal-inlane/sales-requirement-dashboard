@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
+  "Access-Control-Allow-Headers": 
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -47,7 +47,7 @@ async function sendEmailWithRetry(
         tls: true,
         auth: {
           username: "f20220757@goa.bits-pilani.ac.in",
-          password: "giqauhuaxbgxroog",
+          password: Deno.env.get("SMTP_PASSWORD") || "giqauhuaxbgxroog",
         },
       },
     });
@@ -70,23 +70,28 @@ async function notifyAdminOfFailedEmails(
   details: {
     learnerEmail: string;
     instructorEmail: string;
-    lessonNumber: number;
-    startTime: string;
-    endTime: string;
+    events: Array<{
+      lessonNumber: number;
+      startTime: string;
+      endTime: string;
+    }>;
     errors: string[];
   }
 ) {
   try {
-    const formattedDate = format(new Date(details.startTime), "dd/MM/yyyy");
-    const subject = `Failed Email Notifications for Lesson ${details.lessonNumber}`;
+    const lessonsList = details.events
+      .map(e => {
+        const formattedDate = format(new Date(e.startTime), "dd/MM/yyyy");
+        return `- Lesson ${e.lessonNumber}: ${formattedDate} from ${formatIndianTime(e.startTime)} to ${formatIndianTime(e.endTime)}`;
+      })
+      .join('\n');
+      
+    const subject = `Failed Email Notifications for Multiple Lessons`;
     const message = `
       We were unable to send schedule notification emails after multiple attempts.
       
       Lesson Details:
-      - Lesson Number: ${details.lessonNumber}
-      - Date: ${formattedDate}
-      - Start Time: ${details.startTime}
-      - End Time: ${details.endTime}
+      ${lessonsList}
       
       Recipients:
       - Learner: ${details.learnerEmail}
@@ -120,9 +125,27 @@ async function notifyAdminOfFailedEmails(
   }
 }
 
-// Add this to the existing imports and setup
+// Custom function to format time in Indian style
+function formatIndianTime(dateString: string) {
+  // Create date object and adjust to Indian time (UTC+5:30)
+  const date = new Date(dateString);
+  const indianTime = new Date(date.getTime() + 5.5 * 60 * 60 * 1000); // Add 5.5 hours for IST
 
-// Update the serve function to handle cancellations
+  let hours = indianTime.getUTCHours();
+  const minutes = indianTime.getUTCMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+
+  // Convert to 12-hour format
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+
+  // Add leading zero to minutes if needed
+  const minutesStr = minutes < 10 ? "0" + minutes : minutes;
+
+  return `${hours}:${minutesStr} ${ampm}`;
+}
+
+// Main serve function
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -136,21 +159,57 @@ serve(async (req) => {
       "Request body parsed:",
       JSON.stringify(requestBody).substring(0, 100) + "...",
     );
+    
+    // New structure for multi-event support
     const {
       learnerEmail,
       instructorEmail,
-      instructorICS,
-      learnerICS,
-      lessonNumber,
-      startTime,
-      endTime,
-      pickupLocation,
+      learnerICSArray = [],
+      instructorICSArray = [],
+      isMultiEvent = false,
+      events = [], // Array of events with lesson details
       instructorName,
       learnerName,
-      isCancellation=false, // New flag to indicate if this is a cancellation
-      isReschedule,   // New flag to indicate if this is a reschedule
-      uid             // Calendar event UID
     } = requestBody;
+
+    // If it's not a multi-event, treat as a single event using the old fields
+    if (!isMultiEvent) {
+      const {
+        learnerICS,
+        instructorICS,
+        lessonNumber,
+        startTime,
+        endTime,
+        pickupLocation,
+        isCancellation = false,
+        isReschedule = false,
+        uid,
+      } = requestBody;
+      
+      // Initialize events array with single event
+      events.push({
+        lessonNumber,
+        startTime,
+        endTime,
+        pickupLocation,
+        isCancellation,
+        isReschedule,
+        uid,
+      });
+
+      // For single event, we use the single ICS files
+      learnerICSArray.push({ 
+        content: learnerICS, 
+        filename: `lesson_${lessonNumber}.ics`,
+        lessonNumber 
+      });
+      
+      instructorICSArray.push({ 
+        content: instructorICS, 
+        filename: `lesson_${lessonNumber}.ics`,
+        lessonNumber 
+      });
+    }
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -175,37 +234,6 @@ serve(async (req) => {
       });
     }
 
-    // Custom function to format time in Indian style
-    const formatIndianTime = (dateString: string) => {
-      // Create date object and adjust to Indian time (UTC+5:30)
-      const date = new Date(dateString);
-      const indianTime = new Date(date.getTime() + 5.5 * 60 * 60 * 1000); // Add 5.5 hours for IST
-
-      let hours = indianTime.getUTCHours();
-      const minutes = indianTime.getUTCMinutes();
-      const ampm = hours >= 12 ? "PM" : "AM";
-
-      // Convert to 12-hour format
-      hours = hours % 12;
-      hours = hours ? hours : 12; // the hour '0' should be '12'
-
-      // Add leading zero to minutes if needed
-      const minutesStr = minutes < 10 ? "0" + minutes : minutes;
-
-      return `${hours}:${minutesStr} ${ampm}`;
-    };
-
-    // Format date for email
-    const lessonDate = new Date(startTime);
-    const formattedDate = format(lessonDate, "dd/MM/yyyy"); // Indian date format (day/month/year)
-
-    // Format times using Indian conventions
-    const formattedStartTime = formatIndianTime(startTime);
-
-    // Calculate end time as exactly 1 hour after start time
-    const endDate = new Date(new Date(startTime).getTime() + 60 * 60 * 1000);
-    const formattedEndTime = formatIndianTime(endDate.toISOString());
-
     // Track email sending status
     const emailResults = {
       learner: false,
@@ -222,7 +250,7 @@ serve(async (req) => {
           tls: true,
           auth: {
             username: "f20220757@goa.bits-pilani.ac.in",
-            password: Deno.env.get("SMTP_PASSWORD") || "default_password",
+            password: Deno.env.get("SMTP_PASSWORD") || "giqauhuaxbgxroog",
           },
         },
       };
@@ -230,97 +258,237 @@ serve(async (req) => {
       const smtpFrom =
         Deno.env.get("SMTP_FROM") || "f20220757@goa.bits-pilani.ac.in";
 
-      // Prepare email content based on whether it's a cancellation, reschedule, or new schedule
-      let learnerEmailContent, instructorEmailContent, emailSubject;
+      // Generate email content for multi-event scenario
+      let emailSubject, learnerEmailContent, instructorEmailContent;
       
-      if (isCancellation) {
-        // Cancellation email content
-        emailSubject = `Driving Lesson ${lessonNumber} Cancelled`;
+      if (isMultiEvent) {
+        // For multi-event emails, create a summary of all events
+        const hasCancellations = events.some(e => e.isCancellation);
+        const hasReschedules = events.some(e => e.isReschedule && !e.isCancellation);
+        const hasNewSchedules = events.some(e => !e.isReschedule && !e.isCancellation);
+        
+        // Determine the most appropriate subject line
+        if (hasCancellations && (hasReschedules || hasNewSchedules)) {
+          emailSubject = "Your Driving Lessons Schedule Updates";
+        } else if (hasCancellations) {
+          emailSubject = "Driving Lessons Cancelled";
+        } else if (hasReschedules) {
+          emailSubject = "Driving Lessons Rescheduled";
+        } else {
+          emailSubject = "Your Driving Lessons Schedule";
+        }
+        
+        // Generate tables for different types of events
+        const cancellationsTable = events
+          .filter(e => e.isCancellation)
+          .map(e => {
+            const date = format(new Date(e.startTime), "dd/MM/yyyy");
+            return `
+              <tr>
+                <td>${e.lessonNumber}</td>
+                <td>${date}</td>
+                <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
+                <td>${e.pickupLocation}</td>
+              </tr>
+            `;
+          })
+          .join("");
+          
+        const scheduledTable = events
+          .filter(e => !e.isCancellation)
+          .map(e => {
+            const date = format(new Date(e.startTime), "dd/MM/yyyy");
+            return `
+              <tr>
+                <td>${e.lessonNumber}</td>
+                <td>${date}</td>
+                <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
+                <td>${e.pickupLocation}</td>
+                <td>${e.isReschedule ? "Rescheduled" : "New"}</td>
+              </tr>
+            `;
+          })
+          .join("");
+        
+        // Create learner email content
         learnerEmailContent = `
           <html>
             <body>
-              <h2>Your Driving Lesson has been Cancelled</h2>
+              <h2>Your Driving Lessons Schedule</h2>
               <p>Hello ${learnerName},</p>
-              <p>Your driving lesson number ${lessonNumber} that was scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime} has been cancelled.</p>
-                            <p>Please find attached a calendar update that will remove this appointment from your calendar.</p>
-              <p>A new schedule will be sent to you shortly.</p>
+              
+              ${hasCancellations ? `
+                <h3>Cancelled Lessons:</h3>
+                <table border="1" cellpadding="5" style="border-collapse: collapse;">
+                  <tr>
+                    <th>Lesson</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Pickup Location</th>
+                  </tr>
+                  ${cancellationsTable}
+                </table>
+                <br>
+              ` : ''}
+              
+              ${scheduledTable ? `
+                <h3>${hasCancellations ? 'Updated' : ''} Lesson Schedule:</h3>
+                <table border="1" cellpadding="5" style="border-collapse: collapse;">
+                  <tr>
+                    <th>Lesson</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Pickup Location</th>
+                    <th>Status</th>
+                  </tr>
+                  ${scheduledTable}
+                </table>
+              ` : ''}
+              
+              <p>Your instructor for these lessons is ${instructorName}.</p>
+              <p>Please find the calendar invitations attached to this email. Each lesson has its own calendar invitation that will automatically add to your calendar when accepted.</p>
               <p>Thank you for choosing InLane!</p>
             </body>
           </html>
         `;
-
+        
+        // Create instructor email content
         instructorEmailContent = `
           <html>
             <body>
-              <h2>Driving Lesson Cancelled</h2>
+              <h2>Driving Lessons Schedule</h2>
               <p>Hello ${instructorName},</p>
-              <p>The driving lesson number ${lessonNumber} that was scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime} with ${learnerName} has been cancelled.</p>
-              <p>Please find attached a calendar update that will remove this appointment from your calendar.</p>
-              <p>A new schedule will be sent to you shortly.</p>
-              <p>Thank you for being part of InLane!</p>
-            </body>
-          </html>
-        `;
-      } else if (isReschedule) {
-        // Reschedule email content
-        emailSubject = `Driving Lesson ${lessonNumber} Rescheduled`;
-        learnerEmailContent = `
-          <html>
-            <body>
-              <h2>Your Driving Lesson has been Rescheduled</h2>
-              <p>Hello ${learnerName},</p>
-              <p>Your driving lesson number ${lessonNumber} has been rescheduled to ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-              <p><strong>Instructor:</strong> ${instructorName}</p>
-              <p><strong>Pickup Location:</strong> ${pickupLocation}</p>
-              <p>Please find attached a calendar invitation that you can add to your calendar.</p>
-              <p>Thank you for choosing InLane!</p>
-            </body>
-          </html>
-        `;
-
-        instructorEmailContent = `
-          <html>
-            <body>
-              <h2>Driving Lesson Rescheduled</h2>
-              <p>Hello ${instructorName},</p>
-              <p>The driving lesson number ${lessonNumber} with ${learnerName} has been rescheduled to ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-              <p><strong>Student:</strong> ${learnerName}</p>
-              <p><strong>Pickup Location:</strong> ${pickupLocation}</p>
-              <p>Please find attached a calendar invitation that you can add to your calendar.</p>
+              
+              ${hasCancellations ? `
+                <h3>Cancelled Lessons:</h3>
+                <table border="1" cellpadding="5" style="border-collapse: collapse;">
+                  <tr>
+                    <th>Lesson</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Pickup Location</th>
+                  </tr>
+                  ${cancellationsTable}
+                </table>
+                <br>
+              ` : ''}
+              
+              ${scheduledTable ? `
+                <h3>${hasCancellations ? 'Updated' : ''} Lesson Schedule:</h3>
+                <table border="1" cellpadding="5" style="border-collapse: collapse;">
+                  <tr>
+                    <th>Lesson</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Pickup Location</th>
+                    <th>Status</th>
+                  </tr>
+                  ${scheduledTable}
+                </table>
+              ` : ''}
+              
+              <p>Your student for these lessons is ${learnerName}.</p>
+              <p>Please find the calendar invitations attached to this email. Each lesson has its own calendar invitation that will automatically add to your calendar when accepted.</p>
               <p>Thank you for being part of InLane!</p>
             </body>
           </html>
         `;
       } else {
-        // Regular new schedule email content
-        emailSubject = `Driving Lesson ${lessonNumber} Scheduled`;
-        learnerEmailContent = `
-          <html>
-            <body>
-              <h2>Your Driving Lesson is Scheduled</h2>
-              <p>Hello ${learnerName},</p>
-              <p>Your driving lesson number ${lessonNumber} has been scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-              <p><strong>Instructor:</strong> ${instructorName}</p>
-              <p><strong>Pickup Location:</strong> ${pickupLocation}</p>
-              <p>Please find attached a calendar invitation that you can add to your calendar.</p>
-              <p>Thank you for choosing InLane!</p>
-            </body>
-          </html>
-        `;
+        // Use the existing single-event logic if not a multi-event
+        const event = events[0];
+        const formattedDate = format(new Date(event.startTime), "dd/MM/yyyy");
+        const formattedStartTime = formatIndianTime(event.startTime);
+        const formattedEndTime = formatIndianTime(event.endTime);
+        
+        if (event.isCancellation) {
+          // Cancellation email content
+          emailSubject = `Driving Lesson ${event.lessonNumber} Cancelled`;
+          learnerEmailContent = `
+            <html>
+              <body>
+                <h2>Your Driving Lesson has been Cancelled</h2>
+                <p>Hello ${learnerName},</p>
+                <p>Your driving lesson number ${event.lessonNumber} that was scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime} has been cancelled.</p>
+                <p>Please find attached a calendar update that will remove this appointment from your calendar.</p>
+                <p>A new schedule will be sent to you shortly.</p>
+                <p>Thank you for choosing InLane!</p>
+              </body>
+            </html>
+          `;
 
-        instructorEmailContent = `
-          <html>
-            <body>
-              <h2>New Driving Lesson Scheduled</h2>
-              <p>Hello ${instructorName},</p>
-              <p>You have a driving lesson number ${lessonNumber} scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-              <p><strong>Student:</strong> ${learnerName}</p>
-              <p><strong>Pickup Location:</strong> ${pickupLocation}</p>
-              <p>Please find attached a calendar invitation that you can add to your calendar.</p>
-              <p>Thank you for being part of InLane!</p>
-            </body>
-          </html>
-        `;
+          instructorEmailContent = `
+            <html>
+              <body>
+                <h2>Driving Lesson Cancelled</h2>
+                <p>Hello ${instructorName},</p>
+                <p>The driving lesson number ${event.lessonNumber} that was scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime} with ${learnerName} has been cancelled.</p>
+                <p>Please find attached a calendar update that will remove this appointment from your calendar.</p>
+                <p>A new schedule will be sent to you shortly.</p>
+                <p>Thank you for being part of InLane!</p>
+              </body>
+            </html>
+          `;
+        } else if (event.isReschedule) {
+          // Reschedule email content
+          emailSubject = `Driving Lesson ${event.lessonNumber} Rescheduled`;
+          learnerEmailContent = `
+            <html>
+              <body>
+                <h2>Your Driving Lesson has been Rescheduled</h2>
+                <p>Hello ${learnerName},</p>
+                <p>Your driving lesson number ${event.lessonNumber} has been rescheduled to ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
+                <p><strong>Instructor:</strong> ${instructorName}</p>
+                <p><strong>Pickup Location:</strong> ${event.pickupLocation}</p>
+                <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
+                <p>Thank you for choosing InLane!</p>
+              </body>
+            </html>
+          `;
+
+          instructorEmailContent = `
+            <html>
+              <body>
+                <h2>Driving Lesson Rescheduled</h2>
+                <p>Hello ${instructorName},</p>
+                <p>The driving lesson number ${event.lessonNumber} with ${learnerName} has been rescheduled to ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
+                <p><strong>Student:</strong> ${learnerName}</p>
+                <p><strong>Pickup Location:</strong> ${event.pickupLocation}</p>
+                <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
+                <p>Thank you for being part of InLane!</p>
+              </body>
+            </html>
+          `;
+        } else {
+          // Regular new schedule email content
+          emailSubject = `Driving Lesson ${event.lessonNumber} Scheduled`;
+          learnerEmailContent = `
+            <html>
+              <body>
+                <h2>Your Driving Lesson is Scheduled</h2>
+                <p>Hello ${learnerName},</p>
+                <p>Your driving lesson number ${event.lessonNumber} has been scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
+                <p><strong>Instructor:</strong> ${instructorName}</p>
+                <p><strong>Pickup Location:</strong> ${event.pickupLocation}</p>
+                <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
+                <p>Thank you for choosing InLane!</p>
+              </body>
+            </html>
+          `;
+
+          instructorEmailContent = `
+            <html>
+              <body>
+                <h2>New Driving Lesson Scheduled</h2>
+                <p>Hello ${instructorName},</p>
+                <p>You have a driving lesson number ${event.lessonNumber} scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
+                <p><strong>Student:</strong> ${learnerName}</p>
+                <p><strong>Pickup Location:</strong> ${event.pickupLocation}</p>
+                <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
+                <p>Thank you for being part of InLane!</p>
+              </body>
+            </html>
+          `;
+        }
       }
 
       const encoder = new TextEncoder();
@@ -332,30 +500,45 @@ serve(async (req) => {
       // Send learner email
       const learnerClient = new SMTPClient(smtpConfig);
       try {
-        const rawLearnerData = encoder.encode(learnerICS);
-        const base64LearnerContent = toBase64(rawLearnerData);
-
-        const learnerEmailOptions = {
-          from: smtpFrom,
-          to: learnerEmail,
-          subject: emailSubject,
-          html: String(learnerEmailContent),
-          attachments: [
-            {
-              filename: isCancellation ? "cancel.ics" : "invite.ics",
-              content: base64LearnerContent,
-              contentType: "text/calendar",
-              encoding: "base64",
-            },
-          ],
+        const batchSize = 5;
+        const learnerICSBatches = [];
+        for (let i = 0; i < learnerICSArray.length; i += batchSize) {
+          learnerICSBatches.push(learnerICSArray.slice(i, i + batchSize));
+        }
+        for (let i = 0; i < learnerICSBatches.length; i++) {
+          const batchNumber = learnerICSBatches.length > 1 ? ` (${i+1}/${learnerICSBatches.length})` : '';
+          
+          const learnerEmailOptions = {
+            from: smtpFrom,
+            to: learnerEmail,
+            subject: emailSubject + batchNumber,
+            html: String(i === 0 ? learnerEmailContent : 
+              `<p>This is a continuation email with additional calendar attachments. Please see the first email for complete details.</p>`),
+            attachments: learnerICSBatches[i].map(ics => {
+              // Same attachment code as before
+              const rawData = encoder.encode(ics.content);
+              const base64Content = toBase64(rawData);
+              return {
+                filename: ics.filename || `lesson_${ics.lessonNumber}.ics`,
+                content: base64Content,
+                contentType: "text/calendar; method=REQUEST; charset=UTF-8",
+                contentDisposition: "attachment",
+                encoding: "base64",
+              };
+            }),
+          headers: {
+            "Content-Class": "urn:content-classes:calendarmessage",
+            "X-Mailer": "InLane Scheduling System",
+          }
         };
 
         emailResults.learner = await sendEmailWithRetry(
           learnerClient,
           learnerEmailOptions,
         );
-        console.log(`Sent ${isCancellation ? "cancellation" : "schedule"} email to learner successfully`);
-      } catch (learnerError) {
+        console.log(`Sent ${isMultiEvent ? "multi-event" : "single-event"} schedule email to learner successfully`);
+      } 
+    }catch (learnerError) {
         emailResults.errors.push(
           `Learner email error: ${learnerError.message}`,
         );
@@ -369,11 +552,8 @@ serve(async (req) => {
             details: {
               email: learnerEmail,
               type: "learner",
-              lessonNumber,
-              startTime,
-              endTime,
-              isCancellation,
-              isReschedule,
+              isMultiEvent,
+              events,
             },
           },
         ]);
@@ -384,33 +564,48 @@ serve(async (req) => {
           console.warn("Error closing learner SMTP connection:", closeError);
         }
       }
+    
 
       // Send instructor email
       const instructorClient = new SMTPClient(smtpConfig);
       try {
-        const rawInstructorData = encoder.encode(instructorICS);
-        const base64InstructorContent = toBase64(rawInstructorData);
+        const batchSize = 5;
+        const instructorICSBatches = [];
+        for (let i = 0; i < instructorICSArray.length; i += batchSize) {
+          instructorICSBatches.push(instructorICSArray.slice(i, i + batchSize));
+        }
+        for (let i = 0; i < instructorICSBatches.length; i++) {
+          const batchNumber = instructorICSBatches.length > 1 ? ` (${i+1}/${instructorICSBatches.length})` : '';
 
-        const instructorEmailOptions = {
-          from: smtpFrom,
-          to: instructorEmail,
-          subject: emailSubject,
-          html: String(instructorEmailContent),
-          attachments: [
-            {
-              filename: isCancellation ? "cancel.ics" : "invite.ics",
-              content: base64InstructorContent,
-              contentType: "text/calendar",
-              encoding: "base64",
-            },
-          ],
-        };
+          const instructorEmailOptions = {
+            from: smtpFrom,
+            to: instructorEmail,
+            subject: emailSubject + batchNumber,
+            html: String(i === 0 ? instructorEmailContent : 
+              `<p>This is a continuation email with additional calendar attachments. Please see the first email for complete details.</p>`),
+            attachments: instructorICSBatches[i].map(ics => {
+              const rawData = encoder.encode(ics.content);
+              const base64Content = toBase64(rawData);
+              return {
+                filename: ics.filename || `lesson_${ics.lessonNumber}.ics`,
+                content: base64Content,
+                contentType: "text/calendar; method=REQUEST; charset=UTF-8",
+                contentDisposition: "attachment",
+                encoding: "base64",
+              };
+            }),
+            headers: {
+              "Content-Class": "urn:content-classes:calendarmessage",
+              "X-Mailer": "InLane Scheduling System",
+            }
+          };
 
-        emailResults.instructor = await sendEmailWithRetry(
-          instructorClient,
-          instructorEmailOptions,
-        );
-        console.log(`Sent ${isCancellation ? "cancellation" : "schedule"} email to instructor successfully`);
+          emailResults.instructor = await sendEmailWithRetry(
+            instructorClient,
+            instructorEmailOptions,
+          );
+          console.log(`Sent ${isMultiEvent ? "multi-event" : "single-event"} schedule email to instructor successfully`);
+        }
       } catch (instructorError) {
         emailResults.errors.push(
           `Instructor email error: ${instructorError.message}`,
@@ -425,11 +620,8 @@ serve(async (req) => {
             details: {
               email: instructorEmail,
               type: "instructor",
-              lessonNumber,
-              startTime,
-              endTime,
-              isCancellation,
-              isReschedule,
+              isMultiEvent,
+              events,
             },
           },
         ]);
@@ -449,18 +641,13 @@ serve(async (req) => {
             instructor_email: instructorEmail,
             learner_sent: emailResults.learner,
             instructor_sent: emailResults.instructor,
-            lesson_number: lessonNumber,
-            start_time: startTime,
-            end_time: endTime,
-            pickup_location: pickupLocation,
+            is_multi_event: isMultiEvent,
+            events_data: events,
+            errors: emailResults.errors,
+            learner_ics_array: learnerICSArray,
+            instructor_ics_array: instructorICSArray,
             instructor_name: instructorName,
             learner_name: learnerName,
-            errors: emailResults.errors,
-            learner_ics: learnerICS,
-            instructor_ics: instructorICS,
-            is_cancellation: isCancellation,
-            is_reschedule: isReschedule,
-            calendar_uid: uid,
           },
         ]);
         
@@ -469,25 +656,34 @@ serve(async (req) => {
           await notifyAdminOfFailedEmails(supabaseClient, {
             learnerEmail,
             instructorEmail,
-            lessonNumber,
-            startTime,
-            endTime,
+            events,
             errors: emailResults.errors
           });
         }
       }
 
-      // If this was a successful schedule (not cancellation), store the UID
-      if (!isCancellation && uid && emailResults.learner && emailResults.instructor) {
-        console.log(`Calendar event UID ${uid} successfully sent to both parties`);
+      // Return the UID map (or single UID) along with success status
+      const response = {
+        success: emailResults.learner || emailResults.instructor,
+        details: emailResults,
+      };
+
+      if (isMultiEvent) {
+        // For multi-event, return the map of lesson numbers to UIDs
+        const uidMap = {};
+        events.forEach(event => {
+          if (!event.isCancellation && event.uid) {
+            uidMap[event.lessonNumber] = event.uid;
+          }
+        });
+        response['uidMap'] = uidMap;
+      } else if (events.length === 1 && events[0].uid) {
+        // For single event, return the single UID
+        response['uid'] = events[0].uid;
       }
 
       return new Response(
-        JSON.stringify({
-          success: emailResults.learner || emailResults.instructor,
-          details: emailResults,
-          uid: uid,
-        }),
+        JSON.stringify(response),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -504,11 +700,8 @@ serve(async (req) => {
           details: {
             learnerEmail,
             instructorEmail,
-            lessonNumber,
-            startTime,
-            endTime,
-            isCancellation,
-            isReschedule,
+            isMultiEvent,
+            events,
           },
         },
       ]);
@@ -517,9 +710,7 @@ serve(async (req) => {
       await notifyAdminOfFailedEmails(supabaseClient, {
         learnerEmail,
         instructorEmail,
-        lessonNumber,
-        startTime,
-        endTime,
+        events,
         errors: [`SMTP configuration error: ${smtpError.message}`]
       });
 
