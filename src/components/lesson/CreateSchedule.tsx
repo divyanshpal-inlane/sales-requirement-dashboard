@@ -1756,6 +1756,32 @@ function CreateSchedule({
     const isNinePlusOneCourse =
       learner?.has_a_DL === false && courseLessons.length === 10;
 
+    // Create a map of current lesson assignments
+    console.log("Creating map of current lesson assignments...");
+
+    // Get all existing schedules including ones being rescheduled
+    const allExistingSchedules = [
+      ...existingCourseSchedules,
+      ...(schedulesToChange || []),
+    ];
+
+    // Create a map to store lesson ID -> {lessonNumber, schedule}
+    const currentLessonMap = new Map();
+
+    // Populate the map with all lesson information
+    allExistingSchedules.forEach((schedule) => {
+      if (!schedule.lesson_id) return;
+
+      const lesson = courseLessons.find((l) => l.id === schedule.lesson_id);
+      if (lesson && lesson.number !== undefined) {
+        currentLessonMap.set(schedule.lesson_id, {
+          lessonId: schedule.lesson_id,
+          currentNumber: lesson.number,
+          schedule: schedule,
+        });
+      }
+    });
+
     // FIXED LOGIC: Assign lesson numbers sequentially based on chronological order
     // Create new schedule array with correctly assigned lesson numbers
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
@@ -1801,14 +1827,72 @@ function CreateSchedule({
       },
     );
 
-    // Get the schedules that are being rescheduled to send cancellation emails
+    // Create a map of the NEW lesson numbers
+    const newLessonNumberMap = new Map();
+
+    schedulesWithIds.forEach((schedule) => {
+      if (schedule.lessonId) {
+        newLessonNumberMap.set(schedule.lessonId, {
+          lessonNumber: schedule.lessonNumber,
+          date: schedule.date,
+          hour: schedule.hour,
+          minutes: schedule.minutes,
+        });
+      }
+    });
+
+    // Identify lessons whose numbers or timings have changed
+    const lessonIdsWithChanges = [];
+
+    // Check each lesson in the current map against its new assignment
+    currentLessonMap.forEach((data, lessonId) => {
+      const newAssignment = newLessonNumberMap.get(lessonId);
+
+      // Only include lessons that are still in the upcoming schedule
+      if (newAssignment) {
+        // Check if the number changed or the timing changed
+        const oldDate = new Date(data.schedule.date);
+        const oldHour = parseInt(data.schedule.start_time.split(":")[0]);
+        const oldMinutes = parseInt(
+          data.schedule.start_time.split(":")[1] || "0",
+        );
+
+        const newDate = newAssignment.date;
+        const newHour = newAssignment.hour;
+        const newMinutes = newAssignment.minutes;
+
+        const numberChanged = data.currentNumber !== newAssignment.lessonNumber;
+        const timingChanged =
+          oldDate.toDateString() !== newDate.toDateString() ||
+          oldHour !== newHour ||
+          oldMinutes !== newMinutes;
+
+        if (numberChanged || timingChanged) {
+          console.log(
+            `Lesson ${lessonId} has changes: number change=${numberChanged}, timing change=${timingChanged}`,
+          );
+          lessonIdsWithChanges.push(lessonId);
+        }
+      }
+    });
+
+    // Get schedules that were explicitly requested to be rescheduled
     const schedulesToCancel = schedulesToChange || [];
 
     // Filter out only the schedules that need to be created/updated
-    const schedulesToUpdate = schedulesWithIds.filter((schedule, index) => {
-      const originalSlot = chronologicallySortedUpcomingSlots[index];
-      // Include if it's a new slot or if the lesson number has changed
-      return originalSlot.isNew || schedule.lessonId !== originalSlot.lessonId;
+    const schedulesToUpdate = schedulesWithIds.filter((schedule) => {
+      // Include if it's a new slot
+      if (schedule.isNew) return true;
+
+      // Include if the lesson has changes (number or timing)
+      if (schedule.lessonId && lessonIdsWithChanges.includes(schedule.lessonId))
+        return true;
+
+      // Include if it's one of the lessons being explicitly rescheduled
+      if (schedule.lessonId && request.lesson_ids.includes(schedule.lessonId))
+        return true;
+
+      return false;
     });
 
     // Create final schedules array
@@ -1835,6 +1919,7 @@ function CreateSchedule({
           calendar_uid: "", // Will be populated for new schedules only
         };
       });
+
     setIsSendingInvites(true);
     try {
       // Fetch learner details
@@ -1854,55 +1939,47 @@ function CreateSchedule({
 
       // Map to store calendar UIDs from cancelled lessons to reuse
       const lessonIdToCalendarUid = new Map();
+      const lessonIdToSequence = new Map();
 
       // First, collect all the calendar UIDs from lessons being rescheduled
       for (const scheduleToCancel of schedulesToCancel) {
-        if (
-          rescheduledLessonIds.has(scheduleToCancel.lesson_id) &&
-          scheduleToCancel.calendar_uid
-        ) {
+        if (scheduleToCancel.lesson_id && scheduleToCancel.calendar_uid) {
           lessonIdToCalendarUid.set(
             scheduleToCancel.lesson_id,
             scheduleToCancel.calendar_uid,
           );
-        }
-      }
-
-      // ----- MAJOR CHANGE: Create a single calendar event with multiple VEVENTs -----
-      const lessonSequenceNumbers = new Map();
-      for (const scheduleToCancel of schedulesToCancel) {
-        if (scheduleToCancel.lesson_id && scheduleToCancel.calendar_uid) {
-          // Use the calendar_sequence from the database if available, or default to 0
-          const currentSequence = scheduleToCancel.calendar_sequence || 0;
-          lessonSequenceNumbers.set(
+          lessonIdToSequence.set(
             scheduleToCancel.lesson_id,
-            currentSequence + 1,
+            scheduleToCancel.calendar_sequence || 0,
           );
         }
       }
 
-      // Get instructor details for the first schedule (assuming same instructor for all)
-      let instructorData = null;
-      if (finalSchedules.length > 0) {
-        const { data: instrData } = await supabase
-          .from("Instructor")
-          .select("email, name")
-          .eq("id_instructor", finalSchedules[0].instructorId)
-          .single();
+      // Fetch all instructor details we'll need
+      const instructorIds = new Set(finalSchedules.map((s) => s.instructorId));
+      const { data: instructorsData, error: instructorsError } = await supabase
+        .from("Instructor")
+        .select("id_instructor, name, email, phone")
+        .in("id_instructor", Array.from(instructorIds));
 
-        instructorData = instrData;
-      }
-
-      if (!instructorData?.email) {
-        console.error("Missing email for instructor");
+      if (instructorsError) {
+        console.error("Error fetching instructors:", instructorsError);
         return;
       }
 
-      // Prepare cancellation events for rescheduled lessons
+      // Create a map of instructor details for easy lookup
+      const instructorsMap = new Map();
+      instructorsData?.forEach((instructor) => {
+        instructorsMap.set(instructor.id_instructor, instructor);
+      });
+
+      // Prepare cancellation events for all affected lessons
       const cancellationEvents = [];
+
+      // 1. Process explicitly requested reschedules
       for (const scheduleToCancel of schedulesToCancel) {
-        // Only process if this is one of the lessons being rescheduled
-        if (!rescheduledLessonIds.has(scheduleToCancel.lesson_id)) {
+        // Skip if no calendar UID (can't cancel what wasn't in the calendar)
+        if (!scheduleToCancel.calendar_uid || !scheduleToCancel.lesson_id) {
           continue;
         }
 
@@ -1925,6 +2002,13 @@ function CreateSchedule({
           .select("number, id")
           .eq("id", scheduleToCancel.lesson_id)
           .single();
+        // Get instructor details for this cancelled lesson
+        const instructorId = scheduleToCancel.instructor_id;
+        const instructorDetails = instructorsMap.get(instructorId) || {
+          name: "Unknown Instructor",
+          phone: "Contact InLane for details",
+          email: "",
+        };
 
         // Determine pickup location
         const pickupLocation =
@@ -1939,16 +2023,79 @@ function CreateSchedule({
           lessonNumber: lessonData?.number || scheduleToCancel.lesson_number,
           pickupLocation: pickupLocation,
           uid: scheduleToCancel.calendar_uid,
-          sequence: 1, // Increment sequence for cancellation
+          sequence: (scheduleToCancel.calendar_sequence || 0) + 1,
           isCancellation: true,
+          instructorId: instructorId,
+          instructorName: instructorDetails.name,
+          instructorPhone: instructorDetails.phone,
+          instructorEmail: instructorDetails.email,
         });
       }
+      // 2. Process lessons with changed numbers or timings
+      for (const lessonId of lessonIdsWithChanges) {
+        // Skip if this lesson is already in the cancellation list (from explicit reschedules)
+        if (rescheduledLessonIds.has(lessonId)) {
+          continue;
+        }
+
+        // Get the current schedule for this lesson
+        const lessonData = currentLessonMap.get(lessonId);
+        if (!lessonData || !lessonData.schedule.calendar_uid) continue;
+
+        const schedule = lessonData.schedule;
+
+        // Create start and end date objects
+        const startDate = new Date(schedule.date);
+        const [startHour, startMinute] = schedule.start_time
+          .split(":")
+          .map(Number);
+        startDate.setHours(startHour, startMinute, 0);
+
+        const endDate = new Date(schedule.date);
+        const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
+        endDate.setHours(endHour, endMinute, 0);
+
+        // Get instructor details for this lesson
+      const instructorId = schedule.instructor_id;
+      const instructorDetails = instructorsMap.get(instructorId) || {
+        name: "Unknown Instructor",
+        phone: "Contact InLane for details",
+        email: ""
+      };
+
+        // Determine pickup location
+        const pickupLocation =
+          learnerData.pick_up_location ||
+          (learnerData.address_lat && learnerData.address_lng
+            ? `${learnerData.address_lat},${learnerData.address_lng}`
+            : "To be confirmed");
+
+        console.log(
+          `Adding cancellation for lesson with changes: ${lessonId}, lesson number ${lessonData.currentNumber}`,
+        );
+
+        cancellationEvents.push({
+          startTime: startDate,
+          endTime: endDate,
+          lessonNumber: lessonData.currentNumber,
+          pickupLocation: pickupLocation,
+          uid: schedule.calendar_uid,
+          sequence: (schedule.calendar_sequence || 0) + 1,
+          isCancellation: true,
+          instructorId: instructorId,
+          instructorName: instructorDetails.name,
+          instructorPhone: instructorDetails.phone,
+          instructorEmail: instructorDetails.email,
+        });
+      }
+
+      console.log(`Total cancellation events: ${cancellationEvents.length}`);
 
       // Prepare new/updated events
       const newEvents = finalSchedules.map((schedule) => {
         // Get matching lesson being rescheduled (if any)
         const matchingLesson = courseLessons.find(
-          (l) => l.number === schedule.lessonNumber,
+          (l) => l.id === schedule.lessonId,
         );
         const matchingLessonId = matchingLesson?.id;
 
@@ -1963,6 +2110,12 @@ function CreateSchedule({
         const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
         endDate.setHours(endHour, endMinute, 0);
 
+        // Get instructor details for this lesson
+      const instructorDetails = instructorsMap.get(schedule.instructorId) || {
+        name: "Unknown Instructor",
+        phone: "Contact InLane for details",
+        email: ""
+      };
         // Determine pickup location
         const pickupLocation =
           learnerData.pick_up_location ||
@@ -1972,16 +2125,16 @@ function CreateSchedule({
 
         // Determine if this is a rescheduled event
         const isRescheduled =
-          matchingLessonId && rescheduledLessonIds.has(matchingLessonId);
+          matchingLessonId &&
+          (rescheduledLessonIds.has(matchingLessonId) ||
+            lessonIdsWithChanges.includes(matchingLessonId));
 
         // For rescheduled events, reuse the UID and increment sequence
         const existingUid = isRescheduled
           ? lessonIdToCalendarUid.get(matchingLessonId)
           : null;
         const sequenceNumber = isRescheduled
-          ? existingUid
-            ? (lessonSequenceNumbers.get(matchingLessonId) || 0) + 1
-            : 0
+          ? (lessonIdToSequence.get(matchingLessonId) || 0) + 1
           : 0;
 
         return {
@@ -1992,6 +2145,10 @@ function CreateSchedule({
           uid: existingUid || undefined, // Use existing UID if available
           sequence: sequenceNumber,
           isCancellation: false,
+          instructorId: schedule.instructorId,
+          instructorName: instructorDetails.name,
+          instructorPhone: instructorDetails.phone,
+          instructorEmail: instructorDetails.email,
         };
       });
 
@@ -2000,11 +2157,22 @@ function CreateSchedule({
 
       // Send everything in one go
       if (allEvents.length > 0) {
+        console.log(
+          `Sending ${allEvents.length} calendar events (${cancellationEvents.length} cancellations, ${newEvents.length} new/updated)`,
+        );
+        const primaryInstructorEmail = instructorsData && instructorsData.length > 0 
+        ? instructorsData[0].email 
+        : "";
+        if (!primaryInstructorEmail) {
+          console.error("Missing email for primary instructor");
+          return;
+        }
+
         const uidMap = await sendMultiEventCalendarInvite(
           learnerData.email,
-          instructorData.email,
+          primaryInstructorEmail,
           allEvents,
-          instructorData.name || "Your Instructor",
+          "Your Instructor",
           learnerData.name || "Student",
         );
 

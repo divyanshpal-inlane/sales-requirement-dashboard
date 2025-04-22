@@ -59,6 +59,7 @@ export type Schedule = {
   end_time: string;
   otp: string;
   calendar_uid?: string;
+  calendar_sequence?: number;
 };
 
 type RequestType = "new" | "reschedule" | "lesson10";
@@ -143,6 +144,7 @@ export default function AdminSchedules() {
               enabled: true,
               otp: schedule.otp,
               calendar_uid: schedule.calendar_uid || "", // Include the calendar_uid
+              calendar_sequence: schedule.calendar_sequence || 0, // Include the calendar_sequence
             };
           }),
         )
