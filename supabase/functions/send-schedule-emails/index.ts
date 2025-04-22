@@ -82,7 +82,7 @@ async function notifyAdminOfFailedEmails(
     const lessonsList = details.events
       .map((e) => {
         const formattedDate = format(new Date(e.startTime), "dd/MM/yyyy");
-        return `- Lesson ${e.lessonNumber}: ${formattedDate} from ${formatIndianTime(e.startTime)} to ${formatIndianTime(new Date(e.startTime).getTime() + 60 * 60 * 1000)}`;
+        return `- Lesson ${e.lessonNumber}: ${formattedDate} from ${formatIndianTime(e.startTime)} to ${formatIndianTime(new Date(e.startTime) + 60 * 60 * 1000)}`;
       })
       .join("\n");
 
@@ -311,7 +311,7 @@ serve(async (req) => {
             return `<tr>
           <td>${e.lessonNumber}</td>
           <td>${date}</td>
-          <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(new Date(e.startTime.getTime() + 60 * 60 * 1000))}</td>
+          <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
           <td>${e.pickupLocation}</td>
           <td>${e.instructorName || instructorName}</td>
           <td>${e.instructorPhone || "Contact InLane"}</td>
@@ -324,7 +324,7 @@ serve(async (req) => {
             const date = format(new Date(e.startTime), "dd/MM/yyyy");
             return `<tr><td>${e.lessonNumber}</td>
           <td>${date}</td>
-          <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(new Date(e.startTime.getTime() + 60 * 60 * 1000))}</td>
+          <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
           <td>${e.pickupLocation}</td>
           <td>${e.instructorName || instructorName}</td>
           <td>${e.instructorPhone || "Contact InLane"}</td>
@@ -340,7 +340,7 @@ serve(async (req) => {
             return `<tr>
           <td>${e.lessonNumber}</td>
           <td>${date}</td>
-          <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(new Date(e.startTime.getTime() + 60 * 60 * 1000))}</td>
+          <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
           <td>${e.pickupLocation}</td>
           <td>${e.instructorName || instructorName}</td>
           <td>${e.instructorPhone || "Contact InLane"}</td>
@@ -552,9 +552,7 @@ serve(async (req) => {
         const event = events[0];
         const formattedDate = format(new Date(event.startTime), "dd/MM/yyyy");
         const formattedStartTime = formatIndianTime(event.startTime);
-        const formattedEndTime = formatIndianTime(
-          new Date(event.startTime.getTime() + 60 * 60 * 1000)
-        );
+        const formattedEndTime = formatIndianTime(event.endTime);
 
         // Create Google Maps link for the location
         const googleMapsLink = event.pickupLocation.includes(",")
