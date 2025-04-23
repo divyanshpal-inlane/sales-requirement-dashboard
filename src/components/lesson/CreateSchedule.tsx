@@ -1945,7 +1945,7 @@ function CreateSchedule({
       // Fetch learner details
       const { data: learnerData } = await supabase
         .from("Learner")
-        .select("email, pick_up_location, address_lat, address_lng, name,phone")
+        .select("email, pick_up_location, address_lat, address_lng, name,phone,id")
         .eq("id", learnerId)
         .single();
 
@@ -2197,6 +2197,7 @@ function CreateSchedule({
           "Your Instructor",
           learnerData.name || "Student",
           learnerData.phone,
+          learnerData.id,
         );
 
         // Update final schedules with calendar UIDs

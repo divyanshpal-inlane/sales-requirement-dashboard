@@ -179,6 +179,7 @@ serve(async (req) => {
       emailType = "", // Add this parameter to differentiate between cancellation and new emails
       batchInfo = "", // Add this parameter for batch information
       allEvents = [], // Array of all events
+      learnerId = "", // Add learner ID to fetch all schedules
     } = requestBody;
 
     // If it's not a multi-event, treat as a single event using the old fields
@@ -245,6 +246,53 @@ serve(async (req) => {
       });
     }
 
+    // Fetch all active schedules for the learner
+    let allLearnerSchedules = [];
+    try {
+      // Extract learner ID from the first event if not provided directly
+      const learnerIdToUse = learnerId || events[0]?.learnerId;
+      
+      if (learnerIdToUse) {
+        const { data: schedules, error: schedulesError } = await supabaseClient
+          .from("Schedule")
+          .select("*, Instructor:instructor_id(*), Learner:learner_id(*), Lesson:lesson_id(*)")
+          .eq("learner_id", learnerIdToUse)
+          .order("date", { ascending: true });
+          
+        if (schedulesError) {
+          console.log("Error fetching learner schedules:", schedulesError);
+          console.error("Error fetching learner schedules:", schedulesError);
+        } else if (schedules && schedules.length > 0) {
+          console.log("Fetched learner schedules:", schedules);
+          // Transform the schedules into the format needed for email content
+          allLearnerSchedules = schedules.map(schedule => ({
+            lessonNumber: schedule.Lesson.number,
+            startTime: schedule.date + "T" + schedule.start_time,
+            endTime: schedule.date + "T" + schedule.end_time,
+            pickupLocation: schedule.Learner.pick_up_location || "N/A",
+            instructorName: schedule.Instructor.name || "N/A",
+            instructorPhone: schedule.Instructor.phone || "N/A",
+            isCancellation: false,
+          }));
+        }
+      }
+      else {
+        console.error("No learner ID provided to fetch schedules.");
+      }
+      console.log("Fetched learner schedules:", allLearnerSchedules);
+    } catch (fetchError) {
+      console.error("Error fetching all learner schedules:", fetchError);
+      // Continue with the process even if fetching all schedules fails
+    }
+
+    // If we couldn't fetch from database, fall back to the provided events
+    if (allLearnerSchedules.length === 0) {
+      console.log("Using provided events as fallback for email content");
+      allLearnerSchedules = allEvents.length > 0 ? allEvents : events;
+    } else {
+      console.log(`Using ${allLearnerSchedules.length} schedules from database for email content`);
+    }
+
     // Track email sending status
     const emailResults = {
       learner: false,
@@ -276,6 +324,7 @@ serve(async (req) => {
         isLearner: boolean,
         learnerPhone: string | null,
       ) {
+        // Filter out cancellation events
         const activeEvents = lessons.filter(lesson => !lesson.isCancellation);
   
         const lessonsTable = activeEvents
@@ -327,16 +376,27 @@ serve(async (req) => {
       // Extract learner and instructor phone numbers
       const learnerPhone = requestBody.learnerPhone || "N/A";
 
-      // Update email content generation logic
+      // Update email content generation logic to use all fetched schedules
       const learnerEmailContent = generateEmailContent(
         learnerName,
-        allEvents || events,
+        allLearnerSchedules,
         true,
         learnerPhone,
       );
+      
+      // For instructor, filter to only show their lessons
+      const instructorId = requestBody.instructorId;
+      let instructorSchedules = allLearnerSchedules;
+      
+      if (instructorId) {
+        instructorSchedules = allLearnerSchedules.filter(
+          lesson => lesson.instructorId === instructorId
+        );
+      }
+      
       const instructorEmailContent = generateEmailContent(
         instructorName,
-        allEvents || events,
+        instructorSchedules.length > 0 ? instructorSchedules : allLearnerSchedules,
         false,
         learnerPhone,
       );

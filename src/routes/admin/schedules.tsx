@@ -835,6 +835,7 @@ export default function AdminSchedules() {
                 emailType: "cancellation",
                 allEvents: allScheduleEvents, // Include all events for complete table
               },
+              currentSchedule.Learner.id,
             );
 
             console.log(
@@ -866,6 +867,7 @@ export default function AdminSchedules() {
                 emailType: "new",
                 allEvents: allScheduleEvents, // Include all events for complete table
               },
+              currentSchedule.Learner.id,
             );
 
             // Update the database with the new UIDs
@@ -1129,6 +1131,7 @@ export default function AdminSchedules() {
               batchInfo: " - Instructor Change",
               allEvents: completeEventsList, // Include all events for complete table
             },
+            currentSchedule.Learner.id,
           );
 
           console.log("Sent cancellation event for instructor change");
@@ -1152,6 +1155,7 @@ export default function AdminSchedules() {
               batchInfo: " - New Instructor",
               allEvents: completeEventsList, // Include all events for complete table
             },
+            currentSchedule.Learner.id,
           );
 
           // Update the database with the new UID

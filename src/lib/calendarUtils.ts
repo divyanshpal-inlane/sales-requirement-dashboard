@@ -38,7 +38,8 @@ export async function sendMultiEventCalendarInvite(
   defaultInstructorName: string,
   learnerName: string,
   learnerPhone: string, // Add learnerPhone parameter
-  emailType?: string
+  emailType?: string,
+  learnerId?: string, // Add learnerId parameter
 ): Promise<Record<number, string>> {
   try {
     // Count cancellation and new events
@@ -92,8 +93,8 @@ export async function sendMultiEventCalendarInvite(
         
         // Enhanced description with instructor details and app link
         const description = event.isCancellation
-          ? `CANCELLED: Driving lesson ${event.lessonNumber} with InLane.\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}\nPhone: ${event.instructorPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/learner-dashboard`
-          : `Driving lesson ${event.lessonNumber} with InLane.\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}\nPhone: ${event.instructorPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/learner-dashboard`;
+          ? `CANCELLED: Driving lesson ${event.lessonNumber} with InLane.\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}\nPhone: ${event.instructorPhone || "Contact InLane for details"}\n\nLearner: ${learnerName}\nPhone: ${learnerPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/login`
+          : `Driving lesson ${event.lessonNumber} with InLane.\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}\nPhone: ${event.instructorPhone || "Contact InLane for details"}\n\nLearner: ${learnerName}\nPhone: ${learnerPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/login`;
         
         // Use existing UID or the one we generated
         const uid = event.uid || uidMap[event.lessonNumber] || uuidv4();
@@ -175,6 +176,7 @@ export async function sendMultiEventCalendarInvite(
                 emailType: "cancellation",
                 batchInfo: " (Cancellations)",
                 // Include all events for complete information
+                
                 allEvents: instructorEvents.map(e => ({
                   lessonNumber: e.lessonNumber,
                   startTime: e.startTime.toISOString(),
@@ -183,7 +185,8 @@ export async function sendMultiEventCalendarInvite(
                   isCancellation: e.isCancellation || false,
                   instructorName: e.instructorName || instructorName,
                   instructorPhone: e.instructorPhone || "Contact InLane for details"
-                }))
+                })),
+                learnerId: learnerId,
               },
             },
           );
@@ -263,7 +266,8 @@ export async function sendMultiEventCalendarInvite(
                     isCancellation: e.isCancellation || false,
                     instructorName: e.instructorName || instructorName,
                     instructorPhone: e.instructorPhone || "Contact InLane for details"
-                  }))
+                  })),
+                  learnerId: learnerId,
                 },
               },
             );
