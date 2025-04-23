@@ -60,7 +60,7 @@ export async function sendMultiEventCalendarInvite(
       if (!eventsByInstructor.has(instructorEmail)) {
         eventsByInstructor.set(instructorEmail, []);
       }
-      
+
       eventsByInstructor.get(instructorEmail)?.push(event);
       
       // Generate or store UID for this event

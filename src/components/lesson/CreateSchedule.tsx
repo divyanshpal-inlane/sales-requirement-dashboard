@@ -1208,6 +1208,7 @@ function CreateSchedule({
     setStartDate(currentRangeStart);
   }, [currentRangeStart]);
 
+
   // Ensure the selected instructor is updated when defaultInstructorId changes
   useEffect(() => {
     setSelectedInstructorId(defaultInstructorId);
@@ -1275,17 +1276,33 @@ function CreateSchedule({
     },
   });
 
+  const { data: existingLearnerSchedules } = useQuery({
+    queryKey: ["schedules", learnerId],
+    queryFn: async () => {
+      // const endDate = addDays(startDate, 9);
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select(
+          "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
+        )
+        .eq("learner_id", learnerId);
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [schedulesToChange, laterScheduleOfLearnerToChange, otherSchedules] =
     useMemo(() => {
-      if (!existingSchedules) return [[], [], []];
+      if (!existingLearnerSchedules) return [[], [], []];
 
-      const toChange = existingSchedules.filter(
+      const toChange = existingLearnerSchedules.filter(
         (s) =>
           request.lesson_ids.includes(s.lesson_id ?? "") &&
           s.learner_id === learnerId,
       );
 
-      const laterScheduleOfLearnerToChange = existingSchedules.filter(
+      const laterScheduleOfLearnerToChange = existingLearnerSchedules.filter(
         (s) =>
           s.learner_id === learnerId &&
           s.lesson_id &&
@@ -1293,6 +1310,8 @@ function CreateSchedule({
           allLessons?.find((l) => l.id === s.lesson_id)?.number >
             minLessonNumber,
       );
+
+      if (!existingSchedules) return [toChange, laterScheduleOfLearnerToChange, []];
 
       const others = existingSchedules.filter(
         (s) => s.learner_id !== learnerId,
@@ -1656,7 +1675,7 @@ function CreateSchedule({
 
     // Get all existing schedules for the course (excluding ones being rescheduled)
     const existingCourseSchedules =
-      existingSchedules?.filter(
+      existingLearnerSchedules?.filter(
         (s) =>
           s.learner_id === learnerId &&
           !request.lesson_ids.includes(s.lesson_id ?? "") &&
@@ -1693,6 +1712,7 @@ function CreateSchedule({
         instructorId: firstSlot.instructorId,
         isNew: true as const,
       };
+
     });
 
     // Get upcoming slots
@@ -1978,6 +1998,7 @@ function CreateSchedule({
 
       // 1. Process explicitly requested reschedules
       for (const scheduleToCancel of schedulesToCancel) {
+
         // Skip if no calendar UID (can't cancel what wasn't in the calendar)
         if (!scheduleToCancel.calendar_uid || !scheduleToCancel.lesson_id) {
           continue;
@@ -2002,6 +2023,7 @@ function CreateSchedule({
           .select("number, id")
           .eq("id", scheduleToCancel.lesson_id)
           .single();
+
         // Get instructor details for this cancelled lesson
         const instructorId = scheduleToCancel.instructor_id;
         const instructorDetails = instructorsMap.get(instructorId) || {
@@ -2031,6 +2053,7 @@ function CreateSchedule({
           instructorEmail: instructorDetails.email,
         });
       }
+
       // 2. Process lessons with changed numbers or timings
       for (const lessonId of lessonIdsWithChanges) {
         // Skip if this lesson is already in the cancellation list (from explicit reschedules)
@@ -2097,6 +2120,7 @@ function CreateSchedule({
         const matchingLesson = courseLessons.find(
           (l) => l.id === schedule.lessonId,
         );
+
         const matchingLessonId = matchingLesson?.id;
 
         // Create start and end date objects
@@ -2116,6 +2140,7 @@ function CreateSchedule({
         phone: "Contact InLane for details",
         email: ""
       };
+
         // Determine pickup location
         const pickupLocation =
           learnerData.pick_up_location ||

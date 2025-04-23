@@ -119,7 +119,7 @@ serve(async (req) => {
       };
       
       const smtpFrom = Deno.env.get("SMTP_FROM") || "f20220757@goa.bits-pilani.ac.in";
-      const adminEmail = Deno.env.get("ADMIN_EMAIL") || "sanskarmundhra@gmail.com";
+      const adminEmail = Deno.env.get("ADMIN_EMAIL") || "dewang@inlane.in";
 
       // Prepare email content for admin
       const adminEmailContent = `
@@ -209,7 +209,7 @@ serve(async (req) => {
           error: smtpError.message,
           stack: smtpError.stack,
           details: {
-            adminEmail: Deno.env.get("ADMIN_EMAIL") || "sanskarmundhra@gmail.com",
+            adminEmail: Deno.env.get("ADMIN_EMAIL") || "dewang@inlane.in",
             subject,
             message,
           },
