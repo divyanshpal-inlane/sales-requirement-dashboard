@@ -11,8 +11,8 @@ export const corsHeaders = {
 };
 
 // Configuration for retry mechanism
-const MAX_RETRIES = 5;
-const RETRY_DELAY_MS = 1000; // 1 second between retries
+const MAX_RETRIES = 7;
+const RETRY_DELAY_MS = 2000; // 2 second between retries
 
 // Helper function to add delay between retries
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -47,7 +47,7 @@ async function sendEmailWithRetry(
         tls: true,
         auth: {
           username: "f20220757@goa.bits-pilani.ac.in",
-          password: Deno.env.get("SMTP_PASSWORD") || "giqauhuaxbgxroog",
+          password: Deno.env.get("SMTP_PASSSWORD") || "giqauhuaxbgxroog",
         },
       },
     });
@@ -110,7 +110,7 @@ async function notifyAdminOfFailedEmails(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
         },
         body: JSON.stringify({ subject, message }),
       },
@@ -131,7 +131,6 @@ async function notifyAdminOfFailedEmails(
     return false;
   }
 }
-
 
 // Custom function to format time in Indian style
 function formatIndianTime(dateString: string) {
@@ -270,385 +269,86 @@ serve(async (req) => {
       const smtpFrom =
         Deno.env.get("SMTP_FROM") || "f20220757@goa.bits-pilani.ac.in";
 
-      // Inside the serve function, update the email content generation part:
-
-      // Generate email content for multi-event scenario
-      let emailSubject, learnerEmailContent, instructorEmailContent;
-
-      if (isMultiEvent) {
-        // For multi-event emails, create a summary of all events
-        const hasCancellations = events.some((e) => e.isCancellation);
-        const hasReschedules = events.some(
-          (e) => e.isReschedule && !e.isCancellation,
-        );
-
-        // Determine the most appropriate subject line
-        if (emailType === "cancellation") {
-          emailSubject = "Driving Lessons Cancelled" + batchInfo;
-        } else if (emailType === "new") {
-          emailSubject = hasReschedules
-            ? "Driving Lessons Rescheduled" + batchInfo
-            : "Driving Lessons Schedule" + batchInfo;
-        } else {
-          if (hasCancellations) {
-            emailSubject = "Driving Lessons Schedule Updates" + batchInfo;
-          } else if (hasReschedules) {
-            emailSubject = "Driving Lessons Rescheduled" + batchInfo;
-          } else {
-            emailSubject = "Driving Lessons Schedule" + batchInfo;
-          }
-        }
-
-        // Create a complete table with all lessons (for reference)
-        const allLessonsTable = (allEvents || events)
+      // Simplified email content generation
+      function generateEmailContent(
+        name: string,
+        lessons: any[],
+        isLearner: boolean,
+        learnerPhone: string | null,
+      ) {
+        const activeEvents = lessons.filter(lesson => !lesson.isCancellation);
+  
+        const lessonsTable = activeEvents
           .sort((a, b) => a.lessonNumber - b.lessonNumber)
-          .map((e) => {
-            const date = format(new Date(e.startTime), "dd/MM/yyyy");
+          .map((lesson) => {
+            const date = format(new Date(lesson.startTime), "dd/MM/yyyy");
             return `<tr>
-        <td>${e.lessonNumber}</td>
-        <td>${date}</td>
-        <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
-        <td>${e.pickupLocation}</td>
-        <td>${e.instructorName || instructorName}</td>
-        <td>${e.instructorPhone || "Contact InLane"}</td>
-        <td>${e.isCancellation ? "Cancelled" : e.isReschedule ? "Rescheduled" : "Scheduled"}</td>
-      </tr>`;
+              <td>${lesson.lessonNumber}</td>
+              <td>${date}</td>
+              <td>${formatIndianTime(lesson.startTime)} - ${formatIndianTime(lesson.endTime)}</td>
+              <td>${lesson.pickupLocation}</td>
+              <td>${isLearner ? lesson.instructorName : learnerName}</td>
+              <td>${isLearner ? lesson.instructorPhone || "N/A" : learnerPhone || "N/A"}</td>
+            </tr>`;
           })
           .join("");
 
-        // Create instructor-specific table (only lessons assigned to this instructor)
-        const instructorLessonsTable = (allEvents || events)
-          .filter((e) => !e.isCancellation) // Only show active lessons
-          .filter((e) => e.instructorId === events[0].instructorId) // Only show lessons for this instructor
-          .sort((a, b) => a.lessonNumber - b.lessonNumber)
-          .map((e) => {
-            const date = format(new Date(e.startTime), "dd/MM/yyyy");
-            return `<tr>
-        <td>${e.lessonNumber}</td>
-        <td>${date}</td>
-        <td>${formatIndianTime(e.startTime)} - ${formatIndianTime(e.endTime)}</td>
-        <td>${e.pickupLocation}</td>
-        <td>${learnerName}</td>
-        <td>${e.instructorPhone || "Contact InLane"}</td>
-        <td>${e.isReschedule ? "Rescheduled" : "Scheduled"}</td>
-      </tr>`;
-          })
-          .join("");
-
-        // LEARNER EMAIL - Single complete table with all active lessons
-        learnerEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #3182ce;">Your Driving Lessons Schedule</h2>
-          <p>Hello ${learnerName},</p>
-          <h3>Your Complete Lesson Schedule:</h3>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Instructor</th>
-              <th>Phone</th>
-              <th>Status</th>
-            </tr>
-            ${allLessonsTable}
-          </table>
-          <p>Please find the calendar invitations attached to this email.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for choosing InLane!</p>
-        </div>
-      </body>
-    </html>
-  `;
-
-        // INSTRUCTOR EMAIL - Only shows lessons assigned to this instructor
-        instructorEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #3182ce;">Driving Lessons Schedule</h2>
-          <p>Hello ${instructorName},</p>
-          <h3>Your Lesson Schedule with ${learnerName}:</h3>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Student</th>
-              <th>Phone</th>
-              <th>Status</th>
-            </tr>
-            ${instructorLessonsTable}
-          </table>
-          <p>Please find the calendar invitations attached to this email.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/instructor-login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for being part of InLane!</p>
-        </div>
-      </body>
-    </html>
-  `;
-      } else {
-        // Single event email logic (unchanged)
-        const event = events[0];
-        const formattedDate = format(new Date(event.startTime), "dd/MM/yyyy");
-        const formattedStartTime = formatIndianTime(event.startTime);
-        const formattedEndTime = formatIndianTime(event.endTime);
-
-        // Create Google Maps link for the location
-        const googleMapsLink = event.pickupLocation.includes(",")
-          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.pickupLocation)}`
-          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.pickupLocation)}`;
-
-        if (event.isCancellation) {
-          // Cancellation email content (unchanged)
-          emailSubject = `Driving Lesson ${event.lessonNumber} Cancelled`;
-          learnerEmailContent = `<html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #e53e3e;">Your Driving Lesson has been Cancelled</h2>
-          <p>Hello ${learnerName},</p>
-          <p>Your driving lesson number ${event.lessonNumber} that was scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime} has been cancelled.</p>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Instructor</th>
-              <th>Status</th>
-            </tr>
-            <tr>
-              <td>${event.lessonNumber}</td>
-              <td>${formattedDate}</td>
-              <td>${formattedStartTime} - ${formattedEndTime}</td>
-              <td><a href="${googleMapsLink}" target="_blank">${event.pickupLocation}</a></td>
-              <td>${instructorName}</td>
-              <td style="color: #e53e3e; font-weight: bold;">Cancelled</td>
-            </tr>
-          </table>
-          <p>Please find attached a calendar update that will remove this appointment from your calendar.</p>
-          <p>A new schedule will be sent to you shortly.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for choosing InLane!</p>
-        </div>
-      </body>
-    </html>`;
-
-          instructorEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #e53e3e;">Driving Lesson Cancelled</h2>
-          <p>Hello ${instructorName},</p>
-          <p>The driving lesson number ${event.lessonNumber} that was scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime} with ${learnerName} has been cancelled.</p>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Student</th>
-              <th>Status</th>
-            </tr>
-            <tr>
-              <td>${event.lessonNumber}</td>
-              <td>${formattedDate}</td>
-              <td>${formattedStartTime} - ${formattedEndTime}</td>
-              <td><a href="${googleMapsLink}" target="_blank">${event.pickupLocation}</a></td>
-              <td>${learnerName}</td>
-              <td style="color: #e53e3e; font-weight: bold;">Cancelled</td>
-            </tr>
-          </table>
-          <p>Please find attached a calendar update that will remove this appointment from your calendar.</p>
-          <p>A new schedule will be sent to you shortly.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/instructor-login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for being part of InLane!</p>
-        </div>
-      </body>
-    </html>`;
-        } else if (event.isReschedule) {
-          // Reschedule email content (unchanged)
-          emailSubject = `Driving Lesson ${event.lessonNumber} Rescheduled`;
-          learnerEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #dd6b20;">Your Driving Lesson has been Rescheduled</h2>
-          <p>Hello ${learnerName},</p>
-          <p>Your driving lesson number ${event.lessonNumber} has been rescheduled to ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Instructor</th>
-              <th>Status</th>
-            </tr>
-            <tr>
-              <td>${event.lessonNumber}</td>
-              <td>${formattedDate}</td>
-              <td>${formattedStartTime} - ${formattedEndTime}</td>
-              <td><a href="${googleMapsLink}" target="_blank">${event.pickupLocation}</a></td>
-              <td>${instructorName}</td>
-              <td style="color: #dd6b20; font-weight: bold;">Rescheduled</td>
-            </tr>
-          </table>
-          <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for choosing InLane!</p>
-        </div>
-      </body>
-    </html>`;
-
-          instructorEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #dd6b20;">Driving Lesson Rescheduled</h2>
-          <p>Hello ${instructorName},
-                    <p>The driving lesson number ${event.lessonNumber} with ${learnerName} has been rescheduled to ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Student</th>
-              <th>Status</th>
-            </tr>
-            <tr>
-              <td>${event.lessonNumber}</td>
-              <td>${formattedDate}</td>
-              <td>${formattedStartTime} - ${formattedEndTime}</td>
-              <td><a href="${googleMapsLink}" target="_blank">${event.pickupLocation}</a></td>
-              <td>${learnerName}</td>
-              <td style="color: #dd6b20; font-weight: bold;">Rescheduled</td>
-            </tr>
-          </table>
-          <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/instructor-login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for being part of InLane!</p>
-        </div>
-      </body>
-    </html>`;
-        } else {
-          // Regular new schedule email content (unchanged)
-          emailSubject = `Driving Lesson ${event.lessonNumber} Scheduled`;
-          learnerEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #38a169;">Your Driving Lesson is Scheduled</h2>
-          <p>Hello ${learnerName},</p>
-          <p>Your driving lesson number ${event.lessonNumber} has been scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Instructor</th>
-              <th>Status</th>
-            </tr>
-            <tr>
-              <td>${event.lessonNumber}</td>
-              <td>${formattedDate}</td>
-              <td>${formattedStartTime} - ${formattedEndTime}</td>
-              <td><a href="${googleMapsLink}" target="_blank">${event.pickupLocation}</a></td>
-              <td>${instructorName}</td>
-              <td style="color: #38a169; font-weight: bold;">Scheduled</td>
-            </tr>
-          </table>
-          <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for choosing InLane!</p>
-        </div>
-      </body>
-    </html>`;
-
-          instructorEmailContent = `
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #38a169;">New Driving Lesson Scheduled</h2>
-          <p>Hello ${instructorName},</p>
-          <p>You have a driving lesson number ${event.lessonNumber} scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-          <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th>Lesson</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Pickup Location</th>
-              <th>Student</th>
-              <th>Status</th>
-            </tr>
-            <tr>
-              <td>${event.lessonNumber}</td>
-              <td>${formattedDate}</td>
-              <td>${formattedStartTime} - ${formattedEndTime}</td>
-              <td><a href="${googleMapsLink}" target="_blank">${event.pickupLocation}</a></td>
-              <td>${learnerName}</td>
-              <td style="color: #38a169; font-weight: bold;">Scheduled</td>
-            </tr>
-          </table>
-          <p>Please find attached a calendar invitation that will automatically add to your calendar when accepted.</p>
-          <div style="margin: 30px 0;">
-            <a href="https://inlane-web-app.vercel.app/instructor-login" 
-               style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              View in WebApp
-            </a>
-          </div>
-          <p>Thank you for being part of InLane!</p>
-        </div>
-      </body>
-    </html>`;
-        }
+        return `
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+              <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+                <h2 style="color: #3182ce;">Your Driving Lessons Schedule</h2>
+                <p>Hello ${name},</p>
+                <h3>Your Complete Lesson Schedule:</h3>
+                <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
+                  <tr style="background-color: #f2f2f2;">
+                    <th>Lesson</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Pickup Location</th>
+                    <th>${isLearner ? "Instructor" : "Student"}</th>
+                    <th>Phone</th>
+                  </tr>
+                  ${lessonsTable}
+                </table>
+                <p>Please find the calendar invitations attached to this email.</p>
+                <div style="margin: 30px 0;">
+                  <a href="https://inlane-web-app.vercel.app/${isLearner ? "login" : "instructor-login"}" 
+                     style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                    View in WebApp
+                  </a>
+                </div>
+                <p>Thank you for choosing InLane!</p>
+              </div>
+            </body>
+          </html>`;
       }
+
+      // Extract learner and instructor phone numbers
+      const learnerPhone = requestBody.learnerPhone || "N/A";
+
+      // Update email content generation logic
+      const learnerEmailContent = generateEmailContent(
+        learnerName,
+        allEvents || events,
+        true,
+        learnerPhone,
+      );
+      const instructorEmailContent = generateEmailContent(
+        instructorName,
+        allEvents || events,
+        false,
+        learnerPhone,
+      );
 
       const encoder = new TextEncoder();
 
       function toBase64(buffer: Uint8Array): string {
         return btoa(String.fromCharCode(...buffer));
       }
+
+      // Define a default email subject
+      const emailSubject = "Driving Lessons Schedule";
 
       // Send learner email
       const learnerClient = new SMTPClient(smtpConfig);
@@ -670,7 +370,6 @@ serve(async (req) => {
             subject: emailSubject + batchNumber,
             html: String(learnerEmailContent),
             attachments: learnerICSBatches[i].map((ics) => {
-              // Same attachment code as before
               const rawData = encoder.encode(ics.content);
               const base64Content = toBase64(rawData);
               return {
@@ -715,10 +414,12 @@ serve(async (req) => {
           },
         ]);
       } finally {
-        try {
-          await learnerClient.close();
-        } catch (closeError) {
-          console.warn("Error closing learner SMTP connection:", closeError);
+        if (learnerClient) {
+          try {
+            await learnerClient.close();
+          } catch (closeError) {
+            console.warn("Error closing learner SMTP connection:", closeError);
+          }
         }
       }
 
@@ -786,10 +487,15 @@ serve(async (req) => {
           },
         ]);
       } finally {
-        try {
-          await instructorClient.close();
-        } catch (closeError) {
-          console.warn("Error closing instructor SMTP connection:", closeError);
+        if (instructorClient) {
+          try {
+            await instructorClient.close();
+          } catch (closeError) {
+            console.warn(
+              "Error closing instructor SMTP connection:",
+              closeError,
+            );
+          }
         }
       }
 

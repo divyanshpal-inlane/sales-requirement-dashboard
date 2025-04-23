@@ -37,6 +37,7 @@ export async function sendMultiEventCalendarInvite(
   }>,
   defaultInstructorName: string,
   learnerName: string,
+  learnerPhone: string, // Add learnerPhone parameter
   emailType?: string
 ): Promise<Record<number, string>> {
   try {
@@ -170,6 +171,7 @@ export async function sendMultiEventCalendarInvite(
                 })),
                 instructorName,
                 learnerName,
+                learnerPhone, // Pass learnerPhone here
                 emailType: "cancellation",
                 batchInfo: " (Cancellations)",
                 // Include all events for complete information
@@ -249,6 +251,7 @@ export async function sendMultiEventCalendarInvite(
                   })),
                   instructorName,
                   learnerName,
+                  learnerPhone, // Pass learnerPhone here
                   emailType: "new",
                   batchInfo: batchNumber,
                   // Include all events for complete information

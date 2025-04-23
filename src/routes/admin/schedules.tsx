@@ -830,6 +830,7 @@ export default function AdminSchedules() {
               cancellationEvents,
               primaryInstructor?.name || "Your Instructor",
               currentSchedule.Learner.name || "Student",
+              currentSchedule.Learner.phone,
               {
                 emailType: "cancellation",
                 allEvents: allScheduleEvents, // Include all events for complete table
@@ -928,7 +929,7 @@ export default function AdminSchedules() {
       const { data: currentSchedule, error: fetchError } = await supabase
         .from("Schedule")
         .select(
-          "*, Learner(id, name, email, pick_up_location, address_lat, address_lng)",
+          "*, Learner(id, name, email, pick_up_location, address_lat, address_lng,phone)",
         )
         .eq("id", scheduleId)
         .single();
@@ -1122,6 +1123,7 @@ export default function AdminSchedules() {
             [cancellationEvent], // Only send the cancellation event
             oldInstructorDetails.name,
             currentSchedule.Learner.name || "Student",
+            currentSchedule.Learner.phone,
             {
               emailType: "cancellation",
               batchInfo: " - Instructor Change",
