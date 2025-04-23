@@ -2129,10 +2129,7 @@ function CreateSchedule({
           (rescheduledLessonIds.has(matchingLessonId) ||
             lessonIdsWithChanges.includes(matchingLessonId));
 
-        // For rescheduled events, reuse the UID and increment sequence
-        const existingUid = isRescheduled
-          ? lessonIdToCalendarUid.get(matchingLessonId)
-          : null;
+        
         const sequenceNumber = isRescheduled
           ? (lessonIdToSequence.get(matchingLessonId) || 0) + 1
           : 0;
@@ -2142,7 +2139,7 @@ function CreateSchedule({
           endTime: endDate,
           lessonNumber: schedule.lessonNumber,
           pickupLocation: pickupLocation,
-          uid: existingUid || undefined, // Use existing UID if available
+          uid: undefined,
           sequence: sequenceNumber,
           isCancellation: false,
           instructorId: schedule.instructorId,
