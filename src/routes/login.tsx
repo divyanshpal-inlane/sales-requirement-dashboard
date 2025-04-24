@@ -388,7 +388,7 @@ export default function Login() {
             <footer className="mt-auto flex flex-col text-center text-sm">
             <div className="flex items-center justify-center gap-2 py-4">
               <span>Made in</span>
-              <img src="public/assets/india-flag-xs.png" alt="Indian Flag" className="h-4 w-6" />
+              <img src="/assets/india-flag-xs.png" alt="Indian Flag" className="h-4 w-6" />
             </div>
               By continuing, you agree to our
               <nav className="flex flex-row justify-center gap-4">
