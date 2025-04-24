@@ -46,8 +46,8 @@ async function sendEmailWithRetry(
         port: 465,
         tls: true,
         auth: {
-          username: "f20220757@goa.bits-pilani.ac.in",
-          password: Deno.env.get("SMTP_PASSSWORD") || "giqauhuaxbgxroog",
+          username: Deno.env.get("SMTP_USERNAME"),
+          password: Deno.env.get("SMTP_PASSWORD"),
         },
       },
     });
@@ -251,32 +251,34 @@ serve(async (req) => {
     try {
       // Extract learner ID from the first event if not provided directly
       const learnerIdToUse = learnerId || events[0]?.learnerId;
-      
       if (learnerIdToUse) {
         const { data: schedules, error: schedulesError } = await supabaseClient
           .from("Schedule")
-          .select("*, Instructor:instructor_id(*), Learner:learner_id(*), Lesson:lesson_id(*)")
+          .select(
+            "*, Instructor:instructor_id(*), Learner:learner_id(*), Lesson:lesson_id(*)",
+          )
           .eq("learner_id", learnerIdToUse)
           .order("date", { ascending: true });
-          
+
         if (schedulesError) {
           console.log("Error fetching learner schedules:", schedulesError);
           console.error("Error fetching learner schedules:", schedulesError);
         } else if (schedules && schedules.length > 0) {
           console.log("Fetched learner schedules:", schedules);
           // Transform the schedules into the format needed for email content
-          allLearnerSchedules = schedules.map(schedule => ({
+          allLearnerSchedules = schedules.map((schedule) => ({
             lessonNumber: schedule.Lesson.number,
             startTime: schedule.date + "T" + schedule.start_time,
             endTime: schedule.date + "T" + schedule.end_time,
-            pickupLocation: schedule.Learner.pick_up_location || "N/A",
-            instructorName: schedule.Instructor.name || "N/A",
-            instructorPhone: schedule.Instructor.phone || "N/A",
+            pickupLocation: schedule.Learner.pick_up_location || "Contact Inlane",
+            instructorName: schedule.Instructor.name || "Contact Inlane",
+            instructorPhone: schedule.Instructor.phone || "Contact Inlane",
+            instructorId: schedule.instructor_id, // Store instructor ID for filtering
+            instructorEmail: schedule.Instructor.email || null, // Store instructor email
             isCancellation: false,
           }));
         }
-      }
-      else {
+      } else {
         console.error("No learner ID provided to fetch schedules.");
       }
       console.log("Fetched learner schedules:", allLearnerSchedules);
@@ -290,7 +292,9 @@ serve(async (req) => {
       console.log("Using provided events as fallback for email content");
       allLearnerSchedules = allEvents.length > 0 ? allEvents : events;
     } else {
-      console.log(`Using ${allLearnerSchedules.length} schedules from database for email content`);
+      console.log(
+        `Using ${allLearnerSchedules.length} schedules from database for email content`,
+      );
     }
 
     // Track email sending status
@@ -308,14 +312,13 @@ serve(async (req) => {
           port: 465,
           tls: true,
           auth: {
-            username: "f20220757@goa.bits-pilani.ac.in",
-            password: Deno.env.get("SMTP_PASSWORD") || "giqauhuaxbgxroog",
+            username: Deno.env.get("SMTP_USERNAME"),
+            password: Deno.env.get("SMTP_PASSWORD"),
           },
         },
       };
 
-      const smtpFrom =
-        Deno.env.get("SMTP_FROM") || "f20220757@goa.bits-pilani.ac.in";
+      const smtpFrom = Deno.env.get("SMTP_FROM");
 
       // Simplified email content generation
       function generateEmailContent(
@@ -324,9 +327,9 @@ serve(async (req) => {
         isLearner: boolean,
         learnerPhone: string | null,
       ) {
-        // Filter out cancellation events
-        const activeEvents = lessons.filter(lesson => !lesson.isCancellation);
-  
+        // Filter out cancellation events for the table display
+        const activeEvents = lessons.filter((lesson) => !lesson.isCancellation);
+
         const lessonsTable = activeEvents
           .sort((a, b) => a.lessonNumber - b.lessonNumber)
           .map((lesson) => {
@@ -337,7 +340,7 @@ serve(async (req) => {
               <td>${formatIndianTime(lesson.startTime)} - ${formatIndianTime(lesson.endTime)}</td>
               <td>${lesson.pickupLocation}</td>
               <td>${isLearner ? lesson.instructorName : learnerName}</td>
-              <td>${isLearner ? lesson.instructorPhone || "N/A" : learnerPhone || "N/A"}</td>
+              <td>${isLearner ? lesson.instructorPhone || "Contact Inlane" : learnerPhone || "Contact Inlane"}</td>
             </tr>`;
           })
           .join("");
@@ -374,9 +377,9 @@ serve(async (req) => {
       }
 
       // Extract learner and instructor phone numbers
-      const learnerPhone = requestBody.learnerPhone || "N/A";
+      const learnerPhone = requestBody.learnerPhone || "Contact Inlane";
 
-      // Update email content generation logic to use all fetched schedules
+      // Generate learner email content with ALL lessons
       const learnerEmailContent = generateEmailContent(
         learnerName,
         allLearnerSchedules,
@@ -410,7 +413,7 @@ serve(async (req) => {
       // Define a default email subject
       const emailSubject = "Driving Lessons Schedule";
 
-      // Send learner email
+      // Send learner email with ALL lessons
       const learnerClient = new SMTPClient(smtpConfig);
       try {
         const batchSize = 5;

@@ -455,7 +455,7 @@ export default function AdminSchedules() {
           calendar_sequence
         `,
         )
-        .eq("learner_id", currentSchedule.learner_id)
+        .eq("learner_id", currentSchedule.Learner.id)
         .eq("course_id", currentSchedule.course_id);
 
       if (fetchError2) {
@@ -863,6 +863,7 @@ export default function AdminSchedules() {
               newEvents,
               primaryInstructor?.name || "Your Instructor",
               currentSchedule.Learner.name || "Student",
+              currentSchedule.Learner.phone,
               {
                 emailType: "new",
                 allEvents: allScheduleEvents, // Include all events for complete table
@@ -1149,7 +1150,9 @@ export default function AdminSchedules() {
             newInstructorDetails.email,
             [newEvent], // Only send the new event
             newInstructorDetails.name,
-            currentSchedule.Learner.name || "Student",
+            currentSchedule.Learner.name || 
+            "Student",
+            currentSchedule.Learner.phone,
             {
               emailType: "new",
               batchInfo: " - New Instructor",

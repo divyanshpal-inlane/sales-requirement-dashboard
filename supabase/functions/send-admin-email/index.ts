@@ -42,8 +42,8 @@ async function sendEmailWithRetry(
         port: 465,
         tls: true,
         auth: {
-          username: "f20220757@goa.bits-pilani.ac.in",
-          password: "giqauhuaxbgxroog",
+          username: Deno.env.get("SMTP_USERNAME"),
+          password: Deno.env.get("SMTP_PASSWORD"),
         },
       },
     });
@@ -112,14 +112,14 @@ serve(async (req) => {
           port: 465,
           tls: true,
           auth: {
-            username: "f20220757@goa.bits-pilani.ac.in",
-            password: Deno.env.get("SMTP_PASSWORD") || "default_password",
+            username: Deno.env.get("SMTP_USERNAME"),
+            password: Deno.env.get("SMTP_PASSWORD"),
           },
         },
       };
       
-      const smtpFrom = Deno.env.get("SMTP_FROM") || "f20220757@goa.bits-pilani.ac.in";
-      const adminEmail = Deno.env.get("ADMIN_EMAIL") || "dewang@inlane.in";
+      const smtpFrom = Deno.env.get("SMTP_FROM");
+      const adminEmail = Deno.env.get("ADMIN_EMAIL");
 
       // Prepare email content for admin
       const adminEmailContent = `
@@ -209,7 +209,7 @@ serve(async (req) => {
           error: smtpError.message,
           stack: smtpError.stack,
           details: {
-            adminEmail: Deno.env.get("ADMIN_EMAIL") || "dewang@inlane.in",
+            adminEmail: Deno.env.get("ADMIN_EMAIL"),
             subject,
             message,
           },
