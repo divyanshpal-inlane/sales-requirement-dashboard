@@ -105,12 +105,12 @@ async function notifyAdminOfFailedEmails(
 
     // Use anon key instead of service role key for function-to-function calls
     const response = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-admin-email`,
+      `${Deno.env.get("MY_SUPABASE_URL")}/functions/v1/send-admin-email`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+          Authorization: `Bearer ${Deno.env.get("MY_SUPABASE_ANON_KEY")}`,
         },
         body: JSON.stringify({ subject, message }),
       },
@@ -225,8 +225,8 @@ serve(async (req) => {
 
     // Initialize Supabase client
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("MY_SUPABASE_URL") ?? "",
+      Deno.env.get("MY_SUPABASE_ANON_KEY") ?? "",
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },

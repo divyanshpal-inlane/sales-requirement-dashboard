@@ -58,8 +58,8 @@ serve(async (req) => {
 
   try {
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      Deno.env.get("MY_SUPABASE_URL") ?? "",
+      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     const { amount, paymentId } = (await req.json()) as PaymentDetails;
