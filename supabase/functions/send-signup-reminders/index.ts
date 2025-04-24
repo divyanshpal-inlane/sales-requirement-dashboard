@@ -14,8 +14,8 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("MY_SUPABASE_URL") ?? "",
+      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
     const currentDate = new Date();
@@ -32,8 +32,8 @@ Deno.serve(async (req) => {
     if (paymentError) throw paymentError;
 
     const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("MY_SUPABASE_URL") ?? "",
+      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers();
