@@ -90,7 +90,22 @@ export default function RescheduleSelector({
       <ScrollArea className="h-[calc(100vh-300px)]">
         <div className="space-y-2">
           {groupedSchedules
-            ?.filter((group) => isBefore(new Date(), new Date(group.date)))
+            ?.filter((group) => {
+              // Keep groups that have at least one valid schedule
+              return group.schedules.some((schedule) => {
+                const now = new Date();
+                const scheduleDateTime = new Date(`${group.date}T${schedule.startTime}`);
+                return scheduleDateTime > now;
+              });
+            })
+            .map((group) => ({
+              ...group,
+              schedules: group.schedules.filter((schedule) => {
+                const now = new Date();
+                const scheduleDateTime = new Date(`${group.date}T${schedule.startTime}`);
+                return scheduleDateTime > now;
+              })
+            }))
             .map((group) => (
               <Card key={group.date} className="overflow-hidden">
                 <CardContent className="p-4">

@@ -1684,7 +1684,7 @@ function CreateSchedule({
 
     // Get completed lessons to maintain their numbers
     const completedLessons = existingCourseSchedules.filter(
-      (s) => new Date(s.date).setHours(s.hour) < new Date().getTime(),
+      (s) => new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) < new Date().getTime(),
     );
 
     // Group selected slots by their slotGroupId
@@ -1760,7 +1760,7 @@ function CreateSchedule({
     // Get available lessons for upcoming slots (lessons after the completed ones)
     const availableLessons = courseLessons.filter(
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
-    );
+      );
 
     // Check if this is a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
