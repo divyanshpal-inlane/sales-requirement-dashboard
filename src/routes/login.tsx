@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import { useSearchParams } from "react-router-dom";
 
@@ -8,7 +8,13 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
 
 export default function Login() {
-  const { login, signUp, user, requestPasswordReset, verifyOtpAndResetPassword } = useAuth();
+  const {
+    login,
+    signUp,
+    user,
+    requestPasswordReset,
+    verifyOtpAndResetPassword,
+  } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active") || "login";
   const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
@@ -80,7 +86,9 @@ export default function Login() {
             throw new Error("Please enter a valid phone number");
           }
           await requestPasswordReset(phone);
-          setSuccessMessage("OTP sent to your WhatsApp. Please check and enter below.");
+          setSuccessMessage(
+            "OTP sent to your WhatsApp. Please check and enter below.",
+          );
           setResetRequested(true);
         } else if (!otpVerified) {
           // Step 2: Verify OTP
@@ -88,7 +96,9 @@ export default function Login() {
             throw new Error("Please enter the OTP sent to your WhatsApp");
           }
           await verifyOtpAndResetPassword(phone, otp, null);
-          setSuccessMessage("OTP verified successfully. Set your new password.");
+          setSuccessMessage(
+            "OTP verified successfully. Set your new password.",
+          );
           setOtpVerified(true);
         } else {
           // Step 3: Reset password
@@ -99,8 +109,10 @@ export default function Login() {
             throw new Error("Passwords do not match");
           }
           await verifyOtpAndResetPassword(phone, otp, newPassword);
-          setSuccessMessage("Password reset successfully! You can now login with your new password.");
-          
+          setSuccessMessage(
+            "Password reset successfully! You can now login with your new password.",
+          );
+
           // Reset states and redirect to login
           setTimeout(() => {
             setSearchParams({ active: "login" });
@@ -199,7 +211,11 @@ export default function Login() {
                           showPassword ? "Hide password" : "Show password"
                         }
                       >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        {showPassword ? (
+                          <EyeOff size={20} />
+                        ) : (
+                          <Eye size={20} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -238,7 +254,11 @@ export default function Login() {
                             showNewPassword ? "Hide password" : "Show password"
                           }
                         >
-                          {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          {showNewPassword ? (
+                            <EyeOff size={20} />
+                          ) : (
+                            <Eye size={20} />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -363,8 +383,13 @@ export default function Login() {
                 </div>
               </div>
             </form>
+            
 
             <footer className="mt-auto flex flex-col text-center text-sm">
+            <div className="flex items-center justify-center gap-2 py-4">
+              <span>Made in</span>
+              <img src="public/assets/india-flag-xs.png" alt="Indian Flag" className="h-4 w-6" />
+            </div>
               By continuing, you agree to our
               <nav className="flex flex-row justify-center gap-4">
                 <a

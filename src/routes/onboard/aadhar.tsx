@@ -33,6 +33,44 @@ export default function Aadhar() {
     );
   }, [mutate, navigate, selectedState]);
 
+  const states = [
+    "Andaman and Nicobar Islands",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chandigarh",
+    "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jammu and Kashmir",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Lakshadweep",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Puducherry",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+  ].sort((a, b) => a.localeCompare(b));
+
   return (
     <div className="flex h-full w-full flex-col rounded-md">
       <div className="flex flex-col rounded-b-[40px] bg-primary">
@@ -51,7 +89,7 @@ export default function Aadhar() {
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">
           <h1 className="mb-2 text-2xl font-semibold">
-            Where is your aadhar regitered?
+            Where is your aadhar registered?
           </h1>
           <p className="text">
             We use this for the learner&apos;s license application
@@ -69,51 +107,11 @@ export default function Aadhar() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="andhra-pradesh">Andhra Pradesh</SelectItem>
-                <SelectItem value="arunachal-pradesh">
-                  Arunachal Pradesh
-                </SelectItem>
-                <SelectItem value="assam">Assam</SelectItem>
-                <SelectItem value="bihar">Bihar</SelectItem>
-                <SelectItem value="chhattisgarh">Chhattisgarh</SelectItem>
-                <SelectItem value="goa">Goa</SelectItem>
-                <SelectItem value="gujarat">Gujarat</SelectItem>
-                <SelectItem value="haryana">Haryana</SelectItem>
-                <SelectItem value="himachal-pradesh">
-                  Himachal Pradesh
-                </SelectItem>
-                <SelectItem value="jammu-and-kashmir">
-                  Jammu and Kashmir
-                </SelectItem>
-                <SelectItem value="jharkhand">Jharkhand</SelectItem>
-                <SelectItem value="karnataka">Karnataka</SelectItem>
-                <SelectItem value="kerala">Kerala</SelectItem>
-                <SelectItem value="madhya-pradesh">Madhya Pradesh</SelectItem>
-                <SelectItem value="maharashtra">Maharashtra</SelectItem>
-                <SelectItem value="manipur">Manipur</SelectItem>
-                <SelectItem value="meghalaya">Meghalaya</SelectItem>
-                <SelectItem value="mizoram">Mizoram</SelectItem>
-                <SelectItem value="nagaland">Nagaland</SelectItem>
-                <SelectItem value="odisha">Odisha</SelectItem>
-                <SelectItem value="punjab">Punjab</SelectItem>
-                <SelectItem value="rajasthan">Rajasthan</SelectItem>
-                <SelectItem value="sikkim">Sikkim</SelectItem>
-                <SelectItem value="tamil-nadu">Tamil Nadu</SelectItem>
-                <SelectItem value="telangana">Telangana</SelectItem>
-                <SelectItem value="tripura">Tripura</SelectItem>
-                <SelectItem value="uttarakhand">Uttarakhand</SelectItem>
-                <SelectItem value="uttar-pradesh">Uttar Pradesh</SelectItem>
-                <SelectItem value="west-bengal">West Bengal</SelectItem>
-                <SelectItem value="andaman-and-nicobar-islands">
-                  Andaman and Nicobar Islands
-                </SelectItem>
-                <SelectItem value="chandigarh">Chandigarh</SelectItem>
-                <SelectItem value="dadra-and-nagar-haveli-and-daman-and-diu">
-                  Dadra and Nagar Haveli and Daman and Diu
-                </SelectItem>
-                <SelectItem value="delhi">Delhi</SelectItem>
-                <SelectItem value="lakshadweep">Lakshadweep</SelectItem>
-                <SelectItem value="puducherry">Puducherry</SelectItem>
+                {states.map((state) => (
+                  <SelectItem key={state} value={state}>
+                    {state}
+                  </SelectItem>
+                ))}
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -129,3 +127,4 @@ export default function Aadhar() {
     </div>
   );
 }
+

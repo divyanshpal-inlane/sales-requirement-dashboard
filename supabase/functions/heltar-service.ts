@@ -328,7 +328,13 @@ class HeltarMessageService {
             learner.phone,
             
             "PAYMENT_LINK",
-            [learner.name, course_name, payment_amount, duration, payment_link],
+            [
+              learner.name,
+              course_name,
+              `Rs. ${payment_amount}`,
+              `${duration} hours`,
+              payment_link,
+            ],
             `payment-link-${learner_id}-${Date.now()}`,
           );
         }
@@ -341,14 +347,14 @@ class HeltarMessageService {
             return this.sendTemplate(
               learner.phone,
               "THANK_YOU_PAYMENT_DL",
-              [learner.name, payment_amount],
+              [learner.name, `Rs. ${payment_amount}`],
               `thank-you-dl-${learner_id}-${Date.now()}`,
             );
           } else {
             return this.sendTemplate(
               learner.phone,
               "THANK_YOU_PAYMENT_LL_FIRST",
-              [learner.name, payment_amount],
+              [learner.name, `Rs. ${payment_amount}`],
               `thank-you-ll-${learner_id}-${Date.now()}`,
             );
           }
@@ -690,7 +696,7 @@ class HeltarMessageService {
           return this.sendTemplate(
             learner.phone,
             "webapp_thank_you_for_payment_generic",
-            [learner.name, payment_amount],
+            [learner.name, `Rs. ${payment_amount}`],
             `thank-you-payment-${learner_id}-${Date.now()}`,
           );
         }

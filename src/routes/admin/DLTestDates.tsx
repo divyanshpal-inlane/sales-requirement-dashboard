@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { LearnerInfo, LearnerInfoDialog } from "@/components/admin/LearnerInfoCard";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,8 @@ const DLTestDates = () => {
   const queryClient = useQueryClient();
   const [selectedLearner, setSelectedLearner] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedLearnerForDialog, setSelectedLearnerForDialog] = useState<LearnerInfo | null>(null);
 
   const {
     data: learners,
@@ -85,6 +88,38 @@ const DLTestDates = () => {
     });
   };
 
+  const handleLearnerSelect = (learner) => {
+    // If this learner is already selected, open the dialog
+    if (selectedLearner?.id === learner.id) {
+      handleOpenLearnerInfo(learner);
+    } else {
+      // Otherwise, just select the learner
+      setSelectedLearner(learner);
+      setSelectedDate(learner.DL_test_date);
+    }
+  };
+
+  const handleOpenLearnerInfo = (learner) => {
+    setSelectedLearnerForDialog({
+      id: learner.id || "",
+      name: learner.name || "",
+      phone: learner.phone || "",
+      email: learner.email || "",
+      area: learner.area || "",
+      pick_up_location: learner.pick_up_location,
+      pincode: learner.pincode,
+      signed_up: learner.signed_up,
+      created_at: learner.created_at,
+      address_lat: learner.address_lat,
+      address_lng: learner.address_lng,
+      preferred_start_date: learner.preferred_start_date,
+      preferred_completion_days: learner.preferred_completion_days,
+      prefers_two_hour_classes: learner.prefers_two_hour_classes,
+      comments: learner.comments,
+    });
+    setDialogOpen(true);
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error loading learners.</div>;
 
@@ -127,9 +162,7 @@ const DLTestDates = () => {
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted"
                     }`}
-                    onClick={() => {
-                      setSelectedLearner(learner);
-                    }}
+                    onClick={() => handleLearnerSelect(learner)}
                   >
                     <div className="font-medium">{learner.name}</div>
                     <div className="text-sm opacity-75">Phone: {learner.phone}</div>
@@ -202,6 +235,15 @@ const DLTestDates = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Learner Info Dialog */}
+      {selectedLearnerForDialog && (
+        <LearnerInfoDialog
+          learner={selectedLearnerForDialog}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
     </div>
   );
 };

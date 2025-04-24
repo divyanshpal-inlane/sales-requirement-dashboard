@@ -1,4 +1,14 @@
-import { ArrowRight, BookOpen, Clock, Scroll, User } from "lucide-react";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { addDays, isAfter, isBefore, subDays } from "date-fns";
+import {
+  ArrowRight,
+  BookOpen,
+  Clock,
+  Scroll,
+  Star,
+  ThumbsUp,
+  User,
+} from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import LLFlow from "@/components/ll_flow";
@@ -13,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LESSON_CONTENT } from "@/constants/Lesson";
+import { supabase } from "@/lib/supabaseClient";
 import {
   useLearner,
   useLearnerEnrollment,
@@ -23,10 +34,6 @@ import {
 } from "@/queries/learner";
 import { useLatestPayment } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
-import { supabase } from "@/lib/supabaseClient";
-
-import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { addDays, isBefore } from "date-fns";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -75,7 +82,7 @@ export default function Home() {
     return <div>Loading...</div>;
   }
 
-  if (!payment ) {
+  if (!payment) {
     return (
       <div className="container mx-auto max-w-md py-8">
         <PaymentStatusCard />
@@ -101,17 +108,23 @@ export default function Home() {
   }
 
   // Show payment completion prompt for half-paid enrollments
-  const showPaymentCompletion = enrolledCourse?.payment_status === "half_paid" &&
-  scheduledLessons &&
-  scheduledLessons.some(
-  (scheduleItem) =>
-    scheduleItem.lesson?.number === 2 && scheduleItem.status?.toUpperCase() === "COMPLETED",
-);
+  const showPaymentCompletion =
+    enrolledCourse?.payment_status === "half_paid" &&
+    scheduledLessons &&
+    scheduledLessons.some(
+      (scheduleItem) =>
+        scheduleItem.lesson?.number === 2 &&
+        scheduleItem.status?.toUpperCase() === "COMPLETED",
+    );
 
   // Check if reschedule request is for the upcoming lesson
-  const isRescheduleForUpcomingLesson = scheduleRequests && scheduleRequests.length > 0 && 
-    LessonData?.upcomingLesson && 
-    scheduleRequests.some(request => request.lesson_id === LessonData.upcomingLesson.id);
+  const isRescheduleForUpcomingLesson =
+    scheduleRequests &&
+    scheduleRequests.length > 0 &&
+    LessonData?.upcomingLesson &&
+    scheduleRequests.some(
+      (request) => request.lesson_id === LessonData.upcomingLesson.id,
+    );
 
   const renderScheduleCreationState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
@@ -163,8 +176,7 @@ export default function Home() {
       <h2 className="text-lg font-semibold">
         {
           LESSON_CONTENT[
-            LessonData?.upcomingLesson
-              ?.number as keyof typeof LESSON_CONTENT
+            LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
           ].content.title
         }
       </h2>
@@ -186,16 +198,12 @@ export default function Home() {
                     !isWithin30MinutesOfLesson(
                       LessonData.upcomingSchedule.date,
                       LessonData.upcomingSchedule.start_time,
-                    ) ||
-                    lessonSchedule?.status?.toUpperCase() ===
-                      "COMPLETED"
+                    ) || lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                   }
                 >
-                  {lessonSchedule?.status?.toUpperCase() ===
-                  "ONGOING"
+                  {lessonSchedule?.status?.toUpperCase() === "ONGOING"
                     ? "Lesson Started"
-                    : lessonSchedule?.status?.toUpperCase() ===
-                        "COMPLETED"
+                    : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                       ? "Lesson Completed"
                       : "Start Lesson"}
                 </Button>
@@ -209,14 +217,11 @@ export default function Home() {
                     <p>Available 30 mins before lesson</p>
                   </TooltipContent>
                 )}
-              {(lessonSchedule?.status?.toUpperCase() ===
-                "ONGOING" ||
-                lessonSchedule?.status?.toUpperCase() ===
-                  "COMPLETED") && (
+              {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
+                lessonSchedule?.status?.toUpperCase() === "COMPLETED") && (
                 <TooltipContent>
                   <p>
-                    {lessonSchedule.status.toUpperCase() ===
-                    "ONGOING"
+                    {lessonSchedule.status.toUpperCase() === "ONGOING"
                       ? "Session is already in progress"
                       : "Session has been completed"}
                   </p>
@@ -234,30 +239,114 @@ export default function Home() {
             Lesson Details
           </Button>
         </div>
-        <Button
-          onClick={() =>
-            navigate(
-              `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
-            )
-          }
-          variant="secondary"
-          className="w-full"
-        >
-          Reschedule Lesson
-        </Button>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger className="w-full">
+              <Button
+                onClick={() =>
+                  navigate(
+                    `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
+                  )
+                }
+                variant="secondary"
+                className="w-full"
+                disabled={scheduleRequests && scheduleRequests.length > 0}
+              >
+                Reschedule Lesson
+              </Button>
+            </TooltipTrigger>
+            {scheduleRequests && scheduleRequests.length > 0 && (
+              <TooltipContent>
+                <p>You have a pending reschedule request</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* {scheduleRequests && scheduleRequests.length > 0 && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Your reschedule request is being processed.
+          </p>
+        )} */}
       </div>
     </div>
   );
 
+  const renderCourseCompletionPage = () => (
+    <div className="flex flex-col items-center gap-6 p-4 text-center">
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-primary p-6 text-white">
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center rounded-full bg-white/20 p-4">
+            <ThumbsUp size={48} className="text-white" />
+          </div>
+
+          <h1 className="text-3xl font-bold">Congratulations!</h1>
+          <p className="text-xl">
+            You've successfully completed all your driving lessons!
+          </p>
+
+          <div className="mt-2 flex">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                size={24}
+                className="fill-yellow-300 text-yellow-300"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <Card className="w-full max-w-md border-primary">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-center text-primary">
+            Share Your Experience
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-center text-muted-foreground">
+            Your feedback helps us improve and helps other learners find us!
+          </p>
+
+          <Button
+            className="hover:bg-primary-dark w-full bg-primary"
+            onClick={() =>
+              window.open(
+                "https://www.google.com/search?sca_esv=71235db9e3242676&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzQJRCGdyjVAeNpxL_v1ZJZEWLK7nyCxTAIrR2ZeCA8k7wV6unj_LsaY0pK3KhDrig-Qd3VV0QeYWcHIDk8lUXQkgAYTsMeCD1sZwXyhyJceUV-g5VQ%3D%3D&q=Lane+Driving+School+Platform+Reviews&sa=X&ved=2ahUKEwj6q7mT2OGMAxUkcGwGHcpIMqkQ0bkNegQIHxAD&biw=1920&bih=968&dpr=2",
+                "_blank",
+              )
+            }
+          >
+            Leave a Google Review
+          </Button>
+        </CardContent>
+      </Card>
+
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        Need help? Contact our support team at{" "}
+        <a href="mailto:team@inlane.in" className="text-primary underline">
+          team@inlane.in
+        </a>
+      </p>
+    </div>
+  );
+
   const lesson9 = scheduledLessons?.find(
-    (lesson) => lesson.lesson?.number === 9
+    (lesson) => lesson.lesson?.number === 9,
   );
   const lesson10 = scheduledLessons?.find(
-    (lesson) => lesson.lesson?.number === 10
+    (lesson) => lesson.lesson?.number === 10,
   );
 
   const isLesson9Completed = lesson9 && isLessonCompleted(lesson9);
   const isLesson10Completed = lesson10 && isLessonCompleted(lesson10);
+
+  // Check if all lessons are completed
+  const allLessonsCompleted =
+    scheduledLessons &&
+    scheduledLessons.length === 10 &&
+    scheduledLessons.every((lesson) => isLessonCompleted(lesson));
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -272,111 +361,142 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex flex-col p-4 pb-20 overflow-y-auto p-4 scrollbar-none  h-[calc(100vh-50px)]"style={{ scrollbarWidth: "none" }}>
-        {showPaymentCompletion ? (
-          <Card className="mb-6 bg-white border-primary">
-            <CardHeader>
-              <CardTitle className="text-primary">Complete Your Payment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-primary mb-4">
-                You've completed the first installment. Pay the remaining amount to unlock all lessons.
-              </p>
-              <Button 
-                onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
-                className="w-full bg-primary hover:bg-primary-dark"
-              >
-                Pay Remaining Amount
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <p className="text-center text-xl font-medium">
-            Let's start your journey!
-          </p>
-        )}
-        {scheduleRequests && scheduleRequests.length > 0 ? (
-          <>
-            {renderScheduleCreationState()}
-            
-            {/* Show upcoming lesson if reschedule is not for the upcoming lesson */}
-            {!isRescheduleForUpcomingLesson && LessonData?.upcomingLesson && (
-              <div className="mt-6">
-                {renderUpcomingLesson()}
-              </div>
-            )}
-          </>
-        ) : learner && !learner.LL_result ? (
-          <LLFlow />
-        ) : learner && learner.LL_result === true ? (
-          scheduledLessons && scheduledLessons.length === 0 ? (
-            <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
-              <img
-                src="/assets/clocks.png"
-                alt="First Lesson"
-                className="w-full rounded-lg"
-              />
-              <p>
-                Ready for your first lesson? We just need a few more details
-              </p>
-              <Button className="w-full" asChild>
-                <Link to="/createSchedule/details">Set your schedule</Link>
-              </Button>
-              <p className="text-base">
-                Share your availability, and we&apos;ll book your lessons
-              </p>
-              
-              <p className="mt-auto">
-                <span className="text-base">Don&apos;t have an LL?</span>
+      <main
+        className="scrollbar-none flex h-[calc(100vh-50px)] flex-col overflow-y-auto p-4 pb-20"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {!allLessonsCompleted ? (
+          showPaymentCompletion ? (
+            <Card className="mb-6 border-primary bg-white">
+              <CardHeader>
+                <CardTitle className="text-primary">
+                  Complete Your Payment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4 text-primary">
+                  You've completed the first installment. Pay the remaining
+                  amount to unlock all lessons.
+                </p>
                 <Button
-                  variant="link"
-                  onClick={() => {
-                    updateLearner({ has_a_DL: false, LL_result: null });
-                  }}
+                  onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+                  className="hover:bg-primary-dark w-full bg-primary"
                 >
-                  Book appointment
+                  Pay Remaining Amount
                 </Button>
-              </p>
-            
-            </div>
+              </CardContent>
+            </Card>
           ) : (
-            <>
-              {LessonData?.upcomingLesson ? (
-                renderUpcomingLesson()
-              ) : (
-                <div className="mt-24 text-center text-xl">
-                  No Upcoming Lesson. 😓
-                  
-                  {scheduledLessons && scheduledLessons.length === 9 && isLesson10Completed===undefined && (
-                    <Button
-                      className="mt-4 w-full"
-                      onClick={() =>
-                        navigate("/createSchedule/preferences?type=lesson10")
-                      }
-                      
-                      disabled={
-                        !isLesson9Completed && 
-                        !(learner?.DL_test_date && isBefore(new Date(), addDays(new Date(learner.DL_test_date), 7)))
-                      }
-                    >
-                      
-                      Schedule Lesson 10
-                    </Button>
-                  )}
-                </div>
-              )}
-            </>
+            <p className="text-center text-xl font-medium">
+              Let's start your journey!
+            </p>
           )
         ) : (
-          <div className="flex h-full flex-col overflow-x-auto pb-20">
-            <div className="mb-6 h-48 w-full rounded-3xl bg-white shadow-lg">
-              <img
-                src="/assets/laptop-typing.png"
-                alt="Person using laptop"
-                className="h-48 w-full object-fill"
-              />
-            </div>
-          </div>
+          <></>
+        )}
+
+        {/* Show course completion page if all lessons are completed */}
+        {allLessonsCompleted ? (
+          renderCourseCompletionPage()
+        ) : (
+          <>
+            {/* Show upcoming lesson first if available */}
+            {LessonData?.upcomingLesson && (
+              <div className="mb-6">{renderUpcomingLesson()}</div>
+            )}
+
+            {/* Then show schedule creation state if there are pending requests */}
+            {scheduleRequests &&
+              scheduleRequests.length > 0 &&
+              renderScheduleCreationState()}
+
+            {/* If no upcoming lesson and no schedule requests, show appropriate content */}
+            {!LessonData?.upcomingLesson &&
+              !(scheduleRequests && scheduleRequests.length > 0) && (
+                <>
+                  {learner && !learner.LL_result ? (
+                    <LLFlow />
+                  ) : learner && learner.LL_result === true ? (
+                    scheduledLessons && scheduledLessons.length === 0 ? (
+                      <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
+                        <img
+                          src="/assets/clocks.png"
+                          alt="First Lesson"
+                          className="w-full rounded-lg"
+                        />
+                        <p>
+                          Ready for your first lesson? We just need a few more
+                          details
+                        </p>
+                        <Button className="w-full" asChild>
+                          <Link to="/createSchedule/details">
+                            Set your schedule
+                          </Link>
+                        </Button>
+                        <p className="text-base">
+                          Share your availability, and we&apos;ll book your
+                          lessons
+                        </p>
+
+                        <p className="mt-auto">
+                          <span className="text-base">
+                            Don&apos;t have an LL?
+                          </span>
+                          <Button
+                            variant="link"
+                            onClick={() => {
+                              updateLearner({
+                                has_a_DL: false,
+                                LL_result: null,
+                              });
+                            }}
+                          >
+                            Book appointment
+                          </Button>
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-24 text-center text-xl">
+                        No Upcoming Lesson. 😓
+                        {scheduledLessons &&
+                          scheduledLessons.length === 9 &&
+                          isLesson10Completed === undefined && (
+                            <Button
+                              className="mt-4 w-full"
+                              onClick={() =>
+                                navigate(
+                                  "/createSchedule/preferences?type=lesson10",
+                                )
+                              }
+                              disabled={
+                                !(
+                                  learner?.DL_test_date &&
+                                  isAfter(
+                                    new Date(),
+                                    subDays(new Date(learner.DL_test_date), 7),
+                                  )
+                                )
+                              }
+                            >
+                              Schedule Lesson 10
+                            </Button>
+                          )}
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex h-full flex-col overflow-x-auto pb-20">
+                      <div className="mb-6 h-48 w-full rounded-3xl bg-white shadow-lg">
+                        <img
+                          src="/assets/laptop-typing.png"
+                          alt="Person using laptop"
+                          className="h-48 w-full object-fill"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+          </>
         )}
       </main>
     </div>

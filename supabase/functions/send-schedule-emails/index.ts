@@ -11,8 +11,8 @@ export const corsHeaders = {
 };
 
 // Configuration for retry mechanism
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000; // 1 second between retries
+const MAX_RETRIES = 7;
+const RETRY_DELAY_MS = 2000; // 2 second between retries
 
 // Helper function to add delay between retries
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -47,7 +47,7 @@ async function sendEmailWithRetry(
         tls: true,
         auth: {
           username: "f20220757@goa.bits-pilani.ac.in",
-          password: "giqauhuaxbgxroog",
+          password: Deno.env.get("SMTP_PASSSWORD") || "giqauhuaxbgxroog",
         },
       },
     });
@@ -70,45 +70,57 @@ async function notifyAdminOfFailedEmails(
   details: {
     learnerEmail: string;
     instructorEmail: string;
-    lessonNumber: number;
-    startTime: string;
-    endTime: string;
+    events: Array<{
+      lessonNumber: number;
+      startTime: string;
+      endTime: string;
+    }>;
     errors: string[];
-  }
+  },
 ) {
   try {
-    const formattedDate = format(new Date(details.startTime), "dd/MM/yyyy");
-    const subject = `Failed Email Notifications for Lesson ${details.lessonNumber}`;
+    const lessonsList = details.events
+      .map((e) => {
+        const formattedDate = format(new Date(e.startTime), "dd/MM/yyyy");
+        return `- Lesson ${e.lessonNumber}: ${formattedDate} from ${formatIndianTime(e.startTime)} to ${formatIndianTime(e.endTime)}`;
+      })
+      .join("\n");
+
+    const subject = `Failed Email Notifications for Multiple Lessons`;
     const message = `
       We were unable to send schedule notification emails after multiple attempts.
       
       Lesson Details:
-      - Lesson Number: ${details.lessonNumber}
-      - Date: ${formattedDate}
-      - Start Time: ${details.startTime}
-      - End Time: ${details.endTime}
+      ${lessonsList}
       
       Recipients:
       - Learner: ${details.learnerEmail}
       - Instructor: ${details.instructorEmail}
       
       Error Details:
-      ${details.errors.join('\n')}
+      ${details.errors.join("\n")}
       
       Please check the email_errors table for more information and consider sending these notifications manually.
     `;
 
-    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-admin-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": supabaseClient.auth.headers().Authorization,
+    // Use anon key instead of service role key for function-to-function calls
+    const response = await fetch(
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-admin-email`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+        },
+        body: JSON.stringify({ subject, message }),
       },
-      body: JSON.stringify({ subject, message }),
-    });
+    );
 
     if (!response.ok) {
-      console.error("Failed to send admin notification:", await response.text());
+      console.error(
+        "Failed to send admin notification:",
+        await response.text(),
+      );
       return false;
     }
 
@@ -120,6 +132,26 @@ async function notifyAdminOfFailedEmails(
   }
 }
 
+// Custom function to format time in Indian style
+function formatIndianTime(dateString: string) {
+  // Create date object and adjust to Indian time (UTC+5:30)
+  const date = new Date(dateString);
+  const indianTime = new Date(date.getTime() + 5.5 * 60 * 60 * 1000); // Add 5.5 hours for IST
+
+  let hours = indianTime.getUTCHours();
+  const minutes = indianTime.getUTCMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+
+  // Convert to 12-hour format
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+
+  // Add leading zero to minutes if needed
+  const minutesStr = minutes < 10 ? "0" + minutes : minutes;
+
+  return `${hours}:${minutesStr} ${ampm}`;
+}
+// Main serve function
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -133,18 +165,63 @@ serve(async (req) => {
       "Request body parsed:",
       JSON.stringify(requestBody).substring(0, 100) + "...",
     );
+
+    // New structure for multi-event support
     const {
       learnerEmail,
       instructorEmail,
-      instructorICS,
-      learnerICS,
-      lessonNumber,
-      startTime,
-      endTime,
-      pickupLocation,
+      learnerICSArray = [],
+      instructorICSArray = [],
+      isMultiEvent = false,
+      events = [], // Array of events with lesson details
       instructorName,
       learnerName,
+      emailType = "", // Add this parameter to differentiate between cancellation and new emails
+      batchInfo = "", // Add this parameter for batch information
+      allEvents = [], // Array of all events
+      learnerId = "", // Add learner ID to fetch all schedules
     } = requestBody;
+
+    // If it's not a multi-event, treat as a single event using the old fields
+    if (!isMultiEvent) {
+      const {
+        learnerICS,
+        instructorICS,
+        lessonNumber,
+        startTime,
+        endTime,
+        pickupLocation,
+        isCancellation = false,
+        isReschedule = false,
+        uid,
+        instructorPhone = null,
+      } = requestBody;
+
+      // Initialize events array with single event
+      events.push({
+        lessonNumber,
+        startTime,
+        endTime,
+        pickupLocation,
+        isCancellation,
+        isReschedule,
+        uid,
+        instructorPhone,
+      });
+
+      // For single event, we use the single ICS files
+      learnerICSArray.push({
+        content: learnerICS,
+        filename: `lesson_${lessonNumber}.ics`,
+        lessonNumber,
+      });
+
+      instructorICSArray.push({
+        content: instructorICS,
+        filename: `lesson_${lessonNumber}.ics`,
+        lessonNumber,
+      });
+    }
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -169,36 +246,52 @@ serve(async (req) => {
       });
     }
 
-    // Custom function to format time in Indian style
-    const formatIndianTime = (dateString: string) => {
-      // Create date object and adjust to Indian time (UTC+5:30)
-      const date = new Date(dateString);
-      const indianTime = new Date(date.getTime() + 5.5 * 60 * 60 * 1000); // Add 5.5 hours for IST
+    // Fetch all active schedules for the learner
+    let allLearnerSchedules = [];
+    try {
+      // Extract learner ID from the first event if not provided directly
+      const learnerIdToUse = learnerId || events[0]?.learnerId;
+      
+      if (learnerIdToUse) {
+        const { data: schedules, error: schedulesError } = await supabaseClient
+          .from("Schedule")
+          .select("*, Instructor:instructor_id(*), Learner:learner_id(*), Lesson:lesson_id(*)")
+          .eq("learner_id", learnerIdToUse)
+          .order("date", { ascending: true });
+          
+        if (schedulesError) {
+          console.log("Error fetching learner schedules:", schedulesError);
+          console.error("Error fetching learner schedules:", schedulesError);
+        } else if (schedules && schedules.length > 0) {
+          console.log("Fetched learner schedules:", schedules);
+          // Transform the schedules into the format needed for email content
+          allLearnerSchedules = schedules.map(schedule => ({
+            lessonNumber: schedule.Lesson.number,
+            startTime: schedule.date + "T" + schedule.start_time,
+            endTime: schedule.date + "T" + schedule.end_time,
+            pickupLocation: schedule.Learner.pick_up_location || "N/A",
+            instructorName: schedule.Instructor.name || "N/A",
+            instructorPhone: schedule.Instructor.phone || "N/A",
+            isCancellation: false,
+          }));
+        }
+      }
+      else {
+        console.error("No learner ID provided to fetch schedules.");
+      }
+      console.log("Fetched learner schedules:", allLearnerSchedules);
+    } catch (fetchError) {
+      console.error("Error fetching all learner schedules:", fetchError);
+      // Continue with the process even if fetching all schedules fails
+    }
 
-      let hours = indianTime.getUTCHours();
-      const minutes = indianTime.getUTCMinutes();
-      const ampm = hours >= 12 ? "PM" : "AM";
-
-      // Convert to 12-hour format
-      hours = hours % 12;
-      hours = hours ? hours : 12; // the hour '0' should be '12'
-
-      // Add leading zero to minutes if needed
-      const minutesStr = minutes < 10 ? "0" + minutes : minutes;
-
-      return `${hours}:${minutesStr} ${ampm}`;
-    };
-
-    // Format date for email
-    const lessonDate = new Date(startTime);
-    const formattedDate = format(lessonDate, "dd/MM/yyyy"); // Indian date format (day/month/year)
-
-    // Format times using Indian conventions
-    const formattedStartTime = formatIndianTime(startTime);
-
-    // Calculate end time as exactly 1 hour after start time
-    const endDate = new Date(new Date(startTime).getTime() + 60 * 60 * 1000);
-    const formattedEndTime = formatIndianTime(endDate.toISOString());
+    // If we couldn't fetch from database, fall back to the provided events
+    if (allLearnerSchedules.length === 0) {
+      console.log("Using provided events as fallback for email content");
+      allLearnerSchedules = allEvents.length > 0 ? allEvents : events;
+    } else {
+      console.log(`Using ${allLearnerSchedules.length} schedules from database for email content`);
+    }
 
     // Track email sending status
     const emailResults = {
@@ -216,7 +309,7 @@ serve(async (req) => {
           tls: true,
           auth: {
             username: "f20220757@goa.bits-pilani.ac.in",
-            password: Deno.env.get("SMTP_PASSWORD") || "default_password",
+            password: Deno.env.get("SMTP_PASSWORD") || "giqauhuaxbgxroog",
           },
         },
       };
@@ -224,35 +317,89 @@ serve(async (req) => {
       const smtpFrom =
         Deno.env.get("SMTP_FROM") || "f20220757@goa.bits-pilani.ac.in";
 
-      // Prepare email content for learner
-      const learnerEmailContent = `
-        <html>
-          <body>
-            <h2>Your Driving Lesson is Scheduled</h2>
-            <p>Hello ${learnerName},</p>
-            <p>Your driving lesson ${lessonNumber} has been scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-            <p><strong>Instructor:</strong> ${instructorName}</p>
-            <p><strong>Pickup Location:</strong> ${pickupLocation}</p>
-            <p>Please find attached a calendar invitation that you can add to your calendar.</p>
-            <p>Thank you for choosing InLane!</p>
-          </body>
-        </html>
-      `;
+      // Simplified email content generation
+      function generateEmailContent(
+        name: string,
+        lessons: any[],
+        isLearner: boolean,
+        learnerPhone: string | null,
+      ) {
+        // Filter out cancellation events
+        const activeEvents = lessons.filter(lesson => !lesson.isCancellation);
+  
+        const lessonsTable = activeEvents
+          .sort((a, b) => a.lessonNumber - b.lessonNumber)
+          .map((lesson) => {
+            const date = format(new Date(lesson.startTime), "dd/MM/yyyy");
+            return `<tr>
+              <td>${lesson.lessonNumber}</td>
+              <td>${date}</td>
+              <td>${formatIndianTime(lesson.startTime)} - ${formatIndianTime(lesson.endTime)}</td>
+              <td>${lesson.pickupLocation}</td>
+              <td>${isLearner ? lesson.instructorName : learnerName}</td>
+              <td>${isLearner ? lesson.instructorPhone || "N/A" : learnerPhone || "N/A"}</td>
+            </tr>`;
+          })
+          .join("");
 
-      // Prepare email content for instructor
-      const instructorEmailContent = `
-        <html>
-          <body>
-            <h2>New Driving Lesson Scheduled</h2>
-            <p>Hello ${instructorName},</p>
-            <p>You have a driving lesson ${lessonNumber} scheduled for ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.</p>
-            <p><strong>Student:</strong> ${learnerName}</p>
-            <p><strong>Pickup Location:</strong> ${pickupLocation}</p>
-            <p>Please find attached a calendar invitation that you can add to your calendar.</p>
-            <p>Thank you for being part of InLane!</p>
-          </body>
-        </html>
-      `;
+        return `
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+              <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+                <h2 style="color: #3182ce;">Your Driving Lessons Schedule</h2>
+                <p>Hello ${name},</p>
+                <h3>Your Complete Lesson Schedule:</h3>
+                <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
+                  <tr style="background-color: #f2f2f2;">
+                    <th>Lesson</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Pickup Location</th>
+                    <th>${isLearner ? "Instructor" : "Student"}</th>
+                    <th>Phone</th>
+                  </tr>
+                  ${lessonsTable}
+                </table>
+                <p>Please find the calendar invitations attached to this email.</p>
+                <div style="margin: 30px 0;">
+                  <a href="https://inlane-web-app.vercel.app/${isLearner ? "login" : "instructor-login"}" 
+                     style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                    View in WebApp
+                  </a>
+                </div>
+                <p>Thank you for choosing InLane!</p>
+              </div>
+            </body>
+          </html>`;
+      }
+
+      // Extract learner and instructor phone numbers
+      const learnerPhone = requestBody.learnerPhone || "N/A";
+
+      // Update email content generation logic to use all fetched schedules
+      const learnerEmailContent = generateEmailContent(
+        learnerName,
+        allLearnerSchedules,
+        true,
+        learnerPhone,
+      );
+      
+      // For instructor, filter to only show their lessons
+      const instructorId = requestBody.instructorId;
+      let instructorSchedules = allLearnerSchedules;
+      
+      if (instructorId) {
+        instructorSchedules = allLearnerSchedules.filter(
+          lesson => lesson.instructorId === instructorId
+        );
+      }
+      
+      const instructorEmailContent = generateEmailContent(
+        instructorName,
+        instructorSchedules.length > 0 ? instructorSchedules : allLearnerSchedules,
+        false,
+        learnerPhone,
+      );
 
       const encoder = new TextEncoder();
 
@@ -260,32 +407,53 @@ serve(async (req) => {
         return btoa(String.fromCharCode(...buffer));
       }
 
+      // Define a default email subject
+      const emailSubject = "Driving Lessons Schedule";
+
       // Send learner email
       const learnerClient = new SMTPClient(smtpConfig);
       try {
-        const rawLearnerData = encoder.encode(learnerICS);
-        const base64LearnerContent = toBase64(rawLearnerData);
+        const batchSize = 5;
+        const learnerICSBatches = [];
+        for (let i = 0; i < learnerICSArray.length; i += batchSize) {
+          learnerICSBatches.push(learnerICSArray.slice(i, i + batchSize));
+        }
+        for (let i = 0; i < learnerICSBatches.length; i++) {
+          const batchNumber =
+            learnerICSBatches.length > 1
+              ? ` (${i + 1}/${learnerICSBatches.length})`
+              : "";
 
-        const learnerEmailOptions = {
-          from: smtpFrom,
-          to: learnerEmail,
-          subject: `Driving Lesson ${lessonNumber} Scheduled`,
-          html: String(learnerEmailContent),
-          attachments: [
-            {
-              filename: "invite.ics",
-              content: base64LearnerContent,
-              contentType: "text/calendar",
-              encoding: "base64",
+          const learnerEmailOptions = {
+            from: smtpFrom,
+            to: learnerEmail,
+            subject: emailSubject + batchNumber,
+            html: String(learnerEmailContent),
+            attachments: learnerICSBatches[i].map((ics) => {
+              const rawData = encoder.encode(ics.content);
+              const base64Content = toBase64(rawData);
+              return {
+                filename: ics.filename || `lesson_${ics.lessonNumber}.ics`,
+                content: base64Content,
+                contentType: "text/calendar; method=REQUEST; charset=UTF-8",
+                contentDisposition: "attachment",
+                encoding: "base64",
+              };
+            }),
+            headers: {
+              "Content-Class": "urn:content-classes:calendarmessage",
+              "X-Mailer": "InLane Scheduling System",
             },
-          ],
-        };
+          };
 
-        emailResults.learner = await sendEmailWithRetry(
-          learnerClient,
-          learnerEmailOptions,
-        );
-        console.log("Sent email to learner successfully");
+          emailResults.learner = await sendEmailWithRetry(
+            learnerClient,
+            learnerEmailOptions,
+          );
+          console.log(
+            `Sent ${isMultiEvent ? "multi-event" : "single-event"} schedule email to learner successfully`,
+          );
+        }
       } catch (learnerError) {
         emailResults.errors.push(
           `Learner email error: ${learnerError.message}`,
@@ -300,46 +468,65 @@ serve(async (req) => {
             details: {
               email: learnerEmail,
               type: "learner",
-              lessonNumber,
-              startTime,
-              endTime,
+              isMultiEvent,
+              events,
             },
           },
         ]);
       } finally {
-        try {
-          await learnerClient.close();
-        } catch (closeError) {
-          console.warn("Error closing learner SMTP connection:", closeError);
+        if (learnerClient) {
+          try {
+            await learnerClient.close();
+          } catch (closeError) {
+            console.warn("Error closing learner SMTP connection:", closeError);
+          }
         }
       }
 
       // Send instructor email
       const instructorClient = new SMTPClient(smtpConfig);
       try {
-        const rawInstructorData = encoder.encode(instructorICS);
-        const base64InstructorContent = toBase64(rawInstructorData);
+        const batchSize = 5;
+        const instructorICSBatches = [];
+        for (let i = 0; i < instructorICSArray.length; i += batchSize) {
+          instructorICSBatches.push(instructorICSArray.slice(i, i + batchSize));
+        }
+        for (let i = 0; i < instructorICSBatches.length; i++) {
+          const batchNumber =
+            instructorICSBatches.length > 1
+              ? ` (${i + 1}/${instructorICSBatches.length})`
+              : "";
 
-        const instructorEmailOptions = {
-          from: smtpFrom,
-          to: instructorEmail,
-          subject: `Driving Lesson ${lessonNumber} Scheduled`,
-          html: String(instructorEmailContent),
-          attachments: [
-            {
-              filename: "invite.ics",
-              content: base64InstructorContent,
-              contentType: "text/calendar",
-              encoding: "base64",
+          const instructorEmailOptions = {
+            from: smtpFrom,
+            to: instructorEmail,
+            subject: emailSubject + batchNumber,
+            html: String(instructorEmailContent),
+            attachments: instructorICSBatches[i].map((ics) => {
+              const rawData = encoder.encode(ics.content);
+              const base64Content = toBase64(rawData);
+              return {
+                filename: ics.filename || `lesson_${ics.lessonNumber}.ics`,
+                content: base64Content,
+                contentType: "text/calendar; method=REQUEST; charset=UTF-8",
+                contentDisposition: "attachment",
+                encoding: "base64",
+              };
+            }),
+            headers: {
+              "Content-Class": "urn:content-classes:calendarmessage",
+              "X-Mailer": "InLane Scheduling System",
             },
-          ],
-        };
+          };
 
-        emailResults.instructor = await sendEmailWithRetry(
-          instructorClient,
-          instructorEmailOptions,
-        );
-        console.log("Sent email to instructor successfully");
+          emailResults.instructor = await sendEmailWithRetry(
+            instructorClient,
+            instructorEmailOptions,
+          );
+          console.log(
+            `Sent ${isMultiEvent ? "multi-event" : "single-event"} schedule email to instructor successfully`,
+          );
+        }
       } catch (instructorError) {
         emailResults.errors.push(
           `Instructor email error: ${instructorError.message}`,
@@ -354,17 +541,21 @@ serve(async (req) => {
             details: {
               email: instructorEmail,
               type: "instructor",
-              lessonNumber,
-              startTime,
-              endTime,
+              isMultiEvent,
+              events,
             },
           },
         ]);
       } finally {
-        try {
-          await instructorClient.close();
-        } catch (closeError) {
-          console.warn("Error closing instructor SMTP connection:", closeError);
+        if (instructorClient) {
+          try {
+            await instructorClient.close();
+          } catch (closeError) {
+            console.warn(
+              "Error closing instructor SMTP connection:",
+              closeError,
+            );
+          }
         }
       }
 
@@ -376,41 +567,51 @@ serve(async (req) => {
             instructor_email: instructorEmail,
             learner_sent: emailResults.learner,
             instructor_sent: emailResults.instructor,
-            lesson_number: lessonNumber,
-            start_time: startTime,
-            end_time: endTime,
-            pickup_location: pickupLocation,
+            is_multi_event: isMultiEvent,
+            events_data: events,
+            errors: emailResults.errors,
+            learner_ics_array: learnerICSArray,
+            instructor_ics_array: instructorICSArray,
             instructor_name: instructorName,
             learner_name: learnerName,
-            errors: emailResults.errors,
-            learner_ics: learnerICS,
-            instructor_ics: instructorICS,
           },
         ]);
-        
+
         // If either email failed after all retries, notify admin
         if (emailResults.errors.length > 0) {
           await notifyAdminOfFailedEmails(supabaseClient, {
             learnerEmail,
             instructorEmail,
-            lessonNumber,
-            startTime,
-            endTime,
-            errors: emailResults.errors
+            events,
+            errors: emailResults.errors,
           });
         }
       }
 
-      return new Response(
-        JSON.stringify({
-          success: emailResults.learner || emailResults.instructor,
-          details: emailResults,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      // Return the UID map (or single UID) along with success status
+      const response = {
+        success: emailResults.learner || emailResults.instructor,
+        details: emailResults,
+      };
+
+      if (isMultiEvent) {
+        // For multi-event, return the map of lesson numbers to UIDs
+        const uidMap = {};
+        events.forEach((event) => {
+          if (!event.isCancellation && event.uid) {
+            uidMap[event.lessonNumber] = event.uid;
+          }
+        });
+        response["uidMap"] = uidMap;
+      } else if (events.length === 1 && events[0].uid) {
+        // For single event, return the single UID
+        response["uid"] = events[0].uid;
+      }
+
+      return new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     } catch (smtpError) {
       console.error("SMTP Error:", smtpError);
 
@@ -422,21 +623,18 @@ serve(async (req) => {
           details: {
             learnerEmail,
             instructorEmail,
-            lessonNumber,
-            startTime,
-            endTime,
+            isMultiEvent,
+            events,
           },
         },
       ]);
-      
+
       // Notify admin about SMTP failure
       await notifyAdminOfFailedEmails(supabaseClient, {
         learnerEmail,
         instructorEmail,
-        lessonNumber,
-        startTime,
-        endTime,
-        errors: [`SMTP configuration error: ${smtpError.message}`]
+        events,
+        errors: [`SMTP configuration error: ${smtpError.message}`],
       });
 
       throw new Error(`SMTP error: ${smtpError.message}`);

@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { LearnerInfo, LearnerInfoDialog } from "@/components/admin/LearnerInfoCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +19,8 @@ const LearnerLLDetails = () => {
   const [selectedLearner, setSelectedLearner] = useState(null);
   const [appointmentId, setAppointmentId] = useState("");
   const [llApproved, setLlApproved] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedLearnerForDialog, setSelectedLearnerForDialog] = useState<LearnerInfo | null>(null);
 
   const {
     data: learners,
@@ -85,6 +88,7 @@ const LearnerLLDetails = () => {
       },
     });
   };
+  
   const sendAdminEmail = async (subject: string, message: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -123,8 +127,7 @@ const LearnerLLDetails = () => {
           // Send admin email notification about scheduling DL test date
           await sendAdminEmail(
             "Schedule DL Test Date - LL Approved",
-            `Learner's License has been approved for ${selectedLearner.name} (ID: ${selectedLearner.id}).     
-           Please schedule a driving test date for this learner in the DL Test Dates section.`,
+            `Learner's License has been approved for ${selectedLearner.name} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
           );
 
           toast({
@@ -134,6 +137,39 @@ const LearnerLLDetails = () => {
         },
       },
     );
+  };
+
+  const handleLearnerSelect = (learner) => {
+    // If this learner is already selected, open the dialog
+    if (selectedLearner?.id === learner.id) {
+      handleOpenLearnerInfo(learner);
+    } else {
+      // Otherwise, just select the learner
+      setSelectedLearner(learner);
+      setAppointmentId(learner.LL_application_id || "");
+      setLlApproved(learner.LL_application_approved || false);
+    }
+  };
+
+  const handleOpenLearnerInfo = (learner) => {
+    setSelectedLearnerForDialog({
+      id: learner.id || "",
+      name: learner.name || "",
+      phone: learner.phone || "",
+      email: learner.email || "",
+      area: learner.area || "",
+      pick_up_location: learner.pick_up_location,
+      pincode: learner.pincode,
+      signed_up: learner.signed_up,
+      created_at: learner.created_at,
+      address_lat: learner.address_lat,
+      address_lng: learner.address_lng,
+      preferred_start_date: learner.preferred_start_date,
+      preferred_completion_days: learner.preferred_completion_days,
+      prefers_two_hour_classes: learner.prefers_two_hour_classes,
+      comments: learner.comments,
+    });
+    setDialogOpen(true);
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -184,14 +220,10 @@ const LearnerLLDetails = () => {
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted"
                     }`}
-                    onClick={() => {
-                      setSelectedLearner(learner);
-                      setAppointmentId(learner.LL_application_id || "");
-                      setLlApproved(learner.LL_application_approved || false);
-                    }}
+                    onClick={() => handleLearnerSelect(learner)}
                   >
                     <div className="font-medium">{learner.name}</div>
-                    <div className="text-sm opacity-75">ID: {learner.id}</div>
+                    <div className="text-sm opacity-75">Phone: {learner.phone}</div>
                   </div>
                 ))
               )}
@@ -271,6 +303,15 @@ const LearnerLLDetails = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Learner Info Dialog */}
+      {selectedLearnerForDialog && (
+        <LearnerInfoDialog
+          learner={selectedLearnerForDialog}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
     </div>
   );
 };

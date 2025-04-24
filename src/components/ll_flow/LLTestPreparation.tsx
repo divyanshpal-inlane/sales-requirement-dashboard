@@ -9,11 +9,13 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
   const [testStatus, setTestStatus] = useState<"initial" | "passed" | "failed">("initial");
   const [hasReceivedLL, setHasReceivedLL] = useState<boolean | null>(null);
   const [learner, setLearner] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { mutate: updateLearner } = useLearnerUpdate();
 
   useEffect(() => {
     // Fetch learner details
     const fetchLearnerDetails = async () => {
+      setIsLoading(true);
       const { data: learnerData, error } = await supabase
         .from("Learner")
         .select("*")
@@ -24,44 +26,110 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
         console.error("Error fetching learner details:", error);
       } else {
         setLearner(learnerData);
+        
+        // Set initial states based on learner data
+        if (learnerData.LL_result === true) {
+          setTestStatus("passed");
+          setHasReceivedLL(learnerData.LL_received || null);
+        } else if (learnerData.LL_result === false) {
+          setTestStatus("failed");
+        }
       }
+      setIsLoading(false);
     };
 
     fetchLearnerDetails();
   }, [learnerId]);
 
-  const handleTestCompletion = (passed: boolean) => {
+  // Function to send admin email notifications
+  const sendAdminEmail = async (subject: string, message: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "send-admin-email",
+        {
+          body: { subject, message },
+        }
+      );
+
+      if (error) {
+        console.error("Error sending admin email:", error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error("Error sending admin email:", error);
+    }
+  };
+
+  const handleTestCompletion = async (passed: boolean) => {
     if (passed) {
       setTestStatus("passed");
-      supabase.functions.invoke("send-message", {
+      // Update the database with LL_result
+      updateLearner({ LL_result: true });
+      
+      // Send WhatsApp notification
+      await supabase.functions.invoke("send-message", {
         body: JSON.stringify({
           message_type: "LL_RECEIVED",
           learner_id: learner?.id,
         }),
       });
+      
+      // Send admin email notification about passed test
+      await sendAdminEmail(
+        "Learner Passed LL Test",
+        `${learner?.name} (Phone: ${learner?.phone}) has reported passing their Learner's License test. They will update when they receive their physical LL.`
+      );
     } else {
       setTestStatus("failed");
-      supabase.functions.invoke("send-message", {
+      // Update the database with LL_result
+      updateLearner({ LL_result: false });
+      
+      // Send WhatsApp notification
+      await supabase.functions.invoke("send-message", {
         body: JSON.stringify({
           message_type: "WEBAPP_RESTEST_LL",
           learner_id: learner?.id,
         }),
       });
+      
+      // Send admin email notification about failed test
+      await sendAdminEmail(
+        "Learner Failed LL Test",
+        `${learner?.name} (Phone: ${learner?.phone}) has reported failing their Learner's License test. They will need to retake the test.`
+      );
     }
   };
 
-  const handleLLReceived = (received: boolean) => {
+  const handleLLReceived = async (received: boolean) => {
     setHasReceivedLL(received);
     
     if (received && learner) {
       updateLearner({ LL_result: true, LL_received: true });
+      
+      // Send admin email notification about LL received
+      await sendAdminEmail(
+        "Learner Received Physical LL",
+        `${learner?.name} (Phone: ${learner?.phone}) has confirmed receiving their physical Learner's License. They are now ready to proceed with driving lessons.`
+      );
     }
   };
 
   const resetTest = () => {
     setTestStatus("initial");
     setHasReceivedLL(null);
+    updateLearner({ LL_result: null, LL_received: null });
   };
+
+  if (isLoading) {
+    return (
+      <Card className="mx-auto mt-4 max-w-2xl">
+        <CardContent className="p-6">
+          <p className="text-center">Loading...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -165,10 +233,16 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               </Button>
             </div>
           )}
+          
+          {testStatus === "passed" && hasReceivedLL === true && (
+            <div className="space-y-4">
+              <p className="text-lg font-medium text-green-600">
+                Great! You've received your Learner's License. You're now ready to proceed with driving lessons.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      
     </>
   );
 }
