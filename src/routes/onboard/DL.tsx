@@ -1,8 +1,9 @@
-import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+
 import { Button } from "@/components/ui/button";
-import { useLearnerUpdate } from "@/queries/learner";
 import { supabase } from "@/lib/supabaseClient";
+import { useLearnerUpdate } from "@/queries/learner";
 
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
@@ -12,7 +13,10 @@ export default function DLQuestion() {
   useEffect(() => {
     // Fetch learner details
     const fetchLearnerDetails = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
       if (sessionError) {
         console.error("Error fetching session:", sessionError);
@@ -43,14 +47,17 @@ export default function DLQuestion() {
   }, []);
   const sendAdminEmail = async (subject: string, message: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('send-admin-email', {
-        body: { subject, message }
-      });
-      
+      const { data, error } = await supabase.functions.invoke(
+        "send-admin-email",
+        {
+          body: { subject, message },
+        },
+      );
+
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error sending admin email:', error);
+      console.error("Error sending admin email:", error);
       throw error;
     }
   };
@@ -66,19 +73,25 @@ export default function DLQuestion() {
             onboarding_completed: true,
           },
           {
-            onSuccess: async () => {
-              // Send message for users who already have a DL
-              if (learner) {
-                await supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "SIGN_UP_DONE_SCHEDULE_PLEASE", // This is the closest match to what you requested
-                    learner_id: learner.id,
-                  },
-                });
-              }
+            onSuccess: () => {
+              // Navigate immediately
               navigate("/home");
+
+              // Send message in the background without awaiting
+              if (learner) {
+                supabase.functions
+                  .invoke("send-message", {
+                    body: {
+                      message_type: "SIGN_UP_DONE_NEED_SCHEDULE",
+                      learner_id: learner.id,
+                    },
+                  })
+                  .catch((error) => {
+                    console.error("Error sending message:", error);
+                  });
+              }
             },
-          }
+          },
         );
       } else {
         // User does not have a DL
@@ -89,23 +102,35 @@ export default function DLQuestion() {
             onboarding_completed: true,
           },
           {
-            onSuccess: async () => {
-              // Send message for users who need to get a learner's license first
-              if (learner) {
-                console.log("Sending message to learner:", learner.id);
-                await supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST",
-                    learner_id: learner.id,
-                  },
-                });
-                await sendAdminEmail(
-                  "New Learner's License Application Needed",
-                  `${learner.name} needs to apply for a Learner's License.\nPlease fill in their application ID when completed.`
-                );
-              }
+            onSuccess: () => {
+              // Navigate and open form immediately
               window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
               navigate("/home");
+
+              // Send messages in the background without awaiting
+              if (learner) {
+                console.log("Sending message to learner:", learner.id);
+
+                // Send WhatsApp message in background
+                supabase.functions
+                  .invoke("send-message", {
+                    body: {
+                      message_type: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST",
+                      learner_id: learner.id,
+                    },
+                  })
+                  .catch((error) => {
+                    console.error("Error sending WhatsApp message:", error);
+                  });
+
+                // Send admin email in background
+                sendAdminEmail(
+                  "New Learner's License Application Needed",
+                  `${learner.name} needs to apply for a Learner's License.\nPlease fill in their application ID when completed.`,
+                ).catch((error) => {
+                  console.error("Error sending admin email:", error);
+                });
+              }
             },
           },
         );
@@ -114,7 +139,6 @@ export default function DLQuestion() {
       console.error("Error handling DL response:", error);
     }
   };
-  
 
   return (
     <div className="flex h-full w-full flex-col">
