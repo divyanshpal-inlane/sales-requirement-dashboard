@@ -136,10 +136,9 @@ async function notifyAdminOfFailedEmails(
 function formatIndianTime(dateString: string) {
   // Create date object and adjust to Indian time (UTC+5:30)
   const date = new Date(dateString);
-  const indianTime = new Date(date.getTime() + 5.5 * 60 * 60 * 1000); // Add 5.5 hours for IST
 
-  let hours = indianTime.getUTCHours();
-  const minutes = indianTime.getUTCMinutes();
+  let hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
   const ampm = hours >= 12 ? "PM" : "AM";
 
   // Convert to 12-hour format
@@ -270,7 +269,8 @@ serve(async (req) => {
             lessonNumber: schedule.Lesson.number,
             startTime: schedule.date + "T" + schedule.start_time,
             endTime: schedule.date + "T" + schedule.end_time,
-            pickupLocation: schedule.Learner.pick_up_location || "Contact Inlane",
+            pickupLocation:
+              schedule.Learner.pick_up_location || "Contact Inlane",
             instructorName: schedule.Instructor.name || "Contact Inlane",
             instructorPhone: schedule.Instructor.phone || "Contact Inlane",
             instructorId: schedule.instructor_id, // Store instructor ID for filtering
@@ -339,31 +339,39 @@ serve(async (req) => {
               <td>${date}</td>
               <td>${formatIndianTime(lesson.startTime)} - ${formatIndianTime(lesson.endTime)}</td>
               <td>${lesson.pickupLocation}</td>
-              <td>${isLearner ? lesson.instructorName : learnerName}</td>
-              <td>${isLearner ? lesson.instructorPhone || "Contact Inlane" : learnerPhone || "Contact Inlane"}</td>
+              <td>${lesson.instructorName || instructorName || "Contact Inlane"}</td><td>${lesson.instructorPhone || "Contact Inlane"}</td>
             </tr>`;
           })
           .join("");
+        const learnerInfoSection = `
+          <div style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+            <h3 style="margin-top: 0;">Student Information:</h3>
+            <p><strong>Name:</strong> ${learnerName}</p>
+            <p><strong>Phone:</strong> ${learnerPhone || "Contact Inlane"}</p>
+            <p><strong>Email:</strong> ${learnerEmail}</p>
+          </div>
+        `;
 
         return `
           <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-              <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+              <div style="max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
                 <h2 style="color: #3182ce;">Your Driving Lessons Schedule</h2>
-                <p>Hello ${name},</p>
-                <h3>Your Complete Lesson Schedule:</h3>
-                <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
-                  <tr style="background-color: #f2f2f2;">
-                    <th>Lesson</th>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Pickup Location</th>
-                    <th>${isLearner ? "Instructor" : "Student"}</th>
-                    <th>Phone</th>
-                  </tr>
-                  ${lessonsTable}
-                </table>
-                <p>Please find the calendar invitations attached to this email.</p>
+                <p>Hello ${name},</p>${isLearner ? "" : learnerInfoSection}<h3>Complete Lesson Schedule:</h3>
+                <div style="overflow-x: auto;">
+                  <table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">
+                    <tr style="background-color: #f2f2f2;">
+                      <th>Lesson</th>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>Pickup Location</th>
+                      <th>Instructor Name</th>
+                      <th>Instructor Phone</th>
+                    </tr>
+                    ${lessonsTable}
+                  </table>
+                </div>
+                <p style="margin-top: 20px;">Please find the calendar invitations attached to this email.</p>
                 <div style="margin: 30px 0;">
                   <a href="https://inlane-web-app.vercel.app/${isLearner ? "login" : "instructor-login"}" 
                      style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
@@ -386,20 +394,22 @@ serve(async (req) => {
         true,
         learnerPhone,
       );
-      
+
       // For instructor, filter to only show their lessons
       const instructorId = requestBody.instructorId;
       let instructorSchedules = allLearnerSchedules;
-      
+
       if (instructorId) {
         instructorSchedules = allLearnerSchedules.filter(
-          lesson => lesson.instructorId === instructorId
+          (lesson) => lesson.instructorId === instructorId,
         );
       }
-      
+
       const instructorEmailContent = generateEmailContent(
         instructorName,
-        instructorSchedules.length > 0 ? instructorSchedules : allLearnerSchedules,
+        instructorSchedules.length > 0
+          ? instructorSchedules
+          : allLearnerSchedules,
         false,
         learnerPhone,
       );

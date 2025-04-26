@@ -1208,7 +1208,6 @@ function CreateSchedule({
     setStartDate(currentRangeStart);
   }, [currentRangeStart]);
 
-
   // Ensure the selected instructor is updated when defaultInstructorId changes
   useEffect(() => {
     setSelectedInstructorId(defaultInstructorId);
@@ -1311,7 +1310,8 @@ function CreateSchedule({
             minLessonNumber,
       );
 
-      if (!existingSchedules) return [toChange, laterScheduleOfLearnerToChange, []];
+      if (!existingSchedules)
+        return [toChange, laterScheduleOfLearnerToChange, []];
 
       const others = existingSchedules.filter(
         (s) => s.learner_id !== learnerId,
@@ -1684,7 +1684,9 @@ function CreateSchedule({
 
     // Get completed lessons to maintain their numbers
     const completedLessons = existingCourseSchedules.filter(
-      (s) => new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) < new Date().getTime(),
+      (s) =>
+        new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) <
+        new Date().getTime(),
     );
 
     // Group selected slots by their slotGroupId
@@ -1712,7 +1714,6 @@ function CreateSchedule({
         instructorId: firstSlot.instructorId,
         isNew: true as const,
       };
-
     });
 
     // Get upcoming slots
@@ -1760,7 +1761,7 @@ function CreateSchedule({
     // Get available lessons for upcoming slots (lessons after the completed ones)
     const availableLessons = courseLessons.filter(
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
-      );
+    );
 
     // Check if this is a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
@@ -1945,7 +1946,9 @@ function CreateSchedule({
       // Fetch learner details
       const { data: learnerData } = await supabase
         .from("Learner")
-        .select("email, pick_up_location, address_lat, address_lng, name,phone,id")
+        .select(
+          "email, pick_up_location, address_lat, address_lng, name,phone,id",
+        )
         .eq("id", learnerId)
         .single();
 
@@ -1998,7 +2001,6 @@ function CreateSchedule({
 
       // 1. Process explicitly requested reschedules
       for (const scheduleToCancel of schedulesToCancel) {
-
         // Skip if no calendar UID (can't cancel what wasn't in the calendar)
         if (!scheduleToCancel.calendar_uid || !scheduleToCancel.lesson_id) {
           continue;
@@ -2079,12 +2081,12 @@ function CreateSchedule({
         endDate.setHours(endHour, endMinute, 0);
 
         // Get instructor details for this lesson
-      const instructorId = schedule.instructor_id;
-      const instructorDetails = instructorsMap.get(instructorId) || {
-        name: "Unknown Instructor",
-        phone: "Contact InLane for details",
-        email: ""
-      };
+        const instructorId = schedule.instructor_id;
+        const instructorDetails = instructorsMap.get(instructorId) || {
+          name: "Unknown Instructor",
+          phone: "Contact InLane for details",
+          email: "",
+        };
 
         // Determine pickup location
         const pickupLocation =
@@ -2135,11 +2137,11 @@ function CreateSchedule({
         endDate.setHours(endHour, endMinute, 0);
 
         // Get instructor details for this lesson
-      const instructorDetails = instructorsMap.get(schedule.instructorId) || {
-        name: "Unknown Instructor",
-        phone: "Contact InLane for details",
-        email: ""
-      };
+        const instructorDetails = instructorsMap.get(schedule.instructorId) || {
+          name: "Unknown Instructor",
+          phone: "Contact InLane for details",
+          email: "",
+        };
 
         // Determine pickup location
         const pickupLocation =
@@ -2154,7 +2156,6 @@ function CreateSchedule({
           (rescheduledLessonIds.has(matchingLessonId) ||
             lessonIdsWithChanges.includes(matchingLessonId));
 
-        
         const sequenceNumber = isRescheduled
           ? (lessonIdToSequence.get(matchingLessonId) || 0) + 1
           : 0;
@@ -2178,25 +2179,40 @@ function CreateSchedule({
       const allEvents = [...cancellationEvents, ...newEvents];
 
       // Send everything in one go
+      // Inside handleCreateSchedule function, replace the existing calendar invite sending code:
+      // Find this section around line 1000-1030
+
+      // Send everything in one go
       if (allEvents.length > 0) {
         console.log(
           `Sending ${allEvents.length} calendar events (${cancellationEvents.length} cancellations, ${newEvents.length} new/updated)`,
         );
-        const primaryInstructorEmail = instructorsData && instructorsData.length > 0 
-        ? instructorsData[0].email 
-        : "";
+        const primaryInstructorEmail =
+          instructorsData && instructorsData.length > 0
+            ? instructorsData[0].email
+            : "";
         if (!primaryInstructorEmail) {
           console.error("Missing email for primary instructor");
           return;
         }
 
+        // REPLACE THIS CALL with the corrected version:
         const uidMap = await sendMultiEventCalendarInvite(
           learnerData.email,
           primaryInstructorEmail,
           allEvents,
-          "Your Instructor",
+          instructorsData[0]?.name || "Your Instructor",
           learnerData.name || "Student",
           learnerData.phone,
+          {
+            // Add these missing parameters
+            emailType: cancellationEvents.length > 0 ? "mixed" : "new",
+            batchInfo:
+              request.type === "new"
+                ? " - New Schedule"
+                : " - Updated Schedule",
+            allEvents: allEvents, // Include all events for complete table
+          },
           learnerData.id,
         );
 
