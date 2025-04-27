@@ -2179,10 +2179,6 @@ function CreateSchedule({
       const allEvents = [...cancellationEvents, ...newEvents];
 
       // Send everything in one go
-      // Inside handleCreateSchedule function, replace the existing calendar invite sending code:
-      // Find this section around line 1000-1030
-
-      // Send everything in one go
       if (allEvents.length > 0) {
         console.log(
           `Sending ${allEvents.length} calendar events (${cancellationEvents.length} cancellations, ${newEvents.length} new/updated)`,
@@ -2196,39 +2192,95 @@ function CreateSchedule({
           return;
         }
 
-        // REPLACE THIS CALL with the corrected version:
-        const uidMap = await sendMultiEventCalendarInvite(
-          learnerData.email,
-          primaryInstructorEmail,
-          allEvents,
-          instructorsData[0]?.name || "Your Instructor",
-          learnerData.name || "Student",
-          learnerData.phone,
-          {
-            // Add these missing parameters
-            emailType: cancellationEvents.length > 0 ? "mixed" : "new",
-            batchInfo:
-              request.type === "new"
-                ? " - New Schedule"
-                : " - Updated Schedule",
-            allEvents: allEvents, // Include all events for complete table
-          },
-          learnerData.id,
-        );
-
-        // Update final schedules with calendar UIDs
-        finalSchedules.forEach((schedule, index) => {
-          finalSchedules[index].calendar_uid =
-            uidMap[schedule.lessonNumber] || "";
-        });
+        try {
+          // STEP 1: FIRST SAVE ALL SCHEDULES TO THE DATABASE
+          console.log("Creating schedules in the database first...");
+          
+          // Call onScheduleCreate to save data to database before sending emails
+          // This ensures the schedules are in the database when the emails are sent
+          onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+          
+          // Wait a moment to ensure database write is complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // STEP 2: NOW SEND CALENDAR INVITES
+          console.log("Now sending calendar invites...");
+          
+          // SEND CANCELLATION EVENTS FIRST (if any)
+          if (cancellationEvents.length > 0) {
+            console.log(`Sending ${cancellationEvents.length} cancellation events`);
+            try {
+              await sendMultiEventCalendarInvite(
+                learnerData.email,
+                primaryInstructorEmail,
+                cancellationEvents,
+                instructorsData[0]?.name || "Your Instructor",
+                learnerData.name || "Student",
+                learnerData.phone,
+                {
+                  emailType: "cancellation",
+                  batchInfo: " - Cancelled Lessons",
+                  allEvents: [], // Empty since these will be fetched from DB
+                  learnerId: learnerData.id,
+                },
+                learnerData.id,
+              );
+            } catch (cancelError) {
+              console.error("Error sending cancellation events:", cancelError);
+            }
+          }
+          
+          // THEN SEND NEW EVENTS
+          if (newEvents.length > 0) {
+            console.log(`Sending ${newEvents.length} new events`);
+            try {
+              const uidMap = await sendMultiEventCalendarInvite(
+                learnerData.email,
+                primaryInstructorEmail,
+                newEvents,
+                instructorsData[0]?.name || "Your Instructor",
+                learnerData.name || "Student",
+                learnerData.phone,
+                {
+                  emailType: "new",
+                  batchInfo: request.type === "new" ? " - New Schedule" : " - Updated Schedule",
+                  allEvents: [], // Empty since these will be fetched from DB
+                  learnerId: learnerData.id,
+                },
+                learnerData.id,
+              );
+              
+              // Update database with calendar UIDs if we got them back
+              if (uidMap) {
+                console.log("Updating schedules with calendar UIDs");
+                for (const schedule of finalSchedules) {
+                  if (uidMap[schedule.lessonNumber]) {
+                    await supabase
+                      .from("Schedule")
+                      .update({
+                        calendar_uid: uidMap[schedule.lessonNumber],
+                        calendar_sequence: 0, // Reset sequence for new UIDs
+                      })
+                      .eq("lesson_id", schedule.lessonId);
+                  }
+                }
+              }
+            } catch (newEventError) {
+              console.error("Error sending new events:", newEventError);
+            }
+          }
+        } catch (error) {
+          console.error("Error handling calendar invites:", error);
+          // If there was an error sending invites but not saving schedules,
+          // we don't need to call onScheduleCreate again since it was already called
+        }
+      } else {
+        // No events to send, just save schedules
+        onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
       }
-
-      // Now call onScheduleCreate with the updated finalSchedules that include calendar_uid
-      onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
     } catch (error) {
-      console.error("Error handling calendar invites:", error);
-      // Still call onScheduleCreate even if there are errors with calendar invites
-      onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+      console.error("Error in handleCreateSchedule:", error);
+      // Don't call onScheduleCreate here - we want to avoid creating schedules if there was an error in the process
     } finally {
       // Always reset loading state when done
       setIsSendingInvites(false);
