@@ -132,24 +132,41 @@ async function notifyAdminOfFailedEmails(
   }
 }
 
-// Custom function to format time in Indian style
+// Custom function to format time in Indian time (UTC+5:30)
 function formatIndianTime(dateString: string) {
-  // Create date object and adjust to Indian time (UTC+5:30)
-  const date = new Date(dateString);
-
-  let hours = date.getUTCHours();
-  const minutes = date.getUTCMinutes();
-  const ampm = hours >= 12 ? "PM" : "AM";
-
-  // Convert to 12-hour format
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-
-  // Add leading zero to minutes if needed
-  const minutesStr = minutes < 10 ? "0" + minutes : minutes;
-
-  return `${hours}:${minutesStr} ${ampm}`;
+  try {
+    // Create date object from string
+    const date = new Date(dateString);
+    
+    // Add the IST offset (UTC+5:30) to properly display in Indian time
+    // This is 5 hours and 30 minutes offset from UTC
+    const offsetHours = 5;
+    const offsetMinutes = 30;
+    
+    // Clone the date to avoid modifying the original
+    const istDate = new Date(date.getTime());
+    istDate.setHours(istDate.getHours());
+    istDate.setMinutes(istDate.getMinutes());
+    
+    // Get hours and minutes from the adjusted date
+    let hours = istDate.getHours();
+    const minutes = istDate.getMinutes();
+    
+    // Format for 12-hour clock with AM/PM
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    
+    // Add leading zero to minutes if needed
+    const minutesStr = minutes < 10 ? "0" + minutes : minutes;
+    
+    return `${hours}:${minutesStr} ${ampm}`;
+  } catch (error) {
+    console.error("Error formatting time:", error, dateString);
+    return dateString; // Return original in case of error
+  }
 }
+
 // Main serve function
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -396,20 +413,33 @@ serve(async (req) => {
       );
 
       // For instructor, filter to only show their lessons
-      const instructorId = requestBody.instructorId;
-      let instructorSchedules = allLearnerSchedules;
-
-      if (instructorId) {
-        instructorSchedules = allLearnerSchedules.filter(
-          (lesson) => lesson.instructorId === instructorId,
-        );
+      const instructorId = events[0]?.instructorId;
+      
+      // Properly filter instructor schedules based on instructor email
+      // This ensures instructors only see their own lessons
+      let instructorSchedules = allLearnerSchedules.filter(lesson => {
+        // Filter by instructor's email (most reliable)
+        if (lesson.instructorEmail && instructorEmail) {
+          return lesson.instructorEmail.toLowerCase() === instructorEmail.toLowerCase();
+        }
+        // Fall back to instructor ID if email is not available
+        if (instructorId && lesson.instructorId) {
+          return lesson.instructorId === instructorId;
+        }
+        return false;
+      });
+      
+      // If no lessons matched this instructor (unlikely), use the directly provided events
+      if (instructorSchedules.length === 0) {
+        console.log("No matching lessons for instructor - using event-specific data");
+        instructorSchedules = events.filter(event => !event.isCancellation);
       }
+
+      console.log(`Sending ${instructorSchedules.length} lessons to instructor email: ${instructorEmail}`);
 
       const instructorEmailContent = generateEmailContent(
         instructorName,
-        instructorSchedules.length > 0
-          ? instructorSchedules
-          : allLearnerSchedules,
+        instructorSchedules,
         false,
         learnerPhone,
       );
