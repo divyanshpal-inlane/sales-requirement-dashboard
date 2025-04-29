@@ -105,7 +105,7 @@ export async function sendMultiEventCalendarInvite(
           summary,
           description,
           event.pickupLocation,
-          "f20220757@goa.bits-pilani.ac.in", // organizerEmail
+          import.meta.env.SMTP_FROM, // organizerEmail
           learnerEmail, // attendeeEmail
           uid,
           event.isCancellation,
@@ -118,7 +118,7 @@ export async function sendMultiEventCalendarInvite(
           summary,
           description,
           event.pickupLocation,
-          "f20220757@goa.bits-pilani.ac.in", // organizerEmail
+          import.meta.env.SMTP_FROM, // organizerEmail
           instructorEmail, // attendeeEmail - specific to this instructor
           uid,
           event.isCancellation,
