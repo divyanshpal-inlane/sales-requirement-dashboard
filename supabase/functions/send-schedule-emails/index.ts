@@ -22,6 +22,7 @@ async function sendEmailWithRetry(
   client: SMTPClient,
   emailOptions: any,
   retries = MAX_RETRIES,
+  
 ): Promise<boolean> {
   try {
     await client.send(emailOptions);
@@ -336,6 +337,7 @@ serve(async (req) => {
       };
 
       const smtpFrom = Deno.env.get("SMTP_FROM");
+      const bccEmail = Deno.env.get("ADMIN_CAL_EMAIL"); // <-- Import ADMIN_CAL_EMAIL from env
 
       // Simplified email content generation
       function generateEmailContent(
@@ -470,6 +472,7 @@ serve(async (req) => {
           const learnerEmailOptions = {
             from: smtpFrom,
             to: learnerEmail,
+            bcc: bccEmail, // <-- Use bcc email from env
             subject: emailSubject + batchNumber,
             html: String(learnerEmailContent),
             attachments: learnerICSBatches[i].map((ics) => {
@@ -543,6 +546,7 @@ serve(async (req) => {
           const instructorEmailOptions = {
             from: smtpFrom,
             to: instructorEmail,
+            // bcc: "", 
             subject: emailSubject + batchNumber,
             html: String(instructorEmailContent),
             attachments: instructorICSBatches[i].map((ics) => {
