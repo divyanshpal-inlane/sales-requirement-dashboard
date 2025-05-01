@@ -351,10 +351,6 @@ export function generateICSFile(
   isCancellation: boolean = false,
   sequence: number = 0,
 ): string {  
-  console.log("bccEmail:", bccEmail);
-  console.log("organizerEmail:", organizerEmail);
-  console.log("attendeeEmail:", attendeeEmail);
-  
   // Format dates according to iCalendar spec (UTC format)
   const now = formatDateForICS(new Date());
   const start = formatDateForICS(startTime);
