@@ -41,33 +41,6 @@ export async function sendMultiEventCalendarInvite(
   learnerId?: string, // Add learnerId parameter
 ): Promise<Record<number, string>> {
   try {
-    // Debug: Log all input variables
-    console.log("sendMultiEventCalendarInvite called with:");
-    console.log("learnerEmail:", learnerEmail);
-    console.log("primaryInstructorEmail:", primaryInstructorEmail);
-    console.log("events:", events);
-    if (Array.isArray(events)) {
-      events.forEach((event, idx) => {
-        console.log(`events[${idx}]:`, event);
-        console.log(`  startTime:`, event.startTime);
-        console.log(`  endTime:`, event.endTime);
-        console.log(`  lessonNumber:`, event.lessonNumber);
-        console.log(`  pickupLocation:`, event.pickupLocation);
-        console.log(`  uid:`, event.uid);
-        console.log(`  sequence:`, event.sequence);
-        console.log(`  isCancellation:`, event.isCancellation);
-        console.log(`  instructorName:`, event.instructorName);
-        console.log(`  instructorPhone:`, event.instructorPhone);
-        console.log(`  instructorEmail:`, event.instructorEmail);
-        console.log(`  instructorId:`, event.instructorId);
-      });
-    }
-    console.log("defaultInstructorName:", defaultInstructorName);
-    console.log("learnerName:", learnerName);
-    console.log("learnerPhone:", learnerPhone);
-    console.log("emailType:", emailType);
-    console.log("learnerId:", learnerId);
-
     // Count cancellation and new events
     const cancellationEvents = events.filter((e) => e.isCancellation);
     const newEvents = events.filter((e) => !e.isCancellation);
@@ -143,9 +116,9 @@ export async function sendMultiEventCalendarInvite(
           summary,
           description,
           event.pickupLocation,
-          import.meta.env.SMTP_FROM,
-          import.meta.env.ADMIN_CAL_EMAIL, // organizerEmail
+          import.meta.env.VITE_SMTP_FROM,  // organizerEmail
           learnerEmail, // attendeeEmail - specific to this instructor
+          import.meta.env.VITE_ADMIN_CAL_EMAIL,  //bcc email
           uid,
           event.isCancellation,
           event.sequence || 0,
@@ -157,9 +130,9 @@ export async function sendMultiEventCalendarInvite(
           summary,
           description,
           event.pickupLocation,
-          import.meta.env.SMTP_FROM,
-          import.meta.env.ADMIN_CAL_EMAIL, // organizerEmail
+          import.meta.env.VITE_SMTP_FROM,  // organizerEmail
           instructorEmail, // attendeeEmail
+          "",  //bcc email
           uid,
           event.isCancellation,
           event.sequence || 0,
@@ -377,9 +350,11 @@ export function generateICSFile(
   uid?: string,
   isCancellation: boolean = false,
   sequence: number = 0,
-): string {
-  // Use ADMIN_CAL_EMAIL from env for bccEmail
-  bccEmail = import.meta.env.VITE_ADMIN_CAL_EMAIL;
+): string {  
+  console.log("bccEmail:", bccEmail);
+  console.log("organizerEmail:", organizerEmail);
+  console.log("attendeeEmail:", attendeeEmail);
+  
   // Format dates according to iCalendar spec (UTC format)
   const now = formatDateForICS(new Date());
   const start = formatDateForICS(startTime);

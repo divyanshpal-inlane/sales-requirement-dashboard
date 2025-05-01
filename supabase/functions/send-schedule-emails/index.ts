@@ -546,7 +546,7 @@ serve(async (req) => {
           const instructorEmailOptions = {
             from: smtpFrom,
             to: instructorEmail,
-            bcc: bccEmail, // <-- Use bcc email from env
+            bcc: "", 
             subject: emailSubject + batchNumber,
             html: String(instructorEmailContent),
             attachments: instructorICSBatches[i].map((ics) => {
