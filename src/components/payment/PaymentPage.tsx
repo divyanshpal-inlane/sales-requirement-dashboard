@@ -569,6 +569,27 @@ function PaymentPage() {
               {isLoading ? "Processing..." : "Proceed to Pay"}
             </Button>
           </form>
+          <div className="mt-6 text-center text-sm">
+            <span className="text-black">By continuing, you agree to our</span>
+            <div className="mt-1 flex justify-center gap-3">
+              <a
+                href="https://inlane.in/terms-and-conditions"
+                className="text-gray-500 hover:text-blue-500 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Terms of Service
+              </a>
+              <a
+                href="https://inlane.in/privacy-policy"
+                className="text-gray-500 hover:text-blue-500 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Privacy Policies
+              </a>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
