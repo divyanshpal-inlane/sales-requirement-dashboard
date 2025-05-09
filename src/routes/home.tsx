@@ -32,7 +32,7 @@ import {
   useLessonSchedule,
   useUpcomingLesson,
 } from "@/queries/learner";
-import { useLatestPayment } from "@/queries/payment";
+import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
 
 const isWithin30MinutesOfLesson = (
@@ -74,15 +74,29 @@ export default function Home() {
   });
   const { mutate: updateLearner } = useLearnerUpdate();
 
-  const { data: payment, isLoading: paymentLoading } = useLatestPayment(
-    learner?.id,
-  );
+  // Fetch all payments for the learner
+  const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(learner?.id);
+
+  // Find the latest completed payment
+  const completedPayment = Array.isArray(payments)
+    ? payments
+        .filter(
+          (payment: { payment_type: string; status: string }) =>
+            payment.payment_type === "course" && payment.status === "completed",
+        )
+        .sort(
+          (a: { created_at: string }, b: { created_at: string }) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )[0]
+    : null;
+
+  const isCompleted = completedPayment && completedPayment?.status === "completed";
 
   if (paymentLoading || isLoading) {
     return <div>Loading...</div>;
   }
 
-  if (!payment) {
+  if (!completedPayment && !isCompleted) {
     return (
       <div className="container mx-auto max-w-md py-8">
         <PaymentStatusCard />
@@ -313,7 +327,7 @@ export default function Home() {
             className="hover:bg-primary-dark w-full bg-primary"
             onClick={() =>
               window.open(
-                "https://www.google.com/search?sca_esv=71235db9e3242676&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzQJRCGdyjVAeNpxL_v1ZJZEWLK7nyCxTAIrR2ZeCA8k7wV6unj_LsaY0pK3KhDrig-Qd3VV0QeYWcHIDk8lUXQkgAYTsMeCD1sZwXyhyJceUV-g5VQ%3D%3D&q=Lane+Driving+School+Platform+Reviews&sa=X&ved=2ahUKEwj6q7mT2OGMAxUkcGwGHcpIMqkQ0bkNegQIHxAD&biw=1920&bih=968&dpr=2",
+                "https://www.google.com/search?sca_esv=71235db9e3242676&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzQJRCGdyjVAeNpxL_v1ZJZEWLK7nyCxTAIrR2ZeCA8k7wV6unj_LsaY0pK3KhDrig-Qd3VV0QeYWcHIDk8lUXQkgAYTsMeCD1sZwXyhyJceUV-g5VQ%3D%3D&q=Lane+Driving+School+Platform+Reviews&sa=X&ved=2ahUKEwj6q7mT2OGMAxUkcGwGHcpIMqkQ0bkNegQIHxAD&biw=1920&bih=968&dpr=2#lrd=0x4cdc767dad33a5fd:0xda0c670666b6e2c2,3,,,,",
                 "_blank",
               )
             }
