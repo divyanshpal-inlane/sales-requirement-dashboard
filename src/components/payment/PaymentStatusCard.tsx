@@ -4,33 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLearner } from "@/queries/learner";
-import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
+import { useLatestPayment } from "@/queries/payment";
 
 function PaymentStatusCard() {
   const navigate = useNavigate();
   const { data: learner } = useLearner();
-
-  // Fetch all payments for the learner
-  const { data: payments, isLoading } = usePaymentsByLearner(learner?.id);
-
-  // Find the latest completed payment
-  const completedPayment = Array.isArray(payments)
-    ? payments
-        .filter(
-          (payment: { payment_type: string; status: string }) =>
-            payment.payment_type === "course" && payment.status === "completed",
-        )
-        .sort(
-          (a: { created_at: string }, b: { created_at: string }) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        )[0]
-    : null;
-
-  // Find the latest payment (completed or not)
-  const latestPayment = payments?.sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  )[0];
+  const { data: payment, isLoading } = useLatestPayment(learner?.id);
 
   if (isLoading) {
     return (
@@ -42,7 +21,7 @@ function PaymentStatusCard() {
     );
   }
 
-  if (!payments) {
+  if (!payment) {
     return (
       <Card>
         <CardHeader>
@@ -63,8 +42,7 @@ function PaymentStatusCard() {
     );
   }
 
-  const isCompleted = completedPayment && completedPayment?.status === "completed";
-  const payment = isCompleted ? completedPayment : latestPayment;
+  const isCompleted = payment.status === "completed";
 
   return (
     <Card>
@@ -100,7 +78,7 @@ function PaymentStatusCard() {
             </div>
           )}
           {!isCompleted && (
-            <Button onClick={() => navigate(`/payment?phone=${learner?.phone}`)} className="w-full">
+            <Button onClick={() => navigate("/payment")} className="w-full">
               Retry Payment
             </Button>
           )}

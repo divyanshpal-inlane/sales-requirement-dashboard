@@ -34,11 +34,10 @@ export const usePaymentsByLearner = (learnerId?: string) => {
         .eq("learner_id", learnerId)
         .order("created_at", { ascending: false });
 
-      if (error || !data) throw error;
-      return data.length > 0 ? data : null;
+      if (error) throw error;
+      return data;
     },
     enabled: !!learnerId,
-    staleTime: Infinity,
   });
 };
 
