@@ -54,6 +54,7 @@ import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
+import HelpSupport from "./routes/help";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -97,6 +98,7 @@ export default function App() {
               <Route path="home" element={<Home />} />
               <Route path="prep" element={<Prep />} />
               <Route path="schedule" element={<Schedule />} />
+              <Route path="help" element={<HelpSupport />} />
               <Route path="profile" element={<Profile2 />} />
               {/* <Route path="preferences" element={<Preferences />} /> */}
             </Route>
