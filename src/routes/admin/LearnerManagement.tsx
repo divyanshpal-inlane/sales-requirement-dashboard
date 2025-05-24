@@ -94,10 +94,25 @@ export default function LearnerManagement() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setLearnerData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    
+    setLearnerData((prev) => {
+      const updatedData = {
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      };
+      
+      // Auto-calculate installment2Amount when amount or installment1Amount changes
+      if (name === "amount" || name === "installment1Amount") {
+        const amount = name === "amount" ? Number(value) : Number(prev.amount);
+        const installment1Amount = name === "installment1Amount" ? Number(value) : Number(prev.installment1Amount);
+        
+        if (updatedData.installmentType === "installment") {
+          updatedData.installment2Amount = amount - installment1Amount;
+        }
+      }
+      
+      return updatedData;
+    });
   };
 
   const handleCourseChange = (courseId) => {
@@ -118,6 +133,24 @@ export default function LearnerManagement() {
       ...prev,
       unlockedLessons: Array.from({ length: lessonCount }, (_, i) => i + 1),
     }));
+  };
+
+  const handleInstallmentTypeChange = (value) => {
+    setLearnerData((prev) => {
+      const updatedData = {
+        ...prev,
+        installmentType: value,
+      };
+      
+      // Recalculate installment2Amount when switching to installment mode
+      if (value === "installment") {
+        updatedData.installment2Amount = Number(prev.amount) - Number(prev.installment1Amount);
+      } else {
+        updatedData.installment2Amount = 0;
+      }
+      
+      return updatedData;
+    });
   };
 
   const createLearnerAndEnrollment = async () => {
@@ -235,12 +268,15 @@ export default function LearnerManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-8" style={{ 
-      backgroundImage: 'url("/assets/bg_pattern.svg")', 
-      backgroundRepeat: 'repeat', 
-      backgroundSize: 'cover',
-      backgroundAttachment: 'fixed' // This prevents the background from getting cut off
-    }}>
+    <div
+      className="p-8 min-h-screen bg-white"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+        backgroundAttachment: "fixed", // This prevents the background from getting cut off
+      }}
+    >
       <div className="container mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">
@@ -255,8 +291,8 @@ export default function LearnerManagement() {
           {/* Card for Creating Learner */}
           <Card className="transition-all hover:shadow-lg">
             <CardHeader>
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-gray-100 p-2 text-green-500">
+              <div className="flex gap-4 items-center">
+                <div className="p-2 text-green-500 bg-gray-100 rounded-lg">
                   <UserPlus size={24} />
                 </div>
                 <div>
@@ -288,7 +324,7 @@ export default function LearnerManagement() {
                 <DialogTitle>Create New Learner</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="name" className="text-right">
                     Name
                   </Label>
@@ -300,7 +336,7 @@ export default function LearnerManagement() {
                     className="col-span-3"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="email" className="text-right">
                     Email
                   </Label>
@@ -312,7 +348,7 @@ export default function LearnerManagement() {
                     className="col-span-3"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="phone" className="text-right">
                     Phone
                   </Label>
@@ -324,7 +360,7 @@ export default function LearnerManagement() {
                     className="col-span-3"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="courseId" className="text-right">
                     Course
                   </Label>
@@ -344,7 +380,7 @@ export default function LearnerManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="amount" className="text-right">
                     Amount
                   </Label>
@@ -357,17 +393,12 @@ export default function LearnerManagement() {
                     className="col-span-3"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="installmentType" className="text-right">
                     Installment Type
                   </Label>
                   <Select
-                    onValueChange={(value) =>
-                      setLearnerData((prev) => ({
-                        ...prev,
-                        installmentType: value,
-                      }))
-                    }
+                    onValueChange={handleInstallmentTypeChange}
                     value={learnerData.installmentType}
                   >
                     <SelectTrigger className="col-span-3">
@@ -379,7 +410,7 @@ export default function LearnerManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="installment1Amount" className="text-right">
                     Installment 1
                   </Label>
@@ -393,7 +424,7 @@ export default function LearnerManagement() {
                     disabled={learnerData.installmentType === "full"}
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
                   <Label htmlFor="installment2Amount" className="text-right">
                     Installment 2
                   </Label>
@@ -401,16 +432,12 @@ export default function LearnerManagement() {
                     id="installment2Amount"
                     name="installment2Amount"
                     type="number"
-                    value={
-                      learnerData.installmentType === "installment"
-                        ? learnerData.amount - learnerData.installment1Amount
-                        : 0
-                    }
+                    value={learnerData.installment2Amount}
                     className="col-span-3"
                     disabled
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid hidden grid-cols-4 gap-4 items-center">
                   <Label htmlFor="unlockedLessons" className="text-right">
                     Unlocked Lessons
                   </Label>
@@ -418,11 +445,11 @@ export default function LearnerManagement() {
                     id="unlockedLessons"
                     name="unlockedLessons"
                     type="number"
+                    defaultValue="2"
                     onChange={(e) =>
                       handleUnlockedLessonsChange(e.target.value)
                     }
                     className="col-span-3"
-                    placeholder={`Leave empty to unlock half the course`}
                   />
                 </div>
                 <div className="flex items-center space-x-2">
