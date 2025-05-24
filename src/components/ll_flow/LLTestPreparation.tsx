@@ -6,7 +6,9 @@ import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
 
 export function LLTestPreparation({ learnerId }: { learnerId: string }) {
-  const [testStatus, setTestStatus] = useState<"initial" | "passed" | "failed">("initial");
+  const [testStatus, setTestStatus] = useState<"initial" | "passed" | "failed">(
+    "initial",
+  );
   const [hasReceivedLL, setHasReceivedLL] = useState<boolean | null>(null);
   const [learner, setLearner] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +28,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
         console.error("Error fetching learner details:", error);
       } else {
         setLearner(learnerData);
-        
+
         // Set initial states based on learner data
         if (learnerData.LL_result === true) {
           setTestStatus("passed");
@@ -48,7 +50,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
         "send-admin-email",
         {
           body: { subject, message },
-        }
+        },
       );
 
       if (error) {
@@ -66,7 +68,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
       setTestStatus("passed");
       // Update the database with LL_result
       updateLearner({ LL_result: true });
-      
+
       // Send WhatsApp notification
       await supabase.functions.invoke("send-message", {
         body: JSON.stringify({
@@ -74,17 +76,17 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
           learner_id: learner?.id,
         }),
       });
-      
+
       // Send admin email notification about passed test
       await sendAdminEmail(
         "Learner Passed LL Test",
-        `${learner?.name} (Phone: ${learner?.phone}) has reported passing their Learner's License test. They will update when they receive their physical LL.`
+        `${learner?.name} (Phone: ${learner?.phone}) has reported passing their Learner's License test. They will update when they receive their physical LL.`,
       );
     } else {
       setTestStatus("failed");
       // Update the database with LL_result
       updateLearner({ LL_result: false });
-      
+
       // Send WhatsApp notification
       await supabase.functions.invoke("send-message", {
         body: JSON.stringify({
@@ -92,25 +94,25 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
           learner_id: learner?.id,
         }),
       });
-      
+
       // Send admin email notification about failed test
       await sendAdminEmail(
         "Learner Failed LL Test",
-        `${learner?.name} (Phone: ${learner?.phone}) has reported failing their Learner's License test. They will need to retake the test.`
+        `${learner?.name} (Phone: ${learner?.phone}) has reported failing their Learner's License test. They will need to retake the test.`,
       );
     }
   };
 
   const handleLLReceived = async (received: boolean) => {
     setHasReceivedLL(received);
-    
+
     if (received && learner) {
       updateLearner({ LL_result: true, LL_received: true });
-      
+
       // Send admin email notification about LL received
       await sendAdminEmail(
         "Learner Received Physical LL",
-        `${learner?.name} (Phone: ${learner?.phone}) has confirmed receiving their physical Learner's License. They are now ready to proceed with driving lessons.`
+        `${learner?.name} (Phone: ${learner?.phone}) has confirmed receiving their physical Learner's License. They are now ready to proceed with driving lessons.`,
       );
     }
   };
@@ -171,9 +173,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
           {testStatus === "initial" && (
             <div className="space-y-4">
-              <p className="text-lg font-medium">
-                Did you pass your LL test?
-              </p>
+              <p className="text-lg font-medium">Did you pass your LL test?</p>
               <div className="flex justify-center space-x-4">
                 <Button onClick={() => handleTestCompletion(true)}>
                   Yes, I passed
@@ -233,11 +233,12 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               </Button>
             </div>
           )}
-          
+
           {testStatus === "passed" && hasReceivedLL === true && (
             <div className="space-y-4">
               <p className="text-lg font-medium text-green-600">
-                Great! You've received your Learner's License. You're now ready to proceed with driving lessons.
+                Great! You've received your Learner's License. You're now ready
+                to proceed with driving lessons.
               </p>
             </div>
           )}

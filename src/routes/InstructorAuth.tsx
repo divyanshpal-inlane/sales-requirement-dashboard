@@ -7,8 +7,16 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
 
 export default function InstructorAuth() {
-  const { login, signUp, requestPasswordReset, verifyOtpAndResetPassword, user } = useAuth();
-  const [active, setActive] = useState<"login" | "signup" | "forgot-password">("login");
+  const {
+    login,
+    signUp,
+    requestPasswordReset,
+    verifyOtpAndResetPassword,
+    user,
+  } = useAuth();
+  const [active, setActive] = useState<"login" | "signup" | "forgot-password">(
+    "login",
+  );
   const [phone, setPhone] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
@@ -47,7 +55,9 @@ export default function InstructorAuth() {
       await requestPasswordReset(phone);
       setResetRequested(true);
       setTimer(30); // Start 30-second timer
-      setSuccessMessage("OTP sent to your WhatsApp. Please check and enter below.");
+      setSuccessMessage(
+        "OTP sent to your WhatsApp. Please check and enter below.",
+      );
     } catch (error) {
       console.error("Failed to send OTP:", error);
       setErrorMessage("Failed to send OTP. Please try again.");
@@ -97,8 +107,10 @@ export default function InstructorAuth() {
             throw new Error("Passwords do not match");
           }
           await verifyOtpAndResetPassword(phone, otp, newPassword);
-          setSuccessMessage("Password reset successfully! You can now login with your new password.");
-          
+          setSuccessMessage(
+            "Password reset successfully! You can now login with your new password.",
+          );
+
           // Reset states and redirect to login
           setTimeout(() => {
             setActive("login");

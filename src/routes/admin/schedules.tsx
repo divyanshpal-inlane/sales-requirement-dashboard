@@ -414,7 +414,9 @@ export default function AdminSchedules() {
   };
 
   const [isSendingInvites, setIsSendingInvites] = useState(false);
-  const [processingScheduleId, setProcessingScheduleId] = useState<string | null>(null);
+  const [processingScheduleId, setProcessingScheduleId] = useState<
+    string | null
+  >(null);
 
   const handleUpdateSchedule = async (
     scheduleId: string,
@@ -424,7 +426,7 @@ export default function AdminSchedules() {
       // Set loading state
       setIsSendingInvites(true);
       setProcessingScheduleId(scheduleId);
-      
+
       // First, fetch the current schedule to get all its details
       const { data: currentSchedule, error: fetchError } = await supabase
         .from("Schedule")
@@ -812,8 +814,6 @@ export default function AdminSchedules() {
         };
       });
 
-      
-
       // First, send cancellation events if there are any
       if (cancellationEvents.length > 0 && currentSchedule.Learner.email) {
         // Get primary instructor email
@@ -927,7 +927,7 @@ export default function AdminSchedules() {
       // Set loading state
       setIsSendingInvites(true);
       setProcessingScheduleId(scheduleId);
-      
+
       // First, fetch the current schedule to get all its details
       const { data: currentSchedule, error: fetchError } = await supabase
         .from("Schedule")
@@ -1150,8 +1150,7 @@ export default function AdminSchedules() {
             newInstructorDetails.email,
             [newEvent], // Only send the new event
             newInstructorDetails.name,
-            currentSchedule.Learner.name || 
-            "Student",
+            currentSchedule.Learner.name || "Student",
             currentSchedule.Learner.phone,
             {
               emailType: "new",
@@ -1651,14 +1650,18 @@ export default function AdminSchedules() {
                           if (!selectedInstructorId) {
                             toast({
                               title: "Error",
-                              description: "Please select an instructor before saving.",
+                              description:
+                                "Please select an instructor before saving.",
                               variant: "destructive",
                             });
                             return;
                           }
 
                           try {
-                            await handleInstructorChange(selectedSchedule.id, selectedInstructorId);
+                            await handleInstructorChange(
+                              selectedSchedule.id,
+                              selectedInstructorId,
+                            );
                             toast({
                               title: "Success",
                               description: "Instructor updated successfully.",
@@ -1677,13 +1680,13 @@ export default function AdminSchedules() {
                         disabled={isSendingInvites}
                       >
                         {isSendingInvites ? (
-              <span className="flex items-center">
-                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                Sending Invites...
-              </span>
-            ) : (
-              "Save"
-            )}
+                          <span className="flex items-center">
+                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            Sending Invites...
+                          </span>
+                        ) : (
+                          "Save"
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1880,14 +1883,14 @@ export default function AdminSchedules() {
                         }}
                         disabled={isSendingInvites}
                       >
-                       {isSendingInvites ? (
-              <span className="flex items-center">
-                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                Sending Invites...
-              </span>
-            ) : (
-              "Save"
-            )}
+                        {isSendingInvites ? (
+                          <span className="flex items-center">
+                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            Sending Invites...
+                          </span>
+                        ) : (
+                          "Save"
+                        )}
                       </Button>
                     </div>
                   </div>

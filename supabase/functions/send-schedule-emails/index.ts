@@ -22,7 +22,6 @@ async function sendEmailWithRetry(
   client: SMTPClient,
   emailOptions: any,
   retries = MAX_RETRIES,
-  
 ): Promise<boolean> {
   try {
     await client.send(emailOptions);
@@ -138,29 +137,29 @@ function formatIndianTime(dateString: string) {
   try {
     // Create date object from string
     const date = new Date(dateString);
-    
+
     // Add the IST offset (UTC+5:30) to properly display in Indian time
     // This is 5 hours and 30 minutes offset from UTC
     const offsetHours = 5;
     const offsetMinutes = 30;
-    
+
     // Clone the date to avoid modifying the original
     const istDate = new Date(date.getTime());
     istDate.setHours(istDate.getHours());
     istDate.setMinutes(istDate.getMinutes());
-    
+
     // Get hours and minutes from the adjusted date
     let hours = istDate.getHours();
     const minutes = istDate.getMinutes();
-    
+
     // Format for 12-hour clock with AM/PM
     const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12;
     hours = hours ? hours : 12; // the hour '0' should be '12'
-    
+
     // Add leading zero to minutes if needed
     const minutesStr = minutes < 10 ? "0" + minutes : minutes;
-    
+
     return `${hours}:${minutesStr} ${ampm}`;
   } catch (error) {
     console.error("Error formatting time:", error, dateString);
@@ -416,13 +415,16 @@ serve(async (req) => {
 
       // For instructor, filter to only show their lessons
       const instructorId = events[0]?.instructorId;
-      
+
       // Properly filter instructor schedules based on instructor email
       // This ensures instructors only see their own lessons
-      let instructorSchedules = allLearnerSchedules.filter(lesson => {
+      let instructorSchedules = allLearnerSchedules.filter((lesson) => {
         // Filter by instructor's email (most reliable)
         if (lesson.instructorEmail && instructorEmail) {
-          return lesson.instructorEmail.toLowerCase() === instructorEmail.toLowerCase();
+          return (
+            lesson.instructorEmail.toLowerCase() ===
+            instructorEmail.toLowerCase()
+          );
         }
         // Fall back to instructor ID if email is not available
         if (instructorId && lesson.instructorId) {
@@ -430,14 +432,18 @@ serve(async (req) => {
         }
         return false;
       });
-      
+
       // If no lessons matched this instructor (unlikely), use the directly provided events
       if (instructorSchedules.length === 0) {
-        console.log("No matching lessons for instructor - using event-specific data");
-        instructorSchedules = events.filter(event => !event.isCancellation);
+        console.log(
+          "No matching lessons for instructor - using event-specific data",
+        );
+        instructorSchedules = events.filter((event) => !event.isCancellation);
       }
 
-      console.log(`Sending ${instructorSchedules.length} lessons to instructor email: ${instructorEmail}`);
+      console.log(
+        `Sending ${instructorSchedules.length} lessons to instructor email: ${instructorEmail}`,
+      );
 
       const instructorEmailContent = generateEmailContent(
         instructorName,
@@ -546,7 +552,7 @@ serve(async (req) => {
           const instructorEmailOptions = {
             from: smtpFrom,
             to: instructorEmail,
-            // bcc: "", 
+            // bcc: "",
             subject: emailSubject + batchNumber,
             html: String(instructorEmailContent),
             attachments: instructorICSBatches[i].map((ics) => {

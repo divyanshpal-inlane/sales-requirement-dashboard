@@ -48,33 +48,36 @@ export default function Plan() {
   if (isLessonLoading || isLearnerLoading || isEnrollmentLoading)
     return <div>Loading...</div>;
   if (!lesson || !learner || !enrollment) return null;
-  
+
   // Check if lesson is locked (for installment payments)
-  const isLessonLocked = 
-    enrollment.payment_status === "half_paid" && 
-    lesson.number && 
-    (!enrollment.unlocked_lessons || !enrollment.unlocked_lessons.includes(lesson.number));
-  
+  const isLessonLocked =
+    enrollment.payment_status === "half_paid" &&
+    lesson.number &&
+    (!enrollment.unlocked_lessons ||
+      !enrollment.unlocked_lessons.includes(lesson.number));
+
   // If lesson is locked, show a message and redirect
   if (isLessonLocked) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6 bg-gray-50">
-        <div className="text-center max-w-md">
-          <Lock className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Lesson Locked</h2>
-          <p className="text-gray-600 mb-6">
-            This lesson is locked because you've only completed the first installment payment.
-            Complete your payment to unlock all lessons.
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-md text-center">
+          <Lock className="mx-auto mb-4 h-16 w-16 text-gray-400" />
+          <h2 className="mb-2 text-2xl font-bold text-gray-800">
+            Lesson Locked
+          </h2>
+          <p className="mb-6 text-gray-600">
+            This lesson is locked because you've only completed the first
+            installment payment. Complete your payment to unlock all lessons.
           </p>
           <div className="space-y-3">
-            <Button 
+            <Button
               onClick={() => navigate(`/payment?phone=${learner.phone}`)}
               className="w-full"
             >
               Complete Payment
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => navigate("/schedule")}
               className="w-full"
             >
@@ -85,7 +88,7 @@ export default function Plan() {
       </div>
     );
   }
-  
+
   const enrolledCourse = enrollment.Courses;
   const enrolledLessons = enrollment.Courses?.Lesson ?? [];
   const nextLessonId =
@@ -136,7 +139,7 @@ export function LessonPlan({
   } = COURSES_DATA[lesson.course_id!].lessonsData[lesson.number?.toString()];
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [ selectedCard, setSelectedCard] = useState<number | null>(null);
+  const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [isInfoCardOpen, setIsInfoCardOpen] = useState(true);
   const [isSessionDetailsMinimized, setIsSessionDetailsMinimized] =
     useState(true);
@@ -166,7 +169,7 @@ export function LessonPlan({
             color: video.color ?? "",
             content: (
               <video
-                className="overflow-hidden rounded-lg "
+                className="overflow-hidden rounded-lg"
                 autoPlay
                 playsInline
                 muted={false}
@@ -348,20 +351,12 @@ export function LessonPlan({
                     </p>
                   </div>
                   <div className="flex flex-col gap-0">
-                    <p className="text-sm font-light">Pick Up location</p>
-
-                    <Popover>
-                      <PopoverTrigger>
-                        <p className="truncate text-base">
-                          {learner?.pick_up_location
-                            ? learner?.pick_up_location
-                            : "Not available"}
-                        </p>
-                      </PopoverTrigger>
-                      <PopoverContent>
-                        {learner?.pick_up_location}
-                      </PopoverContent>
-                    </Popover>
+                    <p className="text-sm font-light">Mobile number</p>
+                    <p className="text-base">
+                      {schedule?.Instructor?.phone
+                        ? schedule?.Instructor?.phone
+                        : "Not available"}
+                    </p>
                   </div>
 
                   {/* Row 3 */}
@@ -380,6 +375,22 @@ export function LessonPlan({
                         ? schedule?.Instructor?.car_number
                         : "Not available"}
                     </p>
+                  </div>
+                  <div className="flex flex-col gap-0">
+                    <p className="text-sm font-light">Pick Up location</p>
+
+                    <Popover>
+                      <PopoverTrigger>
+                        <p className="truncate text-base">
+                          {learner?.pick_up_location
+                            ? learner?.pick_up_location
+                            : "Not available"}
+                        </p>
+                      </PopoverTrigger>
+                      <PopoverContent>
+                        {learner?.pick_up_location}
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </motion.div>
@@ -426,7 +437,7 @@ export function LessonPlan({
                 setIsMenuOpen(!isMenuOpen);
               }}
               size={"lg"}
-              className="w-32 text-lg mb-8"
+              className="mb-8 w-32 text-lg"
             >
               {isMenuOpen ? "Info" : "Prep time"}
             </Button>
@@ -513,7 +524,7 @@ export function LessonPlan({
                   initial={{ opacity: 0, y: 40 }}
                   animate={{ opacity: 1, y: -index * 20 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`${item.color} flex cursor-pointer items-center justify-between rounded-lg p-4 py-8 ${index === menuItems.length - 1 ? 'mb-8' : ''}`}
+                  className={`${item.color} flex cursor-pointer items-center justify-between rounded-lg p-4 py-8 ${index === menuItems.length - 1 ? "mb-8" : ""}`}
                   onClick={() => handleCardClick(index)}
                 >
                   <span className="text-3xl font-medium">{item.title}</span>
@@ -533,30 +544,29 @@ export function LessonPlan({
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className={`${menuItems[selectedCard].color} absolute flex h-full w-full flex-col overflow-y-auto rounded-t-3xl`}
             >
-          <Button
-            size="icon"
-            variant="ghost"
-            className="text-foreground mt-4 ml-4"
-            onClick={handleBackClick}
-          >
-            <X className="h-8 w-8" />
-          </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="ml-4 mt-4 text-foreground"
+                onClick={handleBackClick}
+              >
+                <X className="h-8 w-8" />
+              </Button>
               <div className="sticky top-0 flex flex-row items-center justify-between gap-2 px-6 pt-4">
-        <h2 className="text-5xl font-medium">
-          {menuItems[selectedCard].title}
-        </h2>
-        <div className="flex items-center gap-4">
-          <p className="text-[78px]">{menuItems[selectedCard].icon}</p>
-        </div>
-      </div>
+                <h2 className="text-5xl font-medium">
+                  {menuItems[selectedCard].title}
+                </h2>
+                <div className="flex items-center gap-4">
+                  <p className="text-[78px]">{menuItems[selectedCard].icon}</p>
+                </div>
+              </div>
 
               <ScrollArea className="flex-grow px-6 pb-6">
-                <div className="flex h-full flex-col items-center justify-between gap-2 mt-10">
+                <div className="mt-10 flex h-full flex-col items-center justify-between gap-2">
                   {menuItems[selectedCard].content}
                 </div>
                 <ScrollBar className="bg-accent-purple/60" />
               </ScrollArea>
-              
             </motion.div>
           )}
         </AnimatePresence>
@@ -564,4 +574,3 @@ export function LessonPlan({
     </div>
   );
 }
-

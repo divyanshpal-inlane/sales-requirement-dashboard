@@ -154,7 +154,7 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
             : instructorId;
 
           const otp = generateRandomOTP();
-          console.log('Generated OTP:', otp);
+          console.log("Generated OTP:", otp);
 
           bookings.push({
             learner_id: learnerId,

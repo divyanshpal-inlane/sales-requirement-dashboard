@@ -27,10 +27,10 @@ function Preferences() {
     type === "new" && learner?.has_a_DL
       ? lessons
       : type === "new"
-      ? lessons?.slice(0, 9)
-      : type === "lesson10"
-      ? lessons?.slice(9, 10)
-      : lessons;
+        ? lessons?.slice(0, 9)
+        : type === "lesson10"
+          ? lessons?.slice(9, 10)
+          : lessons;
 
   if (enrolledCourseLoading || lessonsLoading) {
     return <div>Loading...</div>;

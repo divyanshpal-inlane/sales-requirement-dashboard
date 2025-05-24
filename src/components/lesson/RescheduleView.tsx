@@ -7,7 +7,12 @@ import invariant from "tiny-invariant";
 import RescheduleConfirmationSheet from "@/components/lesson/RescheduleConfirmationSheet";
 import RescheduleSelector from "@/components/lesson/RescheduleSelector";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"; // Import Dialog components
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"; // Import Dialog components
 import { supabase } from "@/lib/supabaseClient";
 import {
   Schedule,
@@ -33,7 +38,9 @@ function RescheduleView() {
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [isPolicyDialogOpen, setIsPolicyDialogOpen] = useState(false); // State for policy dialog
   const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
-  const { data: enrolledCourse } = useLearnerEnrollment({ learnerId: learner?.id });
+  const { data: enrolledCourse } = useLearnerEnrollment({
+    learnerId: learner?.id,
+  });
 
   const { data: lesson } = useQuery<Lesson>({
     queryKey: ["lesson", lessonId, enrolledCourse?.course_id],
@@ -124,7 +131,7 @@ function RescheduleView() {
           </h1>
           <p className="">Select new time slots for your lessons</p>
           <p
-            className="mt-2 text-sm underline cursor-pointer"
+            className="mt-2 cursor-pointer text-sm underline"
             onClick={() => setIsPolicyDialogOpen(true)} // Open policy dialog
           >
             View Reschedule Policy
@@ -157,9 +164,15 @@ function RescheduleView() {
           </DialogHeader>
           <div className="text-sm">
             <ul className="list-disc pl-5">
-              <li>Lessons rescheduled within 24 hours will incur a nominal fee of ₹300.</li>
+              <li>
+                Lessons rescheduled within 24 hours will incur a nominal fee of
+                ₹300.
+              </li>
               <li>A ₹300 charge applies for missed lessons (no-show).</li>
-              <li>To avoid fees, please provide at least 24 hours' notice for rescheduling.</li>
+              <li>
+                To avoid fees, please provide at least 24 hours' notice for
+                rescheduling.
+              </li>
             </ul>
           </div>
         </DialogContent>

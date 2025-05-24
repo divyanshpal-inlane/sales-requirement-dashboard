@@ -94,7 +94,9 @@ export default function RescheduleSelector({
               // Keep groups that have at least one valid schedule
               return group.schedules.some((schedule) => {
                 const now = new Date();
-                const scheduleDateTime = new Date(`${group.date}T${schedule.startTime}`);
+                const scheduleDateTime = new Date(
+                  `${group.date}T${schedule.startTime}`,
+                );
                 return scheduleDateTime > now;
               });
             })
@@ -102,9 +104,11 @@ export default function RescheduleSelector({
               ...group,
               schedules: group.schedules.filter((schedule) => {
                 const now = new Date();
-                const scheduleDateTime = new Date(`${group.date}T${schedule.startTime}`);
+                const scheduleDateTime = new Date(
+                  `${group.date}T${schedule.startTime}`,
+                );
                 return scheduleDateTime > now;
-              })
+              }),
             }))
             .map((group) => (
               <Card key={group.date} className="overflow-hidden">

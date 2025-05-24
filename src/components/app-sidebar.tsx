@@ -16,14 +16,14 @@ import {
   SquareTerminal,
   Star,
   Turtle,
-} from "lucide-react"
+} from "lucide-react";
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
-import { StorageCard } from "@/components/storage-card"
-import { TeamSwitcher } from "@/components/team-switcher"
+import { NavMain } from "@/components/nav-main";
+import { NavProjects } from "@/components/nav-projects";
+import { NavSecondary } from "@/components/nav-secondary";
+import { NavUser } from "@/components/nav-user";
+import { StorageCard } from "@/components/storage-card";
+import { TeamSwitcher } from "@/components/team-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +31,7 @@ import {
   SidebarHeader,
   SidebarItem,
   SidebarLabel,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 const data = {
   teams: [
     {
@@ -243,7 +243,7 @@ const data = {
       url: "#",
     },
   ],
-}
+};
 
 export function AppSidebar() {
   return (
@@ -272,5 +272,5 @@ export function AppSidebar() {
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

@@ -67,10 +67,7 @@ function PaymentStatus() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button
-              onClick={() => navigate("/home")}
-              variant="default"
-            >
+            <Button onClick={() => navigate("/home")} variant="default">
               Return to Home
             </Button>
             {!isSuccess && (

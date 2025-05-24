@@ -44,7 +44,7 @@ export default function AdminHome() {
     {
       title: "Driving Test Dates",
       description:
-      "Schedule and manage driving license test dates for learners",
+        "Schedule and manage driving license test dates for learners",
       icon: CalendarIcon,
       link: "/admin/dl-test-dates",
       color: "text-purple-500",
@@ -66,7 +66,14 @@ export default function AdminHome() {
   ];
 
   return (
-    <div className="min-h-screen bg-white p-8" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
+    <div
+      className="min-h-screen bg-white p-8"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+      }}
+    >
       <div className="mx-auto max-w-3xl">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>

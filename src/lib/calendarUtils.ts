@@ -116,9 +116,9 @@ export async function sendMultiEventCalendarInvite(
           summary,
           description,
           event.pickupLocation,
-          import.meta.env.VITE_SMTP_FROM,  // organizerEmail
+          import.meta.env.VITE_SMTP_FROM, // organizerEmail
           learnerEmail, // attendeeEmail - specific to this instructor
-          import.meta.env.VITE_ADMIN_CAL_EMAIL,  //bcc email
+          import.meta.env.VITE_ADMIN_CAL_EMAIL, //bcc email
           uid,
           event.isCancellation,
           event.sequence || 0,
@@ -130,9 +130,9 @@ export async function sendMultiEventCalendarInvite(
           summary,
           description,
           event.pickupLocation,
-          import.meta.env.VITE_SMTP_FROM,  // organizerEmail
+          import.meta.env.VITE_SMTP_FROM, // organizerEmail
           instructorEmail, // attendeeEmail
-          "",  //bcc email
+          "", //bcc email
           uid,
           event.isCancellation,
           event.sequence || 0,
@@ -350,7 +350,7 @@ export function generateICSFile(
   uid?: string,
   isCancellation: boolean = false,
   sequence: number = 0,
-): string {  
+): string {
   // Format dates according to iCalendar spec (UTC format)
   const now = formatDateForICS(new Date());
   const start = formatDateForICS(startTime);

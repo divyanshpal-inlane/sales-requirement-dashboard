@@ -215,7 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Use the Admin API to retrieve the user by phone number
-      const { data: users, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+      const { data: users, error: userError } =
+        await supabaseAdmin.auth.admin.listUsers();
 
       if (userError || !users) {
         throw new Error("Failed to retrieve users from the auth.users table.");
@@ -231,10 +232,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const authUserId = authUser.id;
 
       // Use the Admin API to update the user's password
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        authUserId,
-        { password: newPassword }
-      );
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+          password: newPassword,
+        });
 
       if (updateError) {
         throw new Error("Failed to update password: " + updateError.message);

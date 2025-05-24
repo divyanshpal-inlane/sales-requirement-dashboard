@@ -1,26 +1,22 @@
-import Link from "next/link"
-import { ChevronRight, Search, type LucideIcon } from "lucide-react"
+import Link from "next/link";
+import { ChevronRight, Search, type LucideIcon } from "lucide-react";
 
-import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerTrigger,
-} from "@/components/ui/drawer"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/collapsible";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 
 export function NavMain({
   className,
@@ -28,16 +24,16 @@ export function NavMain({
   searchResults,
 }: {
   items: {
-    title: string
-    url: string
-    icon: LucideIcon
-    isActive?: boolean
+    title: string;
+    url: string;
+    icon: LucideIcon;
+    isActive?: boolean;
     items?: {
-      title: string
-      url: string
-    }[]
-  }[]
-  searchResults: React.ComponentProps<typeof SidebarSearch>["results"]
+      title: string;
+      url: string;
+    }[];
+  }[];
+  searchResults: React.ComponentProps<typeof SidebarSearch>["results"];
 } & React.ComponentProps<"ul">) {
   return (
     <ul className={cn("grid gap-0.5", className)}>
@@ -50,7 +46,7 @@ export function NavMain({
             <div className="relative flex items-center">
               <Link
                 href={item.url}
-                className="min-w-8 flex h-8 flex-1 items-center gap-2 overflow-hidden rounded-md px-1.5 text-sm font-medium outline-none ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
+                className="flex h-8 min-w-8 flex-1 items-center gap-2 overflow-hidden rounded-md px-1.5 text-sm font-medium outline-none ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
               >
                 <item.icon className="h-4 w-4 shrink-0" />
                 <div className="flex flex-1 overflow-hidden">
@@ -73,7 +69,7 @@ export function NavMain({
                   <li key={subItem.title}>
                     <Link
                       href={subItem.url}
-                      className="min-w-8 flex h-8 items-center gap-2 overflow-hidden rounded-md px-2 text-sm font-medium text-muted-foreground ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
+                      className="flex h-8 min-w-8 items-center gap-2 overflow-hidden rounded-md px-2 text-sm font-medium text-muted-foreground ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
                     >
                       <div className="line-clamp-1">{subItem.title}</div>
                     </Link>
@@ -85,24 +81,24 @@ export function NavMain({
         </Collapsible>
       ))}
     </ul>
-  )
+  );
 }
 
 function SidebarSearch({
   results,
 }: {
   results: {
-    title: string
-    teaser: string
-    url: string
-  }[]
+    title: string;
+    teaser: string;
+    url: string;
+  }[];
 }) {
-  const isMobile = useIsMobile()
+  const isMobile = useIsMobile();
 
   if (isMobile) {
     return (
       <Drawer>
-        <DrawerTrigger className="min-w-8 flex h-8 w-full flex-1 items-center gap-2 overflow-hidden rounded-md px-1.5 text-sm font-medium outline-none ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground">
+        <DrawerTrigger className="flex h-8 w-full min-w-8 flex-1 items-center gap-2 overflow-hidden rounded-md px-1.5 text-sm font-medium outline-none ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground">
           <Search className="h-4 w-4 shrink-0" />
           <div className="flex flex-1 overflow-hidden">
             <div className="line-clamp-1 pr-6">Search</div>
@@ -141,12 +137,12 @@ function SidebarSearch({
           </div>
         </DrawerContent>
       </Drawer>
-    )
+    );
   }
 
   return (
     <Popover>
-      <PopoverTrigger className="min-w-8 flex h-8 w-full flex-1 items-center gap-2 overflow-hidden rounded-md px-1.5 text-sm font-medium outline-none ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground">
+      <PopoverTrigger className="flex h-8 w-full min-w-8 flex-1 items-center gap-2 overflow-hidden rounded-md px-1.5 text-sm font-medium outline-none ring-ring transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground">
         <Search className="h-4 w-4 shrink-0" />
         <div className="flex flex-1 overflow-hidden">
           <div className="line-clamp-1 pr-6">Search</div>
@@ -190,5 +186,5 @@ function SidebarSearch({
         </div>
       </PopoverContent>
     </Popover>
-  )
+  );
 }

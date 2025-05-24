@@ -159,7 +159,7 @@ export const useInstructor = (phone: string) => {
         instructorScheduleDay,
         learnerLessonDay,
         learnerLesson,
-        unavailability:instructorInfo.unavailability, // Added this to include all schedules' learner and lesson data
+        unavailability: instructorInfo.unavailability, // Added this to include all schedules' learner and lesson data
       };
     },
   });

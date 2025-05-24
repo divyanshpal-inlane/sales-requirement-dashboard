@@ -1,4 +1,11 @@
-import { ArrowLeft, Check, LogOut, UserPen, X, MessageCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  LogOut,
+  UserPen,
+  X,
+  MessageCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -85,7 +92,10 @@ export default function Profile2() {
   };
 
   return (
-    <div className="container mx-auto flex h-full flex-col overflow-y-auto p-4 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+    <div
+      className="scrollbar-none container mx-auto flex h-full flex-col overflow-y-auto p-4"
+      style={{ scrollbarWidth: "none" }}
+    >
       {/* Top Bar */}
       <div className="mb-6 flex items-center justify-between">
         {/* Back Button */}

@@ -52,7 +52,7 @@ export default function UploadLL() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col rounded-md overflow-y-auto">
+    <div className="flex h-full w-full flex-col overflow-y-auto rounded-md">
       <div className="flex flex-col rounded-b-[40px] bg-primary">
         <div className="flex items-center justify-between p-4">
           <Button
@@ -140,7 +140,10 @@ export default function UploadLL() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-4 cursor-pointer hover:bg-gray-100" onClick={() => document.getElementById('file-upload')?.click()}>
+            <div
+              className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-4 hover:bg-gray-100"
+              onClick={() => document.getElementById("file-upload")?.click()}
+            >
               <Upload className="h-12 w-12 text-gray-400" />
               <span className="text-lg font-medium">Upload the LL</span>
               <input

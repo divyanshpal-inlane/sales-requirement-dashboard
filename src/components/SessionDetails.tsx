@@ -26,16 +26,16 @@ export function SessionDetails({
         <CardTitle>
           <div className="flex flex-row items-center justify-center gap-3">
             <IdCardIcon />
-            <p className="font-medium">Lesson Details</p>
+            <p className="font-medium">Lesson Number : {lessonNumber} </p>
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-0">
+          {/* <div className="flex flex-col gap-0">
             <p className="text-sm font-light">Lesson Number</p>
             <p className="text-sm font-medium">{lessonNumber}</p>
-          </div>
+          </div> */}
           <div className="flex flex-col gap-0">
             <p className="text-sm font-light">Date</p>
             <p className="text-sm font-medium">
@@ -54,6 +54,15 @@ export function SessionDetails({
             <p className="text-sm font-medium">{instructor.name}</p>
           </div>
           <div className="flex flex-col gap-0">
+            <p className="text-sm font-light">Mobile number</p>
+            <a
+              href={`tel:${instructor.phone}`}
+              className="cursor-pointer text-sm font-medium underline"
+            >
+              {instructor.phone}
+            </a>
+          </div>
+          <div className="flex flex-col gap-0">
             <p className="text-sm font-light">Car Model</p>
             <p className="text-sm font-medium">{instructor.car_make}</p>
           </div>
@@ -61,6 +70,7 @@ export function SessionDetails({
             <p className="text-sm font-light">Car Number</p>
             <p className="text-sm font-medium">{instructor.car_number}</p>
           </div>
+
           <div className="col-span-2 flex flex-col gap-0">
             <p className="text-sm font-light">Pick Up Location</p>
             <a

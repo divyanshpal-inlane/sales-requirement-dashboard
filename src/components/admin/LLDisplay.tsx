@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
-import { ImageOff, RefreshCw, Download, ArrowUpLeft, ArrowUpRight } from "lucide-react";
-
+import {
+  ImageOff,
+  RefreshCw,
+  Download,
+  ArrowUpLeft,
+  ArrowUpRight,
+} from "lucide-react";
 
 interface LearnerLLDisplayProps {
   learnerPhone: string;
@@ -37,9 +42,9 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
             const { data: signedUrlData } = await supabase.storage
               .from("LL")
               .createSignedUrl(`${learnerPhone}/${file.name}`, 3600); // 1 hour expiry
-            
+
             return signedUrlData?.signedUrl || null;
-          })
+          }),
         );
 
         // Filter out any null values and set the state
@@ -78,10 +83,10 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
       <div className="flex h-40 flex-col items-center justify-center rounded-lg bg-gray-50 p-5">
         <ImageOff className="mb-2 h-10 w-10 text-gray-400" />
         <p className="text-sm text-gray-500">{error}</p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="mt-3 text-xs" 
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 text-xs"
           onClick={fetchLLImages}
         >
           <RefreshCw className="mr-1 h-3 w-3" /> Retry
@@ -95,10 +100,10 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
       <div className="flex h-40 flex-col items-center justify-center rounded-lg bg-gray-50 p-5">
         <ImageOff className="mb-2 h-10 w-10 text-gray-400" />
         <p className="text-sm text-gray-500">No license images found</p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="mt-3 text-xs" 
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 text-xs"
           onClick={fetchLLImages}
         >
           <RefreshCw className="mr-1 h-3 w-3" /> Refresh
@@ -111,10 +116,10 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
     <div className="space-y-4 rounded-lg bg-gray-50 p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-primary">Learner License</h3>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="text-xs" 
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs"
           onClick={fetchLLImages}
         >
           <RefreshCw className="mr-1 h-3 w-3" /> Refresh
@@ -123,15 +128,18 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {llImages.map((url, index) => (
-          <div key={index} className="overflow-hidden rounded-md border bg-white shadow-sm">
+          <div
+            key={index}
+            className="overflow-hidden rounded-md border bg-white shadow-sm"
+          >
             <div className="relative">
-              <img 
-                src={url} 
-                alt={`Learner License ${index + 1}`} 
+              <img
+                src={url}
+                alt={`Learner License ${index + 1}`}
                 className="w-full object-cover"
                 style={{ maxHeight: "280px" }}
               />
-              <a 
+              <a
                 href={url}
                 download={`learner-license-${index + 1}.jpg`}
                 target="_blank"

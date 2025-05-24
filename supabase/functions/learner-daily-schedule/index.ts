@@ -43,32 +43,38 @@ Deno.serve(async (req) => {
     const nextDayString = nextDay.toISOString().split("T")[0]; // Format as YYYY-MM-DD
 
     // First, get all learners who have schedules for tomorrow
-    const { data: learnersWithSchedules, error: learnersError } = await supabaseClient
-      .from("Schedule")
-      .select(`learner_id`)
-      .eq("date", nextDayString)
-      .order("learner_id");
+    const { data: learnersWithSchedules, error: learnersError } =
+      await supabaseClient
+        .from("Schedule")
+        .select(`learner_id`)
+        .eq("date", nextDayString)
+        .order("learner_id");
 
     if (learnersError) {
       throw learnersError;
     }
 
     // Extract unique learner IDs
-    const uniqueLearnerIds = [...new Set(learnersWithSchedules.map(s => s.learner_id))];
-    
+    const uniqueLearnerIds = [
+      ...new Set(learnersWithSchedules.map((s) => s.learner_id)),
+    ];
+
     if (uniqueLearnerIds.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: "No learners have schedules for tomorrow." 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "No learners have schedules for tomorrow.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     }
 
     // Process each learner
     const results = [];
-    
+
     for (const learner_id of uniqueLearnerIds) {
       // Fetch schedules for this learner for tomorrow
       const { data: schedules, error: schedulesError } = await supabaseClient
@@ -85,13 +91,17 @@ Deno.serve(async (req) => {
             id,
             number
           )
-        `)
+        `,
+        )
         .eq("learner_id", learner_id)
         .eq("date", nextDayString)
         .order("start_time");
 
       if (schedulesError) {
-        console.error(`Error fetching schedules for learner ${learner_id}:`, schedulesError);
+        console.error(
+          `Error fetching schedules for learner ${learner_id}:`,
+          schedulesError,
+        );
         continue;
       }
 
@@ -177,26 +187,31 @@ Deno.serve(async (req) => {
         success: response.ok,
         status: response.status,
       };
-      
+
       console.log(`Message sent to learner ${learner.name}:`, result);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Failed to send message to learner ${learner.name}: ${errorText}`);
+        console.error(
+          `Failed to send message to learner ${learner.name}: ${errorText}`,
+        );
         result.error = errorText;
       }
-      
+
       results.push(result);
     }
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      processed: results.length,
-      results 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        processed: results.length,
+        results,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   } catch (error) {
     console.error(error);
     return new Response(JSON.stringify({ error: error.message }), {

@@ -95,23 +95,23 @@ function PreferenceSelector({
           .select("name")
           .eq("id", learnerId)
           .single();
-        
+
         if (error) throw error;
         if (data) setLearnerName(data.name);
       } catch (error) {
         console.error("Error fetching learner name:", error);
       }
     };
-    
+
     fetchLearnerName();
   }, [learnerId]);
 
   const handleSubmit = async () => {
     if (isSaving) return; // Prevent multiple submissions
-    
+
     try {
       setIsSaving(true); // Set saving state to true at the beginning
-      
+
       // Convert selected slots to preferences format
       const preferences = Array.from(selectedSlots).map((key) => {
         const slot = key.split("-");
@@ -122,7 +122,7 @@ function PreferenceSelector({
           timeSlot: timeSlot as TimeSlot,
         };
       });
-  
+
       // Update preferences
       updatePreference(
         {
@@ -132,38 +132,46 @@ function PreferenceSelector({
         {
           onSuccess: () => {
             const requestType = type === "lesson10" ? "lesson10" : type;
-            
+
             // Navigate to home immediately after preferences are updated
             navigate("/home");
-            
+
             // Continue with email and message operations in the background
             if (type === "lesson10" || type === "new") {
               if (type === "lesson10") {
-                supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "THANKS_FOR_AVAILABILITY",
-                    learner_id: learnerId,
-                  },
-                }).catch(err => console.error("Error sending message:", err));
-                
+                supabase.functions
+                  .invoke("send-message", {
+                    body: {
+                      message_type: "THANKS_FOR_AVAILABILITY",
+                      learner_id: learnerId,
+                    },
+                  })
+                  .catch((err) => console.error("Error sending message:", err));
+
                 sendAdminEmail(
                   "New 10th Lesson Scheduling Request",
                   `${learnerName} has submitted availability for their 10th lesson scheduling.`,
-                ).catch(err => console.error("Error sending admin email:", err));
+                ).catch((err) =>
+                  console.error("Error sending admin email:", err),
+                );
               } else if (type === "new") {
-                supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "THANKS_FOR_AVAILABILITY",
-                    learner_id: learnerId,
-                  },
-                }).catch(err => console.error("Error sending message:", err));
-                
+                supabase.functions
+                  .invoke("send-message", {
+                    body: {
+                      message_type: "THANKS_FOR_AVAILABILITY",
+                      learner_id: learnerId,
+                    },
+                  })
+                  .catch((err) => console.error("Error sending message:", err));
+
                 sendAdminEmail(
                   "New Lesson Scheduling Request",
                   `${learnerName} has submitted their availability for lesson scheduling.`,
-                ).catch(err => console.error("Error sending admin email:", err));
+                ).catch((err) =>
+                  console.error("Error sending admin email:", err),
+                );
               }
-              
+
               rescheduleRequest(
                 {
                   learnerId,
@@ -173,27 +181,31 @@ function PreferenceSelector({
                 {
                   onError: (error) => {
                     console.error("Error with reschedule request:", error);
-                  }
+                  },
                 },
               );
             } else {
-              supabase.functions.invoke("send-message", {
-                body: {
-                  message_type: "WEBAPP_RESCHEDULE_REQUEST",
-                  learner_id: learnerId,
-                },
-              }).catch(err => console.error("Error sending message:", err));
-              
+              supabase.functions
+                .invoke("send-message", {
+                  body: {
+                    message_type: "WEBAPP_RESCHEDULE_REQUEST",
+                    learner_id: learnerId,
+                  },
+                })
+                .catch((err) => console.error("Error sending message:", err));
+
               sendAdminEmail(
                 "New Reschedule Request",
                 `${learnerName} has requested to reschedule lesson.`,
-              ).catch(err => console.error("Error sending admin email:", err));
+              ).catch((err) =>
+                console.error("Error sending admin email:", err),
+              );
             }
           },
           onError: (error) => {
             console.error("Error updating preferences:", error);
             setIsSaving(false);
-          }
+          },
         },
       );
     } catch (error) {
@@ -201,7 +213,6 @@ function PreferenceSelector({
       setIsSaving(false);
     }
   };
-  
 
   if (isLoading) {
     return <div>Loading preferences...</div>;

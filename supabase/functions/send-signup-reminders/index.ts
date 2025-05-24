@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get("MY_SUPABASE_URL") ?? "",
-      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     const currentDate = new Date();
@@ -33,10 +33,11 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(
       Deno.env.get("MY_SUPABASE_URL") ?? "",
-      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.listUsers();
 
     if (authError) throw authError;
 
@@ -48,7 +49,6 @@ Deno.serve(async (req) => {
     }
 
     const usersToRemind = new Set<{ phone: string; name: string }>();
-
 
     for (const payment of payments ?? []) {
       const { data: learner, error: learnerError } = await supabaseClient
@@ -70,14 +70,16 @@ Deno.serve(async (req) => {
       }
     }
     const uniqueUsersMap = new Map();
-for (const user of usersToRemind) {
-  uniqueUsersMap.set(user.phone, user);
-}
+    for (const user of usersToRemind) {
+      uniqueUsersMap.set(user.phone, user);
+    }
 
-// Convert back to array
-const uniqueUsersToRemind = Array.from(uniqueUsersMap.values());
-console.log(`After deduplication: ${uniqueUsersToRemind.length} unique users to remind`);
-    
+    // Convert back to array
+    const uniqueUsersToRemind = Array.from(uniqueUsersMap.values());
+    console.log(
+      `After deduplication: ${uniqueUsersToRemind.length} unique users to remind`,
+    );
+
     console.log(`Found ${payments?.length || 0} recent payments`);
     console.log(`Found ${signedUpPhones.size} signed up users`);
     console.log(`Found ${usersToRemind.size} users to remind`);
@@ -85,9 +87,10 @@ console.log(`After deduplication: ${uniqueUsersToRemind.length} unique users to 
     const messageResponses = [];
 
     for (const user of uniqueUsersToRemind) {
-      console.log(`[${new Date().toISOString()}] Sending message to ${user.phone}`);
+      console.log(
+        `[${new Date().toISOString()}] Sending message to ${user.phone}`,
+      );
 
-      
       const messagePayload = {
         messages: [
           {
@@ -114,7 +117,10 @@ console.log(`After deduplication: ${uniqueUsersToRemind.length} unique users to 
         ],
       };
 
-      console.log(`Sending message to ${user.phone} with payload:`, JSON.stringify(messagePayload));
+      console.log(
+        `Sending message to ${user.phone} with payload:`,
+        JSON.stringify(messagePayload),
+      );
 
       const response = await fetch("https://api.heltar.com/v1/messages/send", {
         method: "POST",
@@ -136,31 +142,43 @@ console.log(`After deduplication: ${uniqueUsersToRemind.length} unique users to 
         phone: user.phone,
         success: response.ok,
         status: response.status,
-        response: responseData
+        response: responseData,
       };
-      
+
       messageResponses.push(messageResult);
-      
+
       if (!response.ok) {
-        console.error(`Failed to send message to ${user.phone}:`, JSON.stringify(messageResult));
+        console.error(
+          `Failed to send message to ${user.phone}:`,
+          JSON.stringify(messageResult),
+        );
       } else {
-        console.log(`Message sent to ${user.phone}. Response:`, JSON.stringify(messageResult));
+        console.log(
+          `Message sent to ${user.phone}. Response:`,
+          JSON.stringify(messageResult),
+        );
       }
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      usersCount: usersToRemind.length,
-      messageResponses: messageResponses 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        usersCount: usersToRemind.length,
+        messageResponses: messageResponses,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message, stack: error.stack }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: error.message, stack: error.stack }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      },
+    );
   }
 });

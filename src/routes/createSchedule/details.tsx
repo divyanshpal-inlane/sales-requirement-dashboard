@@ -148,13 +148,13 @@ export default function ScheduleDetails() {
   // Handle adding a custom area that's not in the suggestions
   const handleAddCustomArea = () => {
     if (!areaSearchQuery.trim()) return;
-  
+
     // Just set the area in local state
     setArea(areaSearchQuery.trim());
-    
+
     // Track that this is a new custom area that needs to be saved later
     setNewCustomArea(areaSearchQuery.trim());
-    
+
     // Clear the search query and close the custom area input
     setAreaSearchQuery("");
     setIsAddingCustomArea(false);
@@ -176,7 +176,7 @@ export default function ScheduleDetails() {
       });
       return;
     }
-  
+
     try {
       // If we have a new custom area, save it to Supabase first
       if (newCustomArea) {
@@ -186,18 +186,18 @@ export default function ScheduleDetails() {
           .select("id, name")
           .ilike("name", newCustomArea)
           .maybeSingle();
-  
+
         if (!existingArea) {
           // If area doesn't exist, add it to Serviceable_Areas table
           await supabase
             .from("Serviceable_Areas")
             .insert({ name: newCustomArea });
         }
-        
+
         // Clear the new custom area tracking
         setNewCustomArea(null);
       }
-  
+
       // Now update the learner with all the data
       updateLearner(
         {
@@ -214,20 +214,32 @@ export default function ScheduleDetails() {
           onError: (error) => {
             toast({
               title: "Error updating profile",
-              description: error instanceof Error ? error.message : "An error occurred",
+              description:
+                error instanceof Error ? error.message : "An error occurred",
               variant: "destructive",
             });
-          }
+          },
         },
       );
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
+        description:
+          error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
     }
-  }, [address, navigate, pinCode, updateLearner, area, addressLat, addressLng, toast, newCustomArea]);
+  }, [
+    address,
+    navigate,
+    pinCode,
+    updateLearner,
+    area,
+    addressLat,
+    addressLng,
+    toast,
+    newCustomArea,
+  ]);
 
   return (
     <div className="scrollbar-hide flex h-full w-full flex-col overflow-y-auto rounded-md">
@@ -309,9 +321,7 @@ export default function ScheduleDetails() {
                   <div className="py-6 text-center">
                     {areaSearchQuery ? (
                       <div className="px-4 py-2">
-                        <p className="mb-2 text-sm">
-                          No matching areas found.
-                        </p>
+                        <p className="mb-2 text-sm">No matching areas found.</p>
                         <Button
                           variant="outline"
                           size="sm"
@@ -378,8 +388,8 @@ export default function ScheduleDetails() {
             </div>
           )}
         </div>
-        <Button 
-          className="w-full" 
+        <Button
+          className="w-full"
           onClick={() => onContinue()}
           disabled={!area || !address || !pinCode}
         >

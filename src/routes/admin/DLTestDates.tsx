@@ -4,7 +4,10 @@ import { ArrowLeft } from "lucide-react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { LearnerInfo, LearnerInfoDialog } from "@/components/admin/LearnerInfoCard";
+import {
+  LearnerInfo,
+  LearnerInfoDialog,
+} from "@/components/admin/LearnerInfoCard";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +28,8 @@ const DLTestDates = () => {
   const [selectedLearner, setSelectedLearner] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedLearnerForDialog, setSelectedLearnerForDialog] = useState<LearnerInfo | null>(null);
+  const [selectedLearnerForDialog, setSelectedLearnerForDialog] =
+    useState<LearnerInfo | null>(null);
 
   const {
     data: learners,
@@ -124,7 +128,14 @@ const DLTestDates = () => {
   if (isError) return <div>Error loading learners.</div>;
 
   return (
-    <div className="min-h-screen bg-white p-8" style={{ backgroundImage: 'url("/assets/bg_pattern.svg")', backgroundRepeat: 'repeat', backgroundSize: 'cover' }}>
+    <div
+      className="min-h-screen bg-white p-8"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+      }}
+    >
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -165,7 +176,9 @@ const DLTestDates = () => {
                     onClick={() => handleLearnerSelect(learner)}
                   >
                     <div className="font-medium">{learner.name}</div>
-                    <div className="text-sm opacity-75">Phone: {learner.phone}</div>
+                    <div className="text-sm opacity-75">
+                      Phone: {learner.phone}
+                    </div>
                     <div className="text-sm opacity-75">
                       LL ID: {learner.LL_application_id || "N/A"}
                     </div>

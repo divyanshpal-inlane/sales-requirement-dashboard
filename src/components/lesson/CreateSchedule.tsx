@@ -2195,20 +2195,22 @@ function CreateSchedule({
         try {
           // STEP 1: FIRST SAVE ALL SCHEDULES TO THE DATABASE
           console.log("Creating schedules in the database first...");
-          
+
           // Call onScheduleCreate to save data to database before sending emails
           // This ensures the schedules are in the database when the emails are sent
           onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
-          
+
           // Wait a moment to ensure database write is complete
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
           // STEP 2: NOW SEND CALENDAR INVITES
           console.log("Now sending calendar invites...");
-          
+
           // SEND CANCELLATION EVENTS FIRST (if any)
           if (cancellationEvents.length > 0) {
-            console.log(`Sending ${cancellationEvents.length} cancellation events`);
+            console.log(
+              `Sending ${cancellationEvents.length} cancellation events`,
+            );
             try {
               await sendMultiEventCalendarInvite(
                 learnerData.email,
@@ -2229,7 +2231,7 @@ function CreateSchedule({
               console.error("Error sending cancellation events:", cancelError);
             }
           }
-          
+
           // THEN SEND NEW EVENTS
           if (newEvents.length > 0) {
             console.log(`Sending ${newEvents.length} new events`);
@@ -2243,13 +2245,16 @@ function CreateSchedule({
                 learnerData.phone,
                 {
                   emailType: "new",
-                  batchInfo: request.type === "new" ? " - New Schedule" : " - Updated Schedule",
+                  batchInfo:
+                    request.type === "new"
+                      ? " - New Schedule"
+                      : " - Updated Schedule",
                   allEvents: [], // Empty since these will be fetched from DB
                   learnerId: learnerData.id,
                 },
                 learnerData.id,
               );
-              
+
               // Update database with calendar UIDs if we got them back
               if (uidMap) {
                 console.log("Updating schedules with calendar UIDs");

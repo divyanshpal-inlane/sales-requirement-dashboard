@@ -95,14 +95,14 @@ export function useLearnerSchedulePreferences(learnerId: string | undefined) {
     queryKey: ["learnerSchedulePreferences", learnerId],
     queryFn: learnerId
       ? async () => {
-        const { data, error } = await supabase
-          .from("schedule_preferences")
-          .select("*")
-          .eq("learner_id", learnerId);
+          const { data, error } = await supabase
+            .from("schedule_preferences")
+            .select("*")
+            .eq("learner_id", learnerId);
 
-        if (error) throw error;
-        return data;
-      }
+          if (error) throw error;
+          return data;
+        }
       : skipToken,
   });
 }
@@ -112,15 +112,15 @@ export function useLearnerRescheduleRequests(learnerId: string | undefined) {
     queryKey: ["learnerRescheduleRequests", learnerId],
     queryFn: learnerId
       ? async () => {
-        const { data, error } = await supabase
-          .from("reschedule_requests")
-          .select("*")
-          .eq("learner_id", learnerId)
-          .eq("status", "pending");
+          const { data, error } = await supabase
+            .from("reschedule_requests")
+            .select("*")
+            .eq("learner_id", learnerId)
+            .eq("status", "pending");
 
-        if (error) throw error;
-        return data;
-      }
+          if (error) throw error;
+          return data;
+        }
       : skipToken,
   });
 }

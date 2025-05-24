@@ -121,7 +121,7 @@ const InstructorProfile = () => {
   return (
     <div className="animate-fadeIn mx-auto max-w-3xl space-y-6 overflow-y-auto p-4">
       {/* Back Button */}
-      <div className="flex items-center mb-4">
+      <div className="mb-4 flex items-center">
         <Button
           variant="ghost"
           size="sm"

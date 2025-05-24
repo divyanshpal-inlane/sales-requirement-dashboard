@@ -40,28 +40,32 @@ export default function RescheduleConfirmationSheet({
   const [isLoading, setIsLoading] = useState(false);
 
   // Group schedules by date
-  const groupedSchedules = selectedSchedules.reduce((groups: GroupedSchedule[], schedule) => {
-    const date = schedule.date;
-    const existingGroup = groups.find(g => g.date === date);
-    
-    if (existingGroup) {
-      existingGroup.schedules.push(schedule);
-    } else {
-      // Calculate fee for the day
-      const scheduleDate = new Date(`${date}T00:00:00`);
-      const now = new Date();
-      const diffHours = (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-      const fee = diffHours < 24 ? 300 : 0;
-      
-      groups.push({ 
-        date, 
-        schedules: [schedule],
-        fee
-      });
-    }
-    
-    return groups;
-  }, [])
+  const groupedSchedules = selectedSchedules.reduce(
+    (groups: GroupedSchedule[], schedule) => {
+      const date = schedule.date;
+      const existingGroup = groups.find((g) => g.date === date);
+
+      if (existingGroup) {
+        existingGroup.schedules.push(schedule);
+      } else {
+        // Calculate fee for the day
+        const scheduleDate = new Date(`${date}T00:00:00`);
+        const now = new Date();
+        const diffHours =
+          (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+        const fee = diffHours < 24 ? 300 : 0;
+
+        groups.push({
+          date,
+          schedules: [schedule],
+          fee,
+        });
+      }
+
+      return groups;
+    },
+    [],
+  );
 
   const handleConfirm = async () => {
     try {
@@ -159,10 +163,7 @@ export default function RescheduleConfirmationSheet({
             <h3 className="font-medium">Selected Lessons</h3>
             <div className="space-y-2">
               {groupedSchedules.map((group) => (
-                <div
-                  key={group.date}
-                  className="rounded-lg border p-4"
-                >
+                <div key={group.date} className="rounded-lg border p-4">
                   <div className="mb-2 flex items-center justify-between border-b pb-2">
                     <div className="font-medium">
                       {format(new Date(group.date), "EEEE, MMMM d")}

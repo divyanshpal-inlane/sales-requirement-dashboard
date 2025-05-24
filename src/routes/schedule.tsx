@@ -165,7 +165,8 @@ export default function Schedule() {
         </TabsList>
         <TabsContent
           value="calendar"
-          className="flex h-full flex-col overflow-y-auto scrollbar-none" style={{ scrollbarWidth: "none" }}
+          className="scrollbar-none flex h-full flex-col overflow-y-auto"
+          style={{ scrollbarWidth: "none" }}
         >
           <div className="flex min-h-full flex-col">
             <Card className="flex-none">
@@ -246,13 +247,13 @@ export default function Schedule() {
         <ScrollArea className="relative">
           <TabsContent value="lesson" className="h-full overflow-y-auto">
             {enrollment?.payment_status === "half_paid" && (
-              <Alert className="mb-4 bg-white border-primary">
+              <Alert className="mb-4 border-primary bg-white">
                 <AlertDescription>
-                  You have paid the first installment. Some lessons are locked until you complete the payment.   
-                  
-                  <Button 
-                    variant="link" 
-                    className="p-0 h-auto text-primary"
+                  You have paid the first installment. Some lessons are locked
+                  until you complete the payment.
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-primary"
                     onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
                   >
                     Pay remaining amount
@@ -266,21 +267,22 @@ export default function Schedule() {
                   COURSES_DATA[enrollment.course_id].lessonsData,
                 ).map((lesson) => {
                   const lessonNumber = parseInt(lesson.id);
-                  const isLocked = 
-                    enrollment.payment_status === "half_paid" && 
-                    (!enrollment.unlocked_lessons || !enrollment.unlocked_lessons.includes(lessonNumber));
-                  
+                  const isLocked =
+                    enrollment.payment_status === "half_paid" &&
+                    (!enrollment.unlocked_lessons ||
+                      !enrollment.unlocked_lessons.includes(lessonNumber));
+
                   return (
                     <div
                       key={lesson.id}
                       className={`flex flex-col gap-1 rounded-md ${
                         isLocked ? "bg-gray-100" : "bg-gray-50"
-                      } p-3 shadow-md relative`}
+                      } relative p-3 shadow-md`}
                     >
                       {isLocked && (
-                        <div className="absolute inset-0 bg-gray-200/70 backdrop-blur-[1px] flex items-center justify-center rounded-md z-10">
-                          <div className="text-center p-3">
-                            <Lock className="h-8 w-8 mx-auto mb-2 text-gray-500" />
+                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-gray-200/70 backdrop-blur-[1px]">
+                          <div className="p-3 text-center">
+                            <Lock className="mx-auto mb-2 h-8 w-8 text-gray-500" />
                             <p className="text-sm font-medium text-gray-700">
                               Complete payment to unlock
                             </p>
@@ -315,7 +317,7 @@ export default function Schedule() {
                             (l) => l.number === parseInt(lesson.id),
                           )?.id
                         }`}
-                        className={`text-md mt-1.5 ${isLocked ? "text-gray-400 pointer-events-none" : ""}`}
+                        className={`text-md mt-1.5 ${isLocked ? "pointer-events-none text-gray-400" : ""}`}
                         onClick={(e) => isLocked && e.preventDefault()}
                       >
                         {lesson.description}

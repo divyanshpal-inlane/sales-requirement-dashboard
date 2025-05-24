@@ -75,7 +75,9 @@ export default function Home() {
   const { mutate: updateLearner } = useLearnerUpdate();
 
   // Fetch all payments for the learner
-  const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(learner?.id);
+  const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
+    learner?.id,
+  );
 
   // Find the latest completed payment
   const completedPayment = Array.isArray(payments)
@@ -90,7 +92,8 @@ export default function Home() {
         )[0]
     : null;
 
-  const isCompleted = completedPayment && completedPayment?.status === "completed";
+  const isCompleted =
+    completedPayment && completedPayment?.status === "completed";
 
   if (paymentLoading || isLoading) {
     return <div>Loading...</div>;

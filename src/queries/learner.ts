@@ -110,6 +110,7 @@ export function useUpcomingLesson() {
           Instructor (
             id_instructor,
             name,
+            phone,
             car_make,
             car_number
           ),
@@ -204,13 +205,13 @@ export function useUploadLLMutation() {
   return useMutation({
     mutationFn: async ({
       file,
-      fileName = "ll",
+      fileName = "LL",
     }: {
       file: File;
       fileName?: string;
     }) => {
       const { data, error } = await supabase.storage
-        .from("ll")
+        .from("LL")
         .upload(`${phone}/${fileName}.${file.type.split("/")[1]}`, file, {
           cacheControl: "3600",
           upsert: true,
@@ -226,14 +227,14 @@ export function useLessons({ courseId }: { courseId: string | undefined }) {
     queryKey: ["lessons", courseId],
     queryFn: courseId
       ? async () => {
-        const { data, error } = await supabase
-          .from("Lesson")
-          .select("*")
-          .eq("course_id", courseId)
-          .order("number", { ascending: true });
-        if (error) throw new Error(error.message);
-        return data;
-      }
+          const { data, error } = await supabase
+            .from("Lesson")
+            .select("*")
+            .eq("course_id", courseId)
+            .order("number", { ascending: true });
+          if (error) throw new Error(error.message);
+          return data;
+        }
       : skipToken,
   });
 }
@@ -271,18 +272,19 @@ export function useLessonSchedule({
   const { data: learner } = useLearner();
   return useQuery({
     queryKey: ["lessonSchedule", lessonId],
-    queryFn: lessonId && learner?.id
-      ? async () => {
-        const { data, error } = await supabase
-          .from("Schedule")
-          .select("id, date, start_time, end_time, status")
-          .eq("lesson_id", lessonId)
-          .eq("learner_id", learner?.id)
-          .single();
-        if (error) throw error;
-        return data;
-      }
-      : skipToken,
+    queryFn:
+      lessonId && learner?.id
+        ? async () => {
+            const { data, error } = await supabase
+              .from("Schedule")
+              .select("id, date, start_time, end_time, status")
+              .eq("lesson_id", lessonId)
+              .eq("learner_id", learner?.id)
+              .single();
+            if (error) throw error;
+            return data;
+          }
+        : skipToken,
     refetchInterval,
     enabled: !!lessonId && !!learner?.id,
   });
@@ -301,7 +303,7 @@ export function useSchedule({
       const { data, error } = await supabase
         .from("Schedule")
         .select(
-          "id, date, start_time, end_time, Instructor (name, car_make, car_number)",
+          "id, date, start_time, end_time, Instructor (name, phone, car_make, car_number)",
         )
         .eq("lesson_id", lessonId)
         .eq("learner_id", learnerId)
@@ -315,7 +317,7 @@ export function useSchedule({
 }
 
 export type Schedule = {
-  status:string;
+  status: string;
   id: number;
   date: string;
   startTime: string;
@@ -404,15 +406,15 @@ export function useLearnerEnrollmentCourse({
     queryKey: ["course", learnerId],
     queryFn: learnerId
       ? async () => {
-        const { data, error } = await supabase
-          .from("enrollment")
-          .select("*, Courses(*)")
-          .eq("learner_id", learnerId)
-          .eq("status", "active");
+          const { data, error } = await supabase
+            .from("enrollment")
+            .select("*, Courses(*)")
+            .eq("learner_id", learnerId)
+            .eq("status", "active");
 
-        if (error) throw error;
-        return data;
-      }
+          if (error) throw error;
+          return data;
+        }
       : skipToken,
   });
 }

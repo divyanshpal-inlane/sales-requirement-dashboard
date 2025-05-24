@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -13,28 +14,30 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000; // 1 second between retries
 
 // Helper function to add delay between retries
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Function to send email with retry logic
 async function sendEmailWithRetry(
   client: SMTPClient,
   emailOptions: any,
-  retries = MAX_RETRIES
+  retries = MAX_RETRIES,
 ): Promise<boolean> {
   try {
     await client.send(emailOptions);
     return true;
   } catch (error) {
     console.error(`Email send attempt failed: ${error.message}`);
-    
+
     if (retries <= 0) {
       console.error("Maximum retries reached, giving up");
       throw error;
     }
-    
-    console.log(`Retrying in ${RETRY_DELAY_MS}ms... (${retries} attempts left)`);
+
+    console.log(
+      `Retrying in ${RETRY_DELAY_MS}ms... (${retries} attempts left)`,
+    );
     await delay(RETRY_DELAY_MS);
-    
+
     // Create a new SMTP client for each retry to avoid connection issues
     const newClient = new SMTPClient({
       connection: {
@@ -47,7 +50,7 @@ async function sendEmailWithRetry(
         },
       },
     });
-    
+
     try {
       return await sendEmailWithRetry(newClient, emailOptions, retries - 1);
     } finally {
@@ -117,7 +120,7 @@ serve(async (req) => {
           },
         },
       };
-      
+
       const smtpFrom = Deno.env.get("SMTP_FROM");
       const adminEmail = Deno.env.get("ADMIN_EMAIL");
 
@@ -149,13 +152,16 @@ serve(async (req) => {
           subject: `InLane Admin Alert: ${subject}`,
           html: String(adminEmailContent),
         };
-        
-        emailResults.success = await sendEmailWithRetry(adminClient, adminEmailOptions);
+
+        emailResults.success = await sendEmailWithRetry(
+          adminClient,
+          adminEmailOptions,
+        );
         console.log("Sent email to admin successfully");
       } catch (adminError) {
         emailResults.errors.push(`Admin email error: ${adminError.message}`);
         console.error("Admin email error:", adminError);
-        
+
         // Log to Supabase for debugging
         await supabaseClient.from("email_errors").insert([
           {

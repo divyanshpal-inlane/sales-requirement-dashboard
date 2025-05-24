@@ -152,7 +152,7 @@ serve(async (req) => {
             newPaymentStatus = "full_paid";
           } else if (responseData["UDF01"] === "first_half") {
             // For first installment, ONLY unlock first 5 lessons
-            unlockedLessons = [1, 2, 3, 4, 5];
+            unlockedLessons = [1, 2];
             newPaymentStatus = "half_paid";
           } else if (
             responseData["UDF01"] === "second_half" &&

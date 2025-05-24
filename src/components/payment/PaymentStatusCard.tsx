@@ -55,7 +55,10 @@ function PaymentStatusCard() {
           <p className="mb-4 text-sm text-gray-500">
             Please complete the payment to access your account.
           </p>
-          <Button onClick={() => navigate(`/payment?phone=${learner?.phone}`)} className="w-full">
+          <Button
+            onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+            className="w-full"
+          >
             Make Payment
           </Button>
         </CardContent>
@@ -63,7 +66,8 @@ function PaymentStatusCard() {
     );
   }
 
-  const isCompleted = completedPayment && completedPayment?.status === "completed";
+  const isCompleted =
+    completedPayment && completedPayment?.status === "completed";
   const payment = isCompleted ? completedPayment : latestPayment;
 
   return (
@@ -100,7 +104,10 @@ function PaymentStatusCard() {
             </div>
           )}
           {!isCompleted && (
-            <Button onClick={() => navigate(`/payment?phone=${learner?.phone}`)} className="w-full">
+            <Button
+              onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+              className="w-full"
+            >
               Retry Payment
             </Button>
           )}

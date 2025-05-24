@@ -669,8 +669,7 @@ export const LESSON_CONTENT: LessonContent = {
         },
         {
           icon: "💡",
-          text:
-            "Don’t forget to use indicator and horn to let others know of your action",
+          text: "Don’t forget to use indicator and horn to let others know of your action",
         },
       ],
       title: "You will start believing in your driving skills",
@@ -679,8 +678,7 @@ export const LESSON_CONTENT: LessonContent = {
         {
           icon: "traffic-light.svg",
           header: "Evening Traffic Tamer:",
-          desc:
-            "Maintain speeds and distances to handle evening traffic with ease",
+          desc: "Maintain speeds and distances to handle evening traffic with ease",
         },
         {
           icon: "fog-lamp.svg",
@@ -830,8 +828,7 @@ export const LESSON_CONTENT: LessonContent = {
         {
           icon: "government.svg",
           header: "RTO Rehearsal:",
-          desc:
-            "Mini challenges to get test ready Focus on lane driving & parking",
+          desc: "Mini challenges to get test ready Focus on lane driving & parking",
         },
         {
           icon: "calm.svg",

@@ -326,7 +326,7 @@ class HeltarMessageService {
           const learner = await this.getLearnerDetails(learner_id);
           return this.sendTemplate(
             learner.phone,
-            
+
             "PAYMENT_LINK",
             [
               learner.name,
@@ -649,8 +649,7 @@ class HeltarMessageService {
             `thank-you-ll-first-${learner_id}-${Date.now()}`,
           );
         }
-        case 
-        "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS": {
+        case "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS": {
           const { learner_id } = data;
           const learner = await this.getLearnerDetails(learner_id);
           return this.sendTemplate(
@@ -658,7 +657,7 @@ class HeltarMessageService {
             "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS",
             [learner.name],
             `thank-you-signup-availability-${learner_id}-${Date.now()}`,
-            );
+          );
         }
         case "WEBAPP_RESTEST_LL": {
           const { learner_id } = data;
