@@ -59,13 +59,13 @@ const AnimatedSearchBar = ({ value, onChange, placeholder }) => {
 
   return (
     <div className="relative">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+      <Search className="absolute left-3 top-1/2 w-4 h-4 text-gray-400 transform -translate-y-1/2" />
       <Input
         type="text"
         value={value}
         onChange={onChange}
         placeholder={value ? "" : `${currentText}${showCursor ? "|" : ""}`}
-        className="rounded-lg border-2 border-gray-200 py-2 pl-10 pr-4 transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20"
+        className="py-2 pr-4 pl-10 rounded-lg border-2 border-gray-200 transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20"
       />
     </div>
   );
@@ -260,13 +260,13 @@ const LearnerLLDetails = () => {
 
   if (isLoading)
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex justify-center items-center min-h-screen">
         <div className="text-lg">Loading...</div>
       </div>
     );
   if (isError)
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex justify-center items-center min-h-screen">
         <div className="text-lg text-red-500">Error loading learners.</div>
       </div>
     );
@@ -281,16 +281,16 @@ const LearnerLLDetails = () => {
       }}
     >
       {/* Header */}
-      <div className="border-b bg-white shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+      <div className="bg-white border-b shadow-sm">
+        <div className="flex justify-between items-center px-6 py-4">
+          <div className="flex gap-4 items-center">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate("/admin")}
-              className="h-10 w-10 hover:bg-gray-100"
+              className="w-10 h-10 hover:bg-gray-100"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-2xl font-bold text-gray-900">
               LL Application Management
@@ -300,10 +300,10 @@ const LearnerLLDetails = () => {
       </div>
 
       {/* Main three panels */}
-      <div className="flex h-full w-full gap-6 p-6">
+      <div className="flex gap-6 p-6 w-full h-full">
         {/* Left Panel - Learner Selection */}
         <Card className="w-1/3 border-0 shadow-lg">
-          <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
             <CardTitle className="text-lg font-semibold text-gray-800">
               Select Learner
             </CardTitle>
@@ -345,7 +345,7 @@ const LearnerLLDetails = () => {
 
         {/* Middle Panel - Application ID Entry */}
         <Card className="w-1/3 border-0 shadow-lg">
-          <CardHeader className="border-b bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
             <CardTitle className="text-lg font-semibold text-gray-800">
               LL Application Details
             </CardTitle>
@@ -353,7 +353,7 @@ const LearnerLLDetails = () => {
           <CardContent className="p-6">
             {selectedLearner ? (
               <div className="space-y-6">
-                <div className="rounded-lg bg-gray-50 p-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
                   <Label className="text-sm font-medium text-gray-600">
                     Selected Learner
                   </Label>
@@ -402,7 +402,7 @@ const LearnerLLDetails = () => {
 
         {/* Right Panel - LL Approval */}
         <Card className="w-1/3 border-0 shadow-lg">
-          <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-violet-50">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 border-b">
             <CardTitle className="text-lg font-semibold text-gray-800">
               LL Approval
             </CardTitle>
@@ -410,7 +410,7 @@ const LearnerLLDetails = () => {
           <CardContent className="p-6">
             {selectedLearner?.LL_application_id ? (
               <div className="space-y-6">
-                <div className="rounded-lg bg-gray-50 p-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm font-medium text-gray-600">
                     Application ID
                   </div>
@@ -418,7 +418,7 @@ const LearnerLLDetails = () => {
                     {selectedLearner.LL_application_id}
                   </div>
                 </div>
-                <div className="flex items-center space-x-3 rounded-lg bg-purple-50 p-4">
+                <div className="flex items-center p-4 space-x-3 bg-purple-50 rounded-lg">
                   <Checkbox
                     id="llApproved"
                     checked={llApproved}
@@ -447,7 +447,7 @@ const LearnerLLDetails = () => {
                     : "Save Approval Status"}
                 </Button>
                 {selectedLearner?.LL_application_approved && (
-                  <div className="text-center text-sm font-medium text-green-600">
+                  <div className="text-sm font-medium text-center text-green-600">
                     ✅ Already approved
                   </div>
                 )}
@@ -469,8 +469,8 @@ const LearnerLLDetails = () => {
       {/* Past LL Applications Section */}
       <div className="px-6 pb-6">
         <Card className="border-0 shadow-lg">
-          <CardHeader className="border-b bg-gradient-to-r from-orange-50 to-amber-50">
-            <div className="flex items-center justify-between">
+          <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
+            <div className="flex justify-between items-center">
               <CardTitle className="text-xl font-semibold text-gray-800">
                 Past LL Applications
               </CardTitle>
@@ -507,20 +507,20 @@ const LearnerLLDetails = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b bg-gray-50">
+                  <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      <th className="px-6 py-4 text-sm font-semibold tracking-wider text-left text-gray-700 uppercase">
                         Name
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      <th className="px-6 py-4 text-sm font-semibold tracking-wider text-left text-gray-700 uppercase">
                         Mobile
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      <th className="px-6 py-4 text-sm font-semibold tracking-wider text-left text-gray-700 uppercase">
                         LL Application ID
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody className="bg-white divide-y divide-gray-100">
                     {filteredPastApplications?.map((learner, index) => (
                       <tr
                         key={learner.id}
@@ -528,16 +528,16 @@ const LearnerLLDetails = () => {
                           index % 2 === 0 ? "bg-white" : "bg-gray-25"
                         }`}
                       >
-                        <td className="whitespace-nowrap px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="font-medium text-gray-900">
                             {learner.name}
                           </div>
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-gray-700">{learner.phone}</div>
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
                             {learner.LL_application_id || "N/A"}
                           </div>
                         </td>

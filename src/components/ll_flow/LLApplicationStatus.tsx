@@ -11,12 +11,12 @@ export function LLApplicationStatus({
   return (
     <>
       <Card className="mx-auto mt-4 max-w-2xl">
-        <CardHeader className="rounded-t-xl bg-primary text-white">
+        <CardHeader className="text-white rounded-t-xl bg-primary">
           <CardTitle className="text-2xl font-bold">
             Application Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 p-6">
+        <CardContent className="p-6 space-y-4">
           <p className="text-lg font-semibold">
             {applicationId
               ? `Your LL application (ID: ${applicationId}) is being processed.`
@@ -33,7 +33,7 @@ export function LLApplicationStatus({
             your patience 😇
           </p>
           <Button
-            className="mt-6 w-full py-3 text-lg"
+            className="py-3 mt-6 w-full text-lg"
             onClick={() =>
               window.open(
                 "https://staging.da3uvaik39s3z.amplifyapp.com",
@@ -44,8 +44,7 @@ export function LLApplicationStatus({
             Start Learning Module
           </Button>
         </CardContent>
-      </Card>
-      <p className="mb-2 mt-auto text-center text-base">
+        <p className="mt-auto mb-2 text-base text-center">
         Shared LL details?{" "}
         <a
           href="https://forms.gle/4Qe8ttAhBYHE7PDq8"
@@ -56,6 +55,18 @@ export function LLApplicationStatus({
           Submit now
         </a>
       </p>
+      </Card>
+      {/* <p className="mt-auto mb-2 text-base text-center">
+        Shared LL details?{" "}
+        <a
+          href="https://forms.gle/4Qe8ttAhBYHE7PDq8"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          Submit now
+        </a>
+      </p> */}
     </>
   );
 }
