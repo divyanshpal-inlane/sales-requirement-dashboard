@@ -9,10 +9,12 @@ export default function MainLayout() {
       <div className="relative h-full">
         <Outlet />
       </div>
-      <footer className="sticky bottom-0 w-full border-t border-gray-400 backdrop-filter backdrop-blur-lg bg-white/50">
+      <footer className="sticky bottom-0 w-full border-t border-gray-400 bg-white/50 backdrop-blur-lg backdrop-filter">
         <nav className="flex justify-around px-2">
-          
-          <NavLink to="/home" className="flex flex-1 justify-center items-center min-w-0">
+          <NavLink
+            to="/home"
+            className="flex min-w-0 flex-1 items-center justify-center"
+          >
             {({ isActive }) => (
               <div
                 className={`flex h-fit w-fit flex-col items-center border-primary px-2 py-2 text-xs ${isActive ? "-translate-y-0.5 border-t-4" : ""}`}
@@ -21,11 +23,14 @@ export default function MainLayout() {
                   size={20}
                   className={isActive ? "stroke-primary" : "stroke-gray-400"}
                 />
-                <span className="mt-1 leading-tight text-center">Home</span>
+                <span className="mt-1 text-center leading-tight">Home</span>
               </div>
             )}
           </NavLink>
-          <NavLink to="/schedule" className="flex flex-1 justify-center items-center min-w-0">
+          <NavLink
+            to="/schedule"
+            className="flex min-w-0 flex-1 items-center justify-center"
+          >
             {({ isActive }) => (
               <div
                 className={`flex h-fit w-fit flex-col items-center border-primary px-2 py-2 text-xs ${isActive ? "-translate-y-0.5 border-t-4" : ""}`}
@@ -34,11 +39,14 @@ export default function MainLayout() {
                   size={20}
                   className={isActive ? "stroke-primary" : "stroke-gray-400"}
                 />
-                <span className="mt-1 leading-tight text-center">Schedule</span>
+                <span className="mt-1 text-center leading-tight">Schedule</span>
               </div>
             )}
           </NavLink>
-          <NavLink to="/prep" className="flex flex-1 justify-center items-center min-w-0">
+          <NavLink
+            to="/prep"
+            className="flex min-w-0 flex-1 items-center justify-center"
+          >
             {({ isActive }) => (
               <div
                 className={`flex h-fit w-fit flex-col items-center border-primary px-2 py-2 text-xs ${isActive ? "-translate-y-0.5 border-t-4" : ""}`}
@@ -47,11 +55,14 @@ export default function MainLayout() {
                   size={20}
                   className={isActive ? "stroke-primary" : "stroke-gray-400"}
                 />
-                <span className="mt-1 leading-tight text-center">Prep</span>
+                <span className="mt-1 text-center leading-tight">Prep</span>
               </div>
             )}
           </NavLink>
-          <NavLink to="/help" className="flex flex-1 justify-center items-center min-w-0">
+          <NavLink
+            to="/help"
+            className="flex min-w-0 flex-1 items-center justify-center"
+          >
             {({ isActive }) => (
               <div
                 className={`flex h-fit w-fit flex-col items-center border-primary px-2 py-2 text-xs ${isActive ? "-translate-y-0.5 border-t-4" : ""}`}
@@ -60,7 +71,7 @@ export default function MainLayout() {
                   size={20}
                   className={isActive ? "stroke-primary" : "stroke-gray-400"}
                 />
-                <span className="mt-1 leading-tight text-center">Help</span>
+                <span className="mt-1 text-center leading-tight">Help</span>
               </div>
             )}
           </NavLink>

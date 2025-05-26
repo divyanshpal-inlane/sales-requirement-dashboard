@@ -125,8 +125,8 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
   if (isLoading) {
     return (
-      <Card className="overflow-hidden px-4 mx-auto mt-4 w-full max-w-2xl">
-        <CardContent className="p-4 space-y-4 sm:p-6">
+      <Card className="mx-auto mt-4 w-full max-w-2xl overflow-hidden px-4">
+        <CardContent className="space-y-4 p-4 sm:p-6">
           <p className="text-center">Loading...</p>
         </CardContent>
       </Card>
@@ -135,25 +135,25 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
   return (
     <>
-      <Card className="overflow-hidden px-4 mx-auto mt-4 w-full max-w-xl">
-        <CardHeader className="text-white rounded-t-xl bg-primary">
+      <Card className="mx-auto mt-4 w-full max-w-xl overflow-hidden px-4">
+        <CardHeader className="rounded-t-xl bg-primary text-white">
           <CardTitle className="text-2xl font-bold">
             Learner&apos;s License Test
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-4 sm:p-6">
-          <p className="text-lg font-semibold break-words">
+        <CardContent className="space-y-4 p-4 sm:p-6">
+          <p className="break-words text-lg font-semibold">
             Your application has been approved. It&apos;s time for your LL test!
           </p>
           <div>
             <p className="mb-2 font-semibold">Helpful Resources:</p>
-            <ul className="space-y-2 list-disc list-inside">
+            <ul className="list-inside list-disc space-y-2">
               <li>
                 <a
                   href="https://staging.da3uvaik39s3z.amplifyapp.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 break-words hover:underline"
+                  className="break-words text-blue-600 hover:underline"
                 >
                   Learning Module
                 </a>
@@ -163,7 +163,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
                   href="https://drive.google.com/file/d/1fyF6GPko_hmazMHI6pBb-nvMu19BbvQE/view"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 break-words hover:underline"
+                  className="break-words text-blue-600 hover:underline"
                 >
                   Test Video Guide
                 </a>
@@ -174,7 +174,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
           {testStatus === "initial" && (
             <div className="space-y-4">
               <p className="text-lg font-medium">Did you pass your LL test?</p>
-              <div className="flex flex-col gap-4 justify-center sm:flex-row">
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <Button onClick={() => handleTestCompletion(true)}>
                   Yes, I passed
                 </Button>
@@ -193,7 +193,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               <p className="text-lg font-medium">
                 Have you received your Learner&apos;s License?
               </p>
-              <div className="flex flex-col gap-4 justify-center sm:flex-row">
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <Button onClick={() => handleLLReceived(true)}>
                   Yes, I&apos;ve received it
                 </Button>
@@ -209,11 +209,14 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
           {testStatus === "passed" && hasReceivedLL === false && (
             <div className="space-y-4">
-              <p className="text-lg font-medium break-words">
+              <p className="break-words text-lg font-medium">
                 No problem! The government is processing your Learner&apos;s
                 License. Please wait for the confirmation message.
               </p>
-              <Button onClick={() => handleLLReceived(true)} className="w-full sm:w-auto">
+              <Button
+                onClick={() => handleLLReceived(true)}
+                className="w-full sm:w-auto"
+              >
                 I&apos;ve received it now
               </Button>
             </div>
@@ -221,10 +224,10 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
           {testStatus === "failed" && (
             <div className="space-y-4">
-              <p className="text-lg font-medium break-words">
+              <p className="break-words text-lg font-medium">
                 No problem! Take your time to prepare well for the test.
               </p>
-              <div className="flex flex-col gap-4 justify-center sm:flex-row">
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <Button onClick={() => handleTestCompletion(true)}>
                   I&apos;ve passed my test now
                 </Button>
@@ -240,7 +243,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
           {testStatus === "passed" && hasReceivedLL === true && (
             <div className="space-y-4">
-              <p className="text-lg font-medium text-green-600 break-words">
+              <p className="break-words text-lg font-medium text-green-600">
                 Great! You've received your Learner's License. You're now ready
                 to proceed with driving lessons.
               </p>

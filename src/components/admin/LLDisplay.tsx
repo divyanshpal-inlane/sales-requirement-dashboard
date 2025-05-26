@@ -30,7 +30,7 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
     try {
       // List files from the LL bucket in the folder matching the phone number
       const { data, error } = await supabase.storage
-        .from("LL")
+        .from("ll")
         .list(learnerPhone);
 
       if (error) throw error;
@@ -40,7 +40,7 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
         const signedUrls = await Promise.all(
           data.map(async (file) => {
             const { data: signedUrlData } = await supabase.storage
-              .from("LL")
+              .from("ll")
               .createSignedUrl(`${learnerPhone}/${file.name}`, 3600); // 1 hour expiry
 
             return signedUrlData?.signedUrl || null;
@@ -69,9 +69,9 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
 
   if (loading) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-lg bg-gray-50 p-5">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      <div className="flex justify-center items-center p-5 h-40 bg-gray-50 rounded-lg">
+        <div className="flex flex-col gap-2 items-center">
+          <div className="w-8 h-8 rounded-full border-4 animate-spin border-primary border-t-transparent"></div>
           <p className="text-sm text-gray-500">Loading license images...</p>
         </div>
       </div>
@@ -80,8 +80,8 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
 
   if (error) {
     return (
-      <div className="flex h-40 flex-col items-center justify-center rounded-lg bg-gray-50 p-5">
-        <ImageOff className="mb-2 h-10 w-10 text-gray-400" />
+      <div className="flex flex-col justify-center items-center p-5 h-40 bg-gray-50 rounded-lg">
+        <ImageOff className="mb-2 w-10 h-10 text-gray-400" />
         <p className="text-sm text-gray-500">{error}</p>
         <Button
           variant="outline"
@@ -89,7 +89,7 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
           className="mt-3 text-xs"
           onClick={fetchLLImages}
         >
-          <RefreshCw className="mr-1 h-3 w-3" /> Retry
+          <RefreshCw className="mr-1 w-3 h-3" /> Retry
         </Button>
       </div>
     );
@@ -97,8 +97,8 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
 
   if (llImages.length === 0) {
     return (
-      <div className="flex h-40 flex-col items-center justify-center rounded-lg bg-gray-50 p-5">
-        <ImageOff className="mb-2 h-10 w-10 text-gray-400" />
+      <div className="flex flex-col justify-center items-center p-5 h-40 bg-gray-50 rounded-lg">
+        <ImageOff className="mb-2 w-10 h-10 text-gray-400" />
         <p className="text-sm text-gray-500">No license images found</p>
         <Button
           variant="outline"
@@ -106,15 +106,15 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
           className="mt-3 text-xs"
           onClick={fetchLLImages}
         >
-          <RefreshCw className="mr-1 h-3 w-3" /> Refresh
+          <RefreshCw className="mr-1 w-3 h-3" /> Refresh
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 rounded-lg bg-gray-50 p-5">
-      <div className="flex items-center justify-between">
+    <div className="p-5 space-y-4 bg-gray-50 rounded-lg">
+      <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-primary">Learner License</h3>
         <Button
           variant="outline"
@@ -122,7 +122,7 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
           className="text-xs"
           onClick={fetchLLImages}
         >
-          <RefreshCw className="mr-1 h-3 w-3" /> Refresh
+          <RefreshCw className="mr-1 w-3 h-3" /> Refresh
         </Button>
       </div>
 
@@ -130,13 +130,13 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
         {llImages.map((url, index) => (
           <div
             key={index}
-            className="overflow-hidden rounded-md border bg-white shadow-sm"
+            className="overflow-hidden bg-white rounded-md border shadow-sm"
           >
             <div className="relative">
               <img
                 src={url}
                 alt={`Learner License ${index + 1}`}
-                className="w-full object-cover"
+                className="object-cover w-full"
                 style={{ maxHeight: "280px" }}
               />
               <a
@@ -144,12 +144,12 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
                 download={`learner-license-${index + 1}.jpg`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="absolute bottom-2 right-2 rounded-full bg-white p-1 shadow-md hover:bg-gray-100"
+                className="absolute right-2 bottom-2 p-1 bg-white rounded-full shadow-md hover:bg-gray-100"
               >
-                <ArrowUpRight className="h-4 w-4 text-primary" />
+                <ArrowUpRight className="w-4 h-4 text-primary" />
               </a>
             </div>
-            <div className="p-2 text-center text-xs text-gray-500">
+            <div className="p-2 text-xs text-center text-gray-500">
               License Image {index + 1}
             </div>
           </div>
