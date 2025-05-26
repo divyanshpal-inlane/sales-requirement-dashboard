@@ -1206,31 +1206,31 @@ export default function AdminSchedules() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      <div className="flex justify-center items-center h-full">
+        <div className="w-8 h-8 rounded-full border-4 animate-spin border-primary border-t-transparent"></div>
       </div>
     );
   }
 
   return (
     <div
-      className="h-flex flex min-h-screen flex-col bg-white p-8"
+      className="flex flex-col p-8 min-h-screen bg-white h-flex"
       style={{
         backgroundImage: 'url("/assets/bg_pattern.svg")',
         backgroundRepeat: "repeat",
         backgroundSize: "cover",
       }}
     >
-      <div className="border-b bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="px-6 py-4 bg-white border-b">
+        <div className="flex justify-between items-center">
+          <div className="flex gap-4 items-center">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate("/admin")}
-              className="h-10 w-10"
+              className="w-10 h-10"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-2xl font-bold">Schedule Management</h1>
           </div>
@@ -1242,7 +1242,7 @@ export default function AdminSchedules() {
         className="flex h-[calc(100%-73px)] flex-col"
         onValueChange={handleTabChange}
       >
-        <div className="border-b px-6">
+        <div className="px-6 border-b">
           <TabsList>
             <TabsTrigger value="new">
               New Schedules {newRequests?.length || 0}
@@ -1257,9 +1257,9 @@ export default function AdminSchedules() {
           </TabsList>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="overflow-hidden flex-1">
           <TabsContent value="new" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6">
+            <div className="grid grid-cols-12 gap-4 p-6 h-full">
               {/* Learners List */}
               <Card className="col-span-2">
                 <CardHeader>
@@ -1330,7 +1330,7 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="reschedule" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6">
+            <div className="grid grid-cols-12 gap-4 p-6 h-full">
               {/* Learners List */}
               <Card className="md:col-span-2">
                 <CardHeader>
@@ -1401,7 +1401,7 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="lesson10" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6">
+            <div className="grid grid-cols-12 gap-4 p-6 h-full">
               {/* Learners List */}
               <Card className="md:col-span-2">
                 <CardHeader>
@@ -1472,7 +1472,7 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="active" className="h-full">
-            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 p-6 h-full md:grid-cols-3">
               {/* Learners List */}
               <Card className="md:col-span-1">
                 <CardHeader>
@@ -1481,7 +1481,7 @@ export default function AdminSchedules() {
                 <CardContent>
                   <ScrollArea className="h-[calc(100vh-280px)]">
                     {isLoadingActiveLearners ? (
-                      <div className="flex items-center justify-center text-gray-500">
+                      <div className="flex justify-center items-center text-gray-500">
                         Loading...
                       </div>
                     ) : (
@@ -1545,7 +1545,7 @@ export default function AdminSchedules() {
                         .map((schedule) => (
                           <div
                             key={schedule.id}
-                            className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50"
+                            className="flex justify-between items-center p-3 rounded-md border hover:bg-gray-50"
                           >
                             <div>
                               <div className="font-medium">
@@ -1637,7 +1637,7 @@ export default function AdminSchedules() {
                     </Select>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-end gap-2">
+                    <div className="flex gap-2 justify-end">
                       <Button
                         variant="outline"
                         onClick={() => setIsInstructorChangeModalOpen(false)}
@@ -1681,7 +1681,7 @@ export default function AdminSchedules() {
                       >
                         {isSendingInvites ? (
                           <span className="flex items-center">
-                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span className="mr-2 w-4 h-4 rounded-full border-2 border-white animate-spin border-t-transparent"></span>
                             Sending Invites...
                           </span>
                         ) : (
@@ -1712,7 +1712,7 @@ export default function AdminSchedules() {
                   <div className="space-y-4">
                     {/* Editable Date Field */}
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2 items-center">
                         <label className="block text-sm font-medium text-gray-700">
                           Date
                         </label>
@@ -1725,12 +1725,12 @@ export default function AdminSchedules() {
                               date: e.target.value,
                             }))
                           }
-                          className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          className="block mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
                       </div>
 
                       {/* Editable Time Field */}
-                      <div className="flex items-center gap-8">
+                      <div className="flex gap-8 items-center">
                         <label className="block text-sm font-medium text-gray-700">
                           Time
                         </label>
@@ -1802,7 +1802,7 @@ export default function AdminSchedules() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-end gap-2">
+                    <div className="flex gap-2 justify-end">
                       <Button
                         variant="outline"
                         onClick={() => setIsRescheduleModalOpen(false)} // Close modal without saving
@@ -1885,7 +1885,7 @@ export default function AdminSchedules() {
                       >
                         {isSendingInvites ? (
                           <span className="flex items-center">
-                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span className="mr-2 w-4 h-4 rounded-full border-2 border-white animate-spin border-t-transparent"></span>
                             Sending Invites...
                           </span>
                         ) : (

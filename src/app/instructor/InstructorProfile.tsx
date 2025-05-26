@@ -7,8 +7,9 @@ import {
   Mail,
   Phone,
   User,
-  X,
   ArrowLeft,
+  MessageCircle,
+  HelpCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -102,228 +103,186 @@ const InstructorProfile = () => {
     }
   };
 
+  const handleCall = () => {
+    window.location.href = "tel:+919182031523";
+  };
+
+  const handleWhatsApp = () => {
+    window.open("https://wa.me/919182031523", "_blank");
+  };
+
+  const handleEmail = () => {
+    window.location.href = "mailto:team@inlane.in";
+  };
+
   if (instructorLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="animate-pulse text-lg">Loading profile...</div>
+      <div className="flex justify-center items-center h-96">
+        <div className="text-lg animate-pulse">Loading profile...</div>
       </div>
     );
   }
 
   if (instructorError) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex justify-center items-center h-96">
         <div className="text-lg text-red-500">{instructorError.message}</div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fadeIn mx-auto max-w-3xl space-y-6 overflow-y-auto p-4">
+<div className="overflow-y-auto p-6 mx-auto max-w-4xl h-screen">
+
       {/* Back Button */}
-      <div className="mb-4 flex items-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(-1)} // Navigate back to the previous page
-          className="flex items-center space-x-2 text-gray-700 hover:text-gray-900"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span className="text-sm font-medium">Back</span>
+      <div className="flex items-center mb-2">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="flex gap-1 items-center text-muted-foreground">
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </Button>
       </div>
 
-      {/* Header with Profile Picture and Main Actions */}
-      <div className="relative rounded-lg bg-gradient-to-r from-purple-100 to-accent-purple p-6 text-gray-700 shadow-lg">
-        <div className="absolute right-4 top-4 flex flex-col gap-2">
-          {/* <Button
-            variant="ghost"
-            size="sm"
-            className="bg- text-white hover:bg-blue-400"
-            onClick={() => setIsEditing(!isEditing)}
-          >
-            {isEditing ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <Edit2 className="h-4 w-4" />
-            )}
-          </Button> */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-blue-400"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="flex items-center space-x-4">
-          <div className="h-20 w-20">
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-white/30">
-              <User className="h-12 w-12 text-gray-400" />
-            </div>
+      {/* Header */}
+      <div className="flex relative justify-between items-center p-5 bg-gradient-to-r from-purple-300 to-purple-200 rounded-xl shadow-sm">
+        <div className="flex gap-4 items-center">
+          <div className="flex justify-center items-center w-16 h-16 bg-white rounded-full">
+            <User className="w-8 h-8 text-gray-500" />
           </div>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold">
-              {isEditing ? (
-                <Input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="bg-white/10 text-white placeholder:text-white/60"
-                />
-              ) : (
-                instructorData?.instructorInfo.name
-              )}
-            </h1>
-            <p className="text-sm opacity-90">Driving Instructor</p>
+          <div>
+            <h1 className="text-xl font-bold">{formData.name}</h1>
+            <p className="text-sm text-gray-600">Driving Instructor</p>
           </div>
         </div>
+        <Button variant="ghost" size="icon" onClick={handleLogout}>
+          <LogOut className="w-5 h-5 text-gray-700" />
+        </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-2">
-        {/* Personal Information */}
+      {/* Two Columns */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Personal Info */}
         <Card>
-          <CardContent className="space-y-4 p-6">
-            <h2 className="mb-4 text-xl font-semibold">Personal Information</h2>
-            <div className="space-y-3">
-              <div className="group flex items-center space-x-3 rounded-md p-2 transition-colors hover:bg-gray-50">
-                <Mail className="h-5 w-5 text-blue-500" />
-                {isEditing ? (
-                  <Input
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="flex-1"
-                  />
-                ) : (
-                  <span className="text-sm">
-                    {instructorData?.instructorInfo.email}
-                  </span>
-                )}
-              </div>
-              <div className="group flex items-center space-x-3 rounded-md p-2 transition-colors hover:bg-gray-50">
-                <Phone className="h-5 w-5 text-blue-500" />
-                {isEditing ? (
-                  <Input
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="flex-1"
-                  />
-                ) : (
-                  <span className="text-sm">
-                    {instructorData?.instructorInfo.phone}
-                  </span>
-                )}
-              </div>
+          <CardContent className="p-4 space-y-4">
+            <h2 className="text-lg font-semibold">Personal Information</h2>
+            <div className="flex gap-2 items-center p-2 bg-gray-100 rounded-md">
+              <Mail className="w-4 h-4 text-blue-600" />
+              <span>{formData.email}</span>
+            </div>
+            <div className="flex gap-2 items-center p-2 bg-gray-100 rounded-md">
+              <Phone className="w-4 h-4 text-blue-600" />
+              <span>{formData.phone}</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Statistics */}
         <Card>
-          <CardContent className="space-y-4 p-6">
-            <h2 className="mb-4 text-xl font-semibold">Statistics</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col items-center rounded-lg bg-blue-50 p-4 transition-colors hover:bg-blue-100">
-                <CarFrontIcon className="mb-2 h-8 w-8 text-blue-500" />
-                {isEditing ? (
-                  <Select
-                    value={formData.car_mode}
-                    onValueChange={handleCarModeChange}
-                  >
-                    <SelectTrigger className="w-32 text-center">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Manual">Manual</SelectItem>
-                      <SelectItem value="Automatic">Automatic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className="text-2xl font-light text-blue-600">
-                    {instructorData?.instructorInfo.car_mode || "N/A"}
-                  </span>
-                )}
-                <span className="text-sm text-gray-600">Car Type</span>
+          <CardContent className="p-4 space-y-4">
+            <h2 className="text-lg font-semibold">Statistics</h2>
+            <div className="flex gap-3 items-center p-2 bg-blue-50 rounded-md">
+              <CarFrontIcon className="w-5 h-5 text-blue-600" />
+              <div>
+                <div className="font-semibold text-blue-700">
+                  {formData.car_make}
+                </div>
+                <div className="text-xs text-gray-600">Car Type</div>
               </div>
-              <div className="flex flex-col items-center rounded-lg bg-green-50 p-4 transition-colors hover:bg-green-100">
-                <Calendar className="mb-2 h-8 w-8 text-green-500" />
-                {isEditing ? (
-                  <Input
-                    name="experience"
-                    type="number"
-                    value={formData.experience}
-                    onChange={handleInputChange}
-                    className="text-center"
-                  />
-                ) : (
-                  <span className="text-2xl font-bold text-green-600">
-                    {instructorData?.instructorInfo.experience || 0}
-                  </span>
-                )}
-                <span className="text-sm text-gray-600">Years Experience</span>
+            </div>
+            <div className="flex gap-3 items-center p-2 bg-green-50 rounded-md">
+              <Calendar className="w-5 h-5 text-green-600" />
+              <div>
+                <div className="font-semibold text-green-700">
+                  {formData.experience} Years
+                </div>
+                <div className="text-xs text-gray-600">Experience</div>
               </div>
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Vehicle Information */}
-        <Card className="md:col-span-2">
-          <CardContent className="space-y-4 p-6">
-            <h2 className="mb-4 text-xl font-semibold">Vehicle Information</h2>
-            <div className="flex items-center space-x-4 rounded-lg bg-gray-50 p-3">
-              <Car className="h-8 w-8 text-blue-500" />
-              <div className="flex-1">
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <Input
-                      name="car_make"
-                      value={formData.car_make}
-                      onChange={handleInputChange}
-                      placeholder="Car Make"
-                    />
-                    <Input
-                      name="car_number"
-                      value={formData.car_number}
-                      onChange={handleInputChange}
-                      placeholder="Car Number"
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <p className="font-medium">
-                      {instructorData?.instructorInfo.car_make ||
-                        "Vehicle not set"}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {instructorData?.instructorInfo.car_number ||
-                        "Number not available"}
-                    </p>
-                  </>
-                )}
-              </div>
+      {/* Vehicle Info */}
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <h2 className="text-lg font-semibold">Vehicle Information</h2>
+          <div className="flex gap-2 items-center p-2 bg-gray-100 rounded-md">
+            <Car className="w-4 h-4 text-blue-600" />
+            <div>
+              <div className="font-medium">{formData.car_mode}</div>
+              <div className="text-sm text-gray-600">{formData.car_number}</div>
             </div>
-          </CardContent>
-        </Card>
-
-        {isEditing && (
-          <div className="flex justify-end space-x-2 md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsEditing(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={updateInstructorMutation.isPending}>
-              Save Changes
-            </Button>
           </div>
-        )}
-      </form>
+        </CardContent>
+      </Card>
+
+      {/* Help & Support Section */}
+      <div className="pt-8">
+        <h1 className="mb-6 text-2xl font-bold text-gray-800">Help & Support</h1>
+
+        <div className="space-y-6">
+          {/* Contact Options */}
+          <div className="p-6 bg-gray-50 rounded-lg">
+            <h2 className="mb-4 text-lg font-medium text-gray-700">Get in Touch</h2>
+
+            <div className="space-y-4">
+              <button
+                onClick={handleCall}
+                className="flex gap-4 items-center p-5 w-full text-white rounded-lg transition-colors bg-primary hover:bg-primary/90"
+              >
+                <Phone size={24} />
+                <div className="flex flex-col items-start text-left">
+                  <span className="text-lg font-medium">Call Us</span>
+                  <span className="text-base opacity-90">+91 9182031523</span>
+                </div>
+              </button>
+
+              <button
+                onClick={handleWhatsApp}
+                className="flex gap-4 items-center p-5 w-full text-green-600 rounded-lg border-2 border-green-500 transition-colors hover:bg-green-50"
+              >
+                <MessageCircle size={24} />
+                <div className="flex flex-col items-start text-left">
+                  <span className="text-lg font-medium">WhatsApp</span>
+                  <span className="text-base opacity-70">Quick support</span>
+                </div>
+              </button>
+
+              <button
+                onClick={handleEmail}
+                className="flex gap-4 items-center p-5 w-full rounded-lg border border-gray-300 transition-colors hover:bg-gray-50"
+              >
+                <Mail size={24} />
+                <div className="flex flex-col items-start text-left">
+                  <span className="text-lg font-medium">Email Support</span>
+                  <span className="text-base opacity-70">team@inlane.in</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Response Time Notice */}
+          <div className="flex gap-4 items-start p-5 bg-white rounded-lg border border-primary">
+            <HelpCircle className="flex-shrink-0 mt-1 w-6 h-6 text-primary" />
+            <p className="text-base text-gray-700">
+              Our team will contact you within <strong>24 hours</strong> to assist you with your queries.
+            </p>
+          </div>
+
+          {/* Additional Help CTA */}
+          <div className="p-6 text-center rounded-lg bg-accent-purple/5">
+            <h3 className="mb-3 text-xl font-medium text-accent-purple">Need More Help?</h3>
+            <p className="mb-6 text-base text-gray-600">
+              Can't find what you're looking for? Our support team is here to help you with any questions about our driving courses.
+            </p>
+            <button
+              onClick={handleCall}
+              className="px-8 py-3 text-lg text-white rounded-lg transition-colors bg-accent-purple hover:bg-accent-purple/90"
+            >
+              Contact Support
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
