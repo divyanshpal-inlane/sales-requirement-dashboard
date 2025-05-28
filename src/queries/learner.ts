@@ -205,13 +205,13 @@ export function useUploadLLMutation() {
   return useMutation({
     mutationFn: async ({
       file,
-      fileName = "LL",
+      fileName = "ll",
     }: {
       file: File;
       fileName?: string;
     }) => {
       const { data, error } = await supabase.storage
-        .from("LL")
+        .from("ll")
         .upload(`${phone}/${fileName}.${file.type.split("/")[1]}`, file, {
           cacheControl: "3600",
           upsert: true,
