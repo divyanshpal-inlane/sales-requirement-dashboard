@@ -49,11 +49,11 @@ export default function RescheduleConfirmationSheet({
         existingGroup.schedules.push(schedule);
       } else {
         // Calculate fee for the day
-        const scheduleDate = new Date(`${date}T00:00:00`);
+        const scheduleDate = new Date(date);
         const now = new Date();
         const diffHours =
           (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-        const fee = diffHours < 24 ? 300 : 0;
+        const fee = diffHours < 12 ? 300 : 0;
 
         groups.push({
           date,
@@ -211,7 +211,7 @@ export default function RescheduleConfirmationSheet({
                 <span className="font-medium">₹{totalFee}</span>
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                Fee applies for rescheduling within 24 hours
+                Fee applies for rescheduling within 12 hours
               </p>
             </div>
           )}

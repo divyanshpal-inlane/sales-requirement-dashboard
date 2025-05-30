@@ -117,36 +117,40 @@ const InstructorProfile = () => {
 
   if (instructorLoading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="text-lg animate-pulse">Loading profile...</div>
+      <div className="flex h-96 items-center justify-center">
+        <div className="animate-pulse text-lg">Loading profile...</div>
       </div>
     );
   }
 
   if (instructorError) {
     return (
-      <div className="flex justify-center items-center h-96">
+      <div className="flex h-96 items-center justify-center">
         <div className="text-lg text-red-500">{instructorError.message}</div>
       </div>
     );
   }
 
   return (
-<div className="overflow-y-auto p-6 mx-auto max-w-4xl h-screen">
-
+    <div className="mx-auto h-screen max-w-4xl overflow-y-auto p-6">
       {/* Back Button */}
-      <div className="flex items-center mb-2">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="flex gap-1 items-center text-muted-foreground">
-          <ArrowLeft className="w-4 h-4" />
+      <div className="mb-2 flex items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-muted-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
       </div>
 
       {/* Header */}
-      <div className="flex relative justify-between items-center p-5 bg-gradient-to-r from-purple-300 to-purple-200 rounded-xl shadow-sm">
-        <div className="flex gap-4 items-center">
-          <div className="flex justify-center items-center w-16 h-16 bg-white rounded-full">
-            <User className="w-8 h-8 text-gray-500" />
+      <div className="relative flex items-center justify-between rounded-xl bg-gradient-to-r from-purple-300 to-purple-200 p-5 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white">
+            <User className="h-8 w-8 text-gray-500" />
           </div>
           <div>
             <h1 className="text-xl font-bold">{formData.name}</h1>
@@ -154,7 +158,7 @@ const InstructorProfile = () => {
           </div>
         </div>
         <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="w-5 h-5 text-gray-700" />
+          <LogOut className="h-5 w-5 text-gray-700" />
         </Button>
       </div>
 
@@ -162,14 +166,14 @@ const InstructorProfile = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Personal Info */}
         <Card>
-          <CardContent className="p-4 space-y-4">
+          <CardContent className="space-y-4 p-4">
             <h2 className="text-lg font-semibold">Personal Information</h2>
-            <div className="flex gap-2 items-center p-2 bg-gray-100 rounded-md">
-              <Mail className="w-4 h-4 text-blue-600" />
+            <div className="flex items-center gap-2 rounded-md bg-gray-100 p-2">
+              <Mail className="h-4 w-4 text-blue-600" />
               <span>{formData.email}</span>
             </div>
-            <div className="flex gap-2 items-center p-2 bg-gray-100 rounded-md">
-              <Phone className="w-4 h-4 text-blue-600" />
+            <div className="flex items-center gap-2 rounded-md bg-gray-100 p-2">
+              <Phone className="h-4 w-4 text-blue-600" />
               <span>{formData.phone}</span>
             </div>
           </CardContent>
@@ -177,10 +181,10 @@ const InstructorProfile = () => {
 
         {/* Statistics */}
         <Card>
-          <CardContent className="p-4 space-y-4">
+          <CardContent className="space-y-4 p-4">
             <h2 className="text-lg font-semibold">Statistics</h2>
-            <div className="flex gap-3 items-center p-2 bg-blue-50 rounded-md">
-              <CarFrontIcon className="w-5 h-5 text-blue-600" />
+            <div className="flex items-center gap-3 rounded-md bg-blue-50 p-2">
+              <CarFrontIcon className="h-5 w-5 text-blue-600" />
               <div>
                 <div className="font-semibold text-blue-700">
                   {formData.car_make}
@@ -188,8 +192,8 @@ const InstructorProfile = () => {
                 <div className="text-xs text-gray-600">Car Type</div>
               </div>
             </div>
-            <div className="flex gap-3 items-center p-2 bg-green-50 rounded-md">
-              <Calendar className="w-5 h-5 text-green-600" />
+            <div className="flex items-center gap-3 rounded-md bg-green-50 p-2">
+              <Calendar className="h-5 w-5 text-green-600" />
               <div>
                 <div className="font-semibold text-green-700">
                   {formData.experience} Years
@@ -203,10 +207,10 @@ const InstructorProfile = () => {
 
       {/* Vehicle Info */}
       <Card>
-        <CardContent className="p-4 space-y-2">
+        <CardContent className="space-y-2 p-4">
           <h2 className="text-lg font-semibold">Vehicle Information</h2>
-          <div className="flex gap-2 items-center p-2 bg-gray-100 rounded-md">
-            <Car className="w-4 h-4 text-blue-600" />
+          <div className="flex items-center gap-2 rounded-md bg-gray-100 p-2">
+            <Car className="h-4 w-4 text-blue-600" />
             <div>
               <div className="font-medium">{formData.car_mode}</div>
               <div className="text-sm text-gray-600">{formData.car_number}</div>
@@ -217,17 +221,21 @@ const InstructorProfile = () => {
 
       {/* Help & Support Section */}
       <div className="pt-8">
-        <h1 className="mb-6 text-2xl font-bold text-gray-800">Help & Support</h1>
+        <h1 className="mb-6 text-2xl font-bold text-gray-800">
+          Help & Support
+        </h1>
 
         <div className="space-y-6">
           {/* Contact Options */}
-          <div className="p-6 bg-gray-50 rounded-lg">
-            <h2 className="mb-4 text-lg font-medium text-gray-700">Get in Touch</h2>
+          <div className="rounded-lg bg-gray-50 p-6">
+            <h2 className="mb-4 text-lg font-medium text-gray-700">
+              Get in Touch
+            </h2>
 
             <div className="space-y-4">
               <button
                 onClick={handleCall}
-                className="flex gap-4 items-center p-5 w-full text-white rounded-lg transition-colors bg-primary hover:bg-primary/90"
+                className="flex w-full items-center gap-4 rounded-lg bg-primary p-5 text-white transition-colors hover:bg-primary/90"
               >
                 <Phone size={24} />
                 <div className="flex flex-col items-start text-left">
@@ -238,7 +246,7 @@ const InstructorProfile = () => {
 
               <button
                 onClick={handleWhatsApp}
-                className="flex gap-4 items-center p-5 w-full text-green-600 rounded-lg border-2 border-green-500 transition-colors hover:bg-green-50"
+                className="flex w-full items-center gap-4 rounded-lg border-2 border-green-500 p-5 text-green-600 transition-colors hover:bg-green-50"
               >
                 <MessageCircle size={24} />
                 <div className="flex flex-col items-start text-left">
@@ -249,7 +257,7 @@ const InstructorProfile = () => {
 
               <button
                 onClick={handleEmail}
-                className="flex gap-4 items-center p-5 w-full rounded-lg border border-gray-300 transition-colors hover:bg-gray-50"
+                className="flex w-full items-center gap-4 rounded-lg border border-gray-300 p-5 transition-colors hover:bg-gray-50"
               >
                 <Mail size={24} />
                 <div className="flex flex-col items-start text-left">
@@ -261,22 +269,26 @@ const InstructorProfile = () => {
           </div>
 
           {/* Response Time Notice */}
-          <div className="flex gap-4 items-start p-5 bg-white rounded-lg border border-primary">
-            <HelpCircle className="flex-shrink-0 mt-1 w-6 h-6 text-primary" />
+          <div className="flex items-start gap-4 rounded-lg border border-primary bg-white p-5">
+            <HelpCircle className="mt-1 h-6 w-6 flex-shrink-0 text-primary" />
             <p className="text-base text-gray-700">
-              Our team will contact you within <strong>24 hours</strong> to assist you with your queries.
+              Our team will contact you within <strong>24 hours</strong> to
+              assist you with your queries.
             </p>
           </div>
 
           {/* Additional Help CTA */}
-          <div className="p-6 text-center rounded-lg bg-accent-purple/5">
-            <h3 className="mb-3 text-xl font-medium text-accent-purple">Need More Help?</h3>
+          <div className="rounded-lg bg-accent-purple/5 p-6 text-center">
+            <h3 className="mb-3 text-xl font-medium text-accent-purple">
+              Need More Help?
+            </h3>
             <p className="mb-6 text-base text-gray-600">
-              Can't find what you're looking for? Our support team is here to help you with any questions about our driving courses.
+              Can't find what you're looking for? Our support team is here to
+              help you with any questions about our driving courses.
             </p>
             <button
               onClick={handleCall}
-              className="px-8 py-3 text-lg text-white rounded-lg transition-colors bg-accent-purple hover:bg-accent-purple/90"
+              className="rounded-lg bg-accent-purple px-8 py-3 text-lg text-white transition-colors hover:bg-accent-purple/90"
             >
               Contact Support
             </button>

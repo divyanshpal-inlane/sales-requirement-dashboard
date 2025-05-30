@@ -41,9 +41,9 @@ function Preferences() {
   }
 
   return (
-    <div className="flex overflow-y-auto flex-col w-full h-full">
+    <div className="flex h-full w-full flex-col overflow-y-auto">
       <div className="flex flex-col rounded-b-[40px] bg-primary">
-        <div className="flex justify-between items-center p-4">
+        <div className="flex items-center justify-between p-4">
           <Button
             variant="ghost"
             size="icon"
@@ -51,7 +51,7 @@ function Preferences() {
             asChild
           >
             <Link to="/home">
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="h-6 w-6" />
             </Link>
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
@@ -70,8 +70,8 @@ function Preferences() {
         </div>
       </div>
 
-      <div className="flex flex-col flex-1">
-        <div className="overflow-y-auto flex-1 px-2 py-4">
+      <div className="flex flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto px-2 py-4">
           {learner && lessonsToSchedule ? (
             <PreferenceSelector
               type={type}
