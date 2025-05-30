@@ -113,7 +113,7 @@ export default function RescheduleSelector({
             .map((group) => (
               <Card key={group.date} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex justify-between items-center">
                     <div className="font-medium">
                       {format(new Date(group.date), "EEEE, MMMM d")}
                     </div>
@@ -127,10 +127,10 @@ export default function RescheduleSelector({
                     {group.schedules.map((schedule) => (
                       <div
                         key={schedule.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
+                        className="flex justify-between items-center p-3 rounded-lg border"
                       >
-                        <div className="flex items-center gap-3">
-                          <Label className="flex items-center gap-3">
+                        <div className="flex gap-3 items-center">
+                          <Label className="flex gap-3 items-center">
                             <Checkbox
                               className="rounded-none"
                               checked={selectedLessons.some(
@@ -168,7 +168,7 @@ export default function RescheduleSelector({
         </div>
       </ScrollArea>
 
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div className="text-sm">
           {selectedLessons.length} lesson{selectedLessons.length !== 1 && "s"}{" "}
           selected

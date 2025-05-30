@@ -1,8 +1,5 @@
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-import {
-  GoogleOAuthProvider,
-} from "@react-oauth/google";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
@@ -29,6 +26,11 @@ import {
   Calendar,
   Clock,
   BookOpen,
+  Link,
+  Unlink,
+  Plus,
+  Save,
+  X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar";
@@ -51,6 +53,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
@@ -67,6 +72,155 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales,
 });
+
+// Google Calendar Integration - Enhanced with Event Creation
+declare global {
+  interface Window {
+    gapi: any;
+    google: any;
+  }
+}
+
+let gapiInited = false;
+let gisInited = false;
+let tokenClient: any;
+
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const SCOPES = 'https://www.googleapis.com/auth/calendar'; // Updated scope for write access
+
+
+const loadGoogleAPIs = () => {
+  return new Promise((resolve, reject) => {
+    // Load GAPI
+    if (!document.querySelector('script[src="https://apis.google.com/js/api.js"]')) {
+      const gapiScript = document.createElement('script');
+      gapiScript.src = 'https://apis.google.com/js/api.js';
+      gapiScript.onload = () => {
+        window.gapi.load('client', async () => {
+          try {
+            await window.gapi.client.init({
+              apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+              discoveryDocs: [DISCOVERY_DOC],
+            });
+            gapiInited = true;
+            console.log('GAPI initialized');
+            if (gisInited) resolve(true);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      };
+      gapiScript.onerror = reject;
+      document.head.appendChild(gapiScript);
+    }
+
+    // Load GIS
+    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+      const gisScript = document.createElement('script');
+      gisScript.src = 'https://accounts.google.com/gsi/client';
+      gisScript.onload = () => {
+        tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          scope: SCOPES,
+          callback: '', // Will be set later
+        });
+        gisInited = true;
+        console.log('GIS initialized');
+        if (gapiInited) resolve(true);
+      };
+      gisScript.onerror = reject;
+      document.head.appendChild(gisScript);
+    }
+  });
+};
+
+const authenticateGoogle = (): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    tokenClient.callback = async (resp: any) => {
+      if (resp.error !== undefined) {
+        reject(resp);
+        return;
+      }
+      console.log('Google authentication successful');
+      resolve(true);
+    };
+
+    if (window.gapi.client.getToken() === null) {
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    } else {
+      tokenClient.requestAccessToken({ prompt: '' });
+    }
+  });
+};
+
+const fetchGoogleCalendarEvents = async (startDate: Date, endDate: Date) => {
+  try {
+    console.log('Fetching Google Calendar events from', startDate, 'to', endDate);
+    
+    const request = {
+      calendarId: 'primary',
+      timeMin: startDate.toISOString(),
+      timeMax: endDate.toISOString(),
+      showDeleted: false,
+      singleEvents: true,
+      maxResults: 250,
+      orderBy: 'startTime'
+    };
+
+    console.log('API Request:', request);
+
+    const response = await window.gapi.client.calendar.events.list(request);
+    console.log('Google Calendar API Response:', response);
+    
+    const events = response.result.items || [];
+    console.log('Parsed events:', events);
+    
+    return events;
+  } catch (error) {
+    console.error('Error fetching Google Calendar events:', error);
+    return [];
+  }
+};
+
+// New function to create Google Calendar event
+const createGoogleCalendarEvent = async (eventData: any) => {
+  try {
+    console.log('Creating Google Calendar event:', eventData);
+    
+    const event = {
+      summary: eventData.title,
+      description: eventData.description,
+      location: eventData.location,
+      start: {
+        dateTime: eventData.startDateTime,
+        timeZone: 'Asia/Kolkata',
+      },
+      end: {
+        dateTime: eventData.endDateTime,
+        timeZone: 'Asia/Kolkata',
+      },
+    };
+
+    const response = await window.gapi.client.calendar.events.insert({
+      calendarId: 'primary',
+      resource: event,
+    });
+
+    console.log('Google Calendar event created:', response);
+    return response.result;
+  } catch (error) {
+    console.error('Error creating Google Calendar event:', error);
+    throw error;
+  }
+};
+
+const signOutGoogle = () => {
+  const token = window.gapi.client.getToken();
+  if (token !== null) {
+    window.google.accounts.oauth2.revoke(token.access_token);
+    window.gapi.client.setToken('');
+  }
+};
 
 function Instructor() {
   const { phone } = useUser();
@@ -85,7 +239,26 @@ function Instructor() {
     startOfWeek(new Date()),
   );
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
+  
+  // Google Calendar Integration State
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [googleAPIReady, setGoogleAPIReady] = useState(false);
+  
+  // Event Creation State
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [newEventData, setNewEventData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+  });
   
   const [lessonPlanDialog, setLessonPlanDialog] = useState({
     open: false,
@@ -99,6 +272,218 @@ function Instructor() {
     learner: null,
   });
 
+  // Initialize Google APIs
+  useEffect(() => {
+    const initGoogle = async () => {
+      try {
+        console.log('Initializing Google APIs...');
+        await loadGoogleAPIs();
+        setGoogleAPIReady(true);
+        console.log('Google APIs ready');
+        
+        // Check if already authenticated
+        if (window.gapi?.client?.getToken()) {
+          setIsGoogleConnected(true);
+          await loadGoogleCalendarEvents();
+        }
+      } catch (error) {
+        console.error('Failed to initialize Google APIs:', error);
+      }
+    };
+
+    initGoogle();
+  }, []);
+
+  // Load events when view changes
+  useEffect(() => {
+    if (isGoogleConnected && googleAPIReady) {
+      loadGoogleCalendarEvents();
+    }
+  }, [currentDate, viewMode, currentWeekStart, isGoogleConnected, googleAPIReady]);
+
+  const loadGoogleCalendarEvents = async () => {
+    try {
+      console.log('Loading Google Calendar events...');
+      
+      let startDate: Date;
+      let endDate: Date;
+
+      if (viewMode === 'month') {
+        startDate = startOfMonth(currentDate);
+        endDate = endOfMonth(currentDate);
+      } else if (viewMode === 'week') {
+        startDate = currentWeekStart;
+        endDate = endOfWeek(currentWeekStart);
+      } else {
+        startDate = new Date(currentDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(currentDate);
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      console.log('Date range for events:', { startDate, endDate });
+      
+      const events = await fetchGoogleCalendarEvents(startDate, endDate);
+      console.log('Setting Google events:', events);
+      setGoogleEvents(events);
+    } catch (error) {
+      console.error('Error loading Google Calendar events:', error);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    if (!googleAPIReady) {
+      console.error('Google APIs not ready yet');
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      console.log('Attempting to connect to Google...');
+      
+      const success = await authenticateGoogle();
+      if (success) {
+        console.log('Google authentication successful');
+        setIsGoogleConnected(true);
+        await loadGoogleCalendarEvents();
+      }
+    } catch (error) {
+      console.error('Failed to connect to Google Calendar:', error);
+      alert('Failed to connect to Google Calendar. Please try again.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    try {
+      signOutGoogle();
+      setIsGoogleConnected(false);
+      setGoogleEvents([]);
+      console.log('Disconnected from Google Calendar');
+    } catch (error) {
+      console.error('Failed to disconnect from Google Calendar:', error);
+    }
+  };
+
+  // Handle slot selection for event creation
+  const handleSlotSelect = (slotInfo: any) => {
+    if (!isGoogleConnected) {
+      alert('Please connect to Google Calendar first to create events.');
+      return;
+    }
+
+    const startDate = new Date(slotInfo.start);
+    const endDate = new Date(slotInfo.end);
+    
+    setSelectedSlot(slotInfo);
+    setNewEventData({
+      title: '',
+      description: '',
+      location: '',
+      date: format(startDate, 'yyyy-MM-dd'),
+      startTime: format(startDate, 'HH:mm'),
+      endTime: format(endDate, 'HH:mm'),
+    });
+    setIsCreateEventOpen(true);
+  };
+
+  // Handle empty cell click for event creation
+  const handleEmptyCellClick = (date: Date, hour: number) => {
+    if (!isGoogleConnected) {
+      alert('Please connect to Google Calendar first to create events.');
+      return;
+    }
+
+    const startDate = new Date(date);
+    startDate.setHours(hour, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setHours(hour + 1, 0, 0, 0);
+
+    setSelectedSlot({ start: startDate, end: endDate });
+    setNewEventData({
+      title: '',
+      description: '',
+      location: '',
+      date: format(date, 'yyyy-MM-dd'),
+      startTime: format(startDate, 'HH:mm'),
+      endTime: format(endDate, 'HH:mm'),
+    });
+    setIsCreateEventOpen(true);
+  };
+
+  // Create event function
+  const handleCreateEvent = async () => {
+    if (!newEventData.title.trim()) {
+      alert('Please enter an event title.');
+      return;
+    }
+
+    setIsCreatingEvent(true);
+    try {
+      // Prepare event data
+      const startDateTime = new Date(`${newEventData.date}T${newEventData.startTime}:00`);
+      const endDateTime = new Date(`${newEventData.date}T${newEventData.endTime}:00`);
+
+      const eventData = {
+        title: newEventData.title,
+        description: newEventData.description,
+        location: newEventData.location,
+        startDateTime: startDateTime.toISOString(),
+        endDateTime: endDateTime.toISOString(),
+      };
+
+      // Create event in Google Calendar
+      const googleEvent = await createGoogleCalendarEvent(eventData);
+      console.log('Google Calendar event created successfully:', googleEvent);
+
+      // Save event to database
+      const { data: dbEvent, error: dbError } = await supabase
+        .from('instructor_events') // You'll need to create this table
+        .insert([
+          {
+            instructor_phone: phone,
+            google_event_id: googleEvent.id,
+            title: newEventData.title,
+            description: newEventData.description,
+            location: newEventData.location,
+            start_datetime: startDateTime.toISOString(),
+            end_datetime: endDateTime.toISOString(),
+            created_at: new Date().toISOString(),
+          }
+        ]);
+
+      if (dbError) {
+        console.error('Error saving event to database:', dbError);
+        // Still continue as Google Calendar event was created
+      } else {
+        console.log('Event saved to database successfully:', dbEvent);
+      }
+
+      // Refresh events
+      await loadGoogleCalendarEvents();
+      
+      // Close modal and reset form
+      setIsCreateEventOpen(false);
+      setNewEventData({
+        title: '',
+        description: '',
+        location: '',
+        date: '',
+        startTime: '',
+        endTime: '',
+      });
+
+      alert('Event created successfully!');
+    } catch (error) {
+      console.error('Failed to create event:', error);
+      alert('Failed to create event. Please try again.');
+    } finally {
+      setIsCreatingEvent(false);
+    }
+  };
+
+  // Rest of your existing functions remain the same...
   function isTimeUnavailable(
     unavailability: any[] | null | undefined,
     day: Date,
@@ -160,7 +545,6 @@ function Instructor() {
 
           const unavailableStart = new Date(day);
           unavailableStart.setHours(startHour, startMinute);
-
           const unavailableEnd = new Date(day);
           unavailableEnd.setHours(endHour, endMinute);
 
@@ -336,7 +720,7 @@ function Instructor() {
     navigate('/instructor-profile');
   };
 
-  // Enhanced Calendar Components
+  // Enhanced Calendar Components with Event Creation
   const generateCalendarDays = () => {
     const startOfMonthDate = startOfMonth(currentDate);
     const endOfMonthDate = endOfMonth(currentDate);
@@ -362,11 +746,26 @@ function Instructor() {
       isSameDay(new Date(schedule.date), date)
     ) || [];
 
+    // Filter Google Calendar events for this day
+    const dayGoogleEvents = googleEvents.filter(event => {
+      if (event.start?.dateTime) {
+        const eventStart = new Date(event.start.dateTime);
+        return isSameDay(eventStart, date);
+      } else if (event.start?.date) {
+        const eventStart = new Date(event.start.date);
+        return isSameDay(eventStart, date);
+      }
+      return false;
+    });
+
     return (
-      <div className={`
-        border-r border-b border-gray-200 p-1 min-h-[80px] relative
-        ${!isCurrentMonth ? 'text-gray-400 bg-gray-50' : 'bg-white'}
-        ${isToday ? 'bg-blue-50' : ''}`}>
+      <div 
+        className={`
+          border-r border-b border-gray-200 p-1 min-h-[80px] relative cursor-pointer hover:bg-gray-50
+          ${!isCurrentMonth ? 'text-gray-400 bg-gray-50' : 'bg-white'}
+          ${isToday ? 'bg-blue-50' : ''}`}
+        onClick={() => handleEmptyCellClick(date, 9)} // Default to 9 AM
+      >
         <div className={`
           text-sm font-medium mb-1
           ${isToday ? 'flex justify-center items-center w-6 h-6 text-xs text-white bg-blue-600 rounded-full' : ''}`}>
@@ -374,30 +773,55 @@ function Instructor() {
         </div>
 
         <div className="space-y-1">
-          {daySchedules.slice(0, 2).map((schedule, idx) => {
+          {/* Instructor Schedules */}
+          {daySchedules.slice(0, 1).map((schedule, idx) => {
             const learnerInfo = instructorData?.learnerLesson.find(
               ll => ll.lesson.id === schedule.lesson_id
             );
             
             return (
               <div
-                key={idx}
+                key={`schedule-${idx}`}
                 className={`
                   text-xs p-1 rounded truncate cursor-pointer
                   ${schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
                     schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
                     'bg-purple-100 text-purple-800'}
                 `}
-                onClick={() => handleScheduleClick(schedule, learnerInfo?.learner)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleScheduleClick(schedule, learnerInfo?.learner);
+                }}
               >
                 {format(new Date(`${schedule.date}T${schedule.start_time}`), 'HH:mm')} {learnerInfo?.learner.name}
               </div>
             );
           })}
+
+          {/* Google Calendar Events */}
+          {dayGoogleEvents.slice(0, 2 - Math.min(daySchedules.length, 1)).map((event, idx) => (
+            <div
+              key={`google-${idx}`}
+              className="p-1 text-xs text-orange-800 truncate bg-orange-100 rounded cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEventClick(event);
+              }}
+            >
+              {event.start?.dateTime ? format(new Date(event.start.dateTime), 'HH:mm') : 'All day'} {event.summary}
+            </div>
+          ))}
           
-          {daySchedules.length > 2 && (
+          {(daySchedules.length + dayGoogleEvents.length) > 2 && (
             <div className="text-xs font-medium text-gray-500">
-              +{daySchedules.length - 2} more
+              +{(daySchedules.length + dayGoogleEvents.length) - 2} more
+            </div>
+          )}
+
+          {/* Add Event Indicator */}
+          {isGoogleConnected && daySchedules.length === 0 && dayGoogleEvents.length === 0 && (
+            <div className="text-xs italic text-gray-400">
+              Click to add event
             </div>
           )}
         </div>
@@ -427,6 +851,7 @@ function Instructor() {
     );
   };
 
+  // Enhanced WeekView with click-to-create functionality
   const WeekView = () => {
     return (
       <div className="flex flex-col h-full">
@@ -477,7 +902,8 @@ function Instructor() {
                     </td>
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                       const day = addDays(currentWeekStart, dayIndex);
-
+                      
+                      // Check for instructor schedules
                       const schedule = instructorData?.instructorSchedule.find((s) => {
                         const scheduleDate = new Date(s.date);
                         const scheduleStart = new Date(
@@ -493,6 +919,22 @@ function Instructor() {
                           isSameDay(scheduleDate, day) &&
                           currentTime >= scheduleStart &&
                           currentTime < scheduleEnd
+                        );
+                      });
+
+                      // Check for Google Calendar events
+                      const googleEvent = googleEvents.find((event) => {
+                        if (!event.start?.dateTime) return false;
+                        
+                        const eventStart = new Date(event.start.dateTime);
+                        const eventEnd = new Date(event.end.dateTime);
+                        const currentTime = new Date(day);
+                        currentTime.setHours(hour, minute);
+
+                        return (
+                          isSameDay(eventStart, day) &&
+                          currentTime >= eventStart &&
+                          currentTime < eventEnd
                         );
                       });
 
@@ -520,6 +962,13 @@ function Instructor() {
                         parseInt(schedule.start_time.split(":")[0]) === hour &&
                         parseInt(schedule.start_time.split(":")[1]) === minute;
 
+                      const isGoogleEventStart = 
+                        googleEvent &&
+                        new Date(googleEvent.start.dateTime).getHours() === hour &&
+                        new Date(googleEvent.start.dateTime).getMinutes() === minute;
+
+                      const isEmpty = !schedule && !googleEvent && !isUnavailable;
+
                       return (
                         <td
                           key={dayIndex}
@@ -530,14 +979,23 @@ function Instructor() {
                                 : schedule.status === "ongoing"
                                   ? "bg-blue-200 text-blue-800"
                                   : "bg-primary text-white"
-                              : isUnavailable
-                                ? "bg-gray-400 text-red-800"
-                                : ""
-                          } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
-                          onClick={() =>
-                            schedule &&
-                            handleScheduleClick(schedule, learnerInfo)
-                          }
+                              : googleEvent
+                                ? "bg-orange-200 text-orange-800"
+                                : isUnavailable
+                                  ? "bg-gray-400 text-red-800"
+                                  : isEmpty && isGoogleConnected
+                                    ? "hover:bg-blue-50 cursor-pointer"
+                                    : ""
+                          } ${(schedule || googleEvent) ? "cursor-pointer hover:opacity-80" : ""}`}
+                          onClick={() => {
+                            if (schedule) {
+                              handleScheduleClick(schedule, learnerInfo);
+                            } else if (googleEvent) {
+                              handleEventClick(googleEvent);
+                            } else if (isEmpty && isGoogleConnected) {
+                              handleEmptyCellClick(day, hour);
+                            }
+                          }}
                         >
                           <div className="overflow-hidden text-xs whitespace-nowrap text-ellipsis">
                             {isScheduleStart ? (
@@ -547,7 +1005,20 @@ function Instructor() {
                                 </div>
                                 <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
                               </>
-                            ) : isUnavailable && !schedule ? (
+                            ) : isGoogleEventStart ? (
+                              <>
+                                <div className="font-semibold">
+                                  {googleEvent.summary}
+                                </div>
+                                <div>
+                                  {format(new Date(googleEvent.start.dateTime), 'HH:mm')} - {format(new Date(googleEvent.end.dateTime), 'HH:mm')}
+                                </div>
+                              </>
+                            ) : isEmpty && isGoogleConnected ? (
+                              <div className="text-xs text-gray-400">
+                                <Plus className="mx-auto w-3 h-3" />
+                              </div>
+                            ) : isUnavailable && !schedule && !googleEvent ? (
                               ""
                             ) : (
                               ""
@@ -566,10 +1037,17 @@ function Instructor() {
     );
   };
 
+  // Enhanced DayView with click-to-create functionality
   const DayView = () => {
     const daySchedules = instructorData?.instructorSchedule.filter(schedule => 
       isSameDay(new Date(schedule.date), currentDate)
     ) || [];
+
+    const dayGoogleEvents = googleEvents.filter(event => {
+      if (!event.start?.dateTime) return false;
+      const eventStart = new Date(event.start.dateTime);
+      return isSameDay(eventStart, currentDate);
+    });
 
     return (
       <div className="flex flex-col h-full">
@@ -587,6 +1065,15 @@ function Instructor() {
               return currentTime >= scheduleStart && currentTime < scheduleEnd;
             });
 
+            const timeSlotGoogleEvents = dayGoogleEvents.filter(event => {
+              const eventStart = new Date(event.start.dateTime);
+              const eventEnd = new Date(event.end.dateTime);
+              const currentTime = new Date(currentDate);
+              currentTime.setHours(hour, minute);
+
+              return currentTime >= eventStart && currentTime < eventEnd;
+            });
+
             const isUnavailable = isTimeUnavailable(
               instructorData?.unavailability,
               currentDate,
@@ -594,15 +1081,28 @@ function Instructor() {
               minute,
             );
 
+            const isEmpty = timeSlotSchedules.length === 0 && timeSlotGoogleEvents.length === 0 && !isUnavailable;
+
             return (
-              <div key={timeIndex} className="flex border-b border-gray-100 min-h-[60px]">
+              <div 
+                key={timeIndex} 
+                className={`flex border-b border-gray-100 min-h-[60px] ${
+                  isEmpty && isGoogleConnected ? 'hover:bg-blue-50 cursor-pointer' : ''
+                }`}
+                onClick={() => {
+                  if (isEmpty && isGoogleConnected) {
+                    handleEmptyCellClick(currentDate, hour);
+                  }
+                }}
+              >
                 <div className="p-2 w-16 text-xs text-gray-600 bg-gray-50 border-r">
                   {format(new Date().setHours(hour, 0), 'HH:mm')}
                 </div>
                 
                 <div className={`flex-1 p-2 relative ${
-                  isUnavailable && timeSlotSchedules.length === 0 ? 'bg-gray-400' : ''
+                  isUnavailable && timeSlotSchedules.length === 0 && timeSlotGoogleEvents.length === 0 ? 'bg-gray-400' : ''
                 }`}>
+                  {/* Instructor Schedules */}
                   {timeSlotSchedules.map((schedule, idx) => {
                     const learnerInfo = instructorData?.learnerLesson.find(
                       ll => ll.lesson.id === schedule.lesson_id
@@ -616,14 +1116,17 @@ function Instructor() {
                     
                     return (
                       <div
-                        key={idx}
+                        key={`schedule-${idx}`}
                         className={`
                           p-2 rounded mb-1 cursor-pointer text-sm
                           ${schedule.status === 'completed' ? 'bg-green-200 text-green-800' :
                             schedule.status === 'ongoing' ? 'bg-blue-200 text-blue-800' :
                             'bg-primary text-white'}
                         `}
-                        onClick={() => handleScheduleClick(schedule, learnerInfo?.learner)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleScheduleClick(schedule, learnerInfo?.learner);
+                        }}
                       >
                         <div className="font-medium">{learnerInfo?.learner.name}</div>
                         <div className="text-xs">
@@ -635,6 +1138,44 @@ function Instructor() {
                       </div>
                     );
                   })}
+
+                  {/* Google Calendar Events */}
+                  {timeSlotGoogleEvents.map((event, idx) => {
+                    const isEventStart = 
+                      new Date(event.start.dateTime).getHours() === hour &&
+                      new Date(event.start.dateTime).getMinutes() === minute;
+                    
+                    if (!isEventStart) return null;
+                    
+                    return (
+                      <div
+                        key={`google-${idx}`}
+                        className="p-2 mb-1 text-sm text-orange-800 bg-orange-200 rounded cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEventClick(event);
+                        }}
+                      >
+                        <div className="font-medium">{event.summary}</div>
+                        <div className="text-xs">
+                          {format(new Date(event.start.dateTime), 'HH:mm')} - {format(new Date(event.end.dateTime), 'HH:mm')}
+                        </div>
+                        <div className="text-xs">
+                          Google Calendar
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Empty slot indicator */}
+                  {isEmpty && isGoogleConnected && (
+                    <div className="flex justify-center items-center h-full text-gray-400">
+                      <div className="flex gap-2 items-center">
+                        <Plus className="w-4 h-4" />
+                        <span className="text-sm">Click to add event</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -692,6 +1233,56 @@ function Instructor() {
               >
                 Today
               </Button>
+
+              {/* Create Event Button */}
+              {isGoogleConnected && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const now = new Date();
+                    const endTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour later
+                    
+                    setNewEventData({
+                      title: '',
+                      description: '',
+                      location: '',
+                      date: format(now, 'yyyy-MM-dd'),
+                      startTime: format(now, 'HH:mm'),
+                      endTime: format(endTime, 'HH:mm'),
+                    });
+                    setIsCreateEventOpen(true);
+                  }}
+                  className="flex gap-1 items-center text-xs"
+                >
+                  <Plus className="w-3 h-3" />
+                  Create Event
+                </Button>
+              )}
+
+              {/* Google Calendar Integration Button */}
+              {isGoogleConnected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGoogleDisconnect}
+                  className="flex gap-1 items-center text-xs"
+                >
+                  <Unlink className="w-3 h-3" />
+                  Disconnect Google
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGoogleConnect}
+                  disabled={isConnecting || !googleAPIReady}
+                  className="flex gap-1 items-center text-xs"
+                >
+                  <Link className="w-3 h-3" />
+                  {isConnecting ? 'Connecting...' : 'Connect Google Calendar'}
+                </Button>
+              )}
               
               <button 
                 onClick={handleProfileClick}
@@ -726,6 +1317,14 @@ function Instructor() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Google Calendar Status Indicator */}
+            {isGoogleConnected && (
+              <div className="flex gap-2 items-center text-xs text-green-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                Google Calendar Connected ({googleEvents.length} events)
+              </div>
+            )}
           </div>
         </div>
 
@@ -743,33 +1342,183 @@ function Instructor() {
     return <div>An error occurred: {instructorError.message}</div>;
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <div className="flex flex-col w-full h-full">
-        <Tabs defaultValue="calendar" className="flex flex-col w-full h-full">
-          <div className="overflow-hidden flex-1 p-6 pb-2">
-            <TabsContent
-              value="calendar"
-              className="overflow-y-auto m-0 h-full"
-            >
-              <EnhancedCalendarView />
-            </TabsContent>
+    <div className="flex flex-col w-full h-full">
+      <Tabs defaultValue="calendar" className="flex flex-col w-full h-full">
+        <div className="overflow-hidden flex-1 p-6 pb-2">
+          <TabsContent
+            value="calendar"
+            className="overflow-y-auto m-0 h-full"
+          >
+            <EnhancedCalendarView />
+          </TabsContent>
 
-            <TabsContent
-              value="schedule"
-              className="overflow-y-auto m-0 h-full"
-            >
-              <div className="flex flex-col gap-2 pb-4">
-                {instructorData?.instructorScheduleDay.map((schedule, index) => {
-                  const learnerLessonPair = instructorData?.learnerLessonDay.find(
-                    (ll) => ll.lesson.id === schedule.lesson_id,
-                  );
+          {/* Rest of your existing TabsContent components remain the same... */}
+          <TabsContent
+            value="schedule"
+            className="overflow-y-auto m-0 h-full"
+          >
+            <div className="flex flex-col gap-2 pb-4">
+              {instructorData?.instructorScheduleDay.map((schedule, index) => {
+                const learnerLessonPair = instructorData?.learnerLessonDay.find(
+                  (ll) => ll.lesson.id === schedule.lesson_id,
+                );
 
-                  if (!learnerLessonPair) {
-                    return null;
+                if (!learnerLessonPair) {
+                  return null;
+                }
+
+                const { learner, lesson } = learnerLessonPair;
+                const isOngoing = schedule.status === "ongoing";
+
+                return (
+                  <Card key={index}>
+                    <CardHeader>
+                      <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
+                        <div>Lesson {lesson?.number}</div>
+                        <div className="text-xs">
+                          <div className="text-base text-right">
+                            {new Date(schedule.date).toLocaleDateString()}
+                          </div>
+                          {formatTimeRange(
+                            schedule.start_time,
+                            schedule.end_time,
+                          )}
+                        </div>
+                      </CardTitle>
+                      <CardDescription>
+                        {lesson?.number &&
+                          LESSON_CONTENT[lesson.number]?.content.title}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1 text-xs">
+                        <div className="flex flex-row gap-1 items-center">
+                          <p className="text-nowrap text-muted-foreground">
+                            Pick-up Location :
+                          </p>
+                          <a
+                            href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex gap-1 items-center text-xs underline truncate hover:text-blue-800"
+                          >
+                            <span className="truncate">
+                              {learner.pick_up_location}
+                            </span>
+                            <ExternalLinkIcon className="w-4 h-4 shrink-0" />
+                          </a>
+                        </div>
+                        <div className="flex flex-row gap-1">
+                          <p className="text-muted-foreground">Learner name :</p>
+                          <p>{learner.name}</p>
+                        </div>
+                        <div className="flex flex-row gap-1 items-center">
+                          <p className="text-muted-foreground">
+                            Contact Learner :{" "}
+                          </p>
+                          <p>{learner.phone}</p>
+                          <div className="ml-1">
+                            <a href={`tel:+91${learner.phone}`}>
+                              <PhoneOutgoing size={14} />
+                            </a>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => handleOpenLessonPlan(lesson, learner)}
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 w-full text-xs"
+                        >
+                          View Lesson Plan
+                        </Button>
+                      </div>
+                      <Card className="flex flex-row gap-4 justify-between items-center p-2 shadow-md rounded-smb">
+                        <div className="flex flex-wrap gap-2 justify-between items-center p-1 w-full text-xs">
+                          <p>Lesson status : {schedule.status?.toUpperCase()}</p>
+                          <div className="flex flex-row gap-24 items-center">
+                            {isOngoing ? (
+                              <div className="flex relative justify-center items-center">
+                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
+                              </div>
+                            ) : null}
+                            {schedule.status === "completed" ? (
+                              <div className="flex justify-center items-center">
+                                <CircleCheckBig
+                                  className="text-white bg-green-500 rounded-full"
+                                  size={18}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                          {isOngoing && (
+                            <Button
+                              onClick={() =>
+                                handleFinishLesson(
+                                  schedule.id.toString(),
+                                  learner.id,
+                                )
+                              }
+                              size="sm"
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              Finish Lesson
+                            </Button>
+                          )}
+                          {schedule.status !== "ongoing" &&
+                            schedule.status !== "completed" && (
+                              <Button
+                                onClick={() => {
+                                  navigate(`/otp/${learner.id}/${schedule.id}`);
+                                }}
+                                size="sm"
+                                className="text-xs"
+                              >
+                                Start
+                              </Button>
+                            )}
+                        </div>
+                      </Card>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="lesson"
+            className="overflow-y-auto m-0 h-full"
+          >
+            <div className="flex flex-col gap-2 pb-4">
+              {instructorData?.learnerLesson
+                .sort((a, b) => {
+                  const lessonNumberA = a.lesson?.number || 0;
+                  const lessonNumberB = b.lesson?.number || 0;
+
+                  if (lessonNumberA !== lessonNumberB) {
+                    return lessonNumberA - lessonNumberB;
                   }
 
-                  const { learner, lesson } = learnerLessonPair;
-                  const isOngoing = schedule.status === "ongoing";
+                  const dateA = new Date(
+                    instructorData.instructorSchedule.find(
+                      (s) => s.lesson_id === a.lesson?.id,
+                    )?.date || 0,
+                  );
+                  const dateB = new Date(
+                    instructorData.instructorSchedule.find(
+                      (s) => s.lesson_id === b.lesson?.id,
+                    )?.date || 0,
+                  );
+
+                  return dateA.getTime() - dateB.getTime();
+                })
+                .map(({ learner, lesson }, index) => {
+                  const lessonSchedule = instructorData.instructorSchedule.find(
+                    (s) => s.lesson_id === lesson?.id,
+                  );
 
                   return (
                     <Card key={index}>
@@ -778,12 +1527,18 @@ function Instructor() {
                           <div>Lesson {lesson?.number}</div>
                           <div className="text-xs">
                             <div className="text-base text-right">
-                              {new Date(schedule.date).toLocaleDateString()}
+                              {lessonSchedule
+                                ? new Date(
+                                    lessonSchedule.date,
+                                  ).toLocaleDateString()
+                                : "No date"}
                             </div>
-                            {formatTimeRange(
-                              schedule.start_time,
-                              schedule.end_time,
-                            )}
+                            {lessonSchedule
+                              ? formatTimeRange(
+                                  lessonSchedule.start_time,
+                                  lessonSchedule.end_time,
+                                )
+                              : "No time scheduled"}
                           </div>
                         </CardTitle>
                         <CardDescription>
@@ -810,7 +1565,9 @@ function Instructor() {
                             </a>
                           </div>
                           <div className="flex flex-row gap-1">
-                            <p className="text-muted-foreground">Learner name :</p>
+                            <p className="text-muted-foreground">
+                              Learner name :
+                            </p>
                             <p>{learner.name}</p>
                           </div>
                           <div className="flex flex-row gap-1 items-center">
@@ -825,224 +1582,307 @@ function Instructor() {
                             </div>
                           </div>
 
-                          <Button
-                            onClick={() => handleOpenLessonPlan(lesson, learner)}
-                            size="sm"
-                            variant="outline"
-                            className="mt-2 w-full text-xs"
-                          >
-                            View Lesson Plan
-                          </Button>
-                        </div>
-                        <Card className="flex flex-row gap-4 justify-between items-center p-2 shadow-md rounded-smb">
-                          <div className="flex flex-wrap gap-2 justify-between items-center p-1 w-full text-xs">
-                            <p>Lesson status : {schedule.status?.toUpperCase()}</p>
-                            <div className="flex flex-row gap-24 items-center">
-                              {isOngoing ? (
-                                <div className="flex relative justify-center items-center">
-                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                  <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
-                                </div>
-                              ) : null}
-                              {schedule.status === "completed" ? (
-                                <div className="flex justify-center items-center">
-                                  <CircleCheckBig
-                                    className="text-white bg-green-500 rounded-full"
-                                    size={18}
-                                  />
-                                </div>
-                              ) : null}
-                            </div>
-                            {isOngoing && (
-                              <Button
-                                onClick={() =>
-                                  handleFinishLesson(
-                                    schedule.id.toString(),
-                                    learner.id,
-                                  )
-                                }
-                                size="sm"
-                                variant="secondary"
-                                className="text-xs"
+                          {lessonSchedule && lessonSchedule.status && (
+                            <div className="flex gap-2 items-center mt-2">
+                              <p className="text-muted-foreground">Status:</p>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs ${
+                                  lessonSchedule.status === "completed"
+                                    ? "bg-green-100 text-green-800"
+                                    : lessonSchedule.status === "ongoing"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : "bg-gray-100 text-gray-800"
+                                }`}
                               >
-                                Finish Lesson
-                              </Button>
-                            )}
-                            {schedule.status !== "ongoing" &&
-                              schedule.status !== "completed" && (
-                                <Button
-                                  onClick={() => {
-                                    navigate(`/otp/${learner.id}/${schedule.id}`);
-                                  }}
-                                  size="sm"
-                                  className="text-xs"
-                                >
-                                  Start
-                                </Button>
-                              )}
-                          </div>
-                        </Card>
+                                {lessonSchedule.status.toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   );
                 })}
-              </div>
-            </TabsContent>
+            </div>
+          </TabsContent>
+        </div>
 
-            <TabsContent
-              value="lesson"
-              className="overflow-y-auto m-0 h-full"
+        <div className="sticky bottom-0 z-30 bg-white border-t border-gray-200 shadow-lg">
+          <TabsList className="grid grid-cols-3 p-0 w-full h-16 bg-transparent rounded-none">
+            <TabsTrigger 
+              value="calendar" 
+              className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
             >
-              <div className="flex flex-col gap-2 pb-4">
-                {instructorData?.learnerLesson
-                  .sort((a, b) => {
-                    const lessonNumberA = a.lesson?.number || 0;
-                    const lessonNumberB = b.lesson?.number || 0;
+              <Calendar className="w-5 h-5" />
+              <span className="text-xs font-medium">Calendar</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="schedule" 
+              className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
+            >
+              <Clock className="w-5 h-5" />
+              <span className="text-xs font-medium">Today ({instructorData?.instructorScheduleDay.length || 0})</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="lesson" 
+              className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
+            >
+              <BookOpen className="w-5 h-5" />
+              <span className="text-xs font-medium">All Classes</span>
+              </TabsTrigger>
+          </TabsList>
+        </div>
+      </Tabs>
 
-                    if (lessonNumberA !== lessonNumberB) {
-                      return lessonNumberA - lessonNumberB;
-                    }
+      {/* Create Event Dialog */}
+      <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex gap-2 items-center">
+              <Plus className="w-5 h-5 text-blue-600" />
+              Create New Event
+            </DialogTitle>
+            <DialogDescription>
+              Create a new event that will sync to Google Calendar and your database
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Event Title *</Label>
+              <Input
+                id="title"
+                placeholder="Enter event title"
+                value={newEventData.title}
+                onChange={(e) => setNewEventData(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
 
-                    const dateA = new Date(
-                      instructorData.instructorSchedule.find(
-                        (s) => s.lesson_id === a.lesson?.id,
-                      )?.date || 0,
-                    );
-                    const dateB = new Date(
-                      instructorData.instructorSchedule.find(
-                        (s) => s.lesson_id === b.lesson?.id,
-                      )?.date || 0,
-                    );
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Enter event description (optional)"
+                value={newEventData.description}
+                onChange={(e) => setNewEventData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
 
-                    return dateA.getTime() - dateB.getTime();
-                  })
-                  .map(({ learner, lesson }, index) => {
-                    const lessonSchedule = instructorData.instructorSchedule.find(
-                      (s) => s.lesson_id === lesson?.id,
-                    );
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                placeholder="Enter location (optional)"
+                value={newEventData.location}
+                onChange={(e) => setNewEventData(prev => ({ ...prev, location: e.target.value }))}
+              />
+            </div>
 
-                    return (
-                      <Card key={index}>
-                        <CardHeader>
-                          <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
-                            <div>Lesson {lesson?.number}</div>
-                            <div className="text-xs">
-                              <div className="text-base text-right">
-                                {lessonSchedule
-                                  ? new Date(
-                                      lessonSchedule.date,
-                                    ).toLocaleDateString()
-                                  : "No date"}
-                              </div>
-                              {lessonSchedule
-                                ? formatTimeRange(
-                                    lessonSchedule.start_time,
-                                    lessonSchedule.end_time,
-                                  )
-                                : "No time scheduled"}
-                            </div>
-                          </CardTitle>
-                          <CardDescription>
-                            {lesson?.number &&
-                              LESSON_CONTENT[lesson.number]?.content.title}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-4">
-                          <div className="flex flex-col gap-1 text-xs">
-                            <div className="flex flex-row gap-1 items-center">
-                              <p className="text-nowrap text-muted-foreground">
-                                Pick-up Location :
-                              </p>
-                              <a
-                                href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex gap-1 items-center text-xs underline truncate hover:text-blue-800"
-                              >
-                                <span className="truncate">
-                                  {learner.pick_up_location}
-                                </span>
-                                <ExternalLinkIcon className="w-4 h-4 shrink-0" />
-                              </a>
-                            </div>
-                            <div className="flex flex-row gap-1">
-                              <p className="text-muted-foreground">
-                                Learner name :
-                              </p>
-                              <p>{learner.name}</p>
-                            </div>
-                            <div className="flex flex-row gap-1 items-center">
-                              <p className="text-muted-foreground">
-                                Contact Learner :{" "}
-                              </p>
-                              <p>{learner.phone}</p>
-                              <div className="ml-1">
-                                <a href={`tel:+91${learner.phone}`}>
-                                  <PhoneOutgoing size={14} />
-                                </a>
-                              </div>
-                            </div>
-
-                            {lessonSchedule && lessonSchedule.status && (
-                              <div className="flex gap-2 items-center mt-2">
-                                <p className="text-muted-foreground">Status:</p>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-xs ${
-                                    lessonSchedule.status === "completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : lessonSchedule.status === "ongoing"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {lessonSchedule.status.toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={newEventData.date}
+                  onChange={(e) => setNewEventData(prev => ({ ...prev, date: e.target.value }))}
+                />
               </div>
-            </TabsContent>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startTime">Start Time</Label>
+                <Input
+                  id="startTime"
+                  type="time"
+                  value={newEventData.startTime}
+                  onChange={(e) => setNewEventData(prev => ({ ...prev, startTime: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endTime">End Time</Label>
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={newEventData.endTime}
+                  onChange={(e) => setNewEventData(prev => ({ ...prev, endTime: e.target.value }))}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="sticky bottom-0 z-30 bg-white border-t border-gray-200 shadow-lg">
-            <TabsList className="grid grid-cols-3 p-0 w-full h-16 bg-transparent rounded-none">
-              <TabsTrigger 
-                value="calendar" 
-                className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
-              >
-                <Calendar className="w-5 h-5" />
-                <span className="text-xs font-medium">Calendar</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="schedule" 
-                className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
-              >
-                <Clock className="w-5 h-5" />
-                <span className="text-xs font-medium">Today ({instructorData?.instructorScheduleDay.length || 0})</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="lesson" 
-                className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
-              >
-                <BookOpen className="w-5 h-5" />
-                <span className="text-xs font-medium">All Classes</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        </Tabs>
-      </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateEventOpen(false);
+                setNewEventData({
+                  title: '',
+                  description: '',
+                  location: '',
+                  date: '',
+                  startTime: '',
+                  endTime: '',
+                });
+              }}
+            >
+              <X className="mr-2 w-4 h-4" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateEvent}
+              disabled={isCreatingEvent || !newEventData.title.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isCreatingEvent ? (
+                <>
+                  <Clock className="mr-2 w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 w-4 h-4" />
+                  Create Event
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      {/* Enhanced Event Modal for Google Calendar Events */}
+      <Dialog open={isEventModalOpen} onOpenChange={setIsEventModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex gap-2 items-center text-xl">
+              <Calendar className="w-5 h-5 text-orange-600" />
+              {selectedEvent?.summary || selectedEvent?.title}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              {selectedEvent && (
+                <div className="flex flex-col gap-2 mt-3">
+                  <div className="flex gap-2 items-center">
+                    <Clock className="w-4 h-4" />
+                    <span className="font-medium">
+                      {selectedEvent.start?.dateTime ? 
+                        formatEventDate(new Date(selectedEvent.start.dateTime)) :
+                        selectedEvent.start?.date ? 
+                          format(new Date(selectedEvent.start.date), "EEEE, MMMM d, yyyy") :
+                          formatEventDate(selectedEvent.start)
+                      }
+                    </span>
+                  </div>
+                  {selectedEvent.start?.dateTime && selectedEvent.end?.dateTime && (
+                    <div className="flex gap-2 items-center">
+                      <div className="w-4 h-4"></div>
+                      <span>
+                        {format(new Date(selectedEvent.start.dateTime), "h:mm a")} -{" "}
+                        {format(new Date(selectedEvent.end.dateTime), "h:mm a")}
+                      </span>
+                    </div>
+                  )}
+                  {selectedEvent.start?.date && !selectedEvent.start?.dateTime && (
+                    <div className="flex gap-2 items-center">
+                      <div className="w-4 h-4"></div>
+                      <span>All Day Event</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="flex flex-col gap-4 py-2">
+              {selectedEvent.description && (
+                <div>
+                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                    <BookOpen className="w-4 h-4" />
+                    Description
+                  </h4>
+                  <p className="pl-6 text-sm text-gray-700">
+                    {selectedEvent.description}
+                  </p>
+                </div>
+              )}
+
+              {selectedEvent.location && (
+                <div>
+                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                    <ExternalLinkIcon className="w-4 h-4" />
+                    Location
+                  </h4>
+                  <p className="pl-6 text-sm text-gray-700">
+                    {selectedEvent.location}
+                  </p>
+                </div>
+              )}
+
+              {selectedEvent.attendees &&
+                selectedEvent.attendees.length > 0 && (
+                  <div>
+                    <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                      <User className="w-4 h-4" />
+                      Attendees
+                    </h4>
+                    <ul className="pl-6 space-y-1 text-sm text-gray-700">
+                      {selectedEvent.attendees.map((attendee, index) => (
+                        <li key={index} className="flex gap-2 items-center">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          {attendee.email}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+              {selectedEvent.creator && (
+                <div>
+                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                    <User className="w-4 h-4" />
+                    Organizer
+                  </h4>
+                  <p className="pl-6 text-sm text-gray-700">
+                    {selectedEvent.creator.email}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            {selectedEvent?.htmlLink && (
+              <a
+                href={selectedEvent.htmlLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex justify-center items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md transition-colors hover:bg-blue-700"
+              >
+                <ExternalLinkIcon className="mr-2 w-4 h-4" />
+                View in Google Calendar
+              </a>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setIsEventModalOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Detail Dialog */}
       <Dialog 
         open={scheduleDetailDialog.open} 
         onOpenChange={(open) => setScheduleDetailDialog(prev => ({ ...prev, open }))}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Schedule Details</DialogTitle>
+            <DialogTitle className="flex gap-2 items-center">
+              <BookOpen className="w-5 h-5 text-purple-600" />
+              Schedule Details
+            </DialogTitle>
             <DialogDescription>
               {scheduleDetailDialog.learner?.name} - Lesson {
                 instructorData?.learnerLesson.find(
@@ -1054,42 +1894,79 @@ function Instructor() {
           {scheduleDetailDialog.schedule && (
             <div className="flex flex-col gap-4 py-2">
               <div>
-                <h4 className="mb-1 text-sm font-medium">Date & Time</h4>
-                <p className="text-sm text-gray-700">
-                  {new Date(scheduleDetailDialog.schedule.date).toLocaleDateString()}
-                </p>
-                <p className="text-sm text-gray-700">
-                  {formatTimeRange(
-                    scheduleDetailDialog.schedule.start_time,
-                    scheduleDetailDialog.schedule.end_time
-                  )}
-                </p>
+                <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                  <Calendar className="w-4 h-4" />
+                  Date & Time
+                </h4>
+                <div className="pl-6 space-y-1">
+                  <p className="text-sm text-gray-700">
+                    {new Date(scheduleDetailDialog.schedule.date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {formatTimeRange(
+                      scheduleDetailDialog.schedule.start_time,
+                      scheduleDetailDialog.schedule.end_time
+                    )}
+                  </p>
+                </div>
               </div>
               
               <div>
-                <h4 className="mb-1 text-sm font-medium">Status</h4>
-                <span className={`
-                  rounded-full px-2 py-1 text-xs
-                  ${scheduleDetailDialog.schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    scheduleDetailDialog.schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'}
-                `}>
-                  {scheduleDetailDialog.schedule.status?.toUpperCase()}
-                </span>
+                <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                  <Clock className="w-4 h-4" />
+                  Status
+                </h4>
+                <div className="pl-6">
+                  <span className={`
+                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                    ${scheduleDetailDialog.schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      scheduleDetailDialog.schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'}
+                  `}>
+                    {scheduleDetailDialog.schedule.status?.toUpperCase()}
+                  </span>
+                </div>
               </div>
 
               {scheduleDetailDialog.learner && (
                 <div>
-                  <h4 className="mb-1 text-sm font-medium">Learner Details</h4>
-                  <p className="text-sm text-gray-700">
-                    Name: {scheduleDetailDialog.learner.name}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Phone: {scheduleDetailDialog.learner.phone}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Pickup: {scheduleDetailDialog.learner.pick_up_location}
-                  </p>
+                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
+                    <User className="w-4 h-4" />
+                    Learner Details
+                  </h4>
+                  <div className="pl-6 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <span className="text-sm font-medium text-gray-500">Name:</span>
+                      <span className="text-sm text-gray-700">{scheduleDetailDialog.learner.name}</span>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-sm font-medium text-gray-500">Phone:</span>
+                      <span className="text-sm text-gray-700">{scheduleDetailDialog.learner.phone}</span>
+                      <a 
+                        href={`tel:+91${scheduleDetailDialog.learner.phone}`}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <PhoneOutgoing className="w-4 h-4" />
+                      </a>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="text-sm font-medium text-gray-500">Pickup:</span>
+                      <a
+                        href={`https://www.google.com/maps?q=${scheduleDetailDialog.learner.address_lat},${scheduleDetailDialog.learner.address_lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex gap-1 items-center text-sm text-blue-600 underline hover:text-blue-800"
+                      >
+                        {scheduleDetailDialog.learner.pick_up_location}
+                        <ExternalLinkIcon className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1105,80 +1982,7 @@ function Instructor() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEventModalOpen} onOpenChange={setIsEventModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">
-              {selectedEvent?.title}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              {selectedEvent && (
-                <div className="flex flex-col gap-1 mt-2">
-                  <p className="font-medium">
-                    {formatEventDate(selectedEvent.start)}
-                  </p>
-                  <p>
-                    {formatEventTime(selectedEvent.start)} -{" "}
-                    {formatEventTime(selectedEvent.end)}
-                  </p>
-                </div>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedEvent && (
-            <div className="flex flex-col gap-4 py-2">
-              {selectedEvent.description && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium">Description</h4>
-                  <p className="text-sm text-gray-700">
-                    {selectedEvent.description}
-                  </p>
-                </div>
-              )}
-
-              {selectedEvent.location && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium">Location</h4>
-                  <p className="text-sm text-gray-700">
-                    {selectedEvent.location}
-                  </p>
-                </div>
-              )}
-
-              {selectedEvent.attendees &&
-                selectedEvent.attendees.length > 0 && (
-                  <div>
-                    <h4 className="mb-1 text-sm font-medium">Attendees</h4>
-                    <ul className="text-sm text-gray-700">
-                      {selectedEvent.attendees.map((attendee, index) => (
-                        <li key={index}>{attendee.email}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-            </div>
-          )}
-          <DialogFooter>
-            {selectedEvent?.htmlLink && (
-              <a
-                href={selectedEvent.htmlLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex justify-center items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              >
-                View in Google Calendar
-              </a>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => setIsEventModalOpen(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* Lesson Plan Dialog */}
       <Dialog
         open={lessonPlanDialog.open}
         onOpenChange={(open) =>
@@ -1187,9 +1991,12 @@ function Instructor() {
       >
         <DialogContent className="h-[90vh] max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Lesson Plan</DialogTitle>
+            <DialogTitle className="flex gap-2 items-center">
+              <BookOpen className="w-5 h-5 text-purple-600" />
+              Lesson Plan
+            </DialogTitle>
             <DialogDescription>
-              Lesson details for {lessonPlanDialog.learner?.name}
+              Detailed lesson plan for {lessonPlanDialog.learner?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-auto h-full">
@@ -1213,7 +2020,7 @@ function Instructor() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </GoogleOAuthProvider>
+    </div>
   );
 }
 
