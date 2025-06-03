@@ -132,10 +132,10 @@ export default function InstructorAuth() {
   }
 
   return (
-    <div className="flex justify-center items-center h-screen font-glancyr">
+    <div className="flex h-screen items-center justify-center font-glancyr">
       <div className="mx-auto flex aspect-[9/16] h-full max-h-[1000px] overflow-hidden rounded-lg bg-white shadow-lg">
-        <div className="flex flex-col w-full h-full">
-          <div className="flex flex-col gap-6 p-6 h-full">
+        <div className="flex h-full w-full flex-col">
+          <div className="flex h-full flex-col gap-6 p-6">
             <div className="flex flex-col items-center">
               {active === "forgot-password" ? (
                 <h2 className="text-2xl">Reset Your Password</h2>
@@ -150,8 +150,8 @@ export default function InstructorAuth() {
             <form onSubmit={onSubmitHandler}>
               <div className="space-y-4">
                 {/* Phone input */}
-                <div className="flex rounded-md shadow-md h-fit">
-                  <span className="flex items-center px-3 text-gray-500 bg-gray-100 rounded-l-md border border-r-0">
+                <div className="flex h-fit rounded-md shadow-md">
+                  <span className="flex items-center rounded-l-md border border-r-0 bg-gray-100 px-3 text-gray-500">
                     +91
                   </span>
                   <Input
@@ -174,7 +174,7 @@ export default function InstructorAuth() {
                       className="pr-10"
                     />
                     <Button
-                      className="absolute right-2 top-1/2 p-1 transform -translate-y-1/2"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 transform p-1"
                       type="button"
                       variant="ghost"
                       onClick={() => setShowPassword((prev) => !prev)}
@@ -210,7 +210,7 @@ export default function InstructorAuth() {
                           onChange={(e) => setNewPassword(e.target.value)}
                         />
                         <Button
-                          className="absolute right-2 top-1/2 p-1 transform -translate-y-1/2"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 transform p-1"
                           type="button"
                           variant="ghost"
                           onClick={() => setShowNewPassword((prev) => !prev)}
@@ -243,7 +243,7 @@ export default function InstructorAuth() {
                 )}
 
                 {/* Action buttons */}
-                <div className="flex flex-col gap-1 items-center">
+                <div className="flex flex-col items-center gap-1">
                   {active === "login" ? (
                     <>
                       <Button className="w-full" type="submit">

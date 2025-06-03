@@ -101,7 +101,7 @@ export default function Home() {
 
   if (!completedPayment && !isCompleted) {
     return (
-      <div className="container py-8 mx-auto max-w-md">
+      <div className="container mx-auto max-w-md py-8">
         <PaymentStatusCard />
       </div>
     );
@@ -144,14 +144,14 @@ export default function Home() {
     );
 
   const renderScheduleCreationState = () => (
-    <div className="flex flex-col gap-6 items-center p-4">
+    <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-md">
-        <CardContent className="flex flex-col gap-4 items-center p-6">
+        <CardContent className="flex flex-col items-center gap-4 p-6">
           <div className="relative">
             <Clock size={48} className="animate-pulse" />
-            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-ping" />
+            <div className="absolute -right-1 -top-1 h-3 w-3 animate-ping rounded-full" />
           </div>
-          <h2 className="text-2xl font-semibold text-center">
+          <h2 className="text-center text-2xl font-semibold">
             Your Schedule is Being Created
           </h2>
           <p className="text-center text-muted-foreground">
@@ -162,24 +162,24 @@ export default function Home() {
       </Card>
 
       <Button
-        className="flex gap-2 justify-between items-center p-6 w-full max-w-md"
+        className="flex w-full max-w-md items-center justify-between gap-2 p-6"
         onClick={() => navigate("/prep")}
       >
-        <div className="flex gap-3 items-center">
-          <BookOpen className="w-5 h-5" />
+        <div className="flex items-center gap-3">
+          <BookOpen className="h-5 w-5" />
           <span>Start Your Prep Work</span>
         </div>
-        <ArrowRight className="w-5 h-5" />
+        <ArrowRight className="h-5 w-5" />
       </Button>
 
-      <p className="text-sm text-center text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         We'll notify you once your schedule is ready.
       </p>
     </div>
   );
 
   const renderUpcomingLesson = () => (
-    <div className="flex flex-col gap-2 p-4 text-xl text-center">
+    <div className="flex flex-col gap-2 p-4 text-center text-xl">
       <p>Here is your upcoming lesson!</p>
       {LessonData?.upcomingSchedule &&
         LessonData?.instructor &&
@@ -199,7 +199,7 @@ export default function Home() {
       </h2>
 
       {/* Reschedule & Start Lesson button */}
-      <div className="flex flex-col gap-4 mt-6">
+      <div className="mt-6 flex flex-col gap-4">
         <div className="flex flex-row flex-wrap gap-4">
           <TooltipProvider>
             <Tooltip>
@@ -291,10 +291,10 @@ export default function Home() {
   );
 
   const renderCourseCompletionPage = () => (
-    <div className="flex flex-col gap-6 items-center p-4 text-center">
-      <div className="overflow-hidden relative p-6 w-full max-w-md text-white rounded-lg bg-primary">
-        <div className="flex relative z-10 flex-col gap-4 items-center">
-          <div className="flex justify-center items-center p-4 rounded-full bg-white/20">
+    <div className="flex flex-col items-center gap-6 p-4 text-center">
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-primary p-6 text-white">
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center rounded-full bg-white/20 p-4">
             <ThumbsUp size={48} className="text-white" />
           </div>
 
@@ -303,12 +303,12 @@ export default function Home() {
             You've successfully completed all your driving lessons!
           </p>
 
-          <div className="flex mt-2">
+          <div className="mt-2 flex">
             {[1, 2, 3, 4, 5].map((star) => (
               <Star
                 key={star}
                 size={24}
-                className="text-yellow-300 fill-yellow-300"
+                className="fill-yellow-300 text-yellow-300"
               />
             ))}
           </div>
@@ -327,7 +327,7 @@ export default function Home() {
           </p>
 
           <Button
-            className="w-full hover:bg-primary-dark bg-primary"
+            className="hover:bg-primary-dark w-full bg-primary"
             onClick={() =>
               window.open(
                 "https://www.google.com/search?sca_esv=71235db9e3242676&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzQJRCGdyjVAeNpxL_v1ZJZEWLK7nyCxTAIrR2ZeCA8k7wV6unj_LsaY0pK3KhDrig-Qd3VV0QeYWcHIDk8lUXQkgAYTsMeCD1sZwXyhyJceUV-g5VQ%3D%3D&q=Lane+Driving+School+Platform+Reviews&sa=X&ved=2ahUKEwj6q7mT2OGMAxUkcGwGHcpIMqkQ0bkNegQIHxAD&biw=1920&bih=968&dpr=2#lrd=0x4cdc767dad33a5fd:0xda0c670666b6e2c2,3,,,,",
@@ -340,9 +340,9 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      <p className="mt-4 text-sm text-center text-muted-foreground">
+      <p className="mt-4 text-center text-sm text-muted-foreground">
         Need help? Contact our support team at{" "}
-        <a href="mailto:team@inlane.in" className="underline text-primary">
+        <a href="mailto:team@inlane.in" className="text-primary underline">
           team@inlane.in
         </a>
       </p>
@@ -366,13 +366,13 @@ export default function Home() {
     scheduledLessons.every((lesson) => isLessonCompleted(lesson));
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex min-h-screen flex-col">
       {/* Static header */}
-      <header className="flex sticky top-0 z-10 justify-between items-center p-4">
+      <header className="sticky top-0 z-10 flex items-center justify-between p-4">
         <h1 className="text-2xl font-medium">
           Hi {learner?.name || "Learner"}!
         </h1>
-        <Link to="/profile" className="p-1 bg-white rounded-full">
+        <Link to="/profile" className="rounded-full bg-white p-1">
           <User size={24} className="hover:text-primary-dark text-primary" />
         </Link>
       </header>
@@ -384,7 +384,7 @@ export default function Home() {
       >
         {!allLessonsCompleted ? (
           showPaymentCompletion ? (
-            <Card className="mb-6 bg-white border-primary">
+            <Card className="mb-6 border-primary bg-white">
               <CardHeader>
                 <CardTitle className="text-primary">
                   Complete Your Payment
@@ -397,14 +397,14 @@ export default function Home() {
                 </p>
                 <Button
                   onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
-                  className="w-full hover:bg-primary-dark bg-primary"
+                  className="hover:bg-primary-dark w-full bg-primary"
                 >
                   Pay Remaining Amount
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <p className="text-xl font-medium text-center">
+            <p className="text-center text-xl font-medium">
               Let's start your journey!
             </p>
           )
@@ -435,7 +435,7 @@ export default function Home() {
                     <LLFlow />
                   ) : learner && learner.LL_result === true ? (
                     scheduledLessons && scheduledLessons.length === 0 ? (
-                      <div className="flex flex-col gap-4 p-4 pb-0 text-xl text-center grow">
+                      <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
                         <img
                           src="/assets/clocks.png"
                           alt="First Lesson"
@@ -473,7 +473,7 @@ export default function Home() {
                         </p>
                       </div>
                     ) : (
-                      <div className="mt-24 text-xl text-center">
+                      <div className="mt-24 text-center text-xl">
                         No Upcoming Lesson. 😓
                         {scheduledLessons &&
                           scheduledLessons.length === 9 &&
@@ -501,12 +501,12 @@ export default function Home() {
                       </div>
                     )
                   ) : (
-                    <div className="flex overflow-x-auto flex-col pb-20 h-full">
-                      <div className="mb-6 w-full h-48 bg-white rounded-3xl shadow-lg">
+                    <div className="flex h-full flex-col overflow-x-auto pb-20">
+                      <div className="mb-6 h-48 w-full rounded-3xl bg-white shadow-lg">
                         <img
                           src="/assets/laptop-typing.png"
                           alt="Person using laptop"
-                          className="object-fill w-full h-48"
+                          className="h-48 w-full object-fill"
                         />
                       </div>
                     </div>

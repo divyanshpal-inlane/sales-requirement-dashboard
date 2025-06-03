@@ -67,11 +67,12 @@ export default function RescheduleSelector({
   };
 
   const calculateDayFee = (date: string) => {
-    const scheduleDate = new Date(`${date}T00:00:00`);
+    const scheduleDate = new Date(date);
     const now = new Date();
     const diffHours =
       (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return diffHours < 24 ? 300 : 0;
+    return diffHours < 12 ? 300 : 0;
+    
   };
 
   const getTotalFee = () => {

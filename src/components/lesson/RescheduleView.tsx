@@ -91,11 +91,11 @@ function RescheduleView() {
           selectedSchedules.some((s) => s.id === schedule.id),
         );
         if (hasSelectedLessonInDay) {
-          const scheduleDate = new Date(`${date}T00:00:00`);
+          const scheduleDate = new Date(date);
           const now = new Date();
           const diffHours =
             (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-          return total + (diffHours < 24 ? 300 : 0);
+          return total + (diffHours < 12 ? 300 : 0);
         }
         return total;
       },
@@ -165,13 +165,15 @@ function RescheduleView() {
           <div className="text-sm">
             <ul className="list-disc pl-5">
               <li>
-                Lessons rescheduled within 24 hours will incur a nominal fee of
-                ₹300.
+                If you reschedule a lesson less than 12 hours before its
+                scheduled time, a fee of ₹300 will be charged.
               </li>
-              <li>A ₹300 charge applies for missed lessons (no-show).</li>
               <li>
-                To avoid fees, please provide at least 24 hours' notice for
-                rescheduling.
+                The same ₹300 fee applies if you miss a lesson without prior
+                notice (no-show).
+              </li>
+              <li>
+                To avoid these charges, please notify us at least 12 hours in advance if you need to reschedule your lesson.
               </li>
             </ul>
           </div>
