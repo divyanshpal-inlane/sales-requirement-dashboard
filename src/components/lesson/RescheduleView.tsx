@@ -173,7 +173,8 @@ function RescheduleView() {
                 notice (no-show).
               </li>
               <li>
-                To avoid these charges, please notify us at least 12 hours in advance if you need to reschedule your lesson.
+                To avoid these charges, please notify us at least 12 hours in
+                advance if you need to reschedule your lesson.
               </li>
             </ul>
           </div>

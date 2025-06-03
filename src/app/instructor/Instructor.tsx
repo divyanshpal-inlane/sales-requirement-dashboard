@@ -86,25 +86,27 @@ let gapiInited = false;
 let gisInited = false;
 let tokenClient: any;
 
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/calendar'; // Updated scope for write access
-
+const DISCOVERY_DOC =
+  "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
+const SCOPES = "https://www.googleapis.com/auth/calendar"; // Updated scope for write access
 
 const loadGoogleAPIs = () => {
   return new Promise((resolve, reject) => {
     // Load GAPI
-    if (!document.querySelector('script[src="https://apis.google.com/js/api.js"]')) {
-      const gapiScript = document.createElement('script');
-      gapiScript.src = 'https://apis.google.com/js/api.js';
+    if (
+      !document.querySelector('script[src="https://apis.google.com/js/api.js"]')
+    ) {
+      const gapiScript = document.createElement("script");
+      gapiScript.src = "https://apis.google.com/js/api.js";
       gapiScript.onload = () => {
-        window.gapi.load('client', async () => {
+        window.gapi.load("client", async () => {
           try {
             await window.gapi.client.init({
               apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
               discoveryDocs: [DISCOVERY_DOC],
             });
             gapiInited = true;
-            console.log('GAPI initialized');
+            console.log("GAPI initialized");
             if (gisInited) resolve(true);
           } catch (error) {
             reject(error);
@@ -116,17 +118,21 @@ const loadGoogleAPIs = () => {
     }
 
     // Load GIS
-    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
-      const gisScript = document.createElement('script');
-      gisScript.src = 'https://accounts.google.com/gsi/client';
+    if (
+      !document.querySelector(
+        'script[src="https://accounts.google.com/gsi/client"]',
+      )
+    ) {
+      const gisScript = document.createElement("script");
+      gisScript.src = "https://accounts.google.com/gsi/client";
       gisScript.onload = () => {
         tokenClient = window.google.accounts.oauth2.initTokenClient({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           scope: SCOPES,
-          callback: '', // Will be set later
+          callback: "", // Will be set later
         });
         gisInited = true;
-        console.log('GIS initialized');
+        console.log("GIS initialized");
         if (gapiInited) resolve(true);
       };
       gisScript.onerror = reject;
@@ -142,43 +148,48 @@ const authenticateGoogle = (): Promise<boolean> => {
         reject(resp);
         return;
       }
-      console.log('Google authentication successful');
+      console.log("Google authentication successful");
       resolve(true);
     };
 
     if (window.gapi.client.getToken() === null) {
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      tokenClient.requestAccessToken({ prompt: "consent" });
     } else {
-      tokenClient.requestAccessToken({ prompt: '' });
+      tokenClient.requestAccessToken({ prompt: "" });
     }
   });
 };
 
 const fetchGoogleCalendarEvents = async (startDate: Date, endDate: Date) => {
   try {
-    console.log('Fetching Google Calendar events from', startDate, 'to', endDate);
-    
+    console.log(
+      "Fetching Google Calendar events from",
+      startDate,
+      "to",
+      endDate,
+    );
+
     const request = {
-      calendarId: 'primary',
+      calendarId: "primary",
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
       showDeleted: false,
       singleEvents: true,
       maxResults: 250,
-      orderBy: 'startTime'
+      orderBy: "startTime",
     };
 
-    console.log('API Request:', request);
+    console.log("API Request:", request);
 
     const response = await window.gapi.client.calendar.events.list(request);
-    console.log('Google Calendar API Response:', response);
-    
+    console.log("Google Calendar API Response:", response);
+
     const events = response.result.items || [];
-    console.log('Parsed events:', events);
-    
+    console.log("Parsed events:", events);
+
     return events;
   } catch (error) {
-    console.error('Error fetching Google Calendar events:', error);
+    console.error("Error fetching Google Calendar events:", error);
     return [];
   }
 };
@@ -186,31 +197,31 @@ const fetchGoogleCalendarEvents = async (startDate: Date, endDate: Date) => {
 // New function to create Google Calendar event
 const createGoogleCalendarEvent = async (eventData: any) => {
   try {
-    console.log('Creating Google Calendar event:', eventData);
-    
+    console.log("Creating Google Calendar event:", eventData);
+
     const event = {
       summary: eventData.title,
       description: eventData.description,
       location: eventData.location,
       start: {
         dateTime: eventData.startDateTime,
-        timeZone: 'Asia/Kolkata',
+        timeZone: "Asia/Kolkata",
       },
       end: {
         dateTime: eventData.endDateTime,
-        timeZone: 'Asia/Kolkata',
+        timeZone: "Asia/Kolkata",
       },
     };
 
     const response = await window.gapi.client.calendar.events.insert({
-      calendarId: 'primary',
+      calendarId: "primary",
       resource: event,
     });
 
-    console.log('Google Calendar event created:', response);
+    console.log("Google Calendar event created:", response);
     return response.result;
   } catch (error) {
-    console.error('Error creating Google Calendar event:', error);
+    console.error("Error creating Google Calendar event:", error);
     throw error;
   }
 };
@@ -219,7 +230,7 @@ const signOutGoogle = () => {
   const token = window.gapi.client.getToken();
   if (token !== null) {
     window.google.accounts.oauth2.revoke(token.access_token);
-    window.gapi.client.setToken('');
+    window.gapi.client.setToken("");
   }
 };
 
@@ -240,8 +251,8 @@ function Instructor() {
     startOfWeek(new Date()),
   );
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
-  
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("week");
+
   const [lessonPlanDialog, setLessonPlanDialog] = useState({
     open: false,
     lesson: null,
@@ -258,18 +269,18 @@ function Instructor() {
   useEffect(() => {
     const initGoogle = async () => {
       try {
-        console.log('Initializing Google APIs...');
+        console.log("Initializing Google APIs...");
         await loadGoogleAPIs();
         setGoogleAPIReady(true);
-        console.log('Google APIs ready');
-        
+        console.log("Google APIs ready");
+
         // Check if already authenticated
         if (window.gapi?.client?.getToken()) {
           setIsGoogleConnected(true);
           await loadGoogleCalendarEvents();
         }
       } catch (error) {
-        console.error('Failed to initialize Google APIs:', error);
+        console.error("Failed to initialize Google APIs:", error);
       }
     };
 
@@ -281,19 +292,25 @@ function Instructor() {
     if (isGoogleConnected && googleAPIReady) {
       loadGoogleCalendarEvents();
     }
-  }, [currentDate, viewMode, currentWeekStart, isGoogleConnected, googleAPIReady]);
+  }, [
+    currentDate,
+    viewMode,
+    currentWeekStart,
+    isGoogleConnected,
+    googleAPIReady,
+  ]);
 
   const loadGoogleCalendarEvents = async () => {
     try {
-      console.log('Loading Google Calendar events...');
-      
+      console.log("Loading Google Calendar events...");
+
       let startDate: Date;
       let endDate: Date;
 
-      if (viewMode === 'month') {
+      if (viewMode === "month") {
         startDate = startOfMonth(currentDate);
         endDate = endOfMonth(currentDate);
-      } else if (viewMode === 'week') {
+      } else if (viewMode === "week") {
         startDate = currentWeekStart;
         endDate = endOfWeek(currentWeekStart);
       } else {
@@ -303,35 +320,35 @@ function Instructor() {
         endDate.setHours(23, 59, 59, 999);
       }
 
-      console.log('Date range for events:', { startDate, endDate });
-      
+      console.log("Date range for events:", { startDate, endDate });
+
       const events = await fetchGoogleCalendarEvents(startDate, endDate);
-      console.log('Setting Google events:', events);
+      console.log("Setting Google events:", events);
       setGoogleEvents(events);
     } catch (error) {
-      console.error('Error loading Google Calendar events:', error);
+      console.error("Error loading Google Calendar events:", error);
     }
   };
 
   const handleGoogleConnect = async () => {
     if (!googleAPIReady) {
-      console.error('Google APIs not ready yet');
+      console.error("Google APIs not ready yet");
       return;
     }
 
     setIsConnecting(true);
     try {
-      console.log('Attempting to connect to Google...');
-      
+      console.log("Attempting to connect to Google...");
+
       const success = await authenticateGoogle();
       if (success) {
-        console.log('Google authentication successful');
+        console.log("Google authentication successful");
         setIsGoogleConnected(true);
         await loadGoogleCalendarEvents();
       }
     } catch (error) {
-      console.error('Failed to connect to Google Calendar:', error);
-      alert('Failed to connect to Google Calendar. Please try again.');
+      console.error("Failed to connect to Google Calendar:", error);
+      alert("Failed to connect to Google Calendar. Please try again.");
     } finally {
       setIsConnecting(false);
     }
@@ -342,30 +359,30 @@ function Instructor() {
       signOutGoogle();
       setIsGoogleConnected(false);
       setGoogleEvents([]);
-      console.log('Disconnected from Google Calendar');
+      console.log("Disconnected from Google Calendar");
     } catch (error) {
-      console.error('Failed to disconnect from Google Calendar:', error);
+      console.error("Failed to disconnect from Google Calendar:", error);
     }
   };
 
   // Handle slot selection for event creation
   const handleSlotSelect = (slotInfo: any) => {
     if (!isGoogleConnected) {
-      alert('Please connect to Google Calendar first to create events.');
+      alert("Please connect to Google Calendar first to create events.");
       return;
     }
 
     const startDate = new Date(slotInfo.start);
     const endDate = new Date(slotInfo.end);
-    
+
     setSelectedSlot(slotInfo);
     setNewEventData({
-      title: '',
-      description: '',
-      location: '',
-      date: format(startDate, 'yyyy-MM-dd'),
-      startTime: format(startDate, 'HH:mm'),
-      endTime: format(endDate, 'HH:mm'),
+      title: "",
+      description: "",
+      location: "",
+      date: format(startDate, "yyyy-MM-dd"),
+      startTime: format(startDate, "HH:mm"),
+      endTime: format(endDate, "HH:mm"),
     });
     setIsCreateEventOpen(true);
   };
@@ -373,7 +390,7 @@ function Instructor() {
   // Handle empty cell click for event creation
   const handleEmptyCellClick = (date: Date, hour: number) => {
     if (!isGoogleConnected) {
-      alert('Please connect to Google Calendar first to create events.');
+      alert("Please connect to Google Calendar first to create events.");
       return;
     }
 
@@ -384,12 +401,12 @@ function Instructor() {
 
     setSelectedSlot({ start: startDate, end: endDate });
     setNewEventData({
-      title: '',
-      description: '',
-      location: '',
-      date: format(date, 'yyyy-MM-dd'),
-      startTime: format(startDate, 'HH:mm'),
-      endTime: format(endDate, 'HH:mm'),
+      title: "",
+      description: "",
+      location: "",
+      date: format(date, "yyyy-MM-dd"),
+      startTime: format(startDate, "HH:mm"),
+      endTime: format(endDate, "HH:mm"),
     });
     setIsCreateEventOpen(true);
   };
@@ -397,15 +414,19 @@ function Instructor() {
   // Create event function
   const handleCreateEvent = async () => {
     if (!newEventData.title.trim()) {
-      alert('Please enter an event title.');
+      alert("Please enter an event title.");
       return;
     }
 
     setIsCreatingEvent(true);
     try {
       // Prepare event data
-      const startDateTime = new Date(`${newEventData.date}T${newEventData.startTime}:00`);
-      const endDateTime = new Date(`${newEventData.date}T${newEventData.endTime}:00`);
+      const startDateTime = new Date(
+        `${newEventData.date}T${newEventData.startTime}:00`,
+      );
+      const endDateTime = new Date(
+        `${newEventData.date}T${newEventData.endTime}:00`,
+      );
 
       const eventData = {
         title: newEventData.title,
@@ -417,11 +438,11 @@ function Instructor() {
 
       // Create event in Google Calendar
       const googleEvent = await createGoogleCalendarEvent(eventData);
-      console.log('Google Calendar event created successfully:', googleEvent);
+      console.log("Google Calendar event created successfully:", googleEvent);
 
       // Save event to database
       const { data: dbEvent, error: dbError } = await supabase
-        .from('instructor_events') // You'll need to create this table
+        .from("instructor_events") // You'll need to create this table
         .insert([
           {
             instructor_phone: phone,
@@ -432,34 +453,34 @@ function Instructor() {
             start_datetime: startDateTime.toISOString(),
             end_datetime: endDateTime.toISOString(),
             created_at: new Date().toISOString(),
-          }
+          },
         ]);
 
       if (dbError) {
-        console.error('Error saving event to database:', dbError);
+        console.error("Error saving event to database:", dbError);
         // Still continue as Google Calendar event was created
       } else {
-        console.log('Event saved to database successfully:', dbEvent);
+        console.log("Event saved to database successfully:", dbEvent);
       }
 
       // Refresh events
       await loadGoogleCalendarEvents();
-      
+
       // Close modal and reset form
       setIsCreateEventOpen(false);
       setNewEventData({
-        title: '',
-        description: '',
-        location: '',
-        date: '',
-        startTime: '',
-        endTime: '',
+        title: "",
+        description: "",
+        location: "",
+        date: "",
+        startTime: "",
+        endTime: "",
       });
 
-      alert('Event created successfully!');
+      alert("Event created successfully!");
     } catch (error) {
-      console.error('Failed to create event:', error);
-      alert('Failed to create event. Please try again.');
+      console.error("Failed to create event:", error);
+      alert("Failed to create event. Please try again.");
     } finally {
       setIsCreatingEvent(false);
     }
@@ -734,20 +755,20 @@ function Instructor() {
   const CalendarDay = ({ date }: { date: Date }) => {
     const isToday = isSameDay(date, new Date());
     const isCurrentMonth = isSameMonth(date, currentDate);
-    
-    const daySchedules = instructorData?.instructorSchedule.filter(schedule => 
-      isSameDay(new Date(schedule.date), date)
-    ) || [];
+
+    const daySchedules =
+      instructorData?.instructorSchedule.filter((schedule) =>
+        isSameDay(new Date(schedule.date), date),
+      ) || [];
 
     return (
-      <div className={`
-        border-r border-b border-gray-200 p-1 min-h-[80px] relative
-        ${!isCurrentMonth ? 'text-gray-400 bg-gray-50' : 'bg-white'}
-        ${isToday ? 'bg-blue-50' : ''}`}>
-        <div className={`
-          text-sm font-medium mb-1
-          ${isToday ? 'flex justify-center items-center w-6 h-6 text-xs text-white bg-blue-600 rounded-full' : ''}`}>
-          {format(date, 'd')}
+      <div
+        className={`relative min-h-[80px] border-b border-r border-gray-200 p-1 ${!isCurrentMonth ? "bg-gray-50 text-gray-400" : "bg-white"} ${isToday ? "bg-blue-50" : ""}`}
+      >
+        <div
+          className={`mb-1 text-sm font-medium ${isToday ? "flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white" : ""}`}
+        >
+          {format(date, "d")}
         </div>
 
         <div className="space-y-1">
@@ -760,13 +781,16 @@ function Instructor() {
             return (
               <div
                 key={idx}
-                className={`
-                  text-xs p-1 rounded truncate cursor-pointer
-                  ${schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                    'bg-purple-100 text-purple-800'}
-                `}
-                onClick={() => handleScheduleClick(schedule, learnerInfo?.learner)}
+                className={`cursor-pointer truncate rounded p-1 text-xs ${
+                  schedule.status === "completed"
+                    ? "bg-green-100 text-green-800"
+                    : schedule.status === "ongoing"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-purple-100 text-purple-800"
+                } `}
+                onClick={() =>
+                  handleScheduleClick(schedule, learnerInfo?.learner)
+                }
               >
                 {format(
                   new Date(`${schedule.date}T${schedule.start_time}`),
@@ -776,19 +800,21 @@ function Instructor() {
               </div>
             );
           })}
-          
+
           {daySchedules.length > 2 && (
             <div className="text-xs font-medium text-gray-500">
-              +{(daySchedules.length + dayGoogleEvents.length) - 2} more
+              +{daySchedules.length + dayGoogleEvents.length - 2} more
             </div>
           )}
 
           {/* Add Event Indicator */}
-          {isGoogleConnected && daySchedules.length === 0 && dayGoogleEvents.length === 0 && (
-            <div className="text-xs italic text-gray-400">
-              Click to add event
-            </div>
-          )}
+          {isGoogleConnected &&
+            daySchedules.length === 0 &&
+            dayGoogleEvents.length === 0 && (
+              <div className="text-xs italic text-gray-400">
+                Click to add event
+              </div>
+            )}
         </div>
       </div>
     );
@@ -798,19 +824,19 @@ function Instructor() {
     const calendarDays = generateCalendarDays();
 
     return (
-      <div className="flex flex-col h-full">
-        <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+      <div className="flex h-full flex-col">
+        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div
               key={day}
-              className="p-2 text-xs font-medium text-center text-gray-600"
+              className="p-2 text-center text-xs font-medium text-gray-600"
             >
               {day}
             </div>
           ))}
         </div>
 
-        <div className="grid flex-1 grid-cols-7 auto-rows-fr">
+        <div className="grid flex-1 auto-rows-fr grid-cols-7">
           {calendarDays.map((day, index) => (
             <CalendarDay key={index} date={day} />
           ))}
@@ -822,15 +848,15 @@ function Instructor() {
   // Enhanced WeekView with click-to-create functionality
   const WeekView = () => {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex h-full flex-col">
         <div
           className="scrollbar-none max-h-85 h-[calc(100vh-200px)] overflow-x-auto overflow-y-auto p-4"
           style={{ scrollbarWidth: "none" }}
         >
-          <table className="w-full border border-gray-200 border-collapse">
+          <table className="w-full border-collapse border border-gray-200">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 p-1 text-xs bg-white border border-gray-200 min-w-24">
+                <th className="sticky left-0 z-10 min-w-24 border border-gray-200 bg-white p-1 text-xs">
                   Time
                 </th>
                 {Array.from({ length: 7 }).map((_, index) => {
@@ -841,7 +867,7 @@ function Instructor() {
                   return (
                     <th
                       key={index}
-                      className="p-1 text-xs border border-gray-200 min-w-24"
+                      className="min-w-24 border border-gray-200 p-1 text-xs"
                     >
                       <div
                         className={`${isToday ? "font-semibold text-blue-600" : ""}`}
@@ -849,7 +875,7 @@ function Instructor() {
                         {dayNames[index]}
                       </div>
                       <div
-                        className={`text-xs ${isToday ? "flex justify-center items-center mx-auto w-6 h-6 text-white bg-blue-600 rounded-full" : ""}`}
+                        className={`text-xs ${isToday ? "mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white" : ""}`}
                       >
                         {format(day, "d")}
                       </div>
@@ -864,7 +890,7 @@ function Instructor() {
                 const minute = 0;
                 return (
                   <tr key={timeIndex} className="h-12">
-                    <td className="sticky left-0 z-10 px-2 py-0 text-center bg-white border border-gray-200">
+                    <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
                       <span className="text-xs">
                         {format(new Date().setHours(hour, minute), "h:mm a")}
                       </span>
@@ -872,23 +898,25 @@ function Instructor() {
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                       const day = addDays(currentWeekStart, dayIndex);
 
-                      const schedule = instructorData?.instructorSchedule.find((s) => {
-                        const scheduleDate = new Date(s.date);
-                        const scheduleStart = new Date(
-                          `${s.date}T${s.start_time}`,
-                        );
-                        const scheduleEnd = new Date(
-                          `${s.date}T${s.end_time}`,
-                        );
-                        const currentTime = new Date(day);
-                        currentTime.setHours(hour, minute);
+                      const schedule = instructorData?.instructorSchedule.find(
+                        (s) => {
+                          const scheduleDate = new Date(s.date);
+                          const scheduleStart = new Date(
+                            `${s.date}T${s.start_time}`,
+                          );
+                          const scheduleEnd = new Date(
+                            `${s.date}T${s.end_time}`,
+                          );
+                          const currentTime = new Date(day);
+                          currentTime.setHours(hour, minute);
 
-                        return (
-                          isSameDay(scheduleDate, day) &&
-                          currentTime >= scheduleStart &&
-                          currentTime < scheduleEnd
-                        );
-                      });
+                          return (
+                            isSameDay(scheduleDate, day) &&
+                            currentTime >= scheduleStart &&
+                            currentTime < scheduleEnd
+                          );
+                        },
+                      );
 
                       const isUnavailable = isTimeUnavailable(
                         instructorData?.unavailability,
@@ -915,12 +943,15 @@ function Instructor() {
                         parseInt(schedule.start_time.split(":")[0]) === hour &&
                         parseInt(schedule.start_time.split(":")[1]) === minute;
 
-                      const isGoogleEventStart = 
+                      const isGoogleEventStart =
                         googleEvent &&
-                        new Date(googleEvent.start.dateTime).getHours() === hour &&
-                        new Date(googleEvent.start.dateTime).getMinutes() === minute;
+                        new Date(googleEvent.start.dateTime).getHours() ===
+                          hour &&
+                        new Date(googleEvent.start.dateTime).getMinutes() ===
+                          minute;
 
-                      const isEmpty = !schedule && !googleEvent && !isUnavailable;
+                      const isEmpty =
+                        !schedule && !googleEvent && !isUnavailable;
 
                       return (
                         <td
@@ -937,9 +968,9 @@ function Instructor() {
                                 : isUnavailable
                                   ? "bg-gray-400 text-red-800"
                                   : isEmpty && isGoogleConnected
-                                    ? "hover:bg-blue-50 cursor-pointer"
+                                    ? "cursor-pointer hover:bg-blue-50"
                                     : ""
-                          } ${(schedule || googleEvent) ? "cursor-pointer hover:opacity-80" : ""}`}
+                          } ${schedule || googleEvent ? "cursor-pointer hover:opacity-80" : ""}`}
                           onClick={() => {
                             if (schedule) {
                               handleScheduleClick(schedule, learnerInfo);
@@ -950,7 +981,7 @@ function Instructor() {
                             }
                           }}
                         >
-                          <div className="overflow-hidden text-xs whitespace-nowrap text-ellipsis">
+                          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
                             {isScheduleStart ? (
                               <>
                                 <div className="font-semibold">
@@ -964,12 +995,20 @@ function Instructor() {
                                   {googleEvent.summary}
                                 </div>
                                 <div>
-                                  {format(new Date(googleEvent.start.dateTime), 'HH:mm')} - {format(new Date(googleEvent.end.dateTime), 'HH:mm')}
+                                  {format(
+                                    new Date(googleEvent.start.dateTime),
+                                    "HH:mm",
+                                  )}{" "}
+                                  -{" "}
+                                  {format(
+                                    new Date(googleEvent.end.dateTime),
+                                    "HH:mm",
+                                  )}
                                 </div>
                               </>
                             ) : isEmpty && isGoogleConnected ? (
                               <div className="text-xs text-gray-400">
-                                <Plus className="mx-auto w-3 h-3" />
+                                <Plus className="mx-auto h-3 w-3" />
                               </div>
                             ) : isUnavailable && !schedule && !googleEvent ? (
                               ""
@@ -992,13 +1031,14 @@ function Instructor() {
 
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
-    const daySchedules = instructorData?.instructorSchedule.filter(schedule => 
-      isSameDay(new Date(schedule.date), currentDate)
-    ) || [];
+    const daySchedules =
+      instructorData?.instructorSchedule.filter((schedule) =>
+        isSameDay(new Date(schedule.date), currentDate),
+      ) || [];
 
     return (
-      <div className="flex flex-col h-full">
-        <div className="overflow-y-auto flex-1">
+      <div className="flex h-full flex-col">
+        <div className="flex-1 overflow-y-auto">
           {Array.from({ length: 16 }).map((_, timeIndex) => {
             const hour = timeIndex + 6;
             const minute = 0;
@@ -1016,7 +1056,7 @@ function Instructor() {
               return currentTime >= scheduleStart && currentTime < scheduleEnd;
             });
 
-            const timeSlotGoogleEvents = dayGoogleEvents.filter(event => {
+            const timeSlotGoogleEvents = dayGoogleEvents.filter((event) => {
               const eventStart = new Date(event.start.dateTime);
               const eventEnd = new Date(event.end.dateTime);
               const currentTime = new Date(currentDate);
@@ -1032,17 +1072,27 @@ function Instructor() {
               minute,
             );
 
-            const isEmpty = timeSlotSchedules.length === 0 && timeSlotGoogleEvents.length === 0 && !isUnavailable;
+            const isEmpty =
+              timeSlotSchedules.length === 0 &&
+              timeSlotGoogleEvents.length === 0 &&
+              !isUnavailable;
 
             return (
-              <div key={timeIndex} className="flex border-b border-gray-100 min-h-[60px]">
-                <div className="p-2 w-16 text-xs text-gray-600 bg-gray-50 border-r">
-                  {format(new Date().setHours(hour, 0), 'HH:mm')}
+              <div
+                key={timeIndex}
+                className="flex min-h-[60px] border-b border-gray-100"
+              >
+                <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
+                  {format(new Date().setHours(hour, 0), "HH:mm")}
                 </div>
-                
-                <div className={`flex-1 p-2 relative ${
-                  isUnavailable && timeSlotSchedules.length === 0 ? 'bg-gray-400' : ''
-                }`}>
+
+                <div
+                  className={`relative flex-1 p-2 ${
+                    isUnavailable && timeSlotSchedules.length === 0
+                      ? "bg-gray-400"
+                      : ""
+                  }`}
+                >
                   {timeSlotSchedules.map((schedule, idx) => {
                     const learnerInfo = instructorData?.learnerLesson.find(
                       (ll) => ll.lesson.id === schedule.lesson_id,
@@ -1057,13 +1107,16 @@ function Instructor() {
                     return (
                       <div
                         key={idx}
-                        className={`
-                          p-2 rounded mb-1 cursor-pointer text-sm
-                          ${schedule.status === 'completed' ? 'bg-green-200 text-green-800' :
-                            schedule.status === 'ongoing' ? 'bg-blue-200 text-blue-800' :
-                            'bg-primary text-white'}
-                        `}
-                        onClick={() => handleScheduleClick(schedule, learnerInfo?.learner)}
+                        className={`mb-1 cursor-pointer rounded p-2 text-sm ${
+                          schedule.status === "completed"
+                            ? "bg-green-200 text-green-800"
+                            : schedule.status === "ongoing"
+                              ? "bg-blue-200 text-blue-800"
+                              : "bg-primary text-white"
+                        } `}
+                        onClick={() =>
+                          handleScheduleClick(schedule, learnerInfo?.learner)
+                        }
                       >
                         <div className="font-medium">
                           {learnerInfo?.learner.name}
@@ -1081,16 +1134,16 @@ function Instructor() {
 
                   {/* Google Calendar Events */}
                   {timeSlotGoogleEvents.map((event, idx) => {
-                    const isEventStart = 
+                    const isEventStart =
                       new Date(event.start.dateTime).getHours() === hour &&
                       new Date(event.start.dateTime).getMinutes() === minute;
-                    
+
                     if (!isEventStart) return null;
-                    
+
                     return (
                       <div
                         key={`google-${idx}`}
-                        className="p-2 mb-1 text-sm text-orange-800 bg-orange-200 rounded cursor-pointer"
+                        className="mb-1 cursor-pointer rounded bg-orange-200 p-2 text-sm text-orange-800"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEventClick(event);
@@ -1098,20 +1151,19 @@ function Instructor() {
                       >
                         <div className="font-medium">{event.summary}</div>
                         <div className="text-xs">
-                          {format(new Date(event.start.dateTime), 'HH:mm')} - {format(new Date(event.end.dateTime), 'HH:mm')}
+                          {format(new Date(event.start.dateTime), "HH:mm")} -{" "}
+                          {format(new Date(event.end.dateTime), "HH:mm")}
                         </div>
-                        <div className="text-xs">
-                          Google Calendar
-                        </div>
+                        <div className="text-xs">Google Calendar</div>
                       </div>
                     );
                   })}
 
                   {/* Empty slot indicator */}
                   {isEmpty && isGoogleConnected && (
-                    <div className="flex justify-center items-center h-full text-gray-400">
-                      <div className="flex gap-2 items-center">
-                        <Plus className="w-4 h-4" />
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
                         <span className="text-sm">Click to add event</span>
                       </div>
                     </div>
@@ -1127,9 +1179,9 @@ function Instructor() {
 
   const EnhancedCalendarView = () => {
     return (
-      <div className="flex flex-col h-full">
-        <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex justify-between items-center p-4">
+      <div className="flex h-full flex-col">
+        <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between p-4">
             <div className="flex items-center space-x-2">
               <Button
                 variant={viewMode === "day" ? "default" : "outline"}
@@ -1173,24 +1225,24 @@ function Instructor() {
               >
                 Today
               </Button>
-              
-              <button 
+
+              <button
                 onClick={handleProfileClick}
-                className="flex justify-center items-center w-10 h-10 rounded-full shadow-lg transition duration-200 bg-accent-purple hover:bg-purple-600"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-purple shadow-lg transition duration-200 hover:bg-purple-600"
               >
                 <User className="text-white" size={20} />
               </button>
             </div>
           </div>
 
-          <div className="flex justify-between items-center px-4 pb-4">
+          <div className="flex items-center justify-between px-4 pb-4">
             <div className="flex items-center space-x-3">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleWeekChange("prev")}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
 
               <h2 className="text-lg font-semibold">
@@ -1206,21 +1258,21 @@ function Instructor() {
                 size="sm"
                 onClick={() => handleWeekChange("next")}
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
             {/* Google Calendar Status Indicator */}
             {isGoogleConnected && (
-              <div className="flex gap-2 items-center text-xs text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex items-center gap-2 text-xs text-green-600">
+                <div className="h-2 w-2 rounded-full bg-green-500"></div>
                 Google Calendar Connected ({googleEvents.length} events)
               </div>
             )}
           </div>
         </div>
 
-        <div className="overflow-hidden flex-1">
+        <div className="flex-1 overflow-hidden">
           {viewMode === "month" && <MonthView />}
           {viewMode === "week" && <WeekView />}
           {viewMode === "day" && <DayView />}
@@ -1235,190 +1287,199 @@ function Instructor() {
 
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <div className="flex flex-col w-full h-full">
-        <Tabs defaultValue="calendar" className="flex flex-col w-full h-full">
-          <div className="overflow-hidden flex-1 p-6 pb-2">
+      <div className="flex h-full w-full flex-col">
+        <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
+          <div className="flex-1 overflow-hidden p-6 pb-2">
             <TabsContent
               value="calendar"
-              className="overflow-y-auto m-0 h-full"
+              className="m-0 h-full overflow-y-auto"
             >
               <EnhancedCalendarView />
             </TabsContent>
 
             <TabsContent
               value="schedule"
-              className="overflow-y-auto m-0 h-full"
+              className="m-0 h-full overflow-y-auto"
             >
               <div className="flex flex-col gap-2 pb-4">
-                {instructorData?.instructorScheduleDay.map((schedule, index) => {
-                  const learnerLessonPair = instructorData?.learnerLessonDay.find(
-                    (ll) => ll.lesson.id === schedule.lesson_id,
-                  );
+                {instructorData?.instructorScheduleDay.map(
+                  (schedule, index) => {
+                    const learnerLessonPair =
+                      instructorData?.learnerLessonDay.find(
+                        (ll) => ll.lesson.id === schedule.lesson_id,
+                      );
 
-                  if (!learnerLessonPair) {
-                    return null;
-                  }
+                    if (!learnerLessonPair) {
+                      return null;
+                    }
 
-                  const { learner, lesson } = learnerLessonPair;
-                  const isOngoing = schedule.status === "ongoing";
+                    const { learner, lesson } = learnerLessonPair;
+                    const isOngoing = schedule.status === "ongoing";
 
-                  return (
-                    <Card key={index}>
-                      <CardHeader>
-                        <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
-                          <div>Lesson {lesson?.number}</div>
-                          <div className="text-xs">
-                            <div className="text-base text-right">
-                              {new Date(schedule.date).toLocaleDateString()}
+                    return (
+                      <Card key={index}>
+                        <CardHeader>
+                          <CardTitle className="flex flex-wrap items-center justify-between gap-4">
+                            <div>Lesson {lesson?.number}</div>
+                            <div className="text-xs">
+                              <div className="text-right text-base">
+                                {new Date(schedule.date).toLocaleDateString()}
+                              </div>
+                              {formatTimeRange(
+                                schedule.start_time,
+                                schedule.end_time,
+                              )}
                             </div>
-                            {formatTimeRange(
-                              schedule.start_time,
-                              schedule.end_time,
-                            )}
-                          </div>
-                        </CardTitle>
-                        <CardDescription>
-                          {lesson?.number &&
-                            LESSON_CONTENT[lesson.number]?.content.title}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-1 text-xs">
-                          <div className="flex flex-row gap-1 items-center">
-                            <p className="text-nowrap text-muted-foreground">
-                              Pick-up Location :
-                            </p>
-                            <a
-                              href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex gap-1 items-center text-xs underline truncate hover:text-blue-800"
-                            >
-                              <span className="truncate">
-                                {learner.pick_up_location}
-                              </span>
-                              <ExternalLinkIcon className="w-4 h-4 shrink-0" />
-                            </a>
-                          </div>
-                          <div className="flex flex-row gap-1">
-                            <p className="text-muted-foreground">Learner name :</p>
-                            <p>{learner.name}</p>
-                          </div>
-                          <div className="flex flex-row gap-1 items-center">
-                            <p className="text-muted-foreground">
-                              Contact Learner :{" "}
-                            </p>
-                            <p>{learner.phone}</p>
-                            <div className="ml-1">
-                              <a href={`tel:+91${learner.phone}`}>
-                                <PhoneOutgoing size={14} />
+                          </CardTitle>
+                          <CardDescription>
+                            {lesson?.number &&
+                              LESSON_CONTENT[lesson.number]?.content.title}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-1 text-xs">
+                            <div className="flex flex-row items-center gap-1">
+                              <p className="text-nowrap text-muted-foreground">
+                                Pick-up Location :
+                              </p>
+                              <a
+                                href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                              >
+                                <span className="truncate">
+                                  {learner.pick_up_location}
+                                </span>
+                                <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                               </a>
                             </div>
-                          </div>
-
-                          <Button
-                            onClick={() => handleOpenLessonPlan(lesson, learner)}
-                            size="sm"
-                            variant="outline"
-                            className="mt-2 w-full text-xs"
-                          >
-                            View Lesson Plan
-                          </Button>
-                        </div>
-                        <Card className="flex flex-row gap-4 justify-between items-center p-2 shadow-md rounded-smb">
-                          <div className="flex flex-wrap gap-2 justify-between items-center p-1 w-full text-xs">
-                            <p>Lesson status : {schedule.status?.toUpperCase()}</p>
-                            <div className="flex flex-row gap-24 items-center">
-                              {isOngoing ? (
-                                <div className="flex relative justify-center items-center">
-                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                  <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
-                                </div>
-                              ) : null}
-                              {schedule.status === "completed" ? (
-                                <div className="flex justify-center items-center">
-                                  <CircleCheckBig
-                                    className="text-white bg-green-500 rounded-full"
-                                    size={18}
-                                  />
-                                </div>
-                              ) : null}
+                            <div className="flex flex-row gap-1">
+                              <p className="text-muted-foreground">
+                                Learner name :
+                              </p>
+                              <p>{learner.name}</p>
                             </div>
-                            {isOngoing && (
-                              <Button
-                                onClick={() =>
-                                  handleFinishLesson(
-                                    schedule.id.toString(),
-                                    learner.id,
-                                  )
-                                }
-                                size="sm"
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                Finish Lesson
-                              </Button>
-                            )}
-                            {schedule.status !== "ongoing" &&
-                              schedule.status !== "completed" && (
+                            <div className="flex flex-row items-center gap-1">
+                              <p className="text-muted-foreground">
+                                Contact Learner :{" "}
+                              </p>
+                              <p>{learner.phone}</p>
+                              <div className="ml-1">
+                                <a href={`tel:+91${learner.phone}`}>
+                                  <PhoneOutgoing size={14} />
+                                </a>
+                              </div>
+                            </div>
+
+                            <Button
+                              onClick={() =>
+                                handleOpenLessonPlan(lesson, learner)
+                              }
+                              size="sm"
+                              variant="outline"
+                              className="mt-2 w-full text-xs"
+                            >
+                              View Lesson Plan
+                            </Button>
+                          </div>
+                          <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
+                            <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-xs">
+                              <p>
+                                Lesson status : {schedule.status?.toUpperCase()}
+                              </p>
+                              <div className="flex flex-row items-center gap-24">
+                                {isOngoing ? (
+                                  <div className="relative flex items-center justify-center">
+                                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                    <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
+                                  </div>
+                                ) : null}
+                                {schedule.status === "completed" ? (
+                                  <div className="flex items-center justify-center">
+                                    <CircleCheckBig
+                                      className="rounded-full bg-green-500 text-white"
+                                      size={18}
+                                    />
+                                  </div>
+                                ) : null}
+                              </div>
+                              {isOngoing && (
                                 <Button
-                                  onClick={() => {
-                                    navigate(`/otp/${learner.id}/${schedule.id}`);
-                                  }}
+                                  onClick={() =>
+                                    handleFinishLesson(
+                                      schedule.id.toString(),
+                                      learner.id,
+                                    )
+                                  }
                                   size="sm"
+                                  variant="secondary"
                                   className="text-xs"
                                 >
-                                  Start
+                                  Finish Lesson
                                 </Button>
                               )}
-                          </div>
-                        </Card>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                              {schedule.status !== "ongoing" &&
+                                schedule.status !== "completed" && (
+                                  <Button
+                                    onClick={() => {
+                                      navigate(
+                                        `/otp/${learner.id}/${schedule.id}`,
+                                      );
+                                    }}
+                                    size="sm"
+                                    className="text-xs"
+                                  >
+                                    Start
+                                  </Button>
+                                )}
+                            </div>
+                          </Card>
+                        </CardContent>
+                      </Card>
+                    );
+                  },
+                )}
               </div>
             </TabsContent>
 
-            <TabsContent
-              value="lesson"
-              className="overflow-y-auto m-0 h-full"
-            >
+            <TabsContent value="lesson" className="m-0 h-full overflow-y-auto">
               <div className="flex flex-col gap-2 pb-4">
                 {instructorData?.learnerLesson
                   .sort((a, b) => {
                     const lessonNumberA = a.lesson?.number || 0;
                     const lessonNumberB = b.lesson?.number || 0;
 
-                  if (lessonNumberA !== lessonNumberB) {
-                    return lessonNumberA - lessonNumberB;
-                  }
+                    if (lessonNumberA !== lessonNumberB) {
+                      return lessonNumberA - lessonNumberB;
+                    }
 
-                  const dateA = new Date(
-                    instructorData.instructorSchedule.find(
-                      (s) => s.lesson_id === a.lesson?.id,
-                    )?.date || 0,
-                  );
-                  const dateB = new Date(
-                    instructorData.instructorSchedule.find(
-                      (s) => s.lesson_id === b.lesson?.id,
-                    )?.date || 0,
-                  );
+                    const dateA = new Date(
+                      instructorData.instructorSchedule.find(
+                        (s) => s.lesson_id === a.lesson?.id,
+                      )?.date || 0,
+                    );
+                    const dateB = new Date(
+                      instructorData.instructorSchedule.find(
+                        (s) => s.lesson_id === b.lesson?.id,
+                      )?.date || 0,
+                    );
 
                     return dateA.getTime() - dateB.getTime();
                   })
                   .map(({ learner, lesson }, index) => {
-                    const lessonSchedule = instructorData.instructorSchedule.find(
-                      (s) => s.lesson_id === lesson?.id,
-                    );
+                    const lessonSchedule =
+                      instructorData.instructorSchedule.find(
+                        (s) => s.lesson_id === lesson?.id,
+                      );
 
                     return (
                       <Card key={index}>
                         <CardHeader>
-                          <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
+                          <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                             <div>Lesson {lesson?.number}</div>
                             <div className="text-xs">
-                              <div className="text-base text-right">
+                              <div className="text-right text-base">
                                 {lessonSchedule
                                   ? new Date(
                                       lessonSchedule.date,
@@ -1440,7 +1501,7 @@ function Instructor() {
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                           <div className="flex flex-col gap-1 text-xs">
-                            <div className="flex flex-row gap-1 items-center">
+                            <div className="flex flex-row items-center gap-1">
                               <p className="text-nowrap text-muted-foreground">
                                 Pick-up Location :
                               </p>
@@ -1448,12 +1509,12 @@ function Instructor() {
                                 href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex gap-1 items-center text-xs underline truncate hover:text-blue-800"
+                                className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
                               >
                                 <span className="truncate">
                                   {learner.pick_up_location}
                                 </span>
-                                <ExternalLinkIcon className="w-4 h-4 shrink-0" />
+                                <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                               </a>
                             </div>
                             <div className="flex flex-row gap-1">
@@ -1462,7 +1523,7 @@ function Instructor() {
                               </p>
                               <p>{learner.name}</p>
                             </div>
-                            <div className="flex flex-row gap-1 items-center">
+                            <div className="flex flex-row items-center gap-1">
                               <p className="text-muted-foreground">
                                 Contact Learner :{" "}
                               </p>
@@ -1475,7 +1536,7 @@ function Instructor() {
                             </div>
 
                             {lessonSchedule && lessonSchedule.status && (
-                              <div className="flex gap-2 items-center mt-2">
+                              <div className="mt-2 flex items-center gap-2">
                                 <p className="text-muted-foreground">Status:</p>
                                 <span
                                   className={`rounded-full px-2 py-0.5 text-xs ${
@@ -1499,27 +1560,29 @@ function Instructor() {
             </TabsContent>
           </div>
 
-          <div className="sticky bottom-0 z-30 bg-white border-t border-gray-200 shadow-lg">
-            <TabsList className="grid grid-cols-3 p-0 w-full h-16 bg-transparent rounded-none">
-              <TabsTrigger 
-                value="calendar" 
-                className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
+          <div className="sticky bottom-0 z-30 border-t border-gray-200 bg-white shadow-lg">
+            <TabsList className="grid h-16 w-full grid-cols-3 rounded-none bg-transparent p-0">
+              <TabsTrigger
+                value="calendar"
+                className="flex h-full flex-col items-center justify-center space-y-1 rounded-none border-0 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600"
               >
-                <Calendar className="w-5 h-5" />
+                <Calendar className="h-5 w-5" />
                 <span className="text-xs font-medium">Calendar</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="schedule" 
-                className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
+              <TabsTrigger
+                value="schedule"
+                className="flex h-full flex-col items-center justify-center space-y-1 rounded-none border-0 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600"
               >
-                <Clock className="w-5 h-5" />
-                <span className="text-xs font-medium">Today ({instructorData?.instructorScheduleDay.length || 0})</span>
+                <Clock className="h-5 w-5" />
+                <span className="text-xs font-medium">
+                  Today ({instructorData?.instructorScheduleDay.length || 0})
+                </span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="lesson" 
-                className="flex flex-col items-center justify-center h-full space-y-1 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 rounded-none border-0"
+              <TabsTrigger
+                value="lesson"
+                className="flex h-full flex-col items-center justify-center space-y-1 rounded-none border-0 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600"
               >
-                <BookOpen className="w-5 h-5" />
+                <BookOpen className="h-5 w-5" />
                 <span className="text-xs font-medium">All Classes</span>
               </TabsTrigger>
             </TabsList>
@@ -1527,122 +1590,152 @@ function Instructor() {
         </Tabs>
       </div>
 
-      <Dialog 
-  open={scheduleDetailDialog.open} 
-  onOpenChange={(open) => setScheduleDetailDialog(prev => ({ ...prev, open }))}
->
-  <DialogContent className="sm:max-w-md">
-    <DialogHeader>
-      <DialogTitle className="flex gap-2 items-center">
-        <Plus className="w-5 h-5 text-blue-600" />
-        Create New Event
-      </DialogTitle>
-      <DialogDescription>
-        {scheduleDetailDialog.learner?.name} - Lesson {
-          instructorData?.learnerLesson.find(
-            ll => ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id
-          )?.lesson.number
+      <Dialog
+        open={scheduleDetailDialog.open}
+        onOpenChange={(open) =>
+          setScheduleDetailDialog((prev) => ({ ...prev, open }))
         }
-      </DialogDescription>
-    </DialogHeader>
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-blue-600" />
+              Create New Event
+            </DialogTitle>
+            <DialogDescription>
+              {scheduleDetailDialog.learner?.name} - Lesson{" "}
+              {
+                instructorData?.learnerLesson.find(
+                  (ll) =>
+                    ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id,
+                )?.lesson.number
+              }
+            </DialogDescription>
+          </DialogHeader>
 
-    <>
-      {scheduleDetailDialog.schedule && (
-        <div className="flex flex-col gap-4 py-2">
-          <div>
-            <h4 className="mb-1 text-sm font-medium">Date & Time</h4>
-            <p className="text-sm text-gray-700">
-              {new Date(scheduleDetailDialog.schedule.date).toLocaleDateString()}
-            </p>
-            <p className="text-sm text-gray-700">
-              {formatTimeRange(
-                scheduleDetailDialog.schedule.start_time,
-                scheduleDetailDialog.schedule.end_time
-              )}
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="mb-1 text-sm font-medium">Status</h4>
-            <span className={`
-              rounded-full px-2 py-1 text-xs
-              ${scheduleDetailDialog.schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
-                scheduleDetailDialog.schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                'bg-gray-100 text-gray-800'}
-            `}>
-              {scheduleDetailDialog.schedule.status?.toUpperCase()}
-            </span>
-          </div>
+          <>
+            {scheduleDetailDialog.schedule && (
+              <div className="flex flex-col gap-4 py-2">
+                <div>
+                  <h4 className="mb-1 text-sm font-medium">Date & Time</h4>
+                  <p className="text-sm text-gray-700">
+                    {new Date(
+                      scheduleDetailDialog.schedule.date,
+                    ).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {formatTimeRange(
+                      scheduleDetailDialog.schedule.start_time,
+                      scheduleDetailDialog.schedule.end_time,
+                    )}
+                  </p>
+                </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="Enter location (optional)"
-              value={newEventData.location}
-              onChange={(e) => setNewEventData(prev => ({ ...prev, location: e.target.value }))}
-            />
-          </div>
+                <div>
+                  <h4 className="mb-1 text-sm font-medium">Status</h4>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs ${
+                      scheduleDetailDialog.schedule.status === "completed"
+                        ? "bg-green-100 text-green-800"
+                        : scheduleDetailDialog.schedule.status === "ongoing"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                    } `}
+                  >
+                    {scheduleDetailDialog.schedule.status?.toUpperCase()}
+                  </span>
+                </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={newEventData.date}
-                onChange={(e) => setNewEventData(prev => ({ ...prev, date: e.target.value }))}
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    placeholder="Enter location (optional)"
+                    value={newEventData.location}
+                    onChange={(e) =>
+                      setNewEventData((prev) => ({
+                        ...prev,
+                        location: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={newEventData.startTime}
-                onChange={(e) => setNewEventData(prev => ({ ...prev, startTime: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={newEventData.endTime}
-                onChange={(e) => setNewEventData(prev => ({ ...prev, endTime: e.target.value }))}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={newEventData.date}
+                      onChange={(e) =>
+                        setNewEventData((prev) => ({
+                          ...prev,
+                          date: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
 
-      <DialogFooter className="flex flex-col gap-2 sm:flex-row">
-        <Button
-          variant="outline"
-          onClick={() => setScheduleDetailDialog(prev => ({ ...prev, open: false }))}
-        >
-          Close
-        </Button>
-      </DialogFooter>
-    </>
-  </DialogContent>
-</Dialog>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startTime">Start Time</Label>
+                    <Input
+                      id="startTime"
+                      type="time"
+                      value={newEventData.startTime}
+                      onChange={(e) =>
+                        setNewEventData((prev) => ({
+                          ...prev,
+                          startTime: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endTime">End Time</Label>
+                    <Input
+                      id="endTime"
+                      type="time"
+                      value={newEventData.endTime}
+                      onChange={(e) =>
+                        setNewEventData((prev) => ({
+                          ...prev,
+                          endTime: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setScheduleDetailDialog((prev) => ({ ...prev, open: false }))
+                }
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </>
+        </DialogContent>
+      </Dialog>
 
       {/* Enhanced Event Modal for Google Calendar Events */}
       <Dialog open={isEventModalOpen} onOpenChange={setIsEventModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex gap-2 items-center text-xl">
-              <Calendar className="w-5 h-5 text-orange-600" />
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Calendar className="h-5 w-5 text-orange-600" />
               {selectedEvent?.summary || selectedEvent?.title}
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-500">
               {selectedEvent && (
-                <div className="flex flex-col gap-1 mt-2">
+                <div className="mt-2 flex flex-col gap-1">
                   <p className="font-medium">
                     {formatEventDate(selectedEvent.start)}
                   </p>
@@ -1658,8 +1751,8 @@ function Instructor() {
             <div className="flex flex-col gap-4 py-2">
               {selectedEvent.description && (
                 <div>
-                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                    <BookOpen className="w-4 h-4" />
+                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <BookOpen className="h-4 w-4" />
                     Description
                   </h4>
                   <p className="pl-6 text-sm text-gray-700">
@@ -1670,8 +1763,8 @@ function Instructor() {
 
               {selectedEvent.location && (
                 <div>
-                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                    <ExternalLinkIcon className="w-4 h-4" />
+                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <ExternalLinkIcon className="h-4 w-4" />
                     Location
                   </h4>
                   <p className="pl-6 text-sm text-gray-700">
@@ -1683,14 +1776,14 @@ function Instructor() {
               {selectedEvent.attendees &&
                 selectedEvent.attendees.length > 0 && (
                   <div>
-                    <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                      <User className="w-4 h-4" />
+                    <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                      <User className="h-4 w-4" />
                       Attendees
                     </h4>
-                    <ul className="pl-6 space-y-1 text-sm text-gray-700">
+                    <ul className="space-y-1 pl-6 text-sm text-gray-700">
                       {selectedEvent.attendees.map((attendee, index) => (
-                        <li key={index} className="flex gap-2 items-center">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <li key={index} className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-gray-400"></div>
                           {attendee.email}
                         </li>
                       ))}
@@ -1700,8 +1793,8 @@ function Instructor() {
 
               {selectedEvent.creator && (
                 <div>
-                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                    <User className="w-4 h-4" />
+                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <User className="h-4 w-4" />
                     Organizer
                   </h4>
                   <p className="pl-6 text-sm text-gray-700">
@@ -1717,9 +1810,9 @@ function Instructor() {
                 href={selectedEvent.htmlLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex justify-center items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                <ExternalLinkIcon className="mr-2 w-4 h-4" />
+                <ExternalLinkIcon className="mr-2 h-4 w-4" />
                 View in Google Calendar
               </a>
             )}
@@ -1734,20 +1827,24 @@ function Instructor() {
       </Dialog>
 
       {/* Schedule Detail Dialog */}
-      <Dialog 
-        open={scheduleDetailDialog.open} 
-        onOpenChange={(open) => setScheduleDetailDialog(prev => ({ ...prev, open }))}
+      <Dialog
+        open={scheduleDetailDialog.open}
+        onOpenChange={(open) =>
+          setScheduleDetailDialog((prev) => ({ ...prev, open }))
+        }
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex gap-2 items-center">
-              <BookOpen className="w-5 h-5 text-purple-600" />
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-purple-600" />
               Schedule Details
             </DialogTitle>
             <DialogDescription>
-              {scheduleDetailDialog.learner?.name} - Lesson {
+              {scheduleDetailDialog.learner?.name} - Lesson{" "}
+              {
                 instructorData?.learnerLesson.find(
-                  ll => ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id
+                  (ll) =>
+                    ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id,
                 )?.lesson.number
               }
             </DialogDescription>
@@ -1755,40 +1852,45 @@ function Instructor() {
           {scheduleDetailDialog.schedule && (
             <div className="flex flex-col gap-4 py-2">
               <div>
-                <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                  <Calendar className="w-4 h-4" />
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                  <Calendar className="h-4 w-4" />
                   Date & Time
                 </h4>
-                <div className="pl-6 space-y-1">
+                <div className="space-y-1 pl-6">
                   <p className="text-sm text-gray-700">
-                    {new Date(scheduleDetailDialog.schedule.date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
+                    {new Date(
+                      scheduleDetailDialog.schedule.date,
+                    ).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
                     })}
                   </p>
                   <p className="text-sm text-gray-700">
                     {formatTimeRange(
                       scheduleDetailDialog.schedule.start_time,
-                      scheduleDetailDialog.schedule.end_time
+                      scheduleDetailDialog.schedule.end_time,
                     )}
                   </p>
                 </div>
               </div>
-              
+
               <div>
-                <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                  <Clock className="w-4 h-4" />
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                  <Clock className="h-4 w-4" />
                   Status
                 </h4>
                 <div className="pl-6">
-                  <span className={`
-                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                    ${scheduleDetailDialog.schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      scheduleDetailDialog.schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'}
-                  `}>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                      scheduleDetailDialog.schedule.status === "completed"
+                        ? "bg-green-100 text-green-800"
+                        : scheduleDetailDialog.schedule.status === "ongoing"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                    } `}
+                  >
                     {scheduleDetailDialog.schedule.status?.toUpperCase()}
                   </span>
                 </div>
@@ -1796,35 +1898,45 @@ function Instructor() {
 
               {scheduleDetailDialog.learner && (
                 <div>
-                  <h4 className="flex gap-2 items-center mb-2 text-sm font-medium">
-                    <User className="w-4 h-4" />
+                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <User className="h-4 w-4" />
                     Learner Details
                   </h4>
-                  <div className="pl-6 space-y-2">
-                    <div className="flex gap-2 items-center">
-                      <span className="text-sm font-medium text-gray-500">Name:</span>
-                      <span className="text-sm text-gray-700">{scheduleDetailDialog.learner.name}</span>
+                  <div className="space-y-2 pl-6">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-500">
+                        Name:
+                      </span>
+                      <span className="text-sm text-gray-700">
+                        {scheduleDetailDialog.learner.name}
+                      </span>
                     </div>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-sm font-medium text-gray-500">Phone:</span>
-                      <span className="text-sm text-gray-700">{scheduleDetailDialog.learner.phone}</span>
-                      <a 
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-500">
+                        Phone:
+                      </span>
+                      <span className="text-sm text-gray-700">
+                        {scheduleDetailDialog.learner.phone}
+                      </span>
+                      <a
                         href={`tel:+91${scheduleDetailDialog.learner.phone}`}
                         className="text-blue-600 hover:text-blue-800"
                       >
-                        <PhoneOutgoing className="w-4 h-4" />
+                        <PhoneOutgoing className="h-4 w-4" />
                       </a>
                     </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="text-sm font-medium text-gray-500">Pickup:</span>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-gray-500">
+                        Pickup:
+                      </span>
                       <a
                         href={`https://www.google.com/maps?q=${scheduleDetailDialog.learner.address_lat},${scheduleDetailDialog.learner.address_lng}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex gap-1 items-center text-sm text-blue-600 underline hover:text-blue-800"
+                        className="flex items-center gap-1 text-sm text-blue-600 underline hover:text-blue-800"
                       >
                         {scheduleDetailDialog.learner.pick_up_location}
-                        <ExternalLinkIcon className="w-3 h-3" />
+                        <ExternalLinkIcon className="h-3 w-3" />
                       </a>
                     </div>
                   </div>
@@ -1835,7 +1947,9 @@ function Instructor() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setScheduleDetailDialog(prev => ({ ...prev, open: false }))}
+              onClick={() =>
+                setScheduleDetailDialog((prev) => ({ ...prev, open: false }))
+              }
             >
               Close
             </Button>
@@ -1852,15 +1966,15 @@ function Instructor() {
       >
         <DialogContent className="h-[90vh] max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex gap-2 items-center">
-              <BookOpen className="w-5 h-5 text-purple-600" />
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-purple-600" />
               Lesson Plan
             </DialogTitle>
             <DialogDescription>
               Detailed lesson plan for {lessonPlanDialog.learner?.name}
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-auto h-full">
+          <div className="h-full overflow-auto">
             {lessonPlanDialog.lesson && lessonPlanDialog.learner && (
               <LessonPlan
                 lesson={lessonPlanDialog.lesson}
@@ -1882,7 +1996,6 @@ function Instructor() {
         </DialogContent>
       </Dialog>
     </GoogleOAuthProvider>
-  
   );
 }
 

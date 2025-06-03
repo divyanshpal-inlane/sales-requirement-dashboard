@@ -72,7 +72,6 @@ export default function RescheduleSelector({
     const diffHours =
       (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     return diffHours < 12 ? 300 : 0;
-    
   };
 
   const getTotalFee = () => {
@@ -114,7 +113,7 @@ export default function RescheduleSelector({
             .map((group) => (
               <Card key={group.date} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <div className="font-medium">
                       {format(new Date(group.date), "EEEE, MMMM d")}
                     </div>
@@ -128,10 +127,10 @@ export default function RescheduleSelector({
                     {group.schedules.map((schedule) => (
                       <div
                         key={schedule.id}
-                        className="flex justify-between items-center p-3 rounded-lg border"
+                        className="flex items-center justify-between rounded-lg border p-3"
                       >
-                        <div className="flex gap-3 items-center">
-                          <Label className="flex gap-3 items-center">
+                        <div className="flex items-center gap-3">
+                          <Label className="flex items-center gap-3">
                             <Checkbox
                               className="rounded-none"
                               checked={selectedLessons.some(
@@ -169,7 +168,7 @@ export default function RescheduleSelector({
         </div>
       </ScrollArea>
 
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div className="text-sm">
           {selectedLessons.length} lesson{selectedLessons.length !== 1 && "s"}{" "}
           selected

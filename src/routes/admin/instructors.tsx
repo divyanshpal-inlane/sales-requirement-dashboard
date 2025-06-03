@@ -587,41 +587,41 @@ export default function InstructorsManagement() {
 
   return (
     <div
-      className="container p-8 mx-auto min-h-screen bg-white"
+      className="container mx-auto min-h-screen bg-white p-8"
       style={{
         backgroundImage: 'url("/assets/bg_pattern.svg")',
         backgroundRepeat: "repeat",
         backgroundSize: "cover",
       }}
     >
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => navigate("/admin")}
-          className="w-10 h-10"
+          className="h-10 w-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-bold">Instructor Management</h1>
         <Button onClick={handleAddNewInstructor}>
-          <PlusCircle className="mr-2 w-4 h-4" />
+          <PlusCircle className="mr-2 h-4 w-4" />
           Add New Instructor
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="w-8 h-8 rounded-full border-4 animate-spin border-primary border-t-transparent"></div>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {instructors?.map((instructor) => (
             <Card
               key={instructor.id_instructor}
-              className="flex overflow-hidden flex-col h-full rounded-lg shadow-lg"
+              className="flex h-full flex-col overflow-hidden rounded-lg shadow-lg"
             >
-              <CardHeader className="p-4 text-white bg-primary">
+              <CardHeader className="bg-primary p-4 text-white">
                 <CardTitle className="text-lg font-bold">
                   {instructor.name}
                 </CardTitle>
@@ -629,7 +629,7 @@ export default function InstructorsManagement() {
                   {instructor.email || "No email provided"}
                 </p>
               </CardHeader>
-              <CardContent className="p-4 space-y-4">
+              <CardContent className="space-y-4 p-4">
                 <div className="space-y-2">
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">
@@ -679,11 +679,11 @@ export default function InstructorsManagement() {
                     <span className="text-sm font-medium text-muted-foreground">
                       Areas:
                     </span>
-                    <div className="flex flex-wrap gap-2 mt-1">
+                    <div className="mt-1 flex flex-wrap gap-2">
                       {instructor.areas?.map((area: string) => (
                         <span
                           key={area}
-                          className="inline-block px-2 py-1 text-xs rounded bg-muted"
+                          className="inline-block rounded bg-muted px-2 py-1 text-xs"
                         >
                           {area}
                         </span>
@@ -693,7 +693,7 @@ export default function InstructorsManagement() {
                 </div>
               </CardContent>
               {/* View Schedule Button */}
-              <div className="flex flex-col gap-2 p-4 mt-auto">
+              <div className="mt-auto flex flex-col gap-2 p-4">
                 <Button
                   variant="outline"
                   className="w-full"
@@ -776,7 +776,7 @@ export default function InstructorsManagement() {
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">
                   Name<span className="text-red-500">*</span>
                 </Label>
@@ -793,7 +793,7 @@ export default function InstructorsManagement() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">
                   Phone<span className="text-red-500">*</span>
                 </Label>
@@ -810,7 +810,7 @@ export default function InstructorsManagement() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="address" className="text-right">
                   Address
                 </Label>
@@ -821,7 +821,7 @@ export default function InstructorsManagement() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="radius" className="text-right">
                   Radius (km)
                 </Label>
@@ -838,7 +838,7 @@ export default function InstructorsManagement() {
                   className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">
                   Email
                 </Label>
@@ -854,7 +854,7 @@ export default function InstructorsManagement() {
                   className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="DL_number" className="text-right">
                   DL Number
                 </Label>
@@ -870,7 +870,7 @@ export default function InstructorsManagement() {
                   className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="car_fuel" className="text-right">
                   Car Fuel
                 </Label>
@@ -901,7 +901,7 @@ export default function InstructorsManagement() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="car_make" className="text-right">
                   Car Make
                 </Label>
@@ -920,7 +920,7 @@ export default function InstructorsManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="car_mode" className="text-right">
                   Car Model
                 </Label>
@@ -936,7 +936,7 @@ export default function InstructorsManagement() {
                   className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="experience" className="text-right">
                   Experience
                 </Label>
@@ -953,7 +953,7 @@ export default function InstructorsManagement() {
                   className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="car_number" className="text-right">
                   Car Number
                 </Label>
@@ -978,13 +978,13 @@ export default function InstructorsManagement() {
                       <Button
                         variant="outline"
                         role="combobox"
-                        className="justify-between w-full"
+                        className="w-full justify-between"
                       >
                         {areaSearchQuery || "Search areas..."}
-                        <ChevronsUpDown className="ml-2 w-4 h-4 opacity-50 shrink-0" />
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="p-0 w-full">
+                    <PopoverContent className="w-full p-0">
                       <div className="p-2">
                         <Input
                           placeholder="Search areas..."
@@ -997,11 +997,11 @@ export default function InstructorsManagement() {
 
                       {areasLoading ? (
                         <div className="flex justify-center p-4">
-                          <div className="w-6 h-6 rounded-full border-4 animate-spin border-primary border-t-transparent"></div>
+                          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                         </div>
                       ) : filteredAreas.length > 0 ? (
                         <div
-                          className="overflow-y-auto max-h-60"
+                          className="max-h-60 overflow-y-auto"
                           onWheel={(e) => e.stopPropagation()}
                         >
                           {filteredAreas.map((area) => (
@@ -1040,11 +1040,11 @@ export default function InstructorsManagement() {
                     </PopoverContent>
                   </Popover>
 
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {instructorData.areas.map((area) => (
                       <div
                         key={area}
-                        className="flex gap-1 items-center px-3 py-1 text-sm rounded-full bg-muted"
+                        className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm"
                       >
                         {area}
                         <button
@@ -1082,7 +1082,7 @@ export default function InstructorsManagement() {
                       {instructorData.unavailability.map((period, index) => (
                         <div
                           key={index}
-                          className="flex justify-between items-center p-2 text-sm rounded bg-muted"
+                          className="flex items-center justify-between rounded bg-muted p-2 text-sm"
                         >
                           <div>
                             {period.all_day && period.booked_date && (
@@ -1177,7 +1177,7 @@ export default function InstructorsManagement() {
           <DialogHeader>
             <DialogTitle>Add Unavailability Period</DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Type</Label>
               <Select
@@ -1572,7 +1572,7 @@ function WeeklyScheduleView({
   return (
     <div>
       {/* Week Navigation */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <Button variant="outline" onClick={() => handleWeekChange("prev")}>
           Previous Week
         </Button>
@@ -1590,14 +1590,14 @@ function WeeklyScheduleView({
         className="scrollbar-none h-[calc(100vh-50px)] max-h-96 overflow-x-auto overflow-y-auto p-4"
         style={{ scrollbarWidth: "none" }}
       >
-        <table className="w-full border border-gray-200 border-collapse">
+        <table className="w-full border-collapse border border-gray-200">
           <thead>
             <tr>
-              <th className="p-2 border border-gray-200">Time</th>
+              <th className="border border-gray-200 p-2">Time</th>
               {Array.from({ length: 7 }).map((_, index) => {
                 const day = addDays(currentWeekStart, index);
                 return (
-                  <th key={index} className="p-2 border border-gray-200">
+                  <th key={index} className="border border-gray-200 p-2">
                     {format(day, "EEE")}
                     <div className="text-xs">{format(day, "MMM d")}</div>
                   </th>
@@ -1611,7 +1611,7 @@ function WeeklyScheduleView({
               const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
               return (
                 <tr key={timeIndex}>
-                  <td className="p-2 text-center border border-gray-200">
+                  <td className="border border-gray-200 p-2 text-center">
                     {format(new Date().setHours(hour, minute), "h:mm a")}
                   </td>
                   {Array.from({ length: 7 }).map((_, dayIndex) => {
@@ -1645,10 +1645,11 @@ function WeeklyScheduleView({
                         key={dayIndex}
                         className={`border border-gray-200 p-2 text-center ${
                           schedule
-                            ? "text-white bg-primary"
+                            ? "bg-primary text-white"
                             : unavailable
-                              ? "text-red-800 bg-gray-400"
-                              : ""}`}
+                              ? "bg-gray-400 text-red-800"
+                              : ""
+                        }`}
                       >
                         {schedule
                           ? `${schedule.learner?.name || "Booked"}`
@@ -1666,13 +1667,13 @@ function WeeklyScheduleView({
       </div>
 
       {/* Legend */}
-      <div className="flex justify-end items-center mt-4 space-x-4">
+      <div className="mt-4 flex items-center justify-end space-x-4">
         <div className="flex items-center">
-          <div className="mr-2 w-4 h-4 bg-primary"></div>
+          <div className="mr-2 h-4 w-4 bg-primary"></div>
           <span className="text-sm">Booked</span>
         </div>
         <div className="flex items-center">
-          <div className="mr-2 w-4 h-4 bg-gray-400"></div>
+          <div className="mr-2 h-4 w-4 bg-gray-400"></div>
           <span className="text-sm">Unavailable</span>
         </div>
       </div>

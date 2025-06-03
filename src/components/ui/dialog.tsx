@@ -42,10 +42,10 @@ const DialogContent = React.forwardRef<
     >
       {children}
       <DialogPrimitive.Close
-        className="absolute top-6 right-6 p-2 rounded-full shadow opacity-80 bg-white/80 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        className="absolute right-6 top-6 rounded-full bg-white/80 p-2 opacity-80 shadow hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         aria-label="Close"
       >
-        <Cross2Icon className="w-5 h-5 text-gray-500" />
+        <Cross2Icon className="h-5 w-5 text-gray-500" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -75,7 +75,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse mt-4 sm:flex-row sm:justify-end sm:space-x-2",
+      "mt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
       className,
     )}
     {...props}
@@ -91,7 +91,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-xl font-bold tracking-tight leading-tight text-gray-900",
+      "text-xl font-bold leading-tight tracking-tight text-gray-900",
       className,
     )}
     {...props}
