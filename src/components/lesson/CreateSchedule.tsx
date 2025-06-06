@@ -1,5 +1,7 @@
 import { Loader } from "@googlemaps/js-api-loader";
 import { useQuery } from "@tanstack/react-query";
+import MapWithRoute from "@/components/mapWithRoute";
+
 import {
   addDays,
   endOfWeek,
@@ -800,7 +802,7 @@ export default function CreateScheduleWithInstructor({
       <div className="w-1/2">
         <Card className="mb-4">
           <CardContent>
-            <h3 className="mb-4 mt-4 font-medium">Select Instructor</h3>
+            <h3 className="mt-4 mb-4 font-medium">Select Instructor</h3>
             <Select
               value={selectedInstructorId || ""}
               onValueChange={(value) => setSelectedInstructorId(value)}
@@ -816,8 +818,8 @@ export default function CreateScheduleWithInstructor({
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
                 {isLoadingDistances ? (
-                  <div className="flex items-center justify-center p-4">
-                    <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                  <div className="flex justify-center items-center p-4">
+                    <div className="mr-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent"></div>
                     <span>Calculating distances...</span>
                   </div>
                 ) : (
@@ -827,9 +829,9 @@ export default function CreateScheduleWithInstructor({
                       value={instructor.id_instructor}
                       className="w-full"
                     >
-                      <div className="relative flex w-full items-center">
+                      <div className="flex relative items-center w-full">
                         {/* Name + badges container */}
-                        <div className="flex items-center gap-2 pr-16">
+                        <div className="flex gap-2 items-center pr-16">
                           <span className="truncate">{instructor.name}</span>
 
                           {instructor.areas.some(
@@ -838,7 +840,7 @@ export default function CreateScheduleWithInstructor({
                           ) && (
                             <Badge
                               variant="outline"
-                              className="border-blue-200 bg-blue-50 text-blue-700"
+                              className="text-blue-700 bg-blue-50 border-blue-200"
                             >
                               Matching Area
                             </Badge>
@@ -847,7 +849,7 @@ export default function CreateScheduleWithInstructor({
                           {instructor.isWithinRadius && (
                             <Badge
                               variant="outline"
-                              className="border-green-200 bg-green-50 text-green-700"
+                              className="text-green-700 bg-green-50 border-green-200"
                             >
                               Matching Radius
                             </Badge>
@@ -871,18 +873,21 @@ export default function CreateScheduleWithInstructor({
 
         <Card>
           <CardContent>
-            <h3 className="mb-4 mt-4 font-medium">Instructor's Schedule</h3>
-
-            <div className="mb-4 flex items-center justify-between">
+           
+            {/* Schedule Header and Navigation */}
+            <h3 className="mb-3 text-xl font-bold text-black">
+              Instructor's Schedule
+            </h3>
+            <div className="flex justify-between items-center mb-4">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handleDateRangeChange("prev")}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="w-4 h-4" />
               </Button>
-              <div className="font-medium">
-                {format(currentRangeStart, "MMM d")} -{" "}
+              <div className="text-lg font-medium">
+                {format(currentRangeStart, "MMM d, yyyy")} -{" "}
                 {format(addDays(currentRangeStart, 6), "MMM d, yyyy")}
               </div>
               <Button
@@ -890,14 +895,16 @@ export default function CreateScheduleWithInstructor({
                 size="icon"
                 onClick={() => handleDateRangeChange("next")}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <div className="w-full overflow-x-auto">
-              <table className="table-fixed border-collapse border border-gray-200">
+
+            {/* Schedule Table */}
+            <div className="overflow-x-auto w-full">
+              <table className="border border-gray-200 border-collapse table-fixed">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 z-10 min-w-24 border border-gray-200 bg-white p-2">
+                    <th className="sticky left-0 z-10 p-2 text-base font-semibold text-gray-700 bg-white border border-gray-200 min-w-24">
                       Time
                     </th>
                     {Array.from({ length: 7 }).map((_, index) => {
@@ -905,7 +912,7 @@ export default function CreateScheduleWithInstructor({
                       return (
                         <th
                           key={index}
-                          className="min-w-24 border border-gray-200 p-2"
+                          className="p-2 text-base font-semibold text-center text-gray-700 border border-gray-200 min-w-24"
                         >
                           <div>{format(day, "EEE")}</div>
                           <div className="text-sm text-gray-500">
@@ -922,13 +929,8 @@ export default function CreateScheduleWithInstructor({
                     const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
                     return (
                       <tr key={timeIndex} className="h-10">
-                        <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
-                          <span className="text-base">
-                            {format(
-                              new Date().setHours(hour, minute),
-                              "h:mm a",
-                            )}
-                          </span>
+                        <td className="sticky left-0 z-10 px-2 py-0 text-base text-center text-gray-700 bg-white border border-gray-200">
+                          {format(new Date().setHours(hour, minute), "h:mm a")}
                         </td>
                         {Array.from({ length: 7 }).map((_, dayIndex) => {
                           const day = addDays(currentRangeStart, dayIndex);
@@ -949,11 +951,13 @@ export default function CreateScheduleWithInstructor({
                               currentTime < scheduleEnd
                             );
                           });
+
                           const unavailable = isTimeSlotUnavailable(
                             day,
                             hour,
                             minute,
                           );
+
                           // Determine if this cell is the start of a schedule
                           const isScheduleStart =
                             schedule &&
@@ -965,23 +969,36 @@ export default function CreateScheduleWithInstructor({
                           return (
                             <td
                               key={dayIndex}
-                              className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
+                              className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center align-middle ${
                                 schedule
-                                  ? "bg-primary text-white"
+                                  ? "text-white bg-green-500"
                                   : unavailable
-                                    ? "bg-gray-400 text-red-800"
+                                    ? "text-red-800 bg-gray-300"
                                     : ""
                               } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
                               onClick={() =>
                                 schedule && handleOccupiedSlotClick(schedule)
                               }
                             >
-                              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base">
-                                {isScheduleStart
-                                  ? `${schedule.start_time} - ${schedule.end_time}`
-                                  : unavailable && !schedule
-                                    ? ""
-                                    : ""}
+                              <div className="flex flex-col justify-center items-center h-full">
+                                {isScheduleStart && schedule ? (
+                                  <>
+                                    {/* Learner name (bold), area (optional) */}
+                                    <span className="text-base font-bold leading-tight">
+                                      {learnerDetails?.name}
+                                    </span>
+                                    {learnerDetails?.area && (
+                                      <span className="text-xs text-white/90">
+                                        {learnerDetails?.area}
+                                      </span>
+                                    )}
+                                    {/* Time range */}
+                                    <span className="mt-1 text-xs font-medium">
+                                      {schedule.start_time.slice(0, 5)} -{" "}
+                                      {schedule.end_time.slice(0, 5)}
+                                    </span>
+                                  </>
+                                ) : null}
                               </div>
                             </td>
                           );
@@ -1003,18 +1020,18 @@ export default function CreateScheduleWithInstructor({
             <div className="mb-[18px] mt-10">
               <Button
                 variant="outline"
-                className="flex w-full justify-between"
+                className="flex justify-between w-full"
                 onClick={() => setShowInstructorDetails(!showInstructorDetails)}
               >
                 Instructor Details
                 {showInstructorDetails ? (
-                  <ChevronUp className="h-4 w-4" />
+                  <ChevronUp className="w-4 h-4" />
                 ) : (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="w-4 h-4" />
                 )}
               </Button>
               {showInstructorDetails && selectedInstructorId && (
-                <div className="mt-2 grid grid-cols-2 gap-1 rounded bg-gray-50 p-2">
+                <div className="grid grid-cols-2 gap-1 p-2 mt-2 bg-gray-50 rounded">
                   <div>
                     <p className="mb-1 text-sm">
                       <span className="font-bold">Address:</span>
@@ -1028,7 +1045,7 @@ export default function CreateScheduleWithInstructor({
                       </span>
                     </p>
                   </div>
-                  <div className="items-right ml-10 flex">
+                  <div className="flex ml-10 items-right">
                     <p className="mb-1 text-sm">
                       <span className="font-bold">Radius:</span>
                       <span className="ml-2">
@@ -1071,7 +1088,7 @@ export default function CreateScheduleWithInstructor({
                         (instructor) =>
                           instructor.id_instructor === selectedInstructorId,
                       )?.isWithinRadius && (
-                        <Badge className="ml-2 border-green-200 bg-green-50 text-green-700">
+                        <Badge className="ml-2 text-green-700 bg-green-50 border-green-200">
                           Within serviceable radius
                         </Badge>
                       )}
@@ -1079,7 +1096,7 @@ export default function CreateScheduleWithInstructor({
                   </div>
                   <div className="col-span-2 mt-3">
                     <p className="mb-2 font-bold">Regular Working Hours:</p>
-                    <div className="max-h-40 overflow-y-auto rounded border border-gray-200 p-2">
+                    <div className="overflow-y-auto p-2 max-h-40 rounded border border-gray-200">
                       {(() => {
                         const selectedInstructor = instructorsWithDistance.find(
                           (instructor) =>
@@ -1137,13 +1154,39 @@ export default function CreateScheduleWithInstructor({
                   </div>
                 </div>
               )}
+              {selectedInstructorId && learnerDetails && (
+                <MapWithRoute
+                  origin={{
+                    lat: learnerDetails.address_lat,
+                    lng: learnerDetails.address_lng,
+                  }}
+                  destination={{
+                    lat: instructorsWithDistance.find(
+                      (instructor) =>
+                        instructor.id_instructor === selectedInstructorId,
+                    )?.latitude,
+                    lng: instructorsWithDistance.find(
+                      (instructor) =>
+                        instructor.id_instructor === selectedInstructorId,
+                    )?.longitude,
+                  }}
+                  apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                  instructorName={
+                    instructorsWithDistance.find(
+                      (instructor) =>
+                        instructor.id_instructor === selectedInstructorId,
+                    )?.name
+                  }
+                />
+              )}
+              {/* <div>A is the location of Learner<br>B is the location of Instructor</br></div> */}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent>
-            <h3 className="mb-4 mt-4 font-medium">Create learner Schedule</h3>
+            <h3 className="mt-4 mb-4 font-medium">Create learner Schedule</h3>
             <CreateSchedule
               learnerId={learnerId}
               learnerArea={learnerArea}
@@ -1509,7 +1552,7 @@ function CreateSchedule({
                     key={instructor.id_instructor}
                     value={instructor.id_instructor}
                   >
-                    <div className="flex w-full items-center justify-between">
+                    <div className="flex justify-between items-center w-full">
                       <span>{instructor.name}</span>
                       {instructor.distance !== null && (
                         <span className="ml-2 text-xs text-gray-500">
@@ -1522,7 +1565,7 @@ function CreateSchedule({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -2401,7 +2444,7 @@ function CreateSchedule({
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="space-y-4 w-full">
       {lessons && lessons.length > 0 && !request.type === "new" && (
         <Card>
           <CardContent className="p-4">
@@ -2410,7 +2453,7 @@ function CreateSchedule({
               {lessons
                 .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
                 .map((lesson) => (
-                  <div key={lesson.id} className="rounded-lg border p-3">
+                  <div key={lesson.id} className="p-3 rounded-lg border">
                     <div className="font-medium">Lesson {lesson.number}</div>
                     {schedulesToChange?.find(
                       (s) => s.lesson_id === lesson.id,
@@ -2441,14 +2484,14 @@ function CreateSchedule({
         </Card>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2 items-center">
           <Button
             variant="outline"
             size="icon"
             onClick={() => handleDateChange("prev")}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="font-medium">
             {format(startDate, "MMM d")} -{" "}
@@ -2459,13 +2502,13 @@ function CreateSchedule({
             size="icon"
             onClick={() => handleDateChange("next")}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
       <ScrollArea className="relative">
-        <div className="mt-4 flex space-x-4">
+        <div className="flex mt-4 space-x-4">
           {Array.from({ length: 7 }).map((_, index) => {
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
@@ -2505,39 +2548,39 @@ function CreateSchedule({
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div className="flex gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-primary/30" />
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 rounded bg-primary/30" />
             <span>Preferred</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-primary" />
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 rounded bg-primary" />
             <span>Selected</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-yellow-200" />
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 bg-yellow-200 rounded" />
             <span>Reschedule Requests</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-blue-200" />
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 bg-blue-200 rounded" />
             <span>Scheduled Lessons</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-100" />
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 bg-gray-100 rounded" />
             <span>Unavailable</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-300" />
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 bg-gray-300 rounded" />
             <span>Past Time</span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex gap-4 items-center">
           <div className="text-sm text-gray-500"></div>
         </div>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="text-md flex text-gray-500">
+      <div className="flex justify-between items-center">
+        <div className="flex text-gray-500 text-md">
           Selected: {selectedSlots.length / 2} of {request.lesson_ids.length}{" "}
           hours
         </div>
@@ -2551,7 +2594,7 @@ function CreateSchedule({
         >
           {isSendingInvites ? (
             <>
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="mr-2 w-4 h-4 rounded-full border-2 border-white animate-spin border-t-transparent"></div>
               Sending Invites...
             </>
           ) : (
@@ -2578,8 +2621,8 @@ function CreateSchedule({
                   {scheduleDetails.learner_area}
                 </div>
               </div>
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-1 h-4 w-4 text-gray-500" />
+              <div className="flex gap-2 items-start">
+                <MapPin className="mt-1 w-4 h-4 text-gray-500" />
                 <div>
                   <div className="text-sm">
                     {scheduleDetails.pickup_address}
