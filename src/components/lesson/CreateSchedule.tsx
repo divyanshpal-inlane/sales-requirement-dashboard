@@ -47,6 +47,9 @@ import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
 import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
+import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
+import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
+import { toast } from "sonner";
 
 interface TimeSlotState {
   isAvailable: boolean;
@@ -166,6 +169,10 @@ interface CreateScheduleProps {
   learnerArea: string;
   request: SchedulingRequests[number];
   onScheduleCreate: (schedules: Schedule[], courseId: string) => void;
+  learnerDetails: {
+    address_lat: number;
+    address_lng: number;
+  };
 }
 
 export default function CreateScheduleWithInstructor({
@@ -189,7 +196,11 @@ export default function CreateScheduleWithInstructor({
   const [showLearnerDialog, setShowLearnerDialog] = useState(false);
 
   // Fetch learner details to get pickup location coordinates
-  const { data: learnerDetails } = useQuery({
+  const {
+    data: learnerDetails,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["learnerDetails", learnerId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -793,8 +804,23 @@ export default function CreateScheduleWithInstructor({
       return false;
     });
   };
+  // ADD THESE NEW STATE VARIABLES
+  const [instructorDialogOpen, setInstructorDialogOpen] = useState(false);
+  const [selectedSlotForDialog, setSelectedSlotForDialog] =
+    useState<Date | null>(null);
+  const [dynamicInstructorsForDialog, setDynamicInstructorsForDialog] =
+    useState<InstructorWithDistance[]>([]);
 
   const [showInstructorDetails, setShowInstructorDetails] = useState(false);
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    return <div>Error loading learner details</div>;
+  }
+  if (!learnerDetails) {
+    return <div>No learner details found</div>;
+  }
 
   return (
     <div className="flex space-x-4">
@@ -873,7 +899,6 @@ export default function CreateScheduleWithInstructor({
 
         <Card>
           <CardContent>
-           
             {/* Schedule Header and Navigation */}
             <h3 className="mb-3 text-xl font-bold text-black">
               Instructor's Schedule
@@ -1196,6 +1221,7 @@ export default function CreateScheduleWithInstructor({
               currentRangeStart={currentRangeStart} // Pass the range start instead of week start
               onDateChange={(newDate) => setCurrentRangeStart(newDate)} // Add this prop to sync dates
               instructorsWithDistance={instructorsWithDistance} // Pass the instructors with distance info
+              learnerDetails={learnerDetails}
             />
           </CardContent>
         </Card>
@@ -1266,7 +1292,44 @@ function CreateSchedule({
       return data;
     },
   });
+  const getInstructorDynamicLocation = async (
+    instructorId: string,
+    slotTime: Date,
+  ) => {
+    const oneHourBefore = new Date(slotTime.getTime() - 60 * 60 * 1000);
 
+    // Find if instructor has any booking in the hour before the selected slot
+    const previousBooking = otherSchedules?.find((schedule) => {
+      if (schedule.instructor_id !== instructorId) return false;
+
+      const scheduleEndTime = new Date(`${schedule.date}T${schedule.end_time}`);
+      const scheduleStartTime = new Date(
+        `${schedule.date}T${schedule.start_time}`,
+      );
+
+      // Check if the schedule ends within 1 hour before our slot
+      return scheduleEndTime > oneHourBefore && scheduleEndTime <= slotTime;
+    });
+
+    if (previousBooking && previousBooking.Learner) {
+      // Use previous learner's location if instructor was busy before
+      return {
+        lat: previousBooking.Learner.address_lat,
+        lng: previousBooking.Learner.address_lng,
+        source: "previous_booking",
+      };
+    }
+
+    // Use instructor's default location if free
+    const instructor = instructorsWithDistance.find(
+      (i) => i.id_instructor === instructorId,
+    );
+    return {
+      lat: instructor?.latitude,
+      lng: instructor?.longitude,
+      source: "default",
+    };
+  };
   // Fetch lessons for the selected course
   const { data: allLessons } = useQuery({
     queryKey: ["lessons", request.lesson_ids],
@@ -1483,7 +1546,9 @@ function CreateSchedule({
   };
 
   // Instructor selection dialog component
-  const InstructorSelectionDialog = ({
+  // REPLACE YOUR EXISTING InstructorSelectionDialog WITH THIS
+  // REPLACE YOUR EXISTING InstructorSelectionDialog WITH THIS ENHANCED VERSION
+  const EnhancedInstructorSelectionDialog = ({
     open,
     onClose,
     slot,
@@ -1497,85 +1562,474 @@ function CreateSchedule({
     const [instructorId, setInstructorId] = useState<string>(
       selectedInstructorId || slot?.state.availableInstructors[0] || "",
     );
+    const [dynamicInstructors, setDynamicInstructors] = useState<any[]>([]);
+    const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
-    const availableInstructorIds = slot?.state.availableInstructors || [];
+    // NEW: Filter and search states
+    const [searchTerm, setSearchTerm] = useState("");
+    const [locationFilter, setLocationFilter] = useState<
+      "all" | "office" | "previous"
+    >("all");
+    const [maxDistance, setMaxDistance] = useState<number>(50); // km
+    const [maxTime, setMaxTime] = useState<number>(120); // minutes
 
-    // Filter instructors to only those available for this slot and sort by distance
-    const availableInstructors =
-      instructorsWithDistance
-        ?.filter((instructor) => {
-          return (
-            availableInstructorIds.includes(instructor.id_instructor) &&
-            !otherSchedules.some(
-              (s) =>
-                s.instructor_id === instructor.id_instructor &&
-                s.date === format(date, "yyyy-MM-dd") &&
-                s.start_time === format(slot.timestamp, "HH:mm:00"),
-            )
+    // NEW: State to store travel times for sorting
+    const [instructorsWithTravelData, setInstructorsWithTravelData] = useState<
+      any[]
+    >([]);
+
+    // Fetch learner details for the map
+    const { data: learnerDetails } = useQuery({
+      queryKey: ["learnerDetails", learnerId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("Learner")
+          .select("*")
+          .eq("id", learnerId)
+          .single();
+        if (error) throw error;
+        return data;
+      },
+    });
+
+    // Calculate dynamic locations when dialog opens
+    useEffect(() => {
+      if (open && slot && date && instructorsWithDistance.length > 0) {
+        setIsLoadingLocations(true);
+        const calculateDynamicLocations = async () => {
+          const slotDateTime = new Date(date);
+          slotDateTime.setHours(
+            slot.timestamp.getHours(),
+            slot.timestamp.getMinutes(),
           );
-        })
-        .sort((a, b) => {
-          // Sort by distance (null values last)
-          if (a.distance === null && b.distance === null) return 0;
-          if (a.distance === null) return 1;
-          if (b.distance === null) return -1;
-          return a.distance - b.distance;
-        }) || [];
+
+          const instructorsWithDynamicLocations = await Promise.all(
+            instructorsWithDistance
+              .filter((instructor) =>
+                slot.state.availableInstructors.includes(
+                  instructor.id_instructor,
+                ),
+              )
+              .map(async (instructor) => {
+                const dynamicLocation = await getInstructorDynamicLocation(
+                  instructor.id_instructor,
+                  slotDateTime,
+                );
+                return {
+                  ...instructor,
+                  currentLocation: {
+                    lat: dynamicLocation.lat,
+                    lng: dynamicLocation.lng,
+                  },
+                  locationSource: dynamicLocation.source,
+                };
+              }),
+          );
+
+          setDynamicInstructors(instructorsWithDynamicLocations);
+          setIsLoadingLocations(false);
+        };
+
+        calculateDynamicLocations();
+      }
+    }, [open, slot, date, instructorsWithDistance]);
+
+    // NEW: Calculate travel data for each instructor
+    useEffect(() => {
+      if (dynamicInstructors.length > 0 && learnerDetails) {
+        const calculateTravelData = async () => {
+          const instructorsWithTravel = await Promise.all(
+            dynamicInstructors.map(async (instructor) => {
+              try {
+                // Use Google Maps API to get accurate travel time
+                const travelData = await getDrivingDistanceAndTime(
+                  learnerDetails.address_lat,
+                  learnerDetails.address_lng,
+                  instructor.currentLocation.lat,
+                  instructor.currentLocation.lng,
+                );
+
+                return {
+                  ...instructor,
+                  travelDistance:
+                    travelData?.distance || instructor.distance || 0,
+                  travelTime: travelData?.duration || 30, // fallback to 30 minutes
+                  travelDistanceText:
+                    travelData?.distanceText ||
+                    `${instructor.distance?.toFixed(1)} km`,
+                  travelTimeText: travelData?.durationText || "~30 mins",
+                };
+              } catch (error) {
+                console.error("Error calculating travel data:", error);
+                return {
+                  ...instructor,
+                  travelDistance: instructor.distance || 0,
+                  travelTime: 30,
+                  travelDistanceText: `${instructor.distance?.toFixed(1)} km`,
+                  travelTimeText: "~30 mins",
+                };
+              }
+            }),
+          );
+
+          // Sort by travel time (ascending - least time first)
+          const sortedInstructors = instructorsWithTravel.sort(
+            (a, b) => a.travelTime - b.travelTime,
+          );
+          setInstructorsWithTravelData(sortedInstructors);
+        };
+
+        calculateTravelData();
+      }
+    }, [dynamicInstructors, learnerDetails]);
+
+    // NEW: Enhanced Google Maps function to get both distance and time
+    const getDrivingDistanceAndTime = async (
+      originLat,
+      originLng,
+      destLat,
+      destLng,
+    ) => {
+      try {
+        const loader = new Loader({
+          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY!,
+          libraries: ["places"],
+        });
+
+        await loader.load();
+
+        const origin = new google.maps.LatLng(originLat, originLng);
+        const destination = new google.maps.LatLng(destLat, destLng);
+        const service = new google.maps.DistanceMatrixService();
+
+        return new Promise((resolve) => {
+          service.getDistanceMatrix(
+            {
+              origins: [origin],
+              destinations: [destination],
+              travelMode: google.maps.TravelMode.DRIVING,
+              drivingOptions: {
+                departureTime: new Date(),
+                trafficModel: google.maps.TrafficModel.BEST_GUESS,
+              },
+            },
+            (response, status) => {
+              if (
+                status === "OK" &&
+                response?.rows?.[0]?.elements?.[0]?.status === "OK"
+              ) {
+                const element = response.rows[0].elements[0];
+                resolve({
+                  distance: element.distance.value / 1000, // convert to km
+                  duration: Math.ceil(element.duration.value / 60), // convert to minutes
+                  distanceText: element.distance.text,
+                  durationText: element.duration.text,
+                });
+              } else {
+                resolve(null);
+              }
+            },
+          );
+        });
+      } catch (error) {
+        console.error("Error in getDrivingDistanceAndTime:", error);
+        return null;
+      }
+    };
+
+    // NEW: Apply filters and search
+    const filteredInstructors = useMemo(() => {
+      let filtered = instructorsWithTravelData;
+
+      // Apply search filter
+      if (searchTerm) {
+        filtered = filtered.filter(
+          (instructor) =>
+            instructor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            instructor.areas.some((area) =>
+              area.toLowerCase().includes(searchTerm.toLowerCase()),
+            ),
+        );
+      }
+
+      // Apply location source filter
+      if (locationFilter !== "all") {
+        filtered = filtered.filter((instructor) => {
+          if (locationFilter === "office")
+            return instructor.locationSource === "default";
+          if (locationFilter === "previous")
+            return instructor.locationSource === "previous_booking";
+          return true;
+        });
+      }
+
+      // Apply distance filter
+      filtered = filtered.filter(
+        (instructor) => instructor.travelDistance <= maxDistance,
+      );
+
+      // Apply time filter
+      filtered = filtered.filter(
+        (instructor) => instructor.travelTime <= maxTime,
+      );
+
+      return filtered;
+    }, [
+      instructorsWithTravelData,
+      searchTerm,
+      locationFilter,
+      maxDistance,
+      maxTime,
+    ]);
 
     const handleConfirm = () => {
       onConfirm(instructorId);
       onClose();
     };
 
+    if (!learnerDetails?.address_lat || !learnerDetails?.address_lng) {
+      return null;
+    }
+
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Select Instructor</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-4">
-            <p className="text-sm text-muted-foreground">
+            <DialogTitle>
+              Select Instructor for{" "}
               {date && slot
-                ? `${format(date, "MMM d, yyyy")} at ${format(
-                    slot.timestamp,
-                    "h:mm a",
-                  )}`
+                ? `${format(date, "MMM d, yyyy")} at ${format(slot.timestamp, "h:mm a")}`
                 : ""}
-            </p>
-            <Select value={instructorId} onValueChange={setInstructorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an instructor" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableInstructors.map((instructor) => (
-                  <SelectItem
-                    key={instructor.id_instructor}
-                    value={instructor.id_instructor}
-                  >
-                    <div className="flex justify-between items-center w-full">
-                      <span>{instructor.name}</span>
-                      {instructor.distance !== null && (
-                        <span className="ml-2 text-xs text-gray-500">
-                          {instructor.distance.toFixed(1)} km
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* NEW: Filters and Search Controls */}
+          <div className="pb-4 space-y-4 border-b">
+            {/* Search Bar */}
+            <div>
+              <input
+                type="text"
+                placeholder="Search instructors by name or area..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-2 w-full rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Filter Controls */}
+            <div className="grid grid-cols-4 gap-4">
+              {/* Location Source Filter */}
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">
+                  Location
+                </label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) =>
+                    setLocationFilter(
+                      e.target.value as "all" | "office" | "previous",
+                    )
+                  }
+                  className="px-3 py-2 w-full rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Locations</option>
+                  <option value="office">At Office</option>
+                  <option value="previous">From Previous Lesson</option>
+                </select>
+              </div>
+
+              {/* Distance Filter */}
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">
+                  Max Distance: {maxDistance} km
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={maxDistance}
+                  onChange={(e) => setMaxDistance(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Time Filter */}
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">
+                  Max Time: {maxTime} mins
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="180"
+                  step="10"
+                  value={maxTime}
+                  onChange={(e) => setMaxTime(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Results Count */}
+              <div className="flex items-end">
+                <Badge variant="outline" className="px-3 py-2">
+                  {filteredInstructors.length} instructor
+                  {filteredInstructors.length !== 1 ? "s" : ""} found
+                </Badge>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2 justify-end">
+
+          {/* Loading State */}
+          {isLoadingLocations ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="w-6 h-6 rounded-full border-2 animate-spin border-primary border-t-transparent"></div>
+              <span className="ml-2">Loading instructor locations...</span>
+            </div>
+          ) : (
+            /* Instructors List */
+            <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+              {filteredInstructors.length === 0 ? (
+                <div className="py-8 text-center text-gray-500">
+                  No instructors match your current filters. Try adjusting the
+                  search criteria.
+                </div>
+              ) : (
+                filteredInstructors.map((instructor, index) => (
+                  <Card
+                    key={instructor.id_instructor}
+                    className={`border-2 ${instructorId === instructor.id_instructor ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-[2fr_1fr] gap-6">
+                        {/* Map Section */}
+                        <div className="min-h-[300px]">
+                          <MapWithRoute
+                            origin={{
+                              lat: learnerDetails.address_lat,
+                              lng: learnerDetails.address_lng,
+                            }}
+                            destination={instructor.currentLocation}
+                            apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                            instructorName={instructor.name}
+                          />
+                        </div>
+
+                        {/* Instructor Info & Selection */}
+                        <div className="flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <h3 className="text-lg font-semibold">
+                                {instructor.name}
+                              </h3>
+                              {index === 0 && (
+                                <Badge className="text-green-800 bg-green-100 border-green-300">
+                                  🚀 Fastest Route
+                                </Badge>
+                              )}
+                            </div>
+
+                            <Badge
+                              variant={
+                                instructor.locationSource === "default"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                            >
+                              {instructor.locationSource === "default"
+                                ? "📍 At Office"
+                                : "🚗 From Previous Lesson"}
+                            </Badge>
+
+                            {/* Travel Info */}
+                            <div className="p-3 space-y-2 bg-gray-50 rounded-lg">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Distance:</span>
+                                <span className="font-semibold text-blue-600">
+                                  {instructor.travelDistanceText}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">
+                                  Travel Time:
+                                </span>
+                                <span className="font-semibold text-green-600">
+                                  {instructor.travelTimeText}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Areas */}
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <p>
+                                <strong>Areas Covered:</strong>
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {instructor.areas.map((area) => (
+                                  <Badge
+                                    key={area}
+                                    variant={
+                                      area.toLowerCase() ===
+                                      learnerArea.toLowerCase()
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {area}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {/* Selection Radio */}
+                            <label className="flex items-center p-2 space-x-2 rounded border cursor-pointer hover:bg-gray-50">
+                              <input
+                                type="radio"
+                                name="instructor"
+                                value={instructor.id_instructor}
+                                checked={
+                                  instructorId === instructor.id_instructor
+                                }
+                                onChange={() =>
+                                  setInstructorId(instructor.id_instructor)
+                                }
+                                className="w-4 h-4 text-blue-600"
+                              />
+                              <span className="text-sm font-medium">
+                                Select this instructor
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 justify-end pt-4 border-t">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleConfirm}>Confirm</Button>
+            <Button
+              onClick={handleConfirm}
+              disabled={!instructorId || filteredInstructors.length === 0}
+            >
+              Confirm Selection
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
     );
   };
 
+  // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
     if (!slot.state.isAvailable || slot.state.isSelected) {
       // If slot is selected, unselect it and its paired slot
@@ -1585,7 +2039,6 @@ function CreateSchedule({
           const minute = slot.timestamp.getMinutes();
           const dateStr = format(date, "yyyy-MM-dd");
 
-          // Get the slotGroupId that this slot is part of
           const groupId = prev.find(
             (s) =>
               format(s.date, "yyyy-MM-dd") === dateStr &&
@@ -1593,7 +2046,6 @@ function CreateSchedule({
               s.minutes === minute,
           )?.slotGroupId;
 
-          // Remove all slots that have the same slotGroupId
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
       }
@@ -1604,7 +2056,6 @@ function CreateSchedule({
     const currentUniqueSlots = countUniqueHourlySlots(selectedSlots);
     const hour = slot.timestamp.getHours();
     const minute = slot.timestamp.getMinutes();
-    const isStartSlot = minute === 0;
 
     if (currentUniqueSlots >= request.lesson_ids.length) {
       alert("Cannot select more slots than required.");
@@ -1617,7 +2068,7 @@ function CreateSchedule({
       return;
     }
 
-    // Open instructor selection dialog
+    // NEW: Open instructor selection dialog instead of direct selection
     setSelectedSlot(slot);
     setSelectedDate(date);
     setSelectionDialogOpen(true);
@@ -2256,19 +2707,14 @@ function CreateSchedule({
             );
             try {
               await sendMultiEventCalendarInvite(
-                learnerData.email,
+                `${learnerData.email},ankit.inlane@gmail.com`, // Add Ankit's email here
                 primaryInstructorEmail,
                 cancellationEvents,
                 instructorsData[0]?.name || "Your Instructor",
                 learnerData.name || "Student",
                 learnerData.phone,
-                {
-                  emailType: "cancellation",
-                  batchInfo: " - Cancelled Lessons",
-                  allEvents: [], // Empty since these will be fetched from DB
-                  learnerId: learnerData.id,
-                },
-                learnerData.id,
+                "cancellation", // ← Just the emailType string
+                learnerData.id, // ← Just the learnerId string
               );
             } catch (cancelError) {
               console.error("Error sending cancellation events:", cancelError);
@@ -2279,23 +2725,16 @@ function CreateSchedule({
           if (newEvents.length > 0) {
             console.log(`Sending ${newEvents.length} new events`);
             try {
+              // CORRECT - passing strings as expected
               const uidMap = await sendMultiEventCalendarInvite(
-                learnerData.email,
+                `${learnerData.email},ankit.inlane@gmail.com`, // Add Ankit's email here
                 primaryInstructorEmail,
                 newEvents,
                 instructorsData[0]?.name || "Your Instructor",
                 learnerData.name || "Student",
                 learnerData.phone,
-                {
-                  emailType: "new",
-                  batchInfo:
-                    request.type === "new"
-                      ? " - New Schedule"
-                      : " - Updated Schedule",
-                  allEvents: [], // Empty since these will be fetched from DB
-                  learnerId: learnerData.id,
-                },
-                learnerData.id,
+                "new", // ← Just the emailType string
+                learnerData.id, // ← Just the learnerId string
               );
 
               // Update database with calendar UIDs if we got them back
@@ -2643,7 +3082,7 @@ function CreateSchedule({
       </Dialog>
 
       {/* Render the instructor selection dialog */}
-      <InstructorSelectionDialog
+      <EnhancedInstructorSelectionDialog
         open={selectionDialogOpen}
         onClose={() => setSelectionDialogOpen(false)}
         slot={selectedSlot}
@@ -2665,4 +3104,9 @@ interface TimeSlotSelectionDialogProps {
   instructorsWithDistance: InstructorWithDistance[];
   otherSchedules: any[];
   onConfirm: (instructorId: string) => void;
+  learnerDetails: {
+    // Add proper type definition
+    address_lat: number;
+    address_lng: number;
+  };
 }
