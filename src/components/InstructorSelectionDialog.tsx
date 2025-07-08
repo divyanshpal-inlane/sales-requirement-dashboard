@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/utils/supabase";
 import { format } from "date-fns";
 import MapWithRoute from "./mapWithRoute";
@@ -28,10 +39,12 @@ export default function InstructorSelectionDialog({
   selectedSlotTime,
   learnerLocation,
   instructors,
-  onConfirm
+  onConfirm,
 }: InstructorSelectionDialogProps) {
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
-  const [instructorLocation, setInstructorLocation] = useState<Location | null>(null);
+  const [instructorLocation, setInstructorLocation] = useState<Location | null>(
+    null,
+  );
 
   // Fetch previous bookings for selected instructor
   useEffect(() => {
@@ -54,13 +67,15 @@ export default function InstructorSelectionDialog({
         if (previousLocation?.address_lat && previousLocation?.address_lng) {
           setInstructorLocation({
             lat: previousLocation.address_lat,
-            lng: previousLocation.address_lng
+            lng: previousLocation.address_lng,
           });
         } else {
-          const instructor = instructors.find(i => i.id_instructor === selectedInstructorId);
+          const instructor = instructors.find(
+            (i) => i.id_instructor === selectedInstructorId,
+          );
           setInstructorLocation({
             lat: instructor?.latitude || 0,
-            lng: instructor?.longitude || 0
+            lng: instructor?.longitude || 0,
           });
         }
       } catch (error) {
@@ -77,20 +92,23 @@ export default function InstructorSelectionDialog({
         <DialogHeader>
           <DialogTitle>Select Instructor with Route Info</DialogTitle>
         </DialogHeader>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-4">
-            <Select value={selectedInstructorId} onValueChange={setSelectedInstructorId}>
+            <Select
+              value={selectedInstructorId}
+              onValueChange={setSelectedInstructorId}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select an instructor" />
               </SelectTrigger>
               <SelectContent>
                 {instructors.map((instructor) => (
-                  <SelectItem 
-                    key={instructor.id_instructor} 
+                  <SelectItem
+                    key={instructor.id_instructor}
                     value={instructor.id_instructor}
                   >
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span>{instructor.name}</span>
                     </div>
                   </SelectItem>
@@ -103,15 +121,21 @@ export default function InstructorSelectionDialog({
                 origin={learnerLocation}
                 destination={instructorLocation}
                 apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                instructorName={instructors.find(i => i.id_instructor === selectedInstructorId)?.name}
+                instructorName={
+                  instructors.find(
+                    (i) => i.id_instructor === selectedInstructorId,
+                  )?.name
+                }
               />
             )}
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button 
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
             onClick={() => onConfirm(selectedInstructorId)}
             disabled={!selectedInstructorId}
           >

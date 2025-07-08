@@ -33,9 +33,7 @@ export function isTimeUnavailable(
       const unavailableStart = new Date(
         `${u.booked_date}T${u.booked_start_time}`,
       );
-      const unavailableEnd = new Date(
-        `${u.booked_date}T${u.booked_end_time}`,
-      );
+      const unavailableEnd = new Date(`${u.booked_date}T${u.booked_end_time}`);
       return (
         formattedDate === u.booked_date &&
         currentTime >= unavailableStart &&
@@ -64,9 +62,7 @@ export function isTimeUnavailable(
         const unavailableEnd = new Date(day);
         unavailableEnd.setHours(endHour, endMinute);
 
-        return (
-          currentTime >= unavailableStart && currentTime < unavailableEnd
-        );
+        return currentTime >= unavailableStart && currentTime < unavailableEnd;
       }
     }
 
@@ -104,12 +100,7 @@ export function isTimeUnavailable(
       }
     }
 
-    if (
-      u.start_date &&
-      u.end_date &&
-      !u.range_all_day &&
-      !u.range_start_time
-    ) {
+    if (u.start_date && u.end_date && !u.range_all_day && !u.range_start_time) {
       const rangeStart = new Date(u.start_date);
       const rangeEnd = new Date(u.end_date);
       rangeEnd.setHours(23, 59, 59);

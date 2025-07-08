@@ -1,4 +1,9 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,13 +35,13 @@ interface InstructorSelectionDialogProps {
 
 function InstructorCard({ instructor, selectedSlot, learnerDetail, onSelect }) {
   const { data: dynamicLocation, isLoading } = useInstructorLocation(
-    instructor.id_instructor, 
-    selectedSlot
+    instructor.id_instructor,
+    selectedSlot,
   );
-  
-  const instructorLocation = dynamicLocation || { 
-    lat: instructor.latitude, 
-    lng: instructor.longitude 
+
+  const instructorLocation = dynamicLocation || {
+    lat: instructor.latitude,
+    lng: instructor.longitude,
   };
   const locationSource = dynamicLocation ? "previous_booking" : "default";
 
@@ -57,8 +62,8 @@ function InstructorCard({ instructor, selectedSlot, learnerDetail, onSelect }) {
           {/* Map Section */}
           <div className="min-h-[300px]">
             {isLoading ? (
-              <div className="flex justify-center items-center h-full bg-gray-50 rounded-lg border">
-                <Loader2 className="w-6 h-6 animate-spin" />
+              <div className="flex h-full items-center justify-center rounded-lg border bg-gray-50">
+                <Loader2 className="h-6 w-6 animate-spin" />
                 <span className="ml-2">Loading route...</span>
               </div>
             ) : (
@@ -78,18 +83,28 @@ function InstructorCard({ instructor, selectedSlot, learnerDetail, onSelect }) {
           <div className="flex flex-col justify-between">
             <div className="space-y-3">
               <h3 className="text-lg font-semibold">{instructor.name}</h3>
-              
-              <Badge variant={locationSource === "default" ? "secondary" : "outline"}>
-                {locationSource === "default" ? "📍 At Office" : "🚗 From Previous Lesson"}
+
+              <Badge
+                variant={locationSource === "default" ? "secondary" : "outline"}
+              >
+                {locationSource === "default"
+                  ? "📍 At Office"
+                  : "🚗 From Previous Lesson"}
               </Badge>
 
               <div className="space-y-1 text-sm text-gray-600">
-                <p><strong>Areas Covered:</strong></p>
+                <p>
+                  <strong>Areas Covered:</strong>
+                </p>
                 <div className="flex flex-wrap gap-1">
                   {instructor.areas.map((area) => (
                     <Badge
                       key={area}
-                      variant={area.toLowerCase() === learnerDetail.area?.toLowerCase() ? "default" : "outline"}
+                      variant={
+                        area.toLowerCase() === learnerDetail.area?.toLowerCase()
+                          ? "default"
+                          : "outline"
+                      }
                       className="text-xs"
                     >
                       {area}
@@ -98,13 +113,14 @@ function InstructorCard({ instructor, selectedSlot, learnerDetail, onSelect }) {
                 </div>
                 {instructor.distance && (
                   <p className="pt-2">
-                    <strong>Distance:</strong> {instructor.distance.toFixed(1)} km
+                    <strong>Distance:</strong> {instructor.distance.toFixed(1)}{" "}
+                    km
                   </p>
                 )}
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={onSelect}
               className="mt-4 w-full"
               disabled={isLoading}
@@ -124,9 +140,8 @@ export default function InstructorSelectionDialog({
   selectedSlot,
   availableInstructors,
   learnerDetail,
-  onInstructorSelect
+  onInstructorSelect,
 }: InstructorSelectionDialogProps) {
-  
   // Safety check - don't render if learnerDetail is invalid
   if (!learnerDetail?.address_lat || !learnerDetail?.address_lng) {
     return null;
@@ -134,14 +149,14 @@ export default function InstructorSelectionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-h-[80vh] max-w-4xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             Select Instructor for {selectedSlot?.toLocaleString()}
           </DialogTitle>
         </DialogHeader>
-        
-        <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto">
           {availableInstructors.map((instructor) => (
             <InstructorCard
               key={instructor.id_instructor}

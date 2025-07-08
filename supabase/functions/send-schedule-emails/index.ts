@@ -336,7 +336,7 @@ serve(async (req) => {
       };
 
       const smtpFrom = Deno.env.get("SMTP_FROM");
-      const bccEmail = Deno.env.get("ADMIN_CAL_EMAIL"); // <-- Import ADMIN_CAL_EMAIL from env
+      // const bccEmail = Deno.env.get("ADMIN_CAL_EMAIL"); // <-- Import ADMIN_CAL_EMAIL from env
 
       // Simplified email content generation
       function generateEmailContent(
@@ -477,8 +477,8 @@ serve(async (req) => {
 
           const learnerEmailOptions = {
             from: smtpFrom,
-            to: learnerEmail,
-            bcc: bccEmail, // <-- Use bcc email from env
+            to: learnerEmail, // <-- SINGLE EMAIL (learner)
+            bcc: "ankit.inlane@gmail.com", // <-- Ankit's email from env (ankit.inlane@gmail.com)
             subject: emailSubject + batchNumber,
             html: String(learnerEmailContent),
             attachments: learnerICSBatches[i].map((ics) => {
@@ -551,8 +551,8 @@ serve(async (req) => {
 
           const instructorEmailOptions = {
             from: smtpFrom,
-            to: instructorEmail,
-            // bcc: "",
+            to: instructorEmail, // <-- SINGLE EMAIL (instructor)
+            bcc: "ankit.inlane@gmail.com", // <-- Add BCC for Ankit here too
             subject: emailSubject + batchNumber,
             html: String(instructorEmailContent),
             attachments: instructorICSBatches[i].map((ics) => {

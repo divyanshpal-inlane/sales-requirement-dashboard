@@ -1,11 +1,21 @@
 import { useState, useEffect } from "react";
-import { format, startOfWeek, endOfWeek, addMonths, subMonths, addDays, isSameDay } from "date-fns";
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  subMonths,
+  addDays,
+  isSameDay,
+} from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, User } from "lucide-react";
 import MonthView from "./MonthView";
 import WeekView from "./WeekView";
 import DayView from "./DayView";
 import useGoogleCalendar from "@/hooks/useGoogleCalendar";
+// import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 
 interface EnhancedCalendarViewProps {
   instructorData: any;
@@ -18,9 +28,12 @@ const EnhancedCalendarView = ({
   onScheduleClick,
   onEventClick,
 }: EnhancedCalendarViewProps) => {
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState(
+    startOfWeek(new Date()),
+  );
+  const navigate = useNavigate();
 
   const googleCalendar = useGoogleCalendar();
 
@@ -30,10 +43,18 @@ const EnhancedCalendarView = ({
       let startDate: Date;
       let endDate: Date;
 
-      if (viewMode === 'month') {
-        startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      } else if (viewMode === 'week') {
+      if (viewMode === "month") {
+        startDate = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          1,
+        );
+        endDate = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth() + 1,
+          0,
+        );
+      } else if (viewMode === "week") {
         startDate = currentWeekStart;
         endDate = endOfWeek(currentWeekStart);
       } else {
@@ -45,7 +66,12 @@ const EnhancedCalendarView = ({
 
       googleCalendar.loadEvents(startDate, endDate);
     }
-  }, [currentDate, viewMode, currentWeekStart, googleCalendar.isGoogleConnected]);
+  }, [
+    currentDate,
+    viewMode,
+    currentWeekStart,
+    googleCalendar.isGoogleConnected,
+  ]);
 
   const handleWeekChange = (direction: "prev" | "next") => {
     if (viewMode === "month") {
@@ -71,13 +97,14 @@ const EnhancedCalendarView = ({
   };
 
   const handleProfileClick = () => {
-    // Navigate to profile or handle profile click
+    // router.push("/instructor-profile");
+    navigate("/instructor-profile");
     console.log("Profile clicked");
   };
 
   const handleEmptyCellClick = (date: Date, hour: number) => {
     if (!googleCalendar.isGoogleConnected) {
-      alert('Please connect to Google Calendar first to create events.');
+      alert("Please connect to Google Calendar first to create events.");
       return;
     }
     // Handle empty cell click for event creation
@@ -85,9 +112,9 @@ const EnhancedCalendarView = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
-        <div className="flex justify-between items-center p-4">
+    <div className="flex h-full flex-col">
+      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between p-4">
           <div className="flex items-center space-x-2">
             <Button
               variant={viewMode === "day" ? "default" : "outline"}
@@ -131,32 +158,31 @@ const EnhancedCalendarView = ({
             >
               Today
             </Button>
-            
-            <button 
+
+            <button
               onClick={handleProfileClick}
-              className="flex justify-center items-center w-10 h-10 rounded-full shadow-lg transition duration-200 bg-accent-purple hover:bg-purple-600"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-purple shadow-lg transition duration-200 hover:bg-purple-600"
             >
               <User className="text-white" size={20} />
             </button>
           </div>
         </div>
 
-        <div className="flex justify-between items-center px-4 pb-4">
+        <div className="flex items-center justify-between px-4 pb-4">
           <div className="flex items-center space-x-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => handleWeekChange("prev")}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
 
             <h2 className="text-lg font-semibold">
               {viewMode === "month" && format(currentDate, "MMMM yyyy")}
               {viewMode === "week" &&
                 `${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart), "MMM d, yyyy")}`}
-              {viewMode === "day" &&
-                format(currentDate, "EEEE, MMMM d, yyyy")}
+              {viewMode === "day" && format(currentDate, "EEEE, MMMM d, yyyy")}
             </h2>
 
             <Button
@@ -164,21 +190,24 @@ const EnhancedCalendarView = ({
               size="sm"
               onClick={() => handleWeekChange("next")}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
           {/* Google Calendar Status Indicator */}
           {googleCalendar.isGoogleConnected && (
-            <div className="flex gap-2 items-center text-xs text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              Google Calendar Connected ({googleCalendar.googleEvents.length} events)
+            <div className="flex items-center gap-2 text-xs text-green-600">
+              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+              Google Calendar Connected ({
+                googleCalendar.googleEvents.length
+              }{" "}
+              events)
             </div>
           )}
         </div>
       </div>
 
-      <div className="overflow-hidden flex-1">
+      <div className="flex-1 overflow-hidden">
         {viewMode === "month" && (
           <MonthView
             currentDate={currentDate}

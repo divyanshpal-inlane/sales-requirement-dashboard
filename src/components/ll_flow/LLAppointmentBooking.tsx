@@ -41,14 +41,28 @@ export default function LLAppointmentBooking() {
           <p className="text-lg font-semibold">
             Before booking your appointment, please fill out the Google form:
           </p>
-          <a
+          {/* <a
             href="https://forms.gle/4Qe8ttAhBYHE7PDq8"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:underline"
           >
             Fill Google Form
-          </a>
+          </a> */}
+          {/* <p className="text-base">
+            After submitting the form, you can book your appointment for OTP
+            verification and confirming your details for your Learner&apos;s
+            License application.
+          </p> */}
+
+          <Button
+            className="w-full py-3 text-lg"
+            data-cal-namespace="30min"
+            data-cal-link="inlane.in/30min"
+            data-cal-config='{"layout":"month_view","theme":"light"}'
+          >
+            Fill google form
+          </Button>
           <p className="text-base">
             After submitting the form, you can book your appointment for OTP
             verification and confirming your details for your Learner&apos;s

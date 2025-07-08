@@ -1,4 +1,13 @@
-import { format, addDays, isSameDay, isSameMonth, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import {
+  format,
+  addDays,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+} from "date-fns";
 
 interface MonthViewProps {
   currentDate: Date;
@@ -19,7 +28,6 @@ const MonthView = ({
   onEventClick,
   onEmptyCellClick,
 }: MonthViewProps) => {
-  
   const generateCalendarDays = () => {
     const startOfMonthDate = startOfMonth(currentDate);
     const endOfMonthDate = endOfMonth(currentDate);
@@ -40,32 +48,34 @@ const MonthView = ({
   const CalendarDay = ({ date }: { date: Date }) => {
     const isToday = isSameDay(date, new Date());
     const isCurrentMonth = isSameMonth(date, currentDate);
-    
-    const daySchedules = instructorData?.instructorSchedule.filter(schedule => 
-      isSameDay(new Date(schedule.date), date)
-    ) || [];
 
-    const dayGoogleEvents = googleEvents.filter(event => {
+    const daySchedules =
+      instructorData?.instructorSchedule.filter((schedule) =>
+        isSameDay(new Date(schedule.date), date),
+      ) || [];
+
+    const dayGoogleEvents = googleEvents.filter((event) => {
       const eventDate = new Date(event.start?.dateTime || event.start?.date);
       return isSameDay(eventDate, date);
     });
 
     return (
-      <div className={`
-        border-r border-b border-gray-200 p-1 min-h-[80px] relative cursor-pointer
-        ${!isCurrentMonth ? 'text-gray-400 bg-gray-50' : 'bg-white'}
-        ${isToday ? 'bg-blue-50' : ''}
-        ${isGoogleConnected && daySchedules.length === 0 && dayGoogleEvents.length === 0 ? 'hover:bg-blue-25' : ''}
-      `}
-      onClick={() => {
-        if (isGoogleConnected && daySchedules.length === 0 && dayGoogleEvents.length === 0) {
-          onEmptyCellClick(date, 9); // Default to 9 AM
-        }
-      }}>
-        <div className={`
-          text-sm font-medium mb-1
-          ${isToday ? 'flex justify-center items-center w-6 h-6 text-xs text-white bg-blue-600 rounded-full' : ''}`}>
-          {format(date, 'd')}
+      <div
+        className={`relative min-h-[80px] cursor-pointer border-b border-r border-gray-200 p-1 ${!isCurrentMonth ? "bg-gray-50 text-gray-400" : "bg-white"} ${isToday ? "bg-blue-50" : ""} ${isGoogleConnected && daySchedules.length === 0 && dayGoogleEvents.length === 0 ? "hover:bg-blue-25" : ""} `}
+        onClick={() => {
+          if (
+            isGoogleConnected &&
+            daySchedules.length === 0 &&
+            dayGoogleEvents.length === 0
+          ) {
+            onEmptyCellClick(date, 9); // Default to 9 AM
+          }
+        }}
+      >
+        <div
+          className={`mb-1 text-sm font-medium ${isToday ? "flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white" : ""}`}
+        >
+          {format(date, "d")}
         </div>
 
         <div className="space-y-1">
@@ -78,12 +88,13 @@ const MonthView = ({
             return (
               <div
                 key={idx}
-                className={`
-                  text-xs p-1 rounded truncate cursor-pointer
-                  ${schedule.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    schedule.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                    'bg-purple-100 text-purple-800'}
-                `}
+                className={`cursor-pointer truncate rounded p-1 text-xs ${
+                  schedule.status === "completed"
+                    ? "bg-green-100 text-green-800"
+                    : schedule.status === "ongoing"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-purple-100 text-purple-800"
+                } `}
                 onClick={(e) => {
                   e.stopPropagation();
                   onScheduleClick(schedule, learnerInfo?.learner);
@@ -102,28 +113,34 @@ const MonthView = ({
           {dayGoogleEvents.slice(0, 2).map((event, idx) => (
             <div
               key={`google-${idx}`}
-              className="p-1 text-xs text-orange-800 truncate bg-orange-100 rounded cursor-pointer"
+              className="cursor-pointer truncate rounded bg-orange-100 p-1 text-xs text-orange-800"
               onClick={(e) => {
                 e.stopPropagation();
                 onEventClick(event);
               }}
             >
-              {format(new Date(event.start?.dateTime || event.start?.date), "HH:mm")} {event.summary}
+              {format(
+                new Date(event.start?.dateTime || event.start?.date),
+                "HH:mm",
+              )}{" "}
+              {event.summary}
             </div>
           ))}
-          
-          {(daySchedules.length + dayGoogleEvents.length) > 2 && (
+
+          {daySchedules.length + dayGoogleEvents.length > 2 && (
             <div className="text-xs font-medium text-gray-500">
-              +{(daySchedules.length + dayGoogleEvents.length) - 2} more
+              +{daySchedules.length + dayGoogleEvents.length - 2} more
             </div>
           )}
 
           {/* Add Event Indicator */}
-          {isGoogleConnected && daySchedules.length === 0 && dayGoogleEvents.length === 0 && (
-            <div className="text-xs italic text-gray-400">
-              Click to add event
-            </div>
-          )}
+          {isGoogleConnected &&
+            daySchedules.length === 0 &&
+            dayGoogleEvents.length === 0 && (
+              <div className="text-xs italic text-gray-400">
+                Click to add event
+              </div>
+            )}
         </div>
       </div>
     );
@@ -132,19 +149,19 @@ const MonthView = ({
   const calendarDays = generateCalendarDays();
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+    <div className="flex h-full flex-col">
+      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div
             key={day}
-            className="p-2 text-xs font-medium text-center text-gray-600"
+            className="p-2 text-center text-xs font-medium text-gray-600"
           >
             {day}
           </div>
         ))}
       </div>
 
-      <div className="grid flex-1 grid-cols-7 auto-rows-fr">
+      <div className="grid flex-1 auto-rows-fr grid-cols-7">
         {calendarDays.map((day, index) => (
           <CalendarDay key={index} date={day} />
         ))}

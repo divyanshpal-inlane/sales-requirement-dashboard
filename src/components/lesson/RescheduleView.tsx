@@ -95,7 +95,7 @@ function RescheduleView() {
           const now = new Date();
           const diffHours =
             (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-          return total + (diffHours < 12 ? 300 : 0);
+          return total + (diffHours < 6 ? 300 : 0);
         }
         return total;
       },

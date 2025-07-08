@@ -21,7 +21,9 @@ export default function OnboardingQuestions() {
 
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [completionDays, setCompletionDays] = useState<string>("");
-  const [twoHourClasses, setTwoHourClasses] = useState<string>("yes");
+  const [canTakeTwoHourClasses, setCanTakeTwoHourClasses] =
+    useState<boolean>(false); // Default checked
+  const [twoHourDays, setTwoHourDays] = useState<string>("");
 
   const handleSubmit = () => {
     updateLearner(
@@ -32,7 +34,8 @@ export default function OnboardingQuestions() {
         preferred_completion_days: completionDays
           ? parseInt(completionDays)
           : null,
-        prefers_two_hour_classes: twoHourClasses === "yes",
+        prefers_two_hour_classes: canTakeTwoHourClasses,
+        two_hour_days: canTakeTwoHourClasses ? twoHourDays : null,
       },
       {
         onSuccess: () => {
@@ -114,33 +117,38 @@ export default function OnboardingQuestions() {
             />
           </div>
 
-          {/* Question 3: Two-hour Classes */}
+          {/* Question 3: Two-hour Classes Checkbox */}
           <div className="space-y-2">
             <h3 className="text-lg font-medium">
-              Do you want to do classes for two hours any day?
+              Can you take classes for more than 2 hours any day?
             </h3>
             <div className="flex items-center space-x-2">
               <input
-                type="radio"
-                name="two-hour-classes"
-                id="two-hour-yes"
-                value="yes"
-                checked={twoHourClasses === "yes"}
-                onChange={(e) => setTwoHourClasses(e.target.value)}
+                type="checkbox"
+                id="can-take-two-hour"
+                checked={canTakeTwoHourClasses}
+                onChange={() =>
+                  setCanTakeTwoHourClasses(!canTakeTwoHourClasses)
+                }
               />
-              <Label htmlFor="two-hour-yes">Yes</Label>
+              <Label htmlFor="can-take-two-hour">Yes</Label>
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name="two-hour-classes"
-                id="two-hour-no"
-                value="no"
-                checked={twoHourClasses === "no"}
-                onChange={(e) => setTwoHourClasses(e.target.value)}
-              />
-              <Label htmlFor="two-hour-no">No</Label>
-            </div>
+
+            {canTakeTwoHourClasses && (
+              <div className="mt-2">
+                <Label htmlFor="two-hour-days" className="mt-16">
+                  Which day(s) can you take classes for more than 2 hours?
+                  (e.g., Monday, Wednesday)
+                </Label>
+                <Input
+                  id="two-hour-days"
+                  type="text"
+                  placeholder="Enter day(s)"
+                  value={twoHourDays}
+                  onChange={(e) => setTwoHourDays(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         </div>
 

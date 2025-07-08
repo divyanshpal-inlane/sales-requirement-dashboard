@@ -53,7 +53,7 @@ export default function RescheduleConfirmationSheet({
         const now = new Date();
         const diffHours =
           (scheduleDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-        const fee = diffHours < 12 ? 300 : 0;
+        const fee = diffHours < 6 ? 300 : 0;
 
         groups.push({
           date,
@@ -211,7 +211,7 @@ export default function RescheduleConfirmationSheet({
                 <span className="font-medium">₹{totalFee}</span>
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                Fee applies for rescheduling within 12 hours
+                Fee applies for rescheduling within 6 hours
               </p>
             </div>
           )}

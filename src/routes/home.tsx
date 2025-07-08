@@ -10,6 +10,7 @@ import {
   User,
 } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
 
 import LLFlow from "@/components/ll_flow";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
@@ -56,6 +57,7 @@ export default function Home() {
   const { data: enrolledCourse, isLoading: isEnrolledCourseLoading } =
     useLearnerEnrollment({ learnerId: learner?.id });
 
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
   const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useLearnerRescheduleRequests(learner?.id);
   const {
@@ -175,6 +177,33 @@ export default function Home() {
       <p className="text-center text-sm text-muted-foreground">
         We'll notify you once your schedule is ready.
       </p>
+
+      <h3
+        className="cursor-pointer text-center text-sm text-black"
+        onClick={() => setShowPolicyModal(true)}
+      >
+        Rescheduling Policy
+      </h3>
+      {showPolicyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-11/12 max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h2 className="mb-2 text-lg font-bold">Rescheduling Policy</h2>
+            <ul className="mb-4 list-disc pl-5 text-sm text-gray-800">
+              <li>
+                Rescheduling within 6 hours of lesson start time will incur a
+                charge of ₹300.
+              </li>
+              <li>Rescheduling more than 6 hours in advance is free.</li>
+            </ul>
+            <button
+              className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
+              onClick={() => setShowPolicyModal(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -280,6 +309,32 @@ export default function Home() {
             )}
           </Tooltip>
         </TooltipProvider>
+        <h3
+          className="cursor-pointer text-center text-sm text-black"
+          onClick={() => setShowPolicyModal(true)}
+        >
+          Rescheduling Policy
+        </h3>
+        {showPolicyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-11/12 max-w-md rounded-lg bg-white p-6 shadow-lg">
+              <h2 className="mb-2 text-lg font-bold">Rescheduling Policy</h2>
+              <ul className="mb-4 list-disc pl-5 text-sm text-gray-800">
+                <li>
+                  Rescheduling within 6 hours of lesson start time will incur a
+                  charge of ₹300.
+                </li>
+                <li>Rescheduling more than 6 hours in advance is free.</li>
+              </ul>
+              <button
+                className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
+                onClick={() => setShowPolicyModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* {scheduleRequests && scheduleRequests.length > 0 && (
           <p className="mt-2 text-sm text-muted-foreground">
