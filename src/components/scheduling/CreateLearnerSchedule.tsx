@@ -5,14 +5,22 @@ import { toast } from "sonner";
 
 // Your existing component imports...
 
-export default function CreateLearnerSchedule({ learnerId }: { learnerId: string }) {
+export default function CreateLearnerSchedule({
+  learnerId,
+}: {
+  learnerId: string;
+}) {
   // Your existing state...
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [availableInstructors, setAvailableInstructors] = useState([]);
 
   // CRITICAL: Fetch learner details with proper error handling
-  const { data: learnerDetail, isLoading: learnerLoading, error: learnerError } = useQuery({
+  const {
+    data: learnerDetail,
+    isLoading: learnerLoading,
+    error: learnerError,
+  } = useQuery({
     queryKey: ["learner-detail", learnerId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -20,14 +28,14 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
         .select("id, location, areas, name")
         .eq("id", learnerId)
         .single();
-      
+
       if (error) throw error;
-      
+
       // Validate location data
       if (!data.location?.lat || !data.location?.lng) {
         throw new Error("Learner location is incomplete");
       }
-      
+
       return data;
     },
     enabled: !!learnerId,
@@ -43,7 +51,7 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
         .select("id, name, default_location, service_areas, service_radius")
         .eq("active", true);
       return data || [];
-    }
+    },
   });
 
   // Handle slot click - the main integration point
@@ -60,16 +68,16 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
     }
 
     // Filter instructors by service area and availability
-    const filteredInstructors = instructors.filter(instructor => {
+    const filteredInstructors = instructors.filter((instructor) => {
       // Check if instructor serves learner's area
-      const servesArea = instructor.service_areas?.some(area => 
-        learnerDetail.areas?.includes(area)
+      const servesArea = instructor.service_areas?.some((area) =>
+        learnerDetail.areas?.includes(area),
       );
-      
+
       // Add distance check if needed
       // const distance = calculateDistance(learnerDetail.location, instructor.default_location);
       // const withinRadius = distance <= instructor.service_radius;
-      
+
       return servesArea; // && withinRadius;
     });
 
@@ -84,7 +92,10 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
   };
 
   // Handle instructor selection
-  const handleInstructorSelect = async (instructorId: string, slotTime: Date) => {
+  const handleInstructorSelect = async (
+    instructorId: string,
+    slotTime: Date,
+  ) => {
     try {
       // Your existing schedule creation logic here
       await createSchedule({
@@ -98,10 +109,9 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
       toast.success("Lesson scheduled successfully!");
       setIsDialogOpen(false);
       setSelectedSlot(null);
-      
+
       // Refresh your schedule data
       // queryClient.invalidateQueries(["schedules"]);
-      
     } catch (error) {
       console.error("Scheduling error:", error);
       toast.error("Failed to schedule lesson");
@@ -110,7 +120,9 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
 
   // Loading and error states
   if (learnerLoading) {
-    return <div className="flex justify-center p-8">Loading learner details...</div>;
+    return (
+      <div className="flex justify-center p-8">Loading learner details...</div>
+    );
   }
 
   if (learnerError || !learnerDetail) {
@@ -124,7 +136,7 @@ export default function CreateLearnerSchedule({ learnerId }: { learnerId: string
   return (
     <div className="space-y-6">
       {/* Your existing schedule grid component */}
-      <ScheduleGrid 
+      <ScheduleGrid
         onSlotClick={handleSlotClick}
         // ... other props
       />

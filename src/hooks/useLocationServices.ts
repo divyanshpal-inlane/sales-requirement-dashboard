@@ -10,7 +10,9 @@ export const useLocationServices = () => {
   const [loadingDistance, setLoadingDistance] = useState(false);
   const { toast } = useToast();
 
-  const fetchInstructorLocation = async (instructorId: string): Promise<LocationData | null> => {
+  const fetchInstructorLocation = async (
+    instructorId: string,
+  ): Promise<LocationData | null> => {
     try {
       const { data, error } = await supabase
         .from("Instructor")
@@ -25,7 +27,7 @@ export const useLocationServices = () => {
       return {
         latitude: parseFloat(data.address_lat),
         longitude: parseFloat(data.address_lng),
-        address: data.address || "Address not available"
+        address: data.address || "Address not available",
       };
     } catch (error) {
       console.error("Error fetching instructor location:", error);
@@ -33,7 +35,9 @@ export const useLocationServices = () => {
     }
   };
 
-  const fetchLearnerLocation = async (learnerId: string): Promise<LocationData | null> => {
+  const fetchLearnerLocation = async (
+    learnerId: string,
+  ): Promise<LocationData | null> => {
     try {
       const { data, error } = await supabase
         .from("Learner")
@@ -48,7 +52,7 @@ export const useLocationServices = () => {
       return {
         latitude: parseFloat(data.address_lat),
         longitude: parseFloat(data.address_lng),
-        address: data.pick_up_location || "Address not available"
+        address: data.pick_up_location || "Address not available",
       };
     } catch (error) {
       console.error("Error fetching learner location:", error);
@@ -59,13 +63,16 @@ export const useLocationServices = () => {
   const handleCalculateDistance = async (schedule: Schedule) => {
     setLoadingDistance(true);
     try {
-      const instructorLocation = await fetchInstructorLocation(schedule.instructor_id);
+      const instructorLocation = await fetchInstructorLocation(
+        schedule.instructor_id,
+      );
       const learnerLocation = await fetchLearnerLocation(schedule.learner_id);
 
       if (!instructorLocation || !learnerLocation) {
         toast({
           title: "Error",
-          description: "Unable to fetch location data for distance calculation.",
+          description:
+            "Unable to fetch location data for distance calculation.",
           variant: "destructive",
         });
         return;
@@ -75,7 +82,7 @@ export const useLocationServices = () => {
         instructorLocation.latitude,
         instructorLocation.longitude,
         learnerLocation.latitude,
-        learnerLocation.longitude
+        learnerLocation.longitude,
       );
 
       const travelTime = estimateTravelTime(distance);
@@ -84,7 +91,7 @@ export const useLocationServices = () => {
         distance,
         duration: travelTime.totalMinutes,
         instructorLocation,
-        learnerLocation
+        learnerLocation,
       });
 
       setIsLocationModalOpen(true);
@@ -105,6 +112,6 @@ export const useLocationServices = () => {
     isLocationModalOpen,
     setIsLocationModalOpen,
     loadingDistance,
-    handleCalculateDistance
+    handleCalculateDistance,
   };
 };

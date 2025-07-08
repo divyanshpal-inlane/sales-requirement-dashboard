@@ -8,11 +8,11 @@ interface LocationData {
 }
 
 async function fetchInstructorDynamicLocation(
-  instructorId: string, 
-  slotTime: Date
+  instructorId: string,
+  slotTime: Date,
 ): Promise<LocationData | null> {
   const oneHourBefore = subHours(slotTime, 1);
-  
+
   const { data: previousBooking } = await supabase
     .from("Schedule")
     .select("learner_location")
@@ -26,7 +26,10 @@ async function fetchInstructorDynamicLocation(
   return previousBooking?.learner_location || null;
 }
 
-export function useInstructorLocation(instructorId: string, slotTime: Date | null) {
+export function useInstructorLocation(
+  instructorId: string,
+  slotTime: Date | null,
+) {
   return useQuery({
     queryKey: ["instructor-location", instructorId, slotTime?.toISOString()],
     queryFn: () => fetchInstructorDynamicLocation(instructorId, slotTime!),

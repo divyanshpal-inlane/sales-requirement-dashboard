@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/calendar';
+const DISCOVERY_DOC =
+  "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
+const SCOPES = "https://www.googleapis.com/auth/calendar";
 
 declare global {
   interface Window {
@@ -16,11 +17,13 @@ let tokenClient: any;
 
 const loadGoogleAPIs = () => {
   return new Promise<void>((resolve, reject) => {
-    if (!document.querySelector('script[src="https://apis.google.com/js/api.js"]')) {
-      const gapiScript = document.createElement('script');
-      gapiScript.src = 'https://apis.google.com/js/api.js';
+    if (
+      !document.querySelector('script[src="https://apis.google.com/js/api.js"]')
+    ) {
+      const gapiScript = document.createElement("script");
+      gapiScript.src = "https://apis.google.com/js/api.js";
       gapiScript.onload = () => {
-        window.gapi.load('client', async () => {
+        window.gapi.load("client", async () => {
           try {
             await window.gapi.client.init({
               apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
@@ -36,14 +39,18 @@ const loadGoogleAPIs = () => {
       gapiScript.onerror = reject;
       document.head.appendChild(gapiScript);
     }
-    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
-      const gisScript = document.createElement('script');
-      gisScript.src = 'https://accounts.google.com/gsi/client';
+    if (
+      !document.querySelector(
+        'script[src="https://accounts.google.com/gsi/client"]',
+      )
+    ) {
+      const gisScript = document.createElement("script");
+      gisScript.src = "https://accounts.google.com/gsi/client";
       gisScript.onload = () => {
         tokenClient = window.google.accounts.oauth2.initTokenClient({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           scope: SCOPES,
-          callback: '', // Will be set later
+          callback: "", // Will be set later
         });
         gisInited = true;
         if (gapiInited) resolve();
@@ -64,9 +71,9 @@ const authenticateGoogle = (): Promise<boolean> => {
       resolve(true);
     };
     if (window.gapi.client.getToken() === null) {
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      tokenClient.requestAccessToken({ prompt: "consent" });
     } else {
-      tokenClient.requestAccessToken({ prompt: '' });
+      tokenClient.requestAccessToken({ prompt: "" });
     }
   });
 };
@@ -74,13 +81,13 @@ const authenticateGoogle = (): Promise<boolean> => {
 const fetchGoogleCalendarEvents = async (startDate: Date, endDate: Date) => {
   try {
     const response = await window.gapi.client.calendar.events.list({
-      calendarId: 'primary',
+      calendarId: "primary",
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
       showDeleted: false,
       singleEvents: true,
       maxResults: 250,
-      orderBy: 'startTime'
+      orderBy: "startTime",
     });
     return response.result.items || [];
   } catch {
@@ -95,15 +102,15 @@ const createGoogleCalendarEvent = async (eventData: any) => {
     location: eventData.location,
     start: {
       dateTime: eventData.startDateTime,
-      timeZone: 'Asia/Kolkata',
+      timeZone: "Asia/Kolkata",
     },
     end: {
       dateTime: eventData.endDateTime,
-      timeZone: 'Asia/Kolkata',
+      timeZone: "Asia/Kolkata",
     },
   };
   const response = await window.gapi.client.calendar.events.insert({
-    calendarId: 'primary',
+    calendarId: "primary",
     resource: event,
   });
   return response.result;
@@ -113,7 +120,7 @@ const signOutGoogle = () => {
   const token = window.gapi.client.getToken();
   if (token !== null) {
     window.google.accounts.oauth2.revoke(token.access_token);
-    window.gapi.client.setToken('');
+    window.gapi.client.setToken("");
   }
 };
 

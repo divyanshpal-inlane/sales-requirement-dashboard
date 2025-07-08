@@ -11,9 +11,7 @@ export const useScheduleData = () => {
   const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("schedules")
-        .select(`
+      const { data, error } = await supabase.from("schedules").select(`
           *,
           instructor:instructor_id (
             id_instructor,
@@ -35,11 +33,12 @@ export const useScheduleData = () => {
 
       if (error) throw error;
 
-      const formattedSchedules = data?.map(schedule => ({
-        ...schedule,
-        instructor_name: schedule.instructor?.name,
-        learner_name: schedule.learner?.name
-      })) || [];
+      const formattedSchedules =
+        data?.map((schedule) => ({
+          ...schedule,
+          instructor_name: schedule.instructor?.name,
+          learner_name: schedule.learner?.name,
+        })) || [];
 
       setSchedules(formattedSchedules);
     } catch (error) {
@@ -57,6 +56,6 @@ export const useScheduleData = () => {
   return {
     schedules,
     loading,
-    fetchSchedules
+    fetchSchedules,
   };
 };

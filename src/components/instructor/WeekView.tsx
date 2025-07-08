@@ -21,17 +21,16 @@ const WeekView = ({
   onEventClick,
   onEmptyCellClick,
 }: WeekViewProps) => {
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       <div
         className="scrollbar-none max-h-85 h-[calc(100vh-200px)] overflow-x-auto overflow-y-auto p-4"
         style={{ scrollbarWidth: "none" }}
       >
-        <table className="w-full border border-gray-200 border-collapse">
+        <table className="w-full border-collapse border border-gray-200">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 p-1 text-xs bg-white border border-gray-200 min-w-24">
+              <th className="sticky left-0 z-10 min-w-24 border border-gray-200 bg-white p-1 text-xs">
                 Time
               </th>
               {Array.from({ length: 7 }).map((_, index) => {
@@ -42,7 +41,7 @@ const WeekView = ({
                 return (
                   <th
                     key={index}
-                    className="p-1 text-xs border border-gray-200 min-w-24"
+                    className="min-w-24 border border-gray-200 p-1 text-xs"
                   >
                     <div
                       className={`${isToday ? "font-semibold text-blue-600" : ""}`}
@@ -50,7 +49,7 @@ const WeekView = ({
                       {dayNames[index]}
                     </div>
                     <div
-                      className={`text-xs ${isToday ? "flex justify-center items-center mx-auto w-6 h-6 text-white bg-blue-600 rounded-full" : ""}`}
+                      className={`text-xs ${isToday ? "mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white" : ""}`}
                     >
                       {format(day, "d")}
                     </div>
@@ -65,7 +64,7 @@ const WeekView = ({
               const minute = 0;
               return (
                 <tr key={timeIndex} className="h-12">
-                  <td className="sticky left-0 z-10 px-2 py-0 text-center bg-white border border-gray-200">
+                  <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
                     <span className="text-xs">
                       {format(new Date().setHours(hour, minute), "h:mm a")}
                     </span>
@@ -73,27 +72,31 @@ const WeekView = ({
                   {Array.from({ length: 7 }).map((_, dayIndex) => {
                     const day = addDays(currentWeekStart, dayIndex);
 
-                    const schedule = instructorData?.instructorSchedule.find((s) => {
-                      const scheduleDate = new Date(s.date);
-                      const scheduleStart = new Date(
-                        `${s.date}T${s.start_time}`,
-                      );
-                      const scheduleEnd = new Date(
-                        `${s.date}T${s.end_time}`,
-                      );
-                      const currentTime = new Date(day);
-                      currentTime.setHours(hour, minute);
+                    const schedule = instructorData?.instructorSchedule.find(
+                      (s) => {
+                        const scheduleDate = new Date(s.date);
+                        const scheduleStart = new Date(
+                          `${s.date}T${s.start_time}`,
+                        );
+                        const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                        const currentTime = new Date(day);
+                        currentTime.setHours(hour, minute);
 
-                      return (
-                        isSameDay(scheduleDate, day) &&
-                        currentTime >= scheduleStart &&
-                        currentTime < scheduleEnd
-                      );
-                    });
+                        return (
+                          isSameDay(scheduleDate, day) &&
+                          currentTime >= scheduleStart &&
+                          currentTime < scheduleEnd
+                        );
+                      },
+                    );
 
                     const googleEvent = googleEvents.find((event) => {
-                      const eventStart = new Date(event.start?.dateTime || event.start?.date);
-                      const eventEnd = new Date(event.end?.dateTime || event.end?.date);
+                      const eventStart = new Date(
+                        event.start?.dateTime || event.start?.date,
+                      );
+                      const eventEnd = new Date(
+                        event.end?.dateTime || event.end?.date,
+                      );
                       const currentTime = new Date(day);
                       currentTime.setHours(hour, minute);
 
@@ -114,10 +117,9 @@ const WeekView = ({
                     let learnerName = "";
                     let learnerInfo = null;
                     if (schedule) {
-                      const learnerLesson =
-                        instructorData?.learnerLesson.find(
-                          (ll) => ll.lesson.id === schedule.lesson_id,
-                        );
+                      const learnerLesson = instructorData?.learnerLesson.find(
+                        (ll) => ll.lesson.id === schedule.lesson_id,
+                      );
                       if (learnerLesson) {
                         learnerName = learnerLesson.learner.name;
                         learnerInfo = learnerLesson.learner;
@@ -129,10 +131,12 @@ const WeekView = ({
                       parseInt(schedule.start_time.split(":")[0]) === hour &&
                       parseInt(schedule.start_time.split(":")[1]) === minute;
 
-                    const isGoogleEventStart = 
+                    const isGoogleEventStart =
                       googleEvent &&
-                      new Date(googleEvent.start.dateTime).getHours() === hour &&
-                      new Date(googleEvent.start.dateTime).getMinutes() === minute;
+                      new Date(googleEvent.start.dateTime).getHours() ===
+                        hour &&
+                      new Date(googleEvent.start.dateTime).getMinutes() ===
+                        minute;
 
                     const isEmpty = !schedule && !googleEvent && !isUnavailable;
 
@@ -151,9 +155,9 @@ const WeekView = ({
                               : isUnavailable
                                 ? "bg-gray-400 text-red-800"
                                 : isEmpty && isGoogleConnected
-                                  ? "hover:bg-blue-50 cursor-pointer"
+                                  ? "cursor-pointer hover:bg-blue-50"
                                   : ""
-                        } ${(schedule || googleEvent) ? "cursor-pointer hover:opacity-80" : ""}`}
+                        } ${schedule || googleEvent ? "cursor-pointer hover:opacity-80" : ""}`}
                         onClick={() => {
                           if (schedule) {
                             onScheduleClick(schedule, learnerInfo);
@@ -164,12 +168,10 @@ const WeekView = ({
                           }
                         }}
                       >
-                        <div className="overflow-hidden text-xs whitespace-nowrap text-ellipsis">
+                        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
                           {isScheduleStart ? (
                             <>
-                              <div className="font-semibold">
-                                {learnerName}
-                              </div>
+                              <div className="font-semibold">{learnerName}</div>
                               <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
                             </>
                           ) : isGoogleEventStart ? (
@@ -178,12 +180,20 @@ const WeekView = ({
                                 {googleEvent.summary}
                               </div>
                               <div>
-                                {format(new Date(googleEvent.start.dateTime), 'HH:mm')} - {format(new Date(googleEvent.end.dateTime), 'HH:mm')}
+                                {format(
+                                  new Date(googleEvent.start.dateTime),
+                                  "HH:mm",
+                                )}{" "}
+                                -{" "}
+                                {format(
+                                  new Date(googleEvent.end.dateTime),
+                                  "HH:mm",
+                                )}
                               </div>
                             </>
                           ) : isEmpty && isGoogleConnected ? (
                             <div className="text-xs text-gray-400">
-                              <Plus className="mx-auto w-3 h-3" />
+                              <Plus className="mx-auto h-3 w-3" />
                             </div>
                           ) : isUnavailable && !schedule && !googleEvent ? (
                             ""

@@ -6,7 +6,7 @@ export default function HelpSupport() {
   };
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/919182031523", "_blank");
+    window.open("https://wa.me/916360739863", "_blank");
   };
 
   const handleEmail = () => {

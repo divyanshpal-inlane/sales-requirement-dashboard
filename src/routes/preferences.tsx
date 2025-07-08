@@ -1,4 +1,6 @@
 import { ArrowLeft } from "lucide-react";
+import React, { useState } from "react";
+
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import PreferenceSelector from "@/components/lesson/PreferenceSelector";
@@ -12,6 +14,7 @@ import {
 function Preferences() {
   const [searchParams] = useSearchParams();
   const type = searchParams.get("type") as "new" | "reschedule" | "lesson10";
+  const [isFlexible, setIsFlexible] = useState(false);
   const { data: learner, isLoading } = useLearner();
   const { data: enrolledCourse, isLoading: enrolledCourseLoading } =
     useLearnerEnrollmentCourse({
@@ -67,6 +70,18 @@ function Preferences() {
             When are you available for lessons?
           </h1>
           <p>Set your preferences for each time slot</p>
+          <div className="mt-4 flex items-center px-2">
+            <input
+              type="checkbox"
+              id="flexible"
+              checked={isFlexible}
+              onChange={() => setIsFlexible((prev) => !prev)}
+              className="mr-2"
+            />
+            <label htmlFor="flexible" className="text-sm text-gray-700">
+              I am flexible with my time slot selection
+            </label>
+          </div>
         </div>
       </div>
 

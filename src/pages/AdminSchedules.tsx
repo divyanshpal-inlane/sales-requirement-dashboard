@@ -23,21 +23,21 @@ import { Schedule } from "@/types/schedule";
 export default function AdminSchedules() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const { schedules, loading, fetchSchedules } = useScheduleData();
-  const { 
-    distanceInfo, 
-    isLocationModalOpen, 
+  const {
+    distanceInfo,
+    isLocationModalOpen,
     setIsLocationModalOpen,
     loadingDistance,
-    handleCalculateDistance 
+    handleCalculateDistance,
   } = useLocationServices();
   const {
     calendarEvents,
     isCalendarModalOpen,
     setIsCalendarModalOpen,
     loadingCalendar,
-    handleViewCalendar
+    handleViewCalendar,
   } = useCalendarServices();
 
   useEffect(() => {
@@ -46,23 +46,23 @@ export default function AdminSchedules() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="w-8 h-8 rounded-full border-4 animate-spin border-primary border-t-transparent"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 p-8">
       <div className="mx-auto max-w-7xl">
-        <div className="flex gap-4 items-center mb-8">
+        <div className="mb-8 flex items-center gap-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
-            className="flex gap-2 items-center"
+            className="flex items-center gap-2"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
           <h1 className="text-3xl font-bold">Admin Schedules</h1>
@@ -71,7 +71,7 @@ export default function AdminSchedules() {
         <div className="grid gap-6">
           {schedules.map((schedule) => (
             <Card key={schedule.id} className="p-6">
-              <div className="flex justify-between items-start">
+              <div className="flex items-start justify-between">
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">{schedule.subject}</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
@@ -82,17 +82,22 @@ export default function AdminSchedules() {
                       <strong>Learner:</strong> {schedule.learner_name}
                     </div>
                     <div>
-                      <strong>Status:</strong> 
-                      <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                        schedule.status === 'active' ? 'bg-green-100 text-green-800' :
-                        schedule.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <strong>Status:</strong>
+                      <span
+                        className={`ml-2 rounded-full px-2 py-1 text-xs ${
+                          schedule.status === "active"
+                            ? "bg-green-100 text-green-800"
+                            : schedule.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
                         {schedule.status}
                       </span>
                     </div>
                     <div>
-                      <strong>Start Date:</strong> {format(new Date(schedule.start_date), 'MMM dd, yyyy')}
+                      <strong>Start Date:</strong>{" "}
+                      {format(new Date(schedule.start_date), "MMM dd, yyyy")}
                     </div>
                   </div>
                 </div>
@@ -100,21 +105,25 @@ export default function AdminSchedules() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
-                      <MoreVertical className="w-4 h-4" />
+                      <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => handleCalculateDistance(schedule)}
                       disabled={loadingDistance}
                     >
-                      {loadingDistance ? "Calculating..." : "View Distance & Map"}
+                      {loadingDistance
+                        ? "Calculating..."
+                        : "View Distance & Map"}
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => handleViewCalendar(schedule)}
                       disabled={loadingCalendar}
                     >
-                      {loadingCalendar ? "Loading..." : "View Instructor Schedule"}
+                      {loadingCalendar
+                        ? "Loading..."
+                        : "View Instructor Schedule"}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -130,7 +139,7 @@ export default function AdminSchedules() {
         )}
       </div>
 
-      <LocationModal 
+      <LocationModal
         open={isLocationModalOpen}
         onOpenChange={setIsLocationModalOpen}
         distanceInfo={distanceInfo}

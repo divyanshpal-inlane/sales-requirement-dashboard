@@ -1,5 +1,11 @@
 import { ExternalLinkIcon, PhoneOutgoing } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface LessonListProps {
   instructorData: any;
@@ -7,7 +13,6 @@ interface LessonListProps {
 }
 
 const LessonList = ({ instructorData, LESSON_CONTENT }: LessonListProps) => {
-
   function formatTimeRange(start_time: string, end_time: string): string {
     const formatTime = (time: string): string => {
       const [hours, minutes] = time.split(":");
@@ -66,14 +71,12 @@ const LessonList = ({ instructorData, LESSON_CONTENT }: LessonListProps) => {
           return (
             <Card key={index}>
               <CardHeader>
-                <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
+                <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                   <div>Lesson {lesson?.number}</div>
                   <div className="text-xs">
-                    <div className="text-base text-right">
+                    <div className="text-right text-base">
                       {lessonSchedule
-                        ? new Date(
-                            lessonSchedule.date,
-                          ).toLocaleDateString()
+                        ? new Date(lessonSchedule.date).toLocaleDateString()
                         : "No date"}
                     </div>
                     {lessonSchedule
@@ -91,7 +94,7 @@ const LessonList = ({ instructorData, LESSON_CONTENT }: LessonListProps) => {
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1 text-xs">
-                  <div className="flex flex-row gap-1 items-center">
+                  <div className="flex flex-row items-center gap-1">
                     <p className="text-nowrap text-muted-foreground">
                       Pick-up Location :
                     </p>
@@ -99,24 +102,20 @@ const LessonList = ({ instructorData, LESSON_CONTENT }: LessonListProps) => {
                       href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex gap-1 items-center text-xs underline truncate hover:text-blue-800"
+                      className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
                     >
                       <span className="truncate">
                         {learner.pick_up_location}
                       </span>
-                      <ExternalLinkIcon className="w-4 h-4 shrink-0" />
+                      <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                     </a>
                   </div>
                   <div className="flex flex-row gap-1">
-                    <p className="text-muted-foreground">
-                      Learner name :
-                    </p>
+                    <p className="text-muted-foreground">Learner name :</p>
                     <p>{learner.name}</p>
                   </div>
-                  <div className="flex flex-row gap-1 items-center">
-                    <p className="text-muted-foreground">
-                      Contact Learner :{" "}
-                    </p>
+                  <div className="flex flex-row items-center gap-1">
+                    <p className="text-muted-foreground">Contact Learner : </p>
                     <p>{learner.phone}</p>
                     <div className="ml-1">
                       <a href={`tel:+91${learner.phone}`}>
@@ -126,7 +125,7 @@ const LessonList = ({ instructorData, LESSON_CONTENT }: LessonListProps) => {
                   </div>
 
                   {lessonSchedule && lessonSchedule.status && (
-                    <div className="flex gap-2 items-center mt-2">
+                    <div className="mt-2 flex items-center gap-2">
                       <p className="text-muted-foreground">Status:</p>
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs ${

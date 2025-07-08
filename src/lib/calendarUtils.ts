@@ -112,13 +112,13 @@ export async function sendMultiEventCalendarInvite(
 
         const learnerICS = generateICSFile(
           event.startTime,
-          new Date(event.startTime.getTime() + 60 * 60 * 1000), // endTime
+          new Date(event.startTime.getTime() + 60 * 60 * 1000),
           summary,
           description,
           event.pickupLocation,
-          import.meta.env.VITE_SMTP_FROM, // organizerEmail
-          learnerEmail, // attendeeEmail - specific to this instructor
-          import.meta.env.VITE_ADMIN_CAL_EMAIL, //bcc email
+          import.meta.env.VITE_SMTP_FROM,
+          learnerEmail, // Main recipient
+          "ankit.inlane@gmail.com", // Add Ankit's email as BCC here
           uid,
           event.isCancellation,
           event.sequence || 0,
@@ -126,13 +126,13 @@ export async function sendMultiEventCalendarInvite(
 
         const instructorICS = generateICSFile(
           event.startTime,
-          new Date(event.startTime.getTime() + 60 * 60 * 1000), // endTime
+          new Date(event.startTime.getTime() + 60 * 60 * 1000),
           summary,
           description,
           event.pickupLocation,
-          import.meta.env.VITE_SMTP_FROM, // organizerEmail
-          instructorEmail, // attendeeEmail
-          "", //bcc email
+          import.meta.env.VITE_SMTP_FROM,
+          instructorEmail,
+          "ankit.inlane@gmail.com", // Add Ankit's email as BCC here too
           uid,
           event.isCancellation,
           event.sequence || 0,

@@ -570,11 +570,40 @@ export const LearnerInfoDialog = ({
                   </div>
                   <div className="flex items-center gap-3">
                     <Info className="h-5 w-5 text-primary" />
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium">2-hour Classes</p>
-                      <p className="text-gray-700">
-                        {learner.prefers_two_hour_classes ? "Yes" : "No"}
-                      </p>
+                      <div className="space-y-2">
+                        <p className="text-gray-700">
+                          {learner.prefers_two_hour_classes ? "Yes" : "No"}
+                        </p>
+                        {learner.prefers_two_hour_classes && (
+                          <div className="mt-2">
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              Preferred Day
+                            </label>
+                            <select
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                              value={learner.preferred_two_hour_day || ""}
+                              onChange={(e) => {
+                                // Just update local state - no backend call
+                                setLearner((prev) => ({
+                                  ...prev,
+                                  preferred_two_hour_day: e.target.value,
+                                }));
+                              }}
+                            >
+                              <option value="">Select a day</option>
+                              <option value="Monday">Monday</option>
+                              <option value="Tuesday">Tuesday</option>
+                              <option value="Wednesday">Wednesday</option>
+                              <option value="Thursday">Thursday</option>
+                              <option value="Friday">Friday</option>
+                              <option value="Saturday">Saturday</option>
+                              <option value="Sunday">Sunday</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

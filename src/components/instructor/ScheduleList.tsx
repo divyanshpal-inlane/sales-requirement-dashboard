@@ -1,6 +1,12 @@
 import { CircleCheckBig, ExternalLinkIcon, PhoneOutgoing } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 
 interface ScheduleListProps {
@@ -16,7 +22,6 @@ const ScheduleList = ({
   onFinishLesson,
   navigate,
 }: ScheduleListProps) => {
-
   function formatTimeRange(start_time: string, end_time: string): string {
     const formatTime = (time: string): string => {
       const [hours, minutes] = time.split(":");
@@ -60,26 +65,22 @@ const ScheduleList = ({
         return (
           <Card key={index}>
             <CardHeader>
-              <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
+              <CardTitle className="flex flex-wrap items-center justify-between gap-4">
                 <div>Lesson {lesson?.number}</div>
                 <div className="text-xs">
-                  <div className="text-base text-right">
+                  <div className="text-right text-base">
                     {new Date(schedule.date).toLocaleDateString()}
                   </div>
-                  {formatTimeRange(
-                    schedule.start_time,
-                    schedule.end_time,
-                  )}
+                  {formatTimeRange(schedule.start_time, schedule.end_time)}
                 </div>
               </CardTitle>
               <CardDescription>
-                {lesson?.number &&
-                  LESSON_CONTENT[lesson.number]?.content.title}
+                {lesson?.number && LESSON_CONTENT[lesson.number]?.content.title}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex flex-col gap-1 text-xs">
-                <div className="flex flex-row gap-1 items-center">
+                <div className="flex flex-row items-center gap-1">
                   <p className="text-nowrap text-muted-foreground">
                     Pick-up Location :
                   </p>
@@ -87,22 +88,18 @@ const ScheduleList = ({
                     href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex gap-1 items-center text-xs underline truncate hover:text-blue-800"
+                    className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
                   >
-                    <span className="truncate">
-                      {learner.pick_up_location}
-                    </span>
-                    <ExternalLinkIcon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{learner.pick_up_location}</span>
+                    <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                   </a>
                 </div>
                 <div className="flex flex-row gap-1">
                   <p className="text-muted-foreground">Learner name :</p>
                   <p>{learner.name}</p>
                 </div>
-                <div className="flex flex-row gap-1 items-center">
-                  <p className="text-muted-foreground">
-                    Contact Learner :{" "}
-                  </p>
+                <div className="flex flex-row items-center gap-1">
+                  <p className="text-muted-foreground">Contact Learner : </p>
                   <p>{learner.phone}</p>
                   <div className="ml-1">
                     <a href={`tel:+91${learner.phone}`}>
@@ -120,20 +117,20 @@ const ScheduleList = ({
                   View Lesson Plan
                 </Button>
               </div>
-              <Card className="flex flex-row gap-4 justify-between items-center p-2 shadow-md rounded-smb">
-                <div className="flex flex-wrap gap-2 justify-between items-center p-1 w-full text-xs">
+              <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
+                <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-xs">
                   <p>Lesson status : {schedule.status?.toUpperCase()}</p>
-                  <div className="flex flex-row gap-24 items-center">
+                  <div className="flex flex-row items-center gap-24">
                     {isOngoing ? (
-                      <div className="flex relative justify-center items-center">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
+                      <div className="relative flex items-center justify-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                        <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
                       </div>
                     ) : null}
                     {schedule.status === "completed" ? (
-                      <div className="flex justify-center items-center">
+                      <div className="flex items-center justify-center">
                         <CircleCheckBig
-                          className="text-white bg-green-500 rounded-full"
+                          className="rounded-full bg-green-500 text-white"
                           size={18}
                         />
                       </div>
@@ -142,10 +139,7 @@ const ScheduleList = ({
                   {isOngoing && (
                     <Button
                       onClick={() =>
-                        onFinishLesson(
-                          schedule.id.toString(),
-                          learner.id,
-                        )
+                        onFinishLesson(schedule.id.toString(), learner.id)
                       }
                       size="sm"
                       variant="secondary"
