@@ -410,7 +410,7 @@ export function useLearnerEnrollmentCourse({
             .from("enrollment")
             .select("*, Courses(*)")
             .eq("learner_id", learnerId)
-            .eq("status", "active");
+            .eq("status", ["pending", "active"]);
 
           if (error) throw error;
           return data;
