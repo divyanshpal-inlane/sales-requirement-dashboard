@@ -211,7 +211,7 @@ export function useUploadLLMutation() {
       fileName?: string;
     }) => {
       const { data, error } = await supabase.storage
-        .from("ll")
+        .from("LL")
         .upload(`${phone}/${fileName}.${file.type.split("/")[1]}`, file, {
           cacheControl: "3600",
           upsert: true,
@@ -410,7 +410,7 @@ export function useLearnerEnrollmentCourse({
             .from("enrollment")
             .select("*, Courses(*)")
             .eq("learner_id", learnerId)
-            .eq("status", "active");
+            .in("status", ["pending", "active"]);
 
           if (error) throw error;
           return data;
