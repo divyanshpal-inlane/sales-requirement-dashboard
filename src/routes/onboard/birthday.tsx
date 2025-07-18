@@ -1,6 +1,6 @@
 import { format, getMonth, getYear, setMonth, setYear } from "date-fns";
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
