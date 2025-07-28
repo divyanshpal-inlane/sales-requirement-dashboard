@@ -190,10 +190,10 @@ export default function Home() {
             <h2 className="mb-2 text-lg font-bold">Rescheduling Policy</h2>
             <ul className="mb-4 list-disc pl-5 text-sm text-gray-800">
               <li>
-                Rescheduling within 6 hours of lesson start time will incur a
+                Rescheduling within 10 hours of lesson start time will incur a
                 charge of ₹300.
               </li>
-              <li>Rescheduling more than 6 hours in advance is free.</li>
+              <li>Rescheduling more than 10 hours in advance is free.</li>
             </ul>
             <button
               className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
@@ -321,10 +321,10 @@ export default function Home() {
               <h2 className="mb-2 text-lg font-bold">Rescheduling Policy</h2>
               <ul className="mb-4 list-disc pl-5 text-sm text-gray-800">
                 <li>
-                  Rescheduling within 6 hours of lesson start time will incur a
+                  Rescheduling within 10 hours of lesson start time will incur a
                   charge of ₹300.
                 </li>
-                <li>Rescheduling more than 6 hours in advance is free.</li>
+                <li>Rescheduling more than 10 hours in advance is free.</li>
               </ul>
               <button
                 className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
