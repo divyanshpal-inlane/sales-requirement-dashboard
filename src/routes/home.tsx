@@ -179,7 +179,7 @@ export default function Home() {
       </p>
 
       <h3
-        className="cursor-pointer text-center text-sm text-black"
+        className="cursor-pointer text-center text-sm text-white rounded bg-primary py-2 **px-4**"
         onClick={() => setShowPolicyModal(true)}
       >
         Rescheduling Policy

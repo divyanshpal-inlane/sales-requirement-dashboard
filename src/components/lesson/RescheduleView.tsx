@@ -130,12 +130,12 @@ function RescheduleView() {
             Reschedule upcoming lessons
           </h1>
           <p className="">Select new time slots for your lessons</p>
-          <p
-            className="mt-2 cursor-pointer text-sm underline"
+            <p
+            className="cursor-pointer text-center text-sm text-white rounded bg-primary py-2 **px-4**"
             onClick={() => setIsPolicyDialogOpen(true)} // Open policy dialog
-          >
+            >
             View Reschedule Policy
-          </p>
+            </p>
         </div>
       </div>
 
