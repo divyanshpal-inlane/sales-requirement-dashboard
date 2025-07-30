@@ -57,7 +57,7 @@ export default function AdminHome() {
       color: "text-orange-500",
     },
     {
-      title: "Customer Information",
+      title: "Paid Customer Information",
       description: "View and manage detailed customer information",
       icon: UserCircle,
       link: "/admin/customer-info",

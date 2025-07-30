@@ -28,15 +28,16 @@ export default function CustomerInfo() {
   );
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Fetch all learners
+  // Fetch all learners whose payment status is completed
+  // in descending order of signup time
   const { data: learners, isLoading } = useQuery({
     queryKey: ["learners"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("Learner")
-        .select("*")
-        .order("created_at", { ascending: false });
-
+          .from("Learner")
+          .select(`*, payment!inner(status)`)
+          .eq("payment.status", "completed")
+          .order("created_at", { ascending: false });
       if (error) throw error;
       return data as LearnerInfo[];
     },
@@ -89,7 +90,7 @@ export default function CustomerInfo() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold">Customer Information</h1>
+            <h1 className="text-2xl font-bold">Paid Customer Information</h1>
           </div>
         </div>
       </div>
