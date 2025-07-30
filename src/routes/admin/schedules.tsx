@@ -1253,7 +1253,9 @@ export default function AdminSchedules() {
             <TabsTrigger value="lesson10">
               10th Lesson Requests {tenthLessonRequests?.length || 0}
             </TabsTrigger>
-            <TabsTrigger value="active">Active Learners</TabsTrigger>
+            <TabsTrigger value="active">
+              Active Learners {activeLearners?.length || 0}
+            </TabsTrigger>
           </TabsList>
         </div>
 
