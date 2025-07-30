@@ -21,6 +21,8 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 export default function LearnerManagement() {
   const [learnerData, setLearnerData] = useState({
@@ -43,6 +45,7 @@ export default function LearnerManagement() {
     useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const courses = [
     {
@@ -285,6 +288,14 @@ export default function LearnerManagement() {
     >
       <div className="container mx-auto">
         <div className="mb-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/admin")}
+            className="h-10 w-10"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <h1 className="text-4xl font-bold tracking-tight">
             Learner Management
           </h1>
