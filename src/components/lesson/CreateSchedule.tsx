@@ -1179,7 +1179,7 @@ export default function CreateScheduleWithInstructor({
                   </div>
                 </div>
               )}
-              {selectedInstructorId && learnerDetails && (
+              {showInstructorDetails && selectedInstructorId && learnerDetails && (
                 <MapWithRoute
                   origin={{
                     lat: learnerDetails.address_lat,
