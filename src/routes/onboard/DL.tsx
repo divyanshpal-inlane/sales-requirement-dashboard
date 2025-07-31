@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
 
+
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
@@ -74,8 +75,9 @@ export default function DLQuestion() {
           },
           {
             onSuccess: () => {
-              // Navigate immediately
-              navigate("/home");
+              // Navigate to loading page
+              navigate("/loading", { state: { next: "/home" } });
+              // navigate("/home");
 
               // Send message in the background without awaiting
               if (learner) {

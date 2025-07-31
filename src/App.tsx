@@ -52,6 +52,7 @@ import Profile2 from "@/routes/profile2";
 import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
+import LoadingAndRedirect from "@/routes/LoadingandRedirect";
 
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
@@ -192,6 +193,7 @@ export default function App() {
                 </ProtectedLearnerRoute>
               }
             />
+            <Route path="/loading" element={<LoadingAndRedirect />} />
             <Route
               path="/admin"
               element={

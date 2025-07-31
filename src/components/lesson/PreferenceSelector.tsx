@@ -133,8 +133,9 @@ function PreferenceSelector({
           onSuccess: () => {
             const requestType = type === "lesson10" ? "lesson10" : type;
 
-            // Navigate to home immediately after preferences are updated
-            navigate("/home");
+            // Navigate with delay to home after preferences are updated
+            navigate("/loading", { state: { next: "/home" } });
+            // navigate("/home");
 
             // Continue with email and message operations in the background
             if (type === "lesson10" || type === "new") {
