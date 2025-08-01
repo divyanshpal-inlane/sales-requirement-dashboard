@@ -19,7 +19,6 @@ After the successfull installation of the packages: `pnpm run dev`
 ## Steps in Vscode
 
 #### (works with better with this template)
-
 1. Install Eslint and prettier extension for vs code.
 2. Make Sure Both are enabled
 3. Make sure all packages are Installed. (Mostly Eslint and prettier in node_modules)
