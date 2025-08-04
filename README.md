@@ -17,7 +17,6 @@ npx degit shubhamjain148/vite-template-react-ts-tailwind-eslint project-name
 After the successfull installation of the packages: `pnpm run dev`
 
 ## Steps in Vscode
-
 #### (works with better with this template)
 1. Install Eslint and prettier extension for vs code.
 2. Make Sure Both are enabled
