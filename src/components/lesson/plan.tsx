@@ -544,16 +544,25 @@ export function LessonPlan({
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className={`${menuItems[selectedCard].color} absolute flex h-full w-full flex-col overflow-y-auto rounded-t-3xl`}
             >
+            <div className="flex h-screen flex-col">
+
               <Button
                 size="icon"
                 variant="ghost"
-                className="ml-4 mt-4 text-foreground"
+                className="ml-4 mt-4 text-foreground h-6 w-6"
                 onClick={handleBackClick}
-              >
-                <X className="h-8 w-8" />
+                >
+                <X className="h-4 w-4" />
               </Button>
-              <div className="sticky top-0 flex flex-row items-center justify-between gap-2 px-6 pt-4">
-                <h2 className="text-5xl font-medium">
+              <div className="flex-grow overflow-y-hidden">
+                <div className="mt-1 flex h-full flex-col items-center justify-between gap-2">
+                  {menuItems[selectedCard].content}
+                </div>
+              </div>
+            </div>
+              {/* Adding title makes the user scroll for video
+               <div className="sticky top-0 flex flex-row items-center justify-between gap-2 px-6 pt-4">
+                <h2 className="text-xl font-medium">
                   {menuItems[selectedCard].title}
                 </h2>
                 <div className="flex items-center gap-4">
@@ -566,7 +575,7 @@ export function LessonPlan({
                   {menuItems[selectedCard].content}
                 </div>
                 <ScrollBar className="bg-accent-purple/60" />
-              </ScrollArea>
+              </ScrollArea> */}
             </motion.div>
           )}
         </AnimatePresence>

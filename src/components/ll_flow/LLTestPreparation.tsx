@@ -135,7 +135,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
   return (
     <>
-      <Card className="mx-auto mt-4 w-full max-w-xl overflow-hidden px-4">
+      <Card className="mx-auto mt-4 w-full max-w-xl px-4">
         <CardHeader className="rounded-t-xl bg-primary text-white">
           <CardTitle className="text-2xl font-bold">
             Learner&apos;s License Test
@@ -227,13 +227,16 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               <p className="break-words text-lg font-medium">
                 No problem! Take your time to prepare well for the test.
               </p>
-              <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Button onClick={() => handleTestCompletion(true)}>
+              <div className="flex w-full flex-col gap-4 border-t p-4">
+                <Button onClick={() => handleTestCompletion(true)}
+                  className="w-full whitespace-normal"
+                >
                   I&apos;ve passed my test now
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setTestStatus("initial")}
+                  className="w-full whitespace-normal"
                 >
                   I haven&apos;t passed now
                 </Button>

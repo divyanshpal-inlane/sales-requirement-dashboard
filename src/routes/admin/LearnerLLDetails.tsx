@@ -4,6 +4,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import {
   LearnerInfo,
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
@@ -14,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { differenceInDays } from "date-fns";
 
 // Animated Search Bar Component
 const AnimatedSearchBar = ({ value, onChange, placeholder }) => {
@@ -82,7 +91,9 @@ const LearnerLLDetails = () => {
   const [selectedLearnerForDialog, setSelectedLearnerForDialog] =
     useState<LearnerInfo | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-
+  const [llNumberDialogOpen, setLLNumberDialogOpen] = useState(false);
+  const [llNumber, setLLNumber] = useState("");
+  const [LearnerId, setLearnerId] = useState("");
   const {
     data: learners,
     isLoading,
@@ -113,7 +124,8 @@ const LearnerLLDetails = () => {
         .from("Learner")
         .select("*")
         .eq("has_a_DL", false)
-        .eq("LL_application_approved", true);
+        .eq("LL_application_approved", true)
+        .neq("LL_received", true);
       if (error) throw error;
       return data;
     },
@@ -131,13 +143,16 @@ const LearnerLLDetails = () => {
   });
 
   const updateLearnerMutation = useMutation({
-    mutationFn: async ({ learnerId, appointmentId, llApproved }) => {
+    mutationFn: async ({
+      learnerId,
+      updates,
+    }: {
+      learnerId: string;
+      updates: Partial<any>;
+    }) => {
       const { error } = await supabase
         .from("Learner")
-        .update({
-          LL_application_id: appointmentId,
-          LL_application_approved: llApproved,
-        })
+        .update(updates)
         .eq("id", learnerId);
       if (error) throw error;
     },
@@ -166,10 +181,12 @@ const LearnerLLDetails = () => {
 
     updateLearnerMutation.mutate({
       learnerId: selectedLearner.id,
-      appointmentId,
-      llApproved: false,
+      updates: {
+        LL_application_id: appointmentId,
+        LL_application_approved: false,
+      }
     });
-    console.log(`Submitting LL application...:${appointmentId}`);
+    // console.log(`Submitting LL application...:${appointmentId}`);
     supabase.functions.invoke("send-message", {
       body: {
         message_type: "LL_APPLICATION_SUBMITTED",
@@ -197,34 +214,35 @@ const LearnerLLDetails = () => {
   };
 
   const handleSaveLLApproval = () => {
-    if (!selectedLearner || !appointmentId) return;
-    updateLearnerMutation.mutate(
-      {
-        learnerId: selectedLearner.id,
-        appointmentId,
-        llApproved: true,
+  if (!selectedLearner || !appointmentId) return;
+  updateLearnerMutation.mutate(
+    {
+      learnerId: selectedLearner.id,
+      updates: {
+        LL_application_id: appointmentId,
+        LL_application_approved: true,
+        LL_approved_date: new Date().toISOString(),
       },
-      {
-        onSuccess: async () => {
-          await supabase.functions.invoke("send-message", {
-            body: {
-              message_type: "LL_APPLICATION_UPDATE",
-              learner_id: selectedLearner.id,
-            },
-          });
-
-          await sendAdminEmail(
-            "Schedule DL Test Date - LL Approved",
-            `Learner's License has been approved for ${selectedLearner.name} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
-          );
-
-          toast({
-            title: "Success",
-            description: "LL approval updated and notifications sent.",
-          });
-        },
+    },
+    {
+      onSuccess: async () => {
+        await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: "LL_APPLICATION_UPDATE",
+            learner_id: selectedLearner.id,
+          },
+        });
+        await sendAdminEmail(
+          "Schedule DL Test Date - LL Approved",
+          `Learner's License has been approved for ${selectedLearner.name} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
+        );
+        toast({
+          title: "Success",
+          description: "LL approval updated and notifications sent.",
+        });
       },
-    );
+    },
+  );
   };
 
   const handleLearnerSelect = (learner) => {
@@ -271,6 +289,48 @@ const LearnerLLDetails = () => {
       </div>
     );
 
+    const handleLLDetailsSave = () => {
+      // console.log("LearnerId is ", LearnerId)
+      handleSaveLLReceived(LearnerId, llNumber);
+    };
+  const handleLLDetailsClose = () => {
+    setLLNumberDialogOpen(false);
+  }
+  const handleSaveLLReceived = (learnerId: string, llId: string) => {
+    console.log(`Saving LL received for learner: ${learnerId}`);
+    updateLearnerMutation.mutate(
+      {
+        learnerId: learnerId,
+        updates: {
+          LL_received: true,
+          LL_received_date: new Date().toISOString(),
+          LL_id: llId,
+        },
+      },
+      {
+        onSuccess: async () => {
+          await supabase.functions.invoke("send-message", {
+            body: {
+              message_type: "LL_APPLICATION_UPDATE",
+              learner_id: learnerId,
+            },
+          });
+          // Todo: send different email for LL received
+          // await sendAdminEmail(
+          //   "Schedule DL Test Date - LL Approved",
+          //   `Learner's License has been approved for ${learnerId} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
+          // );
+
+          toast({
+            title: "Success",
+            description: "LL approval updated and notifications sent.",
+          });
+          // TODO: reset
+          // setLearnerId("");
+        },
+      },
+    );
+  };
   return (
     <div
       className="min-h-screen bg-gray-50"
@@ -404,7 +464,7 @@ const LearnerLLDetails = () => {
         <Card className="w-1/3 border-0 shadow-lg">
           <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-violet-50">
             <CardTitle className="text-lg font-semibold text-gray-800">
-              LL Approval
+              LL Documents Approved status
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
@@ -466,13 +526,13 @@ const LearnerLLDetails = () => {
         </Card>
       </div>
 
-      {/* Past LL Applications Section */}
+      {/* LL Test result pending applications */}
       <div className="px-6 pb-6">
         <Card className="border-0 shadow-lg">
           <CardHeader className="border-b bg-gradient-to-r from-orange-50 to-amber-50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl font-semibold text-gray-800">
-                Past LL Applications
+                LL Test Result Pending Applications
               </CardTitle>
               <div className="w-80">
                 <AnimatedSearchBar
@@ -518,6 +578,18 @@ const LearnerLLDetails = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
                         LL Application ID
                       </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Date of Document Approval    
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        LL test Pass/Fail
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Days since approval date
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        LL Issued ?
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -541,7 +613,57 @@ const LearnerLLDetails = () => {
                             {learner.LL_application_id || "N/A"}
                           </div>
                         </td>
-                      </tr>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="text-gray-700">
+                            {  learner.LL_approved_date
+                              ? learner.LL_approved_date
+                              : "N/A"
+                            }
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                            {  learner.LL_result === true
+                              ? "PASS"
+                              : learner.LL_result === false
+                              ? "FAIL"
+                              : "N/A"
+                            }
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                            <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                            {learner.LL_approved_date
+                              ? differenceInDays(
+                                  new Date(),
+                                  new Date(learner.LL_approved_date)
+                              )
+                                : "N/A"
+                              }
+                            </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <button
+                            onClick={() => {
+
+                                try {
+                                  // console.log("Set Learner ID state ", learner.id);
+                                  setLearnerId(learner.id);
+                                  setLLNumberDialogOpen(true);
+                                } catch (error) {
+                                console.error(
+                                  "Error saving LL received:",
+                                  error);
+                                }
+                              }
+                            }
+                            className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            // disabled={learner.LL_application_approved}
+                          >
+                            Yes (Click here)
+                          </button>
+                        </td>
+                    </tr>
                     ))}
                   </tbody>
                 </table>
@@ -559,6 +681,38 @@ const LearnerLLDetails = () => {
           onClose={() => setDialogOpen(false)}
         />
       )}
+      {/* LL Number Dialog */}
+      <Dialog
+        open={llNumberDialogOpen}
+        onOpenChange={setLLNumberDialogOpen}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Enter LL Details</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="app-number" className="text-right">
+              App Number
+            </Label>
+            <Input
+              id="app-number"
+              value={llNumber}
+              onChange={(e) => setLLNumber(e.target.value)}
+              maxLength={32}
+              className="col-span-3"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleLLDetailsClose} variant="secondary">
+            Close
+          </Button>
+          <Button onClick={handleLLDetailsSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+        
+      </Dialog>
     </div>
   );
 };

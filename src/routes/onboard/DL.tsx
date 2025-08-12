@@ -106,7 +106,10 @@ export default function DLQuestion() {
           {
             onSuccess: () => {
               // Navigate and open form immediately
-              window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
+              // Form should not be displayed immediately
+              // User should be redirected to home, then page
+              // for filling form and booking appointment should be shown
+              // window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
               navigate("/home");
 
               // Send messages in the background without awaiting
