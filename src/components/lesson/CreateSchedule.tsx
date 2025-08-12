@@ -1296,9 +1296,13 @@ function CreateSchedule({
     instructorId: string,
     slotTime: Date,
   ) => {
-    const oneHourBefore = new Date(slotTime.getTime() - 60 * 60 * 1000);
+    const numHoursWindowForPrevLoc = 12;
+    const nHourBefore = new Date(
+      slotTime.getTime() - 60 * 60 * 1000 * numHoursWindowForPrevLoc,
+    );
 
-    // Find if instructor has any booking in the hour before the selected slot
+    // Find if instructor has any booking wothin the numHoursWindowForPrevLoc 
+    // hours before the selected slot
     const previousBooking = otherSchedules?.find((schedule) => {
       if (schedule.instructor_id !== instructorId) return false;
 
@@ -1308,7 +1312,7 @@ function CreateSchedule({
       );
 
       // Check if the schedule ends within 1 hour before our slot
-      return scheduleEndTime > oneHourBefore && scheduleEndTime <= slotTime;
+      return scheduleEndTime > nHourBefore && scheduleEndTime <= slotTime;
     });
 
     if (previousBooking && previousBooking.Learner) {
@@ -1569,7 +1573,7 @@ function CreateSchedule({
     const [searchTerm, setSearchTerm] = useState("");
     const [locationFilter, setLocationFilter] = useState<
       "all" | "office" | "previous"
-    >("all");
+    >("previous");
     const [maxDistance, setMaxDistance] = useState<number>(50); // km
     const [maxTime, setMaxTime] = useState<number>(120); // minutes
 
@@ -1824,7 +1828,11 @@ function CreateSchedule({
                   Location
                 </label>
                 <select
-                  value={locationFilter}
+                  value={locationFilter
+                    // locationSource === "previous_booking"
+                    //   ? "previous"
+                    //   : "office"
+                  }
                   onChange={(e) =>
                     setLocationFilter(
                       e.target.value as "all" | "office" | "previous",
@@ -1836,6 +1844,9 @@ function CreateSchedule({
                   <option value="office">At Office</option>
                   <option value="previous">From Previous Lesson</option>
                 </select>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  (Note: Previous location is set when last booking was within 12 hours)
+                </label>
               </div>
 
               {/* Distance Filter */}

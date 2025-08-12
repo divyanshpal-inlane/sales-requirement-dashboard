@@ -523,28 +523,6 @@ function Instructor() {
         }
       }
 
-      // Save to instructor_events table
-      const { data: dbEvent, error: dbError } = await supabase
-        .from("instructor_events")
-        .insert([
-          {
-            instructor_phone: phone,
-            google_event_id: googleEventId,
-            title: newEventData.title,
-            description: newEventData.description,
-            location: newEventData.location,
-            start_datetime: startDateTime.toISOString(),
-            end_datetime: endDateTime.toISOString(),
-            created_at: new Date().toISOString(),
-          },
-        ]);
-
-      if (dbError) {
-        console.error("Database error:", dbError);
-        alert("Failed to save event to database");
-        throw dbError;
-      }
-
       // Update unavailability
       const { data: instructorRow, error: fetchError } = await supabase
         .from("Instructor")
@@ -582,11 +560,11 @@ function Instructor() {
         title: "",
         description: "",
         location: "",
-        date: format(startDate, "yyyy-MM-dd"),
-        startDate: format(startDate, "yyyy-MM-dd"), // Ensure string value
-        endDate: format(endDate, "yyyy-MM-dd"), // Ensure string value
-        startTime: format(startDate, "HH:mm"),
-        endTime: format(endDate, "HH:mm"),
+        date: format(startDateTime, "yyyy-MM-dd"),
+        startDate: format(startDateTime, "yyyy-MM-dd"), // Ensure string value
+        endDate: format(endDateTime, "yyyy-MM-dd"), // Ensure string value
+        startTime: format(startDateTime, "HH:mm"),
+        endTime: format(endDateTime, "HH:mm"),
         allDay: false,
       });
 
@@ -1248,7 +1226,7 @@ function Instructor() {
                 }`}
                 onClick={() => {
                   if (isEmpty) {
-                    handleEmptyCellClick(day, hour);
+                    handleEmptyCellClick(currentDate, hour);
                   }
                 }}
               >
@@ -1383,30 +1361,6 @@ function Instructor() {
                 >
                   <Plus className="h-3 w-3" />
                   Create Event
-                </Button>
-              )}
-
-              {/* Google Calendar Integration Button */}
-              {isGoogleConnected ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGoogleDisconnect}
-                  className="flex items-center gap-1 text-xs"
-                >
-                  <Unlink className="h-3 w-3" />
-                  Disconnect Google
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGoogleConnect}
-                  disabled={isConnecting || !googleAPIReady}
-                  className="flex items-center gap-1 text-xs"
-                >
-                  <Link className="h-3 w-3" />
-                  {isConnecting ? "Connecting..." : "Connect Google Calendar"}
                 </Button>
               )}
 

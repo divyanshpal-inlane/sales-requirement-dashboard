@@ -41,13 +41,21 @@ export default function AdminHome() {
       link: "/admin/learner-ll-details",
       color: "text-green-500",
     },
+    // V2 feature: set date for DL test
+    // {
+    //   title: "Driving Test Dates",
+    //   description:
+    //     "Schedule and manage driving license test dates for learners",
+    //   icon: CalendarIcon,
+    //   link: "/admin/dl-test-dates",
+    //   color: "text-purple-500",
+    // },
     {
-      title: "Driving Test Dates",
-      description:
-        "Schedule and manage driving license test dates for learners",
-      icon: CalendarIcon,
-      link: "/admin/dl-test-dates",
-      color: "text-purple-500",
+      title: "Post-LL Applications",
+      description: "Process and update driver's license applications",
+      icon: ClipboardList,
+      link: "/admin/learner-details",
+      color: "text-green-500",
     },
     {
       title: "Instructor Management",
