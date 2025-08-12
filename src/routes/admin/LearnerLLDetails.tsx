@@ -304,6 +304,7 @@ const LearnerLLDetails = () => {
         updates: {
           LL_received: true,
           LL_received_date: new Date().toISOString(),
+          LL_result: true,
           LL_id: llId,
         },
       },
