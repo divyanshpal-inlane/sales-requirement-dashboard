@@ -206,19 +206,47 @@ export default function Home() {
       )}
     </div>
   );
-
-  const renderUpcomingLesson = () => (
-    <div className="flex flex-col gap-2 p-4 text-center text-xl">
+  const renderUpcomingLessonReschedulePending = () => {
+    return (
+      <div className="flex flex-col gap-2 p-4 text-center text-xl">
+        <p>
+          Here is your upcoming lesson!
+          <br />
+          <small>(Reschedule requested)</small>
+        </p>
+        <h2 className="text-lg font-semibold">
+          {
+            LESSON_CONTENT[
+              LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
+            ].content.title
+          }
+        </h2>
+        <Button
+          onClick={() =>
+            navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
+          }
+          variant="outline"
+          className="grow"
+        >
+          Lesson Details
+        </Button>
+      </div>
+    );
+  };
+  
+  const renderUpcomingLesson = () => {
+    return (
+      <div className="flex flex-col gap-2 p-4 text-center text-xl">
       <p>Here is your upcoming lesson!</p>
       {LessonData?.upcomingSchedule &&
         LessonData?.instructor &&
         LessonData?.upcomingLesson && (
           <SessionDetails
-            schedule={LessonData.upcomingSchedule}
-            instructor={LessonData.instructor}
+          schedule={LessonData.upcomingSchedule}
+          instructor={LessonData.instructor}
             lessonNumber={LessonData.upcomingLesson.number ?? 0}
-          />
-        )}
+            />
+          )}
       <h2 className="text-lg font-semibold">
         {
           LESSON_CONTENT[
@@ -246,11 +274,11 @@ export default function Home() {
                       LessonData.upcomingSchedule.start_time,
                     ) || lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                   }
-                >
+                  >
                   {lessonSchedule?.status?.toUpperCase() === "ONGOING"
                     ? "Lesson Started"
                     : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
-                      ? "Lesson Completed"
+                    ? "Lesson Completed"
                       : "Start Lesson"}
                 </Button>
               </TooltipTrigger>
@@ -281,7 +309,7 @@ export default function Home() {
             }
             variant="outline"
             className="grow"
-          >
+            >
             Lesson Details
           </Button>
         </div>
@@ -298,7 +326,7 @@ export default function Home() {
                 variant="secondary"
                 className="w-full"
                 disabled={scheduleRequests && scheduleRequests.length > 0}
-              >
+                >
                 Reschedule Lesson
               </Button>
             </TooltipTrigger>
@@ -312,7 +340,7 @@ export default function Home() {
         <h3
           className="cursor-pointer text-center text-sm text-black"
           onClick={() => setShowPolicyModal(true)}
-        >
+          >
           Rescheduling Policy
         </h3>
         {showPolicyModal && (
@@ -329,7 +357,7 @@ export default function Home() {
               <button
                 className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
                 onClick={() => setShowPolicyModal(false)}
-              >
+                >
                 Close
               </button>
             </div>
@@ -338,12 +366,13 @@ export default function Home() {
 
         {/* {scheduleRequests && scheduleRequests.length > 0 && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Your reschedule request is being processed.
+          Your reschedule request is being processed.
           </p>
-        )} */}
+          )} */}
       </div>
     </div>
-  );
+    );
+}
 
   const renderCourseCompletionPage = () => (
     <div className="flex flex-col items-center gap-6 p-4 text-center">
@@ -473,15 +502,22 @@ export default function Home() {
         ) : (
           <>
             {/* Show upcoming lesson first if available */}
-            {LessonData?.upcomingLesson && (
-              <div className="mb-6">{renderUpcomingLesson()}</div>
-            )}
-
-            {/* Then show schedule creation state if there are pending requests */}
+            {/* {console.log(scheduleRequests, LessonData)} */}
             {scheduleRequests &&
-              scheduleRequests.length > 0 &&
-              renderScheduleCreationState()}
-
+            scheduleRequests.length > 0 &&
+            scheduleRequests.some(
+              (request) =>
+                request.lesson_ids.includes(LessonData.upcomingLesson?.id)
+            ) ? (
+              <>
+                <div className="mb-6">{renderUpcomingLessonReschedulePending()}</div>
+                {renderScheduleCreationState()}
+              </>
+            ) : LessonData?.upcomingLesson ? (
+              <div className="mb-6">{renderUpcomingLesson()}</div>
+            ) : (
+              <p>No upcoming lesson</p>
+            )}
             {/* If no upcoming lesson and no schedule requests, show appropriate content */}
             {!LessonData?.upcomingLesson &&
               !(scheduleRequests && scheduleRequests.length > 0) && (
