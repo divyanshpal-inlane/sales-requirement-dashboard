@@ -15,7 +15,7 @@ export default function Login() {
     verifyOtpAndResetPassword,
   } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const active = searchParams.get("active") || "signup";
+  const active = searchParams.get("active") || "login";
   const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
   const [password, setPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
