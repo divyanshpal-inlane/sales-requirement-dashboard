@@ -232,7 +232,7 @@ export default function Home() {
         <div className="flex flex-row flex-wrap gap-4">
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger className="grow">
+              <TooltipTrigger asChild>
                 <Button
                   onClick={() =>
                     navigate(
@@ -288,7 +288,7 @@ export default function Home() {
 
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger className="w-full">
+            <TooltipTrigger asChild>
               <Button
                 onClick={() =>
                   navigate(
