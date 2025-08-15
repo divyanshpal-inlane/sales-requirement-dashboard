@@ -26,19 +26,16 @@ function LLFlow() {
         <AlertDescription>No learner data found</AlertDescription>
       </Alert>
     );
-  console.log("learner", learner);
+
+  // console.log("learner", learner);
   if (!learner.LL_team_appointment_booked) {
     return <LLAppointmentBooking />;
   }
-if (learner.LL_result) {
-    return <LLWaitVerification />
-  }
+
   if (!learner.LL_application_approved) {
     return <LLApplicationStatus applicationId={learner.LL_application_id} />;
   }
-  if (learner.LL_result) {
-    return <LLWaitVerification />
-  }
+
   if (!learner.LL_test_date) {
     return <LLTestPreparation learnerId={learner.id} />;
   }
@@ -46,6 +43,7 @@ if (learner.LL_result) {
   if (learner.LL_result) {
     return <LLWaitVerification />
   }
+  
   return <Home />;
 }
 
