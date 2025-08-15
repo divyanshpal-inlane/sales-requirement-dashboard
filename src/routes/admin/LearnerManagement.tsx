@@ -181,7 +181,8 @@ export default function LearnerManagement() {
         );
         if (selectedCourse) {
           // Unlock only the first 2 lessons, or fewer if the course has less than 2 lessons
-          const unlockCount = Math.min(2, selectedCourse.duration);
+          const unlockCount =
+            selectedCourse.duration < 2 ? selectedCourse.duration : 2;
           dataToSend.unlockedLessons = Array.from(
             { length: unlockCount },
             (_, i) => i + 1,
