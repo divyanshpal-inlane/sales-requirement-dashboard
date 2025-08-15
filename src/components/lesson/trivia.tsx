@@ -154,10 +154,11 @@ const TriviaCard = ({
                 </div>
                 <Button
                   onClick={() => {
-                    if (!isCorrect) return;
-                    if (gameIndex + 1 >= game.length) {
-                      finishGame();
-                    } else setGameIndex((gameIndex) => gameIndex + 1);
+                    if (isCorrect) {
+                      if (gameIndex + 1 >= game.length) {
+                        finishGame();
+                      } else setGameIndex((gameIndex) => gameIndex + 1);
+                    }
 
                     setSelectedAnswer(undefined);
                   }}
