@@ -52,11 +52,11 @@ export const LESSON_CONTENT: LessonContent = {
       },
       video: [
         {
-          title: "Car command center🚨",
-          icon: "",
-          color: "bg-[#00CE84]",
+          title: "3 seconds is all it takes",
+          icon: "⏰",
+          color: "bg-[#6257FF]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/1.mp4",
+            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
         },
       ],
     },
