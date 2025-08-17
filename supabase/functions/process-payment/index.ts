@@ -198,7 +198,7 @@ serve(async (req) => {
               installment1_amount: installment1Amount,
               installment2_amount: installment2Amount,
               unlocked_lessons:
-                installmentType === "first_half" ? [1, 2, 3, 4, 5] : [],
+                installmentType === "first_half" ? [1, 2] : [],
             },
           ]);
 
