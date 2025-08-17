@@ -855,14 +855,13 @@ export default function CreateScheduleWithInstructor({
                       value={instructor.id_instructor}
                       className="w-full"
                     >
-                      <div className="relative flex w-full items-center">
+                      <div className="flex w-full items-center justify-between flex-wrap">
                         {/* Name + badges container */}
-                        <div className="flex items-center gap-2 pr-16">
-                          <span className="truncate">{instructor.name}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>{instructor.name}</span>
 
                           {instructor.areas.some(
-                            (area) =>
-                              area.toLowerCase() === learnerArea.toLowerCase(),
+                            (area) => area.toLowerCase() === learnerArea.toLowerCase(),
                           ) && (
                             <Badge
                               variant="outline"
@@ -872,19 +871,21 @@ export default function CreateScheduleWithInstructor({
                             </Badge>
                           )}
 
-                          {instructor.isWithinRadius && (
+                          {
+                          instructor.isWithinRadius && true && (
                             <Badge
                               variant="outline"
                               className="border-green-200 bg-green-50 text-green-700"
                             >
                               Matching Radius
                             </Badge>
-                          )}
+                          )
+                          }
                         </div>
 
-                        {/* Distance absolutely positioned to the right */}
+                        {/* Distance is a sibling element, to avoid overflow masking*/}
                         {instructor.distance !== null && (
-                          <div className="absolute left-96 text-xs text-gray-500">
+                          <div className="text-xs text-gray-500">
                             {instructor.distance.toFixed(1)}km
                           </div>
                         )}
