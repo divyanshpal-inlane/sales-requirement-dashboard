@@ -1613,6 +1613,9 @@ export default function AdminSchedules() {
                   <DialogHeader>
                     <DialogTitle>Change Instructor</DialogTitle>
                   </DialogHeader>
+                  <p className="text-sm">Warning: Change only if you know next instructor is available. 
+                    If not sure, put a reschedule request and confirm using calender view.
+                  </p>
                   <div className="space-y-4">
                     {/* Dropdown to Select Instructor */}
                     <Select

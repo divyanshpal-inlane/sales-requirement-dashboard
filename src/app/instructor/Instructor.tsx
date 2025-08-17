@@ -1284,33 +1284,6 @@ function Instructor() {
                     );
                   })}
 
-                  {/* Google Calendar Events */}
-                  {timeSlotGoogleEvents.map((event, idx) => {
-                    const isEventStart =
-                      new Date(event.start.dateTime).getHours() === hour &&
-                      new Date(event.start.dateTime).getMinutes() === minute;
-
-                    if (!isEventStart) return null;
-
-                    return (
-                      <div
-                        key={`google-${idx}`}
-                        className="mb-1 cursor-pointer rounded bg-orange-200 p-2 text-sm text-orange-800"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEventClick(event);
-                        }}
-                      >
-                        <div className="font-medium">{event.summary}</div>
-                        <div className="text-xs">
-                          {format(new Date(event.start.dateTime), "HH:mm")} -{" "}
-                          {format(new Date(event.end.dateTime), "HH:mm")}
-                        </div>
-                        <div className="text-xs">Google Calendar</div>
-                      </div>
-                    );
-                  })}
-
                   {/* Empty slot indicator */}
                   {isEmpty && (
                     <div className="flex h-full items-center justify-center text-gray-400">

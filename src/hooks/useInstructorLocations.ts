@@ -11,13 +11,14 @@ async function fetchInstructorDynamicLocation(
   instructorId: string,
   slotTime: Date,
 ): Promise<LocationData | null> {
-  const oneHourBefore = subHours(slotTime, 1);
+  const nHours = 12;
+  const nHourBefore = subHours(slotTime, nHours);
 
   const { data: previousBooking } = await supabase
     .from("Schedule")
     .select("learner_location")
     .eq("instructor_id", instructorId)
-    .gte("start_time", oneHourBefore.toISOString())
+    .gte("start_time", nHourBefore.toISOString())
     .lt("start_time", slotTime.toISOString())
     .order("start_time", { ascending: false })
     .limit(1)
