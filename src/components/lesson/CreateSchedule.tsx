@@ -2762,6 +2762,17 @@ function CreateSchedule({
                       })
                       .eq("lesson_id", schedule.lessonId);
                   }
+
+                  // if it lesson 10, set the flag has_lesson10_booked
+                  if (schedule.lessonNumber == 10) {
+                    console.log("Setting lesson10 booked for learner");
+                    await supabase
+                    .from("Learner")
+                    .update({
+                      has_lesson10_booked: true
+                    })
+                    .eq("Learner", learnerData.id)
+                  }
                 }
               }
             } catch (newEventError) {
