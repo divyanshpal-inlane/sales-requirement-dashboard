@@ -164,7 +164,7 @@ const LearnerDetails = () => {
     if (!learner.DL_test_date) {
       return null;
     }
-    return format(subDays(new Date(learner.DL_test_date), 7), "yyyy-mm-dd");
+    return format(subDays(new Date(learner.DL_test_date), 7), "yyyy-MM-dd");
   };
   
   const isLesson10ButtonDisabled = (learner): boolean => {
