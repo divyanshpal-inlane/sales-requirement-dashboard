@@ -694,7 +694,7 @@ const LearnerLLDetails = () => {
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="app-number" className="text-right">
-              App Number
+              LL Number
             </Label>
             <Input
               id="app-number"
