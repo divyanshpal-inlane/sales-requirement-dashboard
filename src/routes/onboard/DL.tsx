@@ -77,8 +77,7 @@ export default function DLQuestion() {
             onSuccess: () => {
               // Navigate to loading page
               navigate("/loading", { state: { next: "/home" } });
-              // navigate("/home");
-
+              
               // Send message in the background without awaiting
               if (learner) {
                 supabase.functions
@@ -91,8 +90,8 @@ export default function DLQuestion() {
                   .catch((error) => {
                     console.error("Error sending message:", error);
                   });
-              }
-            },
+                }
+              },
           },
         );
       } else {
@@ -110,7 +109,7 @@ export default function DLQuestion() {
               // User should be redirected to home, then page
               // for filling form and booking appointment should be shown
               // window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
-              navigate("/home");
+              navigate("/loading", { state: { next: "/home" } });
 
               // Send messages in the background without awaiting
               if (learner) {
