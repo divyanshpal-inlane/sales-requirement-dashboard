@@ -1758,15 +1758,15 @@ function CreateSchedule({
       }
 
       // Apply location source filter
-      if (locationFilter !== "all") {
-        filtered = filtered.filter((instructor) => {
-          if (locationFilter === "office")
-            return instructor.locationSource === "default";
-          if (locationFilter === "previous")
-            return instructor.locationSource === "previous_booking";
-          return true;
-        });
-      }
+      // if (locationFilter !== "all") {
+      //   filtered = filtered.filter((instructor) => {
+      //     if (locationFilter === "office")
+      //       return instructor.locationSource === "default";
+      //     if (locationFilter === "previous")
+      //       return instructor.locationSource === "previous_booking";
+      //     return true;
+      //   });
+      // }
 
       // Apply distance filter
       filtered = filtered.filter(
@@ -1823,14 +1823,14 @@ function CreateSchedule({
 
             {/* Filter Controls */}
             <div className="grid grid-cols-4 gap-4">
-              {/* Location Source Filter */}
+              {/* Location Source Filter - removed (always previous+default)*/}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Location
                 </label>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  (Note: Instructor's Previous location is used when last booking was within 12 hours, 
-                  otherwise office location is used)
+                  (Note: Previous location is set when last booking was within 12 hours,
+                  otherwise office location)
                 </label>
               </div>
 
