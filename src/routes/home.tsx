@@ -35,6 +35,7 @@ import {
 } from "@/queries/learner";
 import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
+import { ReminderFullPayment } from "./reminder_full_payment";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -57,8 +58,8 @@ export default function Home() {
   const { data: enrolledCourse, isLoading: isEnrolledCourseLoading } =
     useLearnerEnrollment({ learnerId: learner?.id });
 
-  const [showPolicyModal, setShowPolicyModal] = useState(false);
-  const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
+    const [showPolicyModal, setShowPolicyModal] = useState(false);
+    const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useLearnerRescheduleRequests(learner?.id);
   const {
     data: LessonData,
@@ -69,7 +70,7 @@ export default function Home() {
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
-
+  
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
@@ -80,10 +81,10 @@ export default function Home() {
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
     learner?.id,
   );
-
+  
   // Find the latest completed payment
   const completedPayment = Array.isArray(payments)
-    ? payments
+  ? payments
         .filter(
           (payment: { payment_type: string; status: string }) =>
             payment.payment_type === "course" && payment.status === "completed",
@@ -100,7 +101,7 @@ export default function Home() {
   if (paymentLoading || isLoading) {
     return <div>Loading...</div>;
   }
-
+  
   if (!completedPayment && !isCompleted) {
     return (
       <div className="container mx-auto max-w-md py-8">
@@ -112,7 +113,7 @@ export default function Home() {
   if (!learner?.onboarding_completed && !learner?.dob) {
     return <Navigate to="/onboard/birthday" />;
   }
-
+  
   if (
     isLoading ||
     LessonIsLoading ||
@@ -121,21 +122,28 @@ export default function Home() {
   ) {
     return <div>Loading...</div>;
   }
-
+  
   if (error || LessonError) {
     return <p>Error: {error?.message || LessonError?.message}</p>;
   }
-
+  
   // Show payment completion prompt for half-paid enrollments
   const showPaymentCompletion =
-    enrolledCourse?.payment_status === "half_paid" &&
-    scheduledLessons &&
-    scheduledLessons.some(
-      (scheduleItem) =>
-        scheduleItem.lesson?.number === 2 &&
-        scheduleItem.status?.toUpperCase() === "COMPLETED",
+  enrolledCourse?.payment_status === "half_paid" &&
+  scheduledLessons &&
+  scheduledLessons.some(
+    (scheduleItem) =>
+      scheduleItem.lesson?.number === 2 &&
+    scheduleItem.status?.toUpperCase() === "COMPLETED",
+  );
+  
+  if (true && showPaymentCompletion) {
+    return (
+      <div className="mb-6">
+        <ReminderFullPayment learner />
+      </div>
     );
-
+  }
   // Check if reschedule request is for the upcoming lesson
   const isRescheduleForUpcomingLesson =
     scheduleRequests &&
@@ -364,6 +372,7 @@ export default function Home() {
           </div>
         )}
 
+
         {/* {scheduleRequests && scheduleRequests.length > 0 && (
           <p className="mt-2 text-sm text-muted-foreground">
           Your reschedule request is being processed.
@@ -448,7 +457,7 @@ export default function Home() {
     scheduledLessons &&
     scheduledLessons.length === 10 &&
     scheduledLessons.every((lesson) => isLessonCompleted(lesson));
-
+    
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}

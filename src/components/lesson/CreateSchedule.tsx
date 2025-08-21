@@ -1828,25 +1828,9 @@ function CreateSchedule({
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Location
                 </label>
-                <select
-                  value={locationFilter
-                    // locationSource === "previous_booking"
-                    //   ? "previous"
-                    //   : "office"
-                  }
-                  onChange={(e) =>
-                    setLocationFilter(
-                      e.target.value as "all" | "office" | "previous",
-                    )
-                  }
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Locations</option>
-                  <option value="office">At Office</option>
-                  <option value="previous">From Previous Lesson</option>
-                </select>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  (Note: Previous location is set when last booking was within 12 hours)
+                  (Note: Instructor's Previous location is used when last booking was within 12 hours, 
+                  otherwise office location is used)
                 </label>
               </div>
 
