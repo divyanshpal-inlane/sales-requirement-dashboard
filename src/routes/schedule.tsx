@@ -117,6 +117,17 @@ export default function Schedule() {
                     className={`${isLessonPast ? "text-gray-400" : "text-accent-purple"}`}
                   >
                     Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
+                  <Button
+                    variant="link"
+                    onClick={() =>
+                    navigate(
+                    `/reschedule/${lesson?.lesson?.id}`,
+                  )
+                }
+                disabled={!lesson || !lesson.lesson}
+                  >
+                    Reschedule
+                  </Button>
                   </span>
                 </p>
               );
