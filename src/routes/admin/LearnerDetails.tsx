@@ -376,29 +376,36 @@ const LearnerDetails = () => {
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                            {/* TODO set to LL number  */}
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            learner.LL_id ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}>
                             {learner.LL_id || "N/A"}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}>
                             {learner.LL_received_date || "N/A"}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                            {  learner.LL_received_date
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {learner.LL_received_date
                               ? format(addDays(new Date(learner.LL_received_date), 30), 'yyyy-MM-dd')
                               : "N/A"
                             }
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            calculateLesson10Start(learner) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}>
                             {calculateLesson10Start(learner) || "N/A" }
-                            
                           </div>
+
                           {!isLesson10ButtonDisabled(learner) && (
                             <button
                             onClick={() => { handleLesson10Click(learner);
@@ -411,9 +418,14 @@ const LearnerDetails = () => {
                           )}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-{
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                             learner.has_lesson10_booked === true
+                              ? "bg-green-100 text-green-800"
+                              : learner.has_lesson10_booked === false
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {learner.has_lesson10_booked === true
                               ? "Yes"
                               : learner.has_lesson10_booked === false
                               ? "No"
@@ -422,8 +434,14 @@ const LearnerDetails = () => {
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                            {  learner.DL_result === true
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            learner.DL_result === true
+                              ? "bg-green-100 text-green-800"
+                              : learner.DL_result === false
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {learner.DL_result === true
                               ? "PASS"
                               : learner.DL_result === false
                               ? "FAIL"

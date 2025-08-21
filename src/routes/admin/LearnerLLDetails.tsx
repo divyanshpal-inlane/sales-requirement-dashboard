@@ -623,25 +623,36 @@ const LearnerLLDetails = () => {
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                            {  learner.LL_result === true
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+                              ${
+                                learner.LL_result === true
+                                  ? "bg-green-100 text-green-800"
+                                  : learner.LL_result === false
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }
+                            `}
+                          >
+                            {learner.LL_result === true
                               ? "PASS"
                               : learner.LL_result === false
                               ? "FAIL"
-                              : "N/A"
-                            }
+                              : "N/A"}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                            <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            learner.LL_approved_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}>
                             {learner.LL_approved_date
                               ? differenceInDays(
                                   new Date(),
                                   new Date(learner.LL_approved_date)
-                              )
-                                : "N/A"
-                              }
-                            </div>
+                                )
+                              : "N/A"
+                            }
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <button
