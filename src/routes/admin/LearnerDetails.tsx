@@ -93,7 +93,8 @@ const LearnerDetails = () => {
         .select("*")
         .eq("has_a_DL", false)
         .is("LL_result", true)
-        .is("LL_application_approved", true);
+        .is("LL_application_approved", true)
+        .is("LL_received", true);
       if (error) throw error;
       return data;
     },
