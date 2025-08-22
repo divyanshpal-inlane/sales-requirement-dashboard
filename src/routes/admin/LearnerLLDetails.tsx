@@ -184,6 +184,7 @@ const LearnerLLDetails = () => {
       updates: {
         LL_application_id: appointmentId,
         LL_application_approved: false,
+        LL_team_appointment_booked: true
       }
     });
     // console.log(`Submitting LL application...:${appointmentId}`);
