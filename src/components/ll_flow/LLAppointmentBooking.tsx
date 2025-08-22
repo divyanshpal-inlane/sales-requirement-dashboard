@@ -65,14 +65,6 @@ return (
                 verification and confirming your details for your Learner&apos;s
                 License application.
               </p>
-              <Button
-                className="w-full py-3 text-lg"
-                data-cal-namespace="30min"
-                data-cal-link="inlane.in/30min"
-                data-cal-config='{"layout":"month_view","theme":"light"}'
-              >
-                Book Appointment
-              </Button>
             </CardContent>
           </Card>
           <p className="mt-auto text-center text-base">
