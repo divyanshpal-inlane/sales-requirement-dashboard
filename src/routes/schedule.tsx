@@ -119,12 +119,18 @@ export default function Schedule() {
                     Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
                   <Button
                     variant="link"
-                    onClick={() =>
-                    navigate(
-                    `/reschedule/${lesson?.lesson?.id}`,
-                  )
+                    onClick={() => {
+                      if (lesson.status && lesson.status != "completed") {
+                        navigate(
+                        `/reschedule/${lesson?.lesson?.id}`,
+                        )
+
+                      } else {
+                        alert("Lesson already completed")
+                      }
+                    }
                 }
-                disabled={!lesson || !lesson.lesson}
+                disabled={!lesson || !lesson.lesson || (lesson.status==="completed")}
                   >
                     Reschedule
                   </Button>
