@@ -194,7 +194,7 @@ const LearnerDetails = () => {
   }
 
 
-  const handleTestPass = (learner) => {
+  const handleTestPass = (learner, isPass) => {
     if (!learner) return;
     // console.log("handleTestPass called with learner:", learner);
     
@@ -202,7 +202,7 @@ const LearnerDetails = () => {
     {
       learnerId: learner.id,
       updates: {
-        DL_result: true,
+        DL_result: isPass,
       },
     },
     {
@@ -452,11 +452,22 @@ const LearnerDetails = () => {
                             {
                               !learner.DL_result && (
                                 <button
-                                 onClick={() => { handleTestPass(learner);} }
+                                 onClick={() => { handleTestPass(learner, true);} }
 
                                  className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                                 >
-                                  Yes (Click here)
+                                  Yes
+                                </button>
+                              )
+                            }
+                           {
+                              (!(learner.DL_result && learner.DL_result===false)) && (
+                                <button
+                                 onClick={() => { handleTestPass(learner, false);} }
+
+                                 className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                                >
+                                  No
                                 </button>
                               )
                             }
