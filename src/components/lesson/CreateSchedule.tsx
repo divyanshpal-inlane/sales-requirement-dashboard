@@ -2089,11 +2089,11 @@ function CreateSchedule({
 
   // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
-    if (slot.state.isCurrentInstrUnavailable) {
-      alert("Unavailable Instructor");
-      return;
-    }
     if (!slot.state.isAvailable || slot.state.isSelected) {
+      if (slot.state.isCurrentInstrUnavailable) {
+        alert("Unavailable Instructor");
+        return;
+      }
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
         setSelectedSlots((prev) => {
@@ -2104,10 +2104,10 @@ function CreateSchedule({
           const groupId = prev.find(
             (s) =>
               format(s.date, "yyyy-MM-dd") === dateStr &&
-              s.hour === hour &&
-              s.minutes === minute,
+            s.hour === hour &&
+            s.minutes === minute,
           )?.slotGroupId;
-
+          
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
       }
