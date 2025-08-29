@@ -66,6 +66,7 @@ interface TimeSlotState {
     longitude: number | null;
   };
   availableInstructors: string[];
+  isCurrentInstrUnavailable: boolean | false;
 }
 
 interface HourlySlot {
@@ -672,11 +673,11 @@ export default function CreateScheduleWithInstructor({
     );
   };
   // Add this helper function before your return statement
-  const isTimeSlotUnavailable = (day, hour, minute) => {
-    if (!selectedInstructorId) return false;
+  const isTimeSlotUnavailable = (instructorId, instructorsWithDistanceData, day, hour, minute) => {
+    if (!instructorId || !instructorsWithDistanceData) return false;
 
     // Find the selected instructor
-    const selectedInstructor = instructorsWithDistance.find(
+    const selectedInstructor = instructorsWithDistanceData.find(
       (instructor) => instructor.id_instructor === selectedInstructorId,
     );
 
@@ -979,6 +980,8 @@ export default function CreateScheduleWithInstructor({
                           });
 
                           const unavailable = isTimeSlotUnavailable(
+                            selectedInstructorId,
+                            instructorsWithDistance,
                             day,
                             hour,
                             minute,
@@ -1209,7 +1212,16 @@ export default function CreateScheduleWithInstructor({
             </div>
           </CardContent>
         </Card>
-
+{/*
+  Debug: log selected instructor and their schedule
+*/}
+{(() => {
+  // console.log("Calling CreateSchedule with", selectedInstructorId, instructorSchedule);
+  // #region comments to check if codeblock folds
+  // #endregion
+  return null;
+})()}
+```
         <Card>
           <CardContent>
             <h3 className="mb-4 mt-4 font-medium">Create learner Schedule</h3>
@@ -1222,6 +1234,8 @@ export default function CreateScheduleWithInstructor({
               currentRangeStart={currentRangeStart} // Pass the range start instead of week start
               onDateChange={(newDate) => setCurrentRangeStart(newDate)} // Add this prop to sync dates
               instructorsWithDistance={instructorsWithDistance} // Pass the instructors with distance info
+              defaultInstructorSchedule={instructorSchedule}
+              unavailabilityDataChecker={isTimeSlotUnavailable}
               learnerDetails={learnerDetails}
             />
           </CardContent>
@@ -1249,11 +1263,14 @@ function CreateSchedule({
   currentRangeStart,
   onDateChange,
   instructorsWithDistance,
+  defaultInstructorSchedule,
+  unavailabilityDataChecker,
 }: CreateScheduleProps & {
   defaultInstructorId: string | null;
   currentRangeStart: Date;
   onDateChange: (date: Date) => void;
   instructorsWithDistance: InstructorWithDistance[];
+  defaultInstructorSchedule?: Schedule[] | null;
 }) {
   const { data: preferences } = usePreferences(learnerId);
   const [startDate, setStartDate] = useState(currentRangeStart);
@@ -1264,7 +1281,7 @@ function CreateSchedule({
     TimeSlotState["existingSchedule"] | null
   >(null);
   const [isSendingInvites, setIsSendingInvites] = useState(false);
-
+  // console.log("The default instr and their schedule", defaultInstructorId, defaultInstructorSchedule)
   // Dialog state for instructor selection
   const [selectionDialogOpen, setSelectionDialogOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<HourlySlot | null>(null);
@@ -1273,10 +1290,34 @@ function CreateSchedule({
     string | null
   >(defaultInstructorId);
 
+  // get Unvailability of default instructor
+  const defaultInstructorUnavailability = useMemo ( () => {
+    // showing instructorWithDistance
+    // Find the selected instructor
+    const selectedInstructor = instructorsWithDistance.find(
+      (instructor) => instructor.id_instructor === defaultInstructorId,
+    );
+    // console.log('%c ~ file: CreateSchedule.tsx [] -> selectedInstructor?.unavailability; : ', selectedInstructor?.unavailability);
+    return selectedInstructor?.unavailability;
+}, [defaultInstructorId]);
+
+
   // Sync startDate with currentRangeStart from parent
   useEffect(() => {
     setStartDate(currentRangeStart);
   }, [currentRangeStart]);
+
+  // check selectedInstrScheduleAndUnavailibi
+  const checkInstrctrScheduleAndUnavailability = () => {
+    // const variable used, but not passed as arguments - defaultInstructorUnavailability
+    // required selected instrutor id and distancedata - both are available
+    return unavailabilityDataChecker(
+      defaultInstructorId,
+      instructorsWithDistance,
+      day, hour, minute,
+    );
+    return true;
+  }
 
   // Ensure the selected instructor is updated when defaultInstructorId changes
   useEffect(() => {
@@ -1451,7 +1492,7 @@ function CreateSchedule({
       for (const minute of [0, 30]) {
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
-
+// console.log("hour and minute", hour, minute, schedulesToChange);
         // Check if the slot is in the past for today
         const isInPast = isToday && timestamp < currentTime;
 
@@ -1495,11 +1536,28 @@ function CreateSchedule({
             !request.lesson_ids.includes(s.lesson_id ?? ""),
         );
 
+        // console.log("selectedInstr: ", defaultInstructorId);
         // Get available instructors for this slot
         // Filter to only include instructors within their service radius
+        let selectedInstrUnvailable = true;
         const availableInstructors =
           instructorsWithDistance
             ?.filter((instructor) => {
+              // TODO: move code to seperate function
+              if (instructor.id_instructor === selectedInstructorId) {
+                // console.log("availability for slot ", hour, minute, instructor);
+                selectedInstrUnvailable = unavailabilityDataChecker(
+                  defaultInstructorId,
+                  instructorsWithDistance,
+                  date,
+                  hour,
+                  minute,
+                );
+
+                // console.log("selectedInstrAvailable updated to", selectedInstrUnvailable);
+              }
+              // move above code to seperate function
+
               return !slotSchedules.some(
                 (s) => s.instructor_id === instructor.id_instructor,
               );
@@ -1528,6 +1586,7 @@ function CreateSchedule({
           state: {
             isAvailable:
               availableInstructors.length > 0 &&
+              !selectedInstrUnvailable &&
               !isLearnerSchedule &&
               !isDayBlocked &&
               !isInPast, // Add this condition to prevent selecting past slots
@@ -1536,12 +1595,13 @@ function CreateSchedule({
                 format(s.date, "yyyy-MM-dd") === dateStr &&
                 s.hour === hour &&
                 s.minutes === minute,
-            ),
-            isPreferred: !!isPreferred,
-            isCurrentSchedule,
-            isLearnerSchedule,
-            existingSchedule,
-            availableInstructors,
+              ),
+              isPreferred: !!isPreferred,
+              isCurrentSchedule,
+              isLearnerSchedule,
+              existingSchedule,
+              availableInstructors,
+              isCurrentInstrUnavailable: selectedInstrUnvailable,
           },
         });
       }
@@ -2027,6 +2087,10 @@ function CreateSchedule({
 
   // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
+    if (slot.state.isCurrentInstrUnavailable) {
+      alert("Unavailable Instructor");
+      return;
+    }
     if (!slot.state.isAvailable || slot.state.isSelected) {
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
@@ -2956,6 +3020,7 @@ function CreateSchedule({
       <ScrollArea className="relative">
         <div className="mt-4 flex space-x-4">
           {Array.from({ length: 7 }).map((_, index) => {
+            // console.log('%c ~ file: CreateSchedule.tsx:2725 index=%d: ', 'color: #c0f89c', index);
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
             return (
