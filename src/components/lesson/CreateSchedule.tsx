@@ -1000,10 +1000,12 @@ export default function CreateScheduleWithInstructor({
                               key={dayIndex}
                               className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center align-middle ${
                                 schedule
-                                  ? "bg-green-500 text-white"
+                                  ? schedule.isTentative 
+                                    ? "bg-orange-500 text-white"
+                                    : "bg-green-500 text-white"
                                   : unavailable
                                     ? "bg-gray-300 text-red-800"
-                                    : ""
+                                  : ""
                               } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
                               onClick={() =>
                                 schedule && handleOccupiedSlotClick(schedule)
