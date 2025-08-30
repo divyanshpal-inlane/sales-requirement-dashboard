@@ -1214,16 +1214,6 @@ export default function CreateScheduleWithInstructor({
             </div>
           </CardContent>
         </Card>
-{/*
-  Debug: log selected instructor and their schedule
-*/}
-{(() => {
-  // console.log("Calling CreateSchedule with", selectedInstructorId, instructorSchedule);
-  // #region comments to check if codeblock folds
-  // #endregion
-  return null;
-})()}
-```
         <Card>
           <CardContent>
             <h3 className="mb-4 mt-4 font-medium">Create learner Schedule</h3>
