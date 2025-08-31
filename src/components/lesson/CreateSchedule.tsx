@@ -50,6 +50,7 @@ import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
 import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import { toast } from "sonner";
+import LearnerScheduleSelector from "./schedule";
 
 interface TimeSlotState {
   isAvailable: boolean;
@@ -68,8 +69,8 @@ interface TimeSlotState {
   availableInstructors: string[];
   isCurrentInstrUnavailable: boolean | false;
 }
-
 interface HourlySlot {
+
   timestamp: Date;
   timeSlot: TimeSlot | null;
   state: TimeSlotState;
@@ -1001,7 +1002,7 @@ export default function CreateScheduleWithInstructor({
                               className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center align-middle ${
                                 schedule
                                   ? schedule.isTentative 
-                                    ? "bg-orange-500 text-white"
+                                    ? "bg-orange-200 text-white"
                                     : "bg-green-500 text-white"
                                   : unavailable
                                     ? "bg-gray-300 text-red-800"
@@ -1012,7 +1013,7 @@ export default function CreateScheduleWithInstructor({
                               }
                             >
                               <div className="flex h-full flex-col items-center justify-center">
-                                {isScheduleStart && schedule ? (
+                                {isScheduleStart && schedule && !schedule.isTentative ? (
                                   <>
                                     {/* Learner name (bold), area (optional) */}
                                     <span className="text-base font-bold leading-tight">
@@ -1029,7 +1030,10 @@ export default function CreateScheduleWithInstructor({
                                       {schedule.end_time.slice(0, 5)}
                                     </span>
                                   </>
-                                ) : null}
+                                ) : isScheduleStart && schedule && schedule.isTentative ? (
+                                  <span className="text-base font-bold leading-tight text-gray-500"> Tentative </span>) : null
+                              }
+                                  
                               </div>
                             </td>
                           );
@@ -1571,6 +1575,7 @@ function CreateSchedule({
                 longitude: slotSchedules[0].Learner.address_lng,
               }
             : undefined;
+        // console.log("selectedInstructorId, selectedInstructorUnavailable", selectedInstructorId, selectedInstrUnvailable);
 
         daySchedule.push({
           timestamp,
@@ -2080,7 +2085,11 @@ function CreateSchedule({
   // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
     if (!slot.state.isAvailable || slot.state.isSelected) {
-      if (slot.state.isCurrentInstrUnavailable) {
+      if (!selectedInstructorId) {
+        alert("Select Instructor");
+        return;
+      }
+      if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
         alert("Unavailable Instructor");
         return;
       }
@@ -2850,6 +2859,8 @@ function CreateSchedule({
   }
 
   const getSlotColor = (slot: HourlySlot) => {
+    // console.trace("getSlotColor called for slot:", slot, slot.state) 
+    // console.log("schedulesToChange", schedulesToChange);
     if (!slot.timeSlot) return "bg-gray-50";
 
     const dateStr = format(slot.timestamp, "yyyy-MM-dd");
@@ -2857,6 +2868,20 @@ function CreateSchedule({
     const minutes = slot.timestamp.getMinutes();
     const isToday = isSameDay(slot.timestamp, new Date());
     const isInPast = isToday && slot.timestamp < new Date();
+    
+    const checkSlotOverlap = (s: Schedule) => {
+      const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+      const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+      const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+
+      return (s.date === dateStr &&
+        // Check if the current time is between the start and end times
+        ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
+          (hour === scheduleEndHour &&
+            minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+          (hour > scheduleStartHour && hour < scheduleEndHour))
+      );
+    }
 
     // Check if this slot or the adjacent slot (to make a full hour) is selected
     const isSelected =
@@ -2876,6 +2901,7 @@ function CreateSchedule({
 
     // Check if this slot is part of a current schedule to be rescheduled
     const isCurrentSchedule = schedulesToChange?.some((s) => {
+      if (s.isTentative) return false; // Ignore tentative schedules for current schedule check
       const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
       const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
       const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
@@ -2890,33 +2916,43 @@ function CreateSchedule({
           (hour > scheduleStartHour && hour < scheduleEndHour))
       );
     });
-
     // Check if this slot is part of another existing learner schedule
     const isLearnerSchedule = existingSchedules?.some((s) => {
-      if (
-        s.learner_id !== learnerId ||
-        request.lesson_ids.includes(s.lesson_id ?? "")
-      ) {
-        return false;
-      }
-
-      const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
-      const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
-      const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
-
-      // Check if this slot falls within the scheduled time
+      if (!s.isTentative) {
+        if (s.learner_id !== learnerId ||
+           request.lesson_ids.includes(s.lesson_id ?? "")) {
+             return false;
+           }
+           
+           const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+           const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+           const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+           
+           // Check if this slot falls within the scheduled time
       return (
         s.date === dateStr &&
         // Check if the current time is between the start and end times
         ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
           (hour === scheduleEndHour &&
             minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-          (hour > scheduleStartHour && hour < scheduleEndHour))
+            (hour > scheduleStartHour && hour < scheduleEndHour))
+          );
+        }
+          return false;
+        }
       );
-    });
-
-    // Check if this slot is unavailable due to other schedules
-    const hasExistingSchedule =
+      const isAtleastOneTentativeForLearnerForSlot = schedulesToChange.some((s) => {
+        if (!checkSlotOverlap(s)) return false;
+        if (s.id === 105) console.log("showing all ids ", s.id);
+        return ((s.learner_id != learnerId) || (s.isTentative));
+      });
+      
+      const isOnlyTentativeSchedulesForSlotForLearner = schedulesToChange.every((s) => {
+        if (!checkSlotOverlap(s)) return true;
+        return ((s.learner_id != learnerId) || (s.isTentative));
+      });
+        // Check if this slot is unavailable due to other schedules
+        const hasExistingSchedule =
       selectedInstructorId &&
       otherSchedules?.some(
         (s) =>
@@ -2932,10 +2968,13 @@ function CreateSchedule({
       );
 
     if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
+    if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
+      return "bg-gray-300";
     if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
     if (hasExistingSchedule) return "bg-gray-100";
+    if (isAtleastOneTentativeForLearnerForSlot) return "bg-orange-200"; // Tentative schedules are prefferred over onboarding preferences
     if (slot.state.isPreferred) return "bg-primary/30";
     return "bg-white";
   };
@@ -3052,7 +3091,7 @@ function CreateSchedule({
       </ScrollArea>
 
       <div className="flex items-center justify-between">
-        <div className="flex gap-4 text-sm">
+        <div className="flex gap-4 text-sm flex-wrap">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-primary/30" />
             <span>Preferred</span>
@@ -3075,7 +3114,11 @@ function CreateSchedule({
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-gray-300" />
-            <span>Past Time</span>
+            <span>Past Time </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded bg-orange-200" />
+            <span>Tentative Schedule</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
