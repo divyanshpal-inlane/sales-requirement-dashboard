@@ -1478,8 +1478,9 @@ function CreateSchedule({
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];
     const dateStr = format(date, "yyyy-MM-dd");
+    // TODO: check is the flag is set correctly, it shoukd check instructors schedule , not schedules list
     const isDayBlocked = schedulesToChange.some(
-      (s) => format(new Date(s.date), "yyyy-MM-dd") === dateStr,
+      (s) => (format(new Date(s.date), "yyyy-MM-dd") === dateStr) && (!s.isTentative),
     );
     const isToday = isSameDay(date, new Date());
     const currentTime = new Date();
@@ -1535,7 +1536,7 @@ function CreateSchedule({
         // console.log("selectedInstr: ", defaultInstructorId);
         // Get available instructors for this slot
         // Filter to only include instructors within their service radius
-        let selectedInstrUnvailable = true;
+        let selectedInstrUnvailable = false; //assum instructors are available unless blocked
         const availableInstructors =
           instructorsWithDistance
             ?.filter((instructor) => {
@@ -1555,7 +1556,7 @@ function CreateSchedule({
               // move above code to seperate function
 
               return !slotSchedules.some(
-                (s) => s.instructor_id === instructor.id_instructor,
+                (s) => (s.instructor_id === instructor.id_instructor) && (!s.isTentative),
               );
             })
             .map((i) => i.id_instructor) ?? [];
@@ -1576,7 +1577,19 @@ function CreateSchedule({
               }
             : undefined;
         // console.log("selectedInstructorId, selectedInstructorUnavailable", selectedInstructorId, selectedInstrUnvailable);
+  const available = (              availableInstructors.length > 0 &&
+              !selectedInstrUnvailable &&
+              !isLearnerSchedule &&
+              !isDayBlocked &&
+              !isInPast);
+  if (date.getDate() === 2 && hour === 10) {
 
+    console.log(
+      "availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour",
+      availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour);
+      console.log(available ? "AVAILABLE" : "NOT AVAILABLE");
+    }
+   
         daySchedule.push({
           timestamp,
           timeSlot: timeSlot as TimeSlot | null,
@@ -2081,20 +2094,26 @@ function CreateSchedule({
       </Dialog>
     );
   };
-
+{/* <CreateFromAdmin></CreateFromAdmin> */}
   // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
+    if (!selectedInstructorId) {
+      alert("Select Instructor");
+      return;
+    }
     if (!slot.state.isAvailable || slot.state.isSelected) {
-      if (!selectedInstructorId) {
-        alert("Select Instructor");
+      if (!slot.state.isAvailable) {
+        alert("Unavailable slot time");
         return;
       }
       if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
         alert("Unavailable Instructor");
         return;
       }
+      console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
+        alert("Slot is already selected");
         setSelectedSlots((prev) => {
           const hour = slot.timestamp.getHours();
           const minute = slot.timestamp.getMinutes();
@@ -2106,10 +2125,11 @@ function CreateSchedule({
             s.hour === hour &&
             s.minutes === minute,
           )?.slotGroupId;
-          
+          console.log("prev and groupId of slot are", prev, groupId);
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
       }
+      else { console.log("NOT SELECTED. selected slots are unchanged", slot.state.isSelected, selectedSlots); }
       return;
     }
 
@@ -2128,7 +2148,7 @@ function CreateSchedule({
       );
       return;
     }
-
+console.log("Setting state to slot", slot);
     // NEW: Open instructor selection dialog instead of direct selection
     setSelectedSlot(slot);
     setSelectedDate(date);
@@ -3054,6 +3074,7 @@ function CreateSchedule({
             // console.log('%c ~ file: CreateSchedule.tsx:2725 index=%d: ', 'color: #c0f89c', index);
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
+            console.log("daySchedule", daySchedule);
             return (
               <Card key={index} className="w-[120px] flex-shrink-0">
                 <CardContent className="p-4">
