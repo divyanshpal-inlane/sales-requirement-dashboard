@@ -8,6 +8,7 @@ import {
   format,
   isBefore,
   isSameDay,
+  set,
   startOfWeek,
 } from "date-fns";
 import {
@@ -51,6 +52,7 @@ import InstructorSelectionDialog from "@/components/scheduling/InstructorSelecti
 import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import { toast } from "sonner";
 import LearnerScheduleSelector from "./schedule";
+import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 
 interface TimeSlotState {
   isAvailable: boolean;
@@ -226,6 +228,77 @@ export default function CreateScheduleWithInstructor({
       return data;
     },
   });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // Fetch testative schedules for the learner's area
+  const { data: tentativeSchedules } = useQuery({
+    queryKey: ["tentative_schedules", selectedInstructorId, learnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("Schedule")
+      .select("*")
+      .eq('isTentative', true)
+      .eq('learner_id', learnerId)
+      .eq('instructor_id', selectedInstructorId)
+      .order('created_at', {ascending: false});
+      // Note that there can be multiple tentative schedules for different slots
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // ignore null output of query
+          return null;
+        }
+        throw error;
+      }
+      return data;
+    },
+    enabled: !!selectedInstructorId // The query will run only when selectedInstructorId is not-null
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Calculate distances between learner and instructors
   useEffect(() => {
@@ -824,6 +897,56 @@ export default function CreateScheduleWithInstructor({
     return <div>No learner details found</div>;
   }
 
+  const handleAvailableSlotClick = (learnerData, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute) => {
+    console.log(learnerData);
+
+
+
+    console.log("tentativeSchedules, ", tentativeSchedules);
+
+
+    // Filter schedule for the given slot if any
+    // tentativeSchedulesOfSlot = tentativeSchedules.filter((s) => )
+
+
+    // Find the schedule for the current day and time
+    const currentTime = new Date(day);
+    currentTime.setHours(hour, minute);
+    const tentativeSchedulesOfSlot = tentativeSchedules?.find((s) => {
+      const scheduleStart = new Date(
+        `${s.date}T${s.start_time}`,
+      );
+      const scheduleEnd = new Date(
+        `${s.date}T${s.end_time}`,
+      );
+      return (
+        isSameDay(scheduleStart, day) &&
+        currentTime >= scheduleStart &&
+        currentTime < scheduleEnd
+      );
+    });
+
+    console.log("tentativeSchedulesOfSlot, ", tentativeSchedulesOfSlot, currentTime, hour, minute);
+
+    <Card> 
+      <CardContent>
+        Tentative schedule data: {JSON.stringify(tentativeSchedulesOfSlot)}
+      </CardContent>
+    </Card>
+    // display data if exist
+
+    // define state hooks on the component side and use them directly here for updating
+    // Call mutate function for updating the state 
+
+    // const formData = { /* Gather your form data here */ };
+    // try {
+    //   // 3. Call the mutate function within the handler.
+    //   // This triggers the async operation defined in mutationFn.
+    //   await myMutation.mutateAsync(formData);
+    // } catch (error) {
+    //   console.error('Mutation failed:', error.message);
+    // }
+  }
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
@@ -1008,9 +1131,14 @@ export default function CreateScheduleWithInstructor({
                                     ? "bg-gray-300 text-red-800"
                                   : ""
                               } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
-                              onClick={() =>
-                                schedule && handleOccupiedSlotClick(schedule)
+                              onClick={() => {
+                                if (schedule && !schedule.isTentative) {
+                                  handleOccupiedSlotClick(schedule);
+                                } else {
+                                  handleAvailableSlotClick(request.Learner, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute);
+                                }
                               }
+                            }
                             >
                               <div className="flex h-full flex-col items-center justify-center">
                                 {isScheduleStart && schedule && !schedule.isTentative ? (
@@ -1033,7 +1161,6 @@ export default function CreateScheduleWithInstructor({
                                 ) : isScheduleStart && schedule && schedule.isTentative ? (
                                   <span className="text-base font-bold leading-tight text-gray-500"> Tentative </span>) : null
                               }
-                                  
                               </div>
                             </td>
                           );
@@ -1577,18 +1704,18 @@ function CreateSchedule({
               }
             : undefined;
         // console.log("selectedInstructorId, selectedInstructorUnavailable", selectedInstructorId, selectedInstrUnvailable);
-  const available = (              availableInstructors.length > 0 &&
-              !selectedInstrUnvailable &&
-              !isLearnerSchedule &&
-              !isDayBlocked &&
-              !isInPast);
-  if (date.getDate() === 2 && hour === 10) {
+  // const available = (              availableInstructors.length > 0 &&
+  //             !selectedInstrUnvailable &&
+  //             !isLearnerSchedule &&
+  //             !isDayBlocked &&
+  //             !isInPast);
+  // if (date.getDate() === 2 && hour === 10) {
 
-    console.log(
-      "availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour",
-      availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour);
-      console.log(available ? "AVAILABLE" : "NOT AVAILABLE");
-    }
+  //   console.log(
+  //     "availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour",
+  //     availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour);
+  //     console.log(available ? "AVAILABLE" : "NOT AVAILABLE");
+  //   }
    
         daySchedule.push({
           timestamp,
@@ -3074,7 +3201,7 @@ console.log("Setting state to slot", slot);
             // console.log('%c ~ file: CreateSchedule.tsx:2725 index=%d: ', 'color: #c0f89c', index);
             const date = addDays(startDate, index);
             const daySchedule = calculateDaySchedule(date);
-            console.log("daySchedule", daySchedule);
+            // console.log("daySchedule", daySchedule);
             return (
               <Card key={index} className="w-[120px] flex-shrink-0">
                 <CardContent className="p-4">
