@@ -53,6 +53,7 @@ import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import { toast } from "sonner";
 import LearnerScheduleSelector from "./schedule";
 import { useTentativeScheduleData } from "@/hooks/useScheduleData";
+import { TentativeScheduleDialog } from "../admin/TentativeScheduleCard";
 
 interface TimeSlotState {
   isAvailable: boolean;
@@ -198,6 +199,11 @@ export default function CreateScheduleWithInstructor({
     null,
   );
   const [showLearnerDialog, setShowLearnerDialog] = useState(false);
+    const [selectedTentativeSchedule, setSelectedTentativeSchedule] = useState<LearnerInfo | null>(
+    null,
+  );
+  const [showTentativeScheduleDialog, setShowTentativeScheduleDialog] = useState(false);
+
 
   // Fetch learner details to get pickup location coordinates
   const {
@@ -928,11 +934,26 @@ export default function CreateScheduleWithInstructor({
 
     console.log("tentativeSchedulesOfSlot, ", tentativeSchedulesOfSlot, currentTime, hour, minute);
 
-    <Card> 
-      <CardContent>
-        Tentative schedule data: {JSON.stringify(tentativeSchedulesOfSlot)}
-      </CardContent>
-    </Card>
+      // Format the learner data to match LearnerInfo interface
+      const learnerInfo: LearnerInfo = {
+        id: learnerData.id,
+        name: learnerData.name,
+        phone: learnerData.phone,
+        email: learnerData.email || "",
+        area: learnerData.area,
+        pincode: learnerData.pincode,
+        signed_up: learnerData.signed_up,
+        created_at: learnerData.created_at,
+        address_lat: learnerData.address_lat,
+        address_lng: learnerData.address_lng,
+        preferred_start_date: learnerData.preferred_start_date,
+        preferred_completion_days: learnerData.preferred_completion_days,
+        prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
+        pick_up_location: learnerData.pick_up_location,
+      };
+    
+    setSelectedTentativeSchedule(learnerInfo);
+    setShowTentativeScheduleDialog(true);
     // display data if exist
 
     // define state hooks on the component side and use them directly here for updating
@@ -1174,7 +1195,12 @@ export default function CreateScheduleWithInstructor({
           </CardContent>
         </Card>
       </div>
-
+      {/* Tentative schedule dialog */}
+      {/* <TentativeScheduleDialog
+        isOpen={instructorDialogOpen}
+        onClose={() => setInstructorDialogOpen(false)}
+        selectedDateTime={selectedSlotForDialog}
+        /> */}
       {/* Right Panel: Learner's Schedule Selection */}
       <div className="w-1/2">
         <Card className="mb-4">
@@ -1372,6 +1398,14 @@ export default function CreateScheduleWithInstructor({
           onClose={() => setShowLearnerDialog(false)}
         />
       )}
+
+      {/* {selectedTentativeSchedule && (
+        <TentativeScheduleDialog
+          learner={selectedTentativeSchedule}
+          open={showTentativeScheduleDialog}
+          onClose={() => setShowTentativeScheduleDialog(false)}
+        />
+      )} */}
     </div>
   );
 }
