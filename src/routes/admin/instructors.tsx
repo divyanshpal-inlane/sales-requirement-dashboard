@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDays, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
+import { addDays, addMinutes, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
 import { ArrowLeft, Check, ChevronsUpDown, PlusCircle, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { Schedule } from "./schedules";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -252,6 +253,7 @@ export default function InstructorsManagement() {
   const [instructorData, setInstructorData] = useState<InstructorData>(
     initialInstructorData,
   );
+
   const [newArea, setNewArea] = useState<string>("");
   const [areaSearchQuery, setAreaSearchQuery] = useState<string>("");
   const [isAddingCustomArea, setIsAddingCustomArea] = useState<boolean>(false);
@@ -268,6 +270,7 @@ export default function InstructorsManagement() {
     Partial<Unavailability>
   >({});
 
+  // Add tentative schedule info
   // Fetch all servicable areas for suggestions
   const { data: serviceableAreas, isLoading: areasLoading } = useQuery({
     queryKey: ["serviceable-areas"],
@@ -360,29 +363,60 @@ export default function InstructorsManagement() {
   );
 
   // Fetch all instructors along with their schedules
-  const { data: instructors, isLoading } = useQuery({
-    queryKey: ["instructors"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Instructor")
-        .select(
-          `
-          *,
-          schedules:Schedule (
-            id,
-            date,
-            start_time,
-            end_time,
-            learner:learner_id ( name )
-          )
-        `,
-        )
-        .order("name");
+  // const { data: instructors, isLoading } = useQuery({
+  //   queryKey: ["instructors"],
+  //   queryFn: async () => {
+  //     const { data, error } = await supabase
+  //       .from("Instructor")
+  //       .select(
+  //         `
+  //         *,
+  //         schedules:Schedule (
+  //           id,
+  //           date,
+  //           start_time,
+  //           end_time,
+  //           learner:learner_id ( name )
+  //         )
+  //       `,
+  //       )
+  //       .order("name");
 
-      if (error) throw error;
-      return data as (InstructorFromDB & { schedules: Schedule[] })[];
-    },
-  });
+  //     if (error) throw error;
+  //     return data as (InstructorFromDB & { schedules: Schedule[] })[];
+  //   },
+  // });
+
+  const { data: instructors, isLoading } = useQuery({
+  queryKey: ["instructors"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("Instructor")
+      .select(
+        `
+        *,
+        schedules:Schedule (
+          id,
+          date,
+          start_time,
+          end_time,
+          isTentative,
+          tentative_details,
+          learner:learner_id ( name )
+        )
+      `,
+        { // This is the options object, placed outside the string
+          count: "exact",
+          head: false,
+          foreignTableJoins: "schedules(left)",
+        }
+      )
+      .order("name");
+
+    if (error) throw error;
+    return data as (InstructorFromDB & { schedules: Schedule[] })[];
+  },
+});
 
   // Add or update an instructor
   const mutation = useMutation({
@@ -723,6 +757,9 @@ export default function InstructorsManagement() {
                     </DialogHeader>
                     <div className="mt-4">
                       <WeeklyScheduleView
+                        instructor_id={instructor.id_instructor}
+                        instructorName={instructor.name}
+                        // Pass schedules and unavailability to the schedule view
                         schedules={instructor.schedules}
                         unavailability={instructor.unavailability || []}
                       />
@@ -1448,6 +1485,7 @@ export default function InstructorsManagement() {
 }
 
 function WeeklyScheduleView({
+  instructor_id,
   schedules,
   unavailability,
 }: {
@@ -1457,14 +1495,246 @@ function WeeklyScheduleView({
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date()),
   );
+  const [isTentativeDialogOpen, setIsTentativeDialogOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"add" | "edit">("add");
+  const [instructorId, setInstructorId] = useState(instructor_id);
+  const [tentativeSchedule, setTentativeSchedule] = useState<any>({
+    id: "",
+    date: "",
+    start_time: "",
+    end_time: "",
+    enabled: true,
+    isTentative: true,
+    tentative_details: {
+      name: "",
+      phone: "",
+      paid_info: "",
+      pickup_location: "",
+      description: "",
+    },
+  });
+  // const [tentativeSchedule, setTentativeSchedule] = useState<any>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
+console.log("Initial state of tentative schedule and isTentativeDialogOpen", tentativeSchedule, isTentativeDialogOpen);
+  const setScheduleHelper = (schedule) => {
+    console.log("Helper setting tentative details as", schedule.tentative_details);
+    setTentativeSchedule({
+      date: schedule.date,
+      start_time: schedule.start_time,
+      end_time: schedule.end_time,
+      enabled: schedule.enabled,
+      isTentative: schedule.isTentative,
+      instructor_id: instructorId,
+      tentative_details:
+      {
+            name: schedule?.tentative_details?.name || "",
+            phone: schedule?.tentative_details?.phone || "",
+            paid_info: schedule?.tentative_details?.phone || "",
+            pickup_location: schedule?.tentative_details?.pickup_location || "",
+            description: schedule?.tentative_details?.description || "",
+      }
+    });
+  };
+
+  const resetTentativeForm = () => {
+    const initialTentativeSchedule = {
+          id: "",
+          date: "",
+          start_time: "",
+          end_time: "",
+          enabled: true,
+          isTentative: true,
+          learner_id: "",
+          instructor_id: instructorId,
+          tentative_details: {
+            name: "",
+            phone: "",
+            paid_info: "",
+            pickup_location: "",
+            description: "",
+          },
+    }
+    setTentativeSchedule(initialTentativeSchedule);
+  };
+
+  // Add or update a tentative schedule
+  const tentativeScheduleMutation = useMutation({
+    mutationFn: async (data: Schedule) => {
+      // Now proceed with tentative schedule update/insert
+      if (formMode === "add") {
+        const { data: newTentativeSchedule, error } = await supabase
+          .from("Schedule")
+          .insert([
+            {
+              date: tentativeSchedule.date,
+              start_time: tentativeSchedule.start_time,
+              end_time: tentativeSchedule.end_time,
+              enabled: tentativeSchedule.enabled,
+              isTentative: tentativeSchedule.isTentative,
+              instructor_id: instructorId,
+              tentative_details: {
+                name: tentativeSchedule.tentative_details.name,
+                phone: tentativeSchedule.tentative_details.phone,
+                paid_info: tentativeSchedule.tentative_details.paid_info,
+                pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                description: tentativeSchedule.tentative_details.description,
+              }
+            },
+          ])
+          .select();
+
+        if (error) throw error;
+        return newTentativeSchedule;
+      } else {
+        if (!data.id) {
+          throw new Error("Schedule ID missing for added schedule");
+        }
+
+        const { data: updatedTentativeSchedule, error } = await supabase
+          .from("Schedule")
+          .update({
+              date: tentativeSchedule.date,
+              start_time: tentativeSchedule.start_time,
+              end_time: tentativeSchedule.end_time,
+              enabled: tentativeSchedule.enabled,
+              isTentative: tentativeSchedule.isTentative,
+              instructor_id: instructorId,
+              tentative_details: {
+                name: tentativeSchedule.tentative_details.name,
+                phone: tentativeSchedule.tentative_details.phone,
+                paid_info: tentativeSchedule.tentative_details.paid_info,
+                pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                description: tentativeSchedule.tentative_details.description,
+              }
+          })
+          .eq("id", tentativeSchedule.id)
+          .select();
+
+        if (error) throw error;
+        return updatedTentativeSchedule;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instructors"] });
+      setIsTentativeDialogOpen(false);
+      resetTentativeForm();
+      toast({
+        title: formMode === "add" ? "Tentative Schedule Added" : "Schedule Updated",
+        description:
+          formMode === "add"
+            ? "New tentative schedule has been added successfully"
+            : "Tentative schedule details have been updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   const handleWeekChange = (direction: "prev" | "next") => {
     setCurrentWeekStart((prev) =>
       direction === "next" ? addDays(prev, 7) : addDays(prev, -7),
     );
   };
 
-  // Helper function to check if a time slot is unavailable
+  const handleTentativeSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tentativeSchedule) {
+      console.error("Tentative schedule is null");
+      return;
+    }
+    // Validate form
+    if (!tentativeSchedule.date || !tentativeSchedule.date instanceof Date && !isNaN(date.getTime())) {
+      toast({
+        title: "Error",
+        description: "Cannot retrieve date info",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!tentativeSchedule.start_time.trim()) {
+      toast({
+        title: "Error",
+        description: "Cannot retreive start time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!tentativeSchedule.end_time.trim()) {
+      toast({
+        title: "Error",
+        description: "Cannot retreive end time",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (tentativeSchedule.tentative_details.name.length === 0) {
+      toast({
+        title: "Error",
+        description: "Customer name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (tentativeSchedule.tentative_details.phone.length === 0) {
+      toast({
+        title: "Error",
+        description: "Customer phone is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (tentativeSchedule.tentative_details.paid_info.length === 0) {
+      toast({
+        title: "Error",
+        description: "Paid/Unpaid information is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (tentativeSchedule.tentative_details.pickup_location.length === 0) {
+      toast({
+        title: "Error",
+        description: "Customer pickup location is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (tentativeSchedule.tentative_details.description.length > 1024) {
+      toast({
+        title: "Error",
+        description: "Description length exceeded (1024 characters)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    tentativeScheduleMutation.mutate(tentativeSchedule);
+  };
+
+  
+  const handlePaidInfoChange = (
+    value: "Unpaid" | "Half Paid" | "Full paid" | null,
+  ) => {
+    setTentativeSchedule({
+      ...tentativeSchedule,
+      // Correctly update the nested 'tentative_details' object
+      tentative_details: {
+        ...tentativeSchedule.tentative_details,
+        paid_info: value,
+      },
+    });
+  };
+
   // Helper function to check if a time slot is unavailable
   const isTimeSlotUnavailable = (day: Date, hour: number, minute: number) => {
     const currentTime = new Date(day);
@@ -1569,6 +1839,46 @@ function WeeklyScheduleView({
     });
   };
 
+  const formatDateForInput = (date: Date): string => {
+    // Add a check to ensure 'date' is a valid Date object before calling toISOString().
+    if (date instanceof Date && !isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+    // Return an empty string if the date is invalid to prevent errors.
+    return '';
+  };
+
+  const handleOccupiedSlotClick = (schedule: Schedule) => {
+    toast({
+      title: "Booked",
+      // description: `This slot is booked for ${schedule?.learner?.name || "a learner"}.`,
+      description: `The slot is booked.`,
+    });
+    console.log("Occupied schedule details:", schedule);
+  }
+  const handleTentativeSlotClick = (schedule, day, hour, minute) => {
+    // alert("This slot is available for booking.");
+    console.log("Tentative slot clicked:", { tentativeSchedule, day, hour, minute });
+    
+    if (tentativeSchedule?.tentative_details.length > 0) {
+      // existing schedule
+      setFormMode("edit");
+      // setTentativeSchedule(schedule); // Not working
+      // console.log("Tentative schedule of slot and formMode ", schedule, tentativeSchedule, formMode);
+    } else {
+      const tentativeStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);
+      const tentativeEnd = addMinutes(tentativeStart, 60);
+      setTentativeSchedule({
+        ...tentativeSchedule,
+        date: tentativeStart, // Use the new date object
+        start_time: `${String(tentativeStart.getHours()).padStart(2, "0")}:${String(tentativeStart.getMinutes()).padStart(2, "0")}`,
+        end_time: `${String(tentativeEnd.getHours()).padStart(2, "0")}:${String(tentativeEnd.getMinutes()).padStart(2, "0")}`,
+      });
+      setFormMode("add");
+    }
+    setIsTentativeDialogOpen(true);
+  }
+
   return (
     <div>
       {/* Week Navigation */}
@@ -1645,14 +1955,41 @@ function WeeklyScheduleView({
                         key={dayIndex}
                         className={`border border-gray-200 p-2 text-center ${
                           schedule
-                            ? "bg-primary text-white"
-                            : unavailable
-                              ? "bg-gray-400 text-red-800"
-                              : ""
-                        }`}
-                      >
+                                  ? schedule.isTentative 
+                                    ? "bg-orange-300 text-black"
+                                    : "bg-green-500 text-white"
+                                  : unavailable
+                                    ? "bg-gray-300 text-red-800"
+                                  : ""
+                              } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
+                              onClick={() => {
+                                setIsTentativeDialogOpen(false);
+                                if (schedule && !schedule.isTentative) {
+                                  handleOccupiedSlotClick(schedule);
+                                } else {
+                                  if (unavailable) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Not available instructor",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  // if (schedule) setScheduleHelper(schedule);
+                                  if (schedule && schedule.isTentative) {
+                                    // handleViewTentativeSlotClick();
+                                    console.log("Setting tentative schedule", schedule);
+                                    console.log("Now tentative schedule", tentativeSchedule);
+                                  }
+                                  handleTentativeSlotClick(schedule, day, hour, minute);
+                                }
+                              }
+                            }
+                            >
                         {schedule
-                          ? `${schedule.learner?.name || "Booked"}`
+                          ? schedule.isTentative
+                            ? "Tentative" 
+                            : `${schedule.learner?.name || "Booked"}`
                           : unavailable
                             ? ""
                             : ""}
@@ -1673,10 +2010,209 @@ function WeeklyScheduleView({
           <span className="text-sm">Booked</span>
         </div>
         <div className="flex items-center">
+          <div className="mr-2 h-4 w-4 bg-orange-300"></div>
+          <span className="text-sm">Tentative</span>
+        </div>
+        <div className="flex items-center">
           <div className="mr-2 h-4 w-4 bg-gray-400"></div>
           <span className="text-sm">Unavailable</span>
         </div>
       </div>
+
+
+
+
+
+
+    {/* Add/Edit Tentative Schedule Dialog */}
+      <Dialog
+        open={isTentativeDialogOpen}
+        onOpenChange={(open) => {
+          // Only close if explicitly set to false
+          if (!open) {
+            setIsTentativeDialogOpen(false);
+          }
+        }}
+      >
+        <DialogContent
+          className="scrollbar-none h-[calc(100vh-50px)] max-h-[80vh] overflow-y-auto sm:max-w-[500px]"
+          style={{ scrollbarWidth: "none" }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {formMode === "add"
+                ? "Add Tentative Schedule"
+                : "Edit Tentative Schedule Details"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleTentativeSave}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-name" className="text-right">
+                  Name<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_details-name"
+                  value={tentativeSchedule.tentative_details.name}
+                  onChange={(e) =>
+                    setTentativeSchedule({
+                      ...tentativeSchedule,
+                      // Correctly update the nested 'tentative_details' object
+                      tentative_details: {
+                        ...tentativeSchedule.tentative_details,
+                        name: e.target.value,
+                      },
+                    })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-phone" className="text-right">
+                  Phone<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_details-phone"
+                  value={tentativeSchedule.tentative_details.phone}
+                  onChange={(e) =>
+                    setTentativeSchedule({
+                      ...tentativeSchedule,
+                      // Correctly update the nested 'tentative_details' object
+                      tentative_details: {
+                        ...tentativeSchedule.tentative_details,
+                        phone: e.target.value,
+                      },
+                    })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-description" className="text-right">
+                  Description<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_details-description"
+                  value={tentativeSchedule.tentative_details.description}
+                  onChange={(e) =>
+                    setTentativeSchedule({
+                      ...tentativeSchedule,
+                      // Correctly update the nested 'tentative_details' object
+                      tentative_details: {
+                        ...tentativeSchedule.tentative_details,
+                        description: e.target.value,
+                      },
+                    })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-paid_info" className="text-right">
+                  Paid information
+                </Label>
+                <Select
+                  value={tentativeSchedule.tentative_details.paid_info || undefined}
+                  onValueChange={(value) =>
+                    handlePaidInfoChange(
+                      value as
+                        | "Unpaid"
+                        | "Half paid"
+                        | "Full paid"
+                        | null,
+                    )
+                  }
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select Paid info" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Unpaid">Unpaid</SelectItem>
+                    <SelectItem value="Half paid">Half Paid</SelectItem>
+                    <SelectItem value="Full paid">Full Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-pickup_location" className="text-right">
+                  Pickup location<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_details-description"
+                  value={tentativeSchedule.tentative_details.pickup_location}
+                  onChange={(e) =>
+                    setTentativeSchedule({
+                      ...tentativeSchedule,
+                      tentative_details: {
+                        ...tentativeSchedule.tentative_details,
+                        pickup_location: e.target.value,
+                      },
+                    })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+            </div>
+            {/* Inactive Date Fields filled automatically */}
+            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+              <label htmlFor="tentative_details-date" className="text-right font-medium">
+                Date
+              </label>
+              <input
+                id="tentative_details-date"
+                type="date"
+                value={formatDateForInput(tentativeSchedule.date)}
+                className="col-span-3 px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed focus:outline-none"
+                readOnly
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+            <label htmlFor="start_time" className="text-right font-medium">
+              Start Time
+            </label>
+            <input
+              id="start_time"
+              type="text"
+              value={tentativeSchedule.start_time}
+              className="col-span-3 px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed focus:outline-none"
+              readOnly
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <label htmlFor="end_time" className="text-right font-medium">
+              End Time
+            </label>
+            <input
+              id="end_time"
+              type="text"
+              value={tentativeSchedule.end_time}
+              className="col-span-3 px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed focus:outline-none"
+              readOnly
+            />
+          </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsTentativeDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={tentativeScheduleMutation.isPending}>
+                {tentativeScheduleMutation.isPending
+                  ? "Saving..."
+                  : formMode === "add"
+                    ? "Add Tentative Schedule"
+                    : "Update Tentative Schedule"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
