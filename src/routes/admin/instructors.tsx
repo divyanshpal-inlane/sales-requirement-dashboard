@@ -1988,7 +1988,14 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                             >
                         {schedule
                           ? schedule.isTentative
-                            ? "Tentative" 
+                            ? <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
+                                <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
+                                <li className="w-full overflow-hidden whitespace-nowrap text-ellipsis">
+                                  Description: {schedule.tentative_details?.description || "N/A"}
+                                </li>
+                                <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
+                              </ul>
                             : `${schedule.learner?.name || "Booked"}`
                           : unavailable
                             ? ""

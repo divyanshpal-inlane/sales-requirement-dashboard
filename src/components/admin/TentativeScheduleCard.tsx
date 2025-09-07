@@ -261,7 +261,7 @@ export const TentativeScheduleDialog = ({
             ...tentativeSchedule,
             learner_paid_info: paidStatus || "Unknown",
           };
-console.log("Setting additional info to current schedules");
+      console.log("Setting additional info to current schedules");
           // setCurrentSchedules(enrichedTentativeSchedules);
       } catch (error) {
         console.error("Error fetching current schedules:", error);
