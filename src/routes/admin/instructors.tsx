@@ -1901,9 +1901,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
         style={{ scrollbarWidth: "none" }}
       >
         <table className="w-full border-collapse border border-gray-200">
-          <thead>
+          <thead className="sticky top-0 bg-white shadow-md z-10">
             <tr>
-              <th className="border border-gray-200 p-2">Time</th>
+              <th className="border border-gray-200 p-2 sticky left-0 z-20 bg-white">Time</th>
               {Array.from({ length: 7 }).map((_, index) => {
                 const day = addDays(currentWeekStart, index);
                 return (
@@ -1915,7 +1915,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="overflow-y-auto">
             {Array.from({ length: 32 }).map((_, timeIndex) => {
               const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
               const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
@@ -1953,7 +1953,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                     return (
                       <td
                         key={dayIndex}
-                        className={`border border-gray-200 p-2 text-center ${
+                        className={`border border-gray-200 p-2 text-center 
+                          ${dayIndex===0 ? "left-0 sticky" : ""}
+                        ${
                           schedule
                                   ? schedule.isTentative 
                                     ? "bg-orange-300 text-black"
