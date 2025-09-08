@@ -1192,12 +1192,14 @@ export default function CreateScheduleWithInstructor({
                                   <span className="text-base leading-tight text-gray-500"> 
                                     <ul className="text-left text-xs">
                                       <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                      <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
                                       <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
                                       <li className="overflow-hidden whitespace-nowrap text-ellipsis">
                                         Description: {schedule.tentative_details?.description || "N/A"}
                                       </li>
                                       <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
                                     </ul>
+
                                   </span>
                                   ) : null
                               }

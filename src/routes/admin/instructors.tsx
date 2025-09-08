@@ -1511,6 +1511,7 @@ function WeeklyScheduleView({
       paid_info: "",
       pickup_location: "",
       description: "",
+      leadName: "",
     },
   });
   // const [tentativeSchedule, setTentativeSchedule] = useState<any>(null);
@@ -1580,6 +1581,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 paid_info: tentativeSchedule.tentative_details.paid_info,
                 pickup_location: tentativeSchedule.tentative_details.pickup_location,
                 description: tentativeSchedule.tentative_details.description,
+                leadName: tentativeSchedule.tentative_details.leadName,
               }
             },
           ])
@@ -1607,6 +1609,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 paid_info: tentativeSchedule.tentative_details.paid_info,
                 pickup_location: tentativeSchedule.tentative_details.pickup_location,
                 description: tentativeSchedule.tentative_details.description,
+                leadName: tentativeSchedule.tentative_details.leadName,
               }
           })
           .eq("id", tentativeSchedule.id)
@@ -1713,6 +1716,14 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
       toast({
         title: "Error",
         description: "Description length exceeded (1024 characters)",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (tentativeSchedule.tentative_details.leadName.length === 0) {
+      toast({
+        title: "Error",
+        description: "Lead name is required",
         variant: "destructive",
       });
       return;
@@ -1992,6 +2003,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                           ? schedule.isTentative
                             ? <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
                                 <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
                                 <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
                                 <li className="w-full overflow-hidden whitespace-nowrap text-ellipsis">
                                   Description: {schedule.tentative_details?.description || "N/A"}
@@ -2166,6 +2178,27 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 />
               </div>
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-leadName" className="text-right">
+                  Lead Name<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_details-leadName"
+                  value={tentativeSchedule.tentative_details.leadName}
+                  onChange={(e) =>
+                    setTentativeSchedule({
+                      ...tentativeSchedule,
+                      // Correctly update the nested 'tentative_details' object
+                      tentative_details: {
+                        ...tentativeSchedule.tentative_details,
+                        leadName: e.target.value,
+                      },
+                    })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
             {/* Inactive Date Fields filled automatically */}
             <div className="grid grid-cols-4 items-center gap-4 mt-4">
               <label htmlFor="tentative_details-date" className="text-right font-medium">
