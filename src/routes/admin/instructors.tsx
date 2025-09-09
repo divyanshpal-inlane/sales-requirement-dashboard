@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { Schedule } from "./schedules";
+import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo"
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -260,6 +261,9 @@ export default function InstructorsManagement() {
   const [openScheduleDialogId, setOpenScheduleDialogId] = useState<
     string | null
   >(null); // Track which instructor's schedule dialog is open
+  const [openSearchScheduleDialogId, setOpenSearchScheduleDialogId] = useState<
+    string | null
+  >(null); // Track which instructor's schedule dialog is open
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isAddingUnavailability, setIsAddingUnavailability] = useState(false);
@@ -346,7 +350,6 @@ export default function InstructorsManagement() {
     }
   };
 
-  // Handle address change with coordinates
   // Handle address change with coordinates
   const handleAddressChange = useCallback(
     (address: string, lat: number | null, lng: number | null) => {
@@ -619,6 +622,15 @@ export default function InstructorsManagement() {
     setOpenScheduleDialogId(null); // Close the dialog
   };
 
+  const handleOpenSearchScheduleDialog = (id: string) => {
+    console.log("Search for events of id", id);
+    setOpenSearchScheduleDialogId(id); // Set the ID of the instructor whose dialog is open
+  };
+
+  const handleCloseSearchScheduleDialog = () => {
+    setOpenSearchScheduleDialogId(null); // Close the dialog
+  };
+
   return (
     <div
       className="container mx-auto min-h-screen bg-white p-8"
@@ -740,6 +752,15 @@ export default function InstructorsManagement() {
                 <Button
                   variant="outline"
                   className="w-full"
+                  onClick={() =>
+                    handleOpenSearchScheduleDialog(instructor.id_instructor)
+                  }
+                >
+                  Search Schedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
                   onClick={() => handleEditInstructor(instructor)}
                 >
                   Edit Details
@@ -775,6 +796,40 @@ export default function InstructorsManagement() {
                   </DialogContent>
                 </Dialog>
               )}
+              {/* Search schedule dialog */}
+              { openSearchScheduleDialogId === instructor.id_instructor && (
+                <Dialog key={instructor.id_instructor} open={true} onOpenChange={handleCloseSearchScheduleDialog}>
+                <DialogContent className="sm:max-w-[1200px]">
+                    <DialogHeader>
+                      <DialogTitle>
+                        Search {instructor.name}'s Schedule
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      {/* {instructor.id_instructor} */}
+                      <SearchInstructorScheduleInfo
+                        instructorId={instructor.id_instructor}
+                        openFlag={!!openSearchScheduleDialogId}
+                        closeAction={() => setOpenSearchScheduleDialogId(null)}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={handleCloseSearchScheduleDialog}
+                      >
+                        Close
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>  
+                  
+                  
+                  
+                </Dialog>
+
+              )
+
+              }
             </Card>
           ))}
         </div>
@@ -1511,6 +1566,10 @@ function WeeklyScheduleView({
       paid_info: "",
       pickup_location: "",
       description: "",
+      leadName: "",
+      address: "",
+      latitude: "",
+      longitude: "",
     },
   });
   // const [tentativeSchedule, setTentativeSchedule] = useState<any>(null);
@@ -1554,6 +1613,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
             paid_info: "",
             pickup_location: "",
             description: "",
+            address: "",
+            latitude: "",
+            longitude: "",
           },
     }
     setTentativeSchedule(initialTentativeSchedule);
@@ -1579,7 +1641,10 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
                 pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                latitude: tentativeSchedule.tentative_details.latitude,
+                longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
+                leadName: tentativeSchedule.tentative_details.leadName,
               }
             },
           ])
@@ -1606,7 +1671,10 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
                 pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                latitude: tentativeSchedule.tentative_details.latitude,
+                longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
+                leadName: tentativeSchedule.tentative_details.leadName,
               }
           })
           .eq("id", tentativeSchedule.id)
@@ -1717,6 +1785,14 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
       });
       return;
     }
+    if (tentativeSchedule.tentative_details.leadName.length === 0) {
+      toast({
+        title: "Error",
+        description: "Lead name is required",
+        variant: "destructive",
+      });
+      return;
+    }
 
     tentativeScheduleMutation.mutate(tentativeSchedule);
   };
@@ -1735,6 +1811,23 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     });
   };
 
+    // Handle address change with coordinates - Tentative Schedule
+  const handleAddressChangeTentative = useCallback(
+    (address: string, lat: number | null, lng: number | null) => {
+      console.log("Address changed:", address, lat, lng); // Add this for debugging
+      setTentativeSchedule({
+        ...tentativeSchedule,
+        tentative_details: {
+          ...tentativeSchedule.tentative_details,
+          pickup_location: address,
+          latitude: lat,
+          longitude: lng,
+        },
+      });
+
+      },
+    [tentativeSchedule], // No dependencies to avoid recreating this function
+  );
   // Helper function to check if a time slot is unavailable
   const isTimeSlotUnavailable = (day: Date, hour: number, minute: number) => {
     const currentTime = new Date(day);
@@ -1879,6 +1972,56 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     setIsTentativeDialogOpen(true);
   }
 
+  // Clear the form when closed
+  useEffect(() => {
+    if (!isTentativeDialogOpen) {
+      resetTentativeForm();
+    }
+  }, [isTentativeDialogOpen]);
+
+
+  const deleteTentativeMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const { error } = await supabase
+      .from("Schedule")
+      .delete()
+      .eq("id", Number(scheduleId));
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: () => {
+      // This will automatically refetch the schedules list after a successful delete
+      queryClient.invalidateQueries({
+        queryKey: ["Schedule", instructorId],
+      });
+      toast({
+        title: "Success",
+        description: "Tentative schedule deleted.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  const handleDeleteTentative = (scheduleId: string) => {
+    if (!scheduleId) {
+      toast({
+        title: "Error",
+        description: "Schedule ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteTentativeMutation.mutate(scheduleId);
+
+  }
   return (
     <div>
       {/* Week Navigation */}
@@ -1901,9 +2044,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
         style={{ scrollbarWidth: "none" }}
       >
         <table className="w-full border-collapse border border-gray-200">
-          <thead>
+          <thead className="sticky top-0 bg-white shadow-md z-10">
             <tr>
-              <th className="border border-gray-200 p-2">Time</th>
+              <th className="border border-gray-200 p-2 sticky left-0 z-20 bg-white">Time</th>
               {Array.from({ length: 7 }).map((_, index) => {
                 const day = addDays(currentWeekStart, index);
                 return (
@@ -1915,7 +2058,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="overflow-y-auto">
             {Array.from({ length: 32 }).map((_, timeIndex) => {
               const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
               const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
@@ -1953,7 +2096,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                     return (
                       <td
                         key={dayIndex}
-                        className={`border border-gray-200 p-2 text-center ${
+                        className={`border border-gray-200 p-2 text-center 
+                          ${dayIndex===0 ? "left-0 sticky" : ""}
+                        ${
                           schedule
                                   ? schedule.isTentative 
                                     ? "bg-orange-300 text-black"
@@ -1988,7 +2133,44 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                             >
                         {schedule
                           ? schedule.isTentative
-                            ? "Tentative" 
+                            ? 
+                              <>
+                              <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
+                                <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
+                                <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
+                                <li className="w-full overflow-hidden whitespace-nowrap text-ellipsis">
+                                  Description: {schedule.tentative_details?.description || "N/A"}
+                                </li>
+                                <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
+                                <li>  
+                                    {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
+                                        <a
+                                          href={`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                                        >
+                                          {/* {`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`} */}
+                                          Map link
+                                        </a>
+                                      ) : (
+                                        <span className="text-muted-foreground">Map N/A</span>
+                                      )}
+                                </li>
+                              </ul>
+                              <div className="mt-2">
+                              <Button
+                                variant="secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // FIX: Stop the click from bubbling
+                                  handleDeleteTentative(schedule.id);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                            </>
                             : `${schedule.learner?.name || "Booked"}`
                           : unavailable
                             ? ""
@@ -2037,7 +2219,17 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
         <DialogContent
           className="scrollbar-none h-[calc(100vh-50px)] max-h-[80vh] overflow-y-auto sm:max-w-[500px]"
           style={{ scrollbarWidth: "none" }}
-        >
+          // Prevent clicks inside from closing the dialog
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (
+              target.closest(".pac-container") ||
+              target.closest(".pac-item")
+            ) {
+              e.preventDefault();
+            }
+          }}
+          >
           <DialogHeader>
             <DialogTitle>
               {formMode === "add"
@@ -2136,19 +2328,32 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="tentative_details-pickup_location" className="text-right">
-                  Pickup location<span className="text-red-500">*</span>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">
+                Address
+              </Label>
+              <div className="col-span-3">
+                <AddressAutocomplete
+                  value={tentativeSchedule.tentative_details.address}
+                  onChange={handleAddressChangeTentative}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_details-leadName" className="text-right">
+                  Lead Name<span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  id="tentative_details-description"
-                  value={tentativeSchedule.tentative_details.pickup_location}
+                  id="tentative_details-leadName"
+                  value={tentativeSchedule.tentative_details.leadName}
                   onChange={(e) =>
                     setTentativeSchedule({
                       ...tentativeSchedule,
+                      // Correctly update the nested 'tentative_details' object
                       tentative_details: {
                         ...tentativeSchedule.tentative_details,
-                        pickup_location: e.target.value,
+                        leadName: e.target.value,
                       },
                     })
                   }
@@ -2156,7 +2361,6 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                   required
                 />
               </div>
-            </div>
             {/* Inactive Date Fields filled automatically */}
             <div className="grid grid-cols-4 items-center gap-4 mt-4">
               <label htmlFor="tentative_details-date" className="text-right font-medium">

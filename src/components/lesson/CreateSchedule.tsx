@@ -50,10 +50,10 @@ import { Schedule } from "@/routes/admin/schedules";
 import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
 import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
-import { toast } from "sonner";
 import LearnerScheduleSelector from "./schedule";
 import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 import { TentativeScheduleDialog } from "../admin/TentativeScheduleCard";
+import { useToast } from "@/components/ui/use-toast";
 
 interface TimeSlotState {
   isAvailable: boolean;
@@ -203,7 +203,7 @@ export default function CreateScheduleWithInstructor({
     null,
   );
   const [showTentativeScheduleDialog, setShowTentativeScheduleDialog] = useState(false);
-
+  const { toast } = useToast();
 
   // Fetch learner details to get pickup location coordinates
   const {
@@ -906,10 +906,7 @@ export default function CreateScheduleWithInstructor({
   const handleAvailableSlotClick = (learnerData, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute) => {
     console.log(learnerData);
 
-
-
     console.log("tentativeSchedules, ", tentativeSchedules);
-
 
     // Filter schedule for the given slot if any
     // tentativeSchedulesOfSlot = tentativeSchedules.filter((s) => )
@@ -1156,7 +1153,19 @@ export default function CreateScheduleWithInstructor({
                                 if (schedule && !schedule.isTentative) {
                                   handleOccupiedSlotClick(schedule);
                                 } else {
-                                  handleAvailableSlotClick(request.Learner, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute);
+                                  if (schedule?.isTentative) {
+                                    // Show message to user to manage tentative schedules from Instructor management
+                                    toast({
+                                      title: "Tentative Schedule",
+                                      description: "Tentative schedules can be updated from Instructor management panel",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+
+                                  // The following can be implemented to create the schedules also from the Intructor calender
+                                  // However, it can be done from the Learner panel by selecting the same slot hence it is added functionality not must have
+                                  // handleAvailableSlotClick(request.Learner, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute);
                                 }
                               }
                             }
@@ -1180,7 +1189,34 @@ export default function CreateScheduleWithInstructor({
                                     </span>
                                   </>
                                 ) : isScheduleStart && schedule && schedule.isTentative ? (
-                                  <span className="text-base font-bold leading-tight text-gray-500"> Tentative </span>) : null
+                                  <span className="text-base leading-tight text-gray-500"> 
+                                    <ul className="text-left text-xs">
+                                      <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                      <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
+                                      <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
+                                      <li className="overflow-hidden whitespace-nowrap text-ellipsis">
+                                        Description: {schedule.tentative_details?.description || "N/A"}
+                                      </li>
+                                      <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
+                                      <li>  
+                                        {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
+                                            <a
+                                              href={`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                                            >
+                                              {/* {`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`} */}
+                                              Map link
+                                            </a>
+                                          ) : (
+                                            <span className="text-muted-foreground">Map N/A</span>
+                                          )}
+                                      </li>
+                                    </ul>
+
+                                  </span>
+                                  ) : null
                               }
                               </div>
                             </td>
