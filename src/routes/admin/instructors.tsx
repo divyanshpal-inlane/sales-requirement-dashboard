@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { Schedule } from "./schedules";
+import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo"
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -258,6 +259,9 @@ export default function InstructorsManagement() {
   const [areaSearchQuery, setAreaSearchQuery] = useState<string>("");
   const [isAddingCustomArea, setIsAddingCustomArea] = useState<boolean>(false);
   const [openScheduleDialogId, setOpenScheduleDialogId] = useState<
+    string | null
+  >(null); // Track which instructor's schedule dialog is open
+  const [openSearchScheduleDialogId, setOpenSearchScheduleDialogId] = useState<
     string | null
   >(null); // Track which instructor's schedule dialog is open
   const queryClient = useQueryClient();
@@ -619,6 +623,15 @@ export default function InstructorsManagement() {
     setOpenScheduleDialogId(null); // Close the dialog
   };
 
+  const handleOpenSearchScheduleDialog = (id: string) => {
+    console.log("Search for events of id", id);
+    setOpenSearchScheduleDialogId(id); // Set the ID of the instructor whose dialog is open
+  };
+
+  const handleCloseSearchScheduleDialog = () => {
+    setOpenSearchScheduleDialogId(null); // Close the dialog
+  };
+
   return (
     <div
       className="container mx-auto min-h-screen bg-white p-8"
@@ -740,6 +753,15 @@ export default function InstructorsManagement() {
                 <Button
                   variant="outline"
                   className="w-full"
+                  onClick={() =>
+                    handleOpenSearchScheduleDialog(instructor.id_instructor)
+                  }
+                >
+                  Search Schedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
                   onClick={() => handleEditInstructor(instructor)}
                 >
                   Edit Details
@@ -775,6 +797,40 @@ export default function InstructorsManagement() {
                   </DialogContent>
                 </Dialog>
               )}
+              {/* Search schedule dialog */}
+              { openSearchScheduleDialogId === instructor.id_instructor && (
+                <Dialog key={instructor.id_instructor} open={true} onOpenChange={handleCloseSearchScheduleDialog}>
+                <DialogContent className="sm:max-w-[1200px]">
+                    <DialogHeader>
+                      <DialogTitle>
+                        Search {instructor.name}'s Schedule
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      {/* {instructor.id_instructor} */}
+                      <SearchInstructorScheduleInfo
+                        instructorId={instructor.id_instructor}
+                        openFlag={!!openSearchScheduleDialogId}
+                        closeAction={() => setOpenSearchScheduleDialogId(null)}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={handleCloseSearchScheduleDialog}
+                      >
+                        Close
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>  
+                  
+                  
+                  
+                </Dialog>
+
+              )
+
+              }
             </Card>
           ))}
         </div>
