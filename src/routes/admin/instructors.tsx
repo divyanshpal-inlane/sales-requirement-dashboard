@@ -2098,6 +2098,21 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                                   Description: {schedule.tentative_details?.description || "N/A"}
                                 </li>
                                 <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
+                                <li>  
+                                    {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
+                                        <a
+                                          href={`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                                        >
+                                          {/* {`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`} */}
+                                          Map link
+                                        </a>
+                                      ) : (
+                                        <span className="text-muted-foreground">Map N/A</span>
+                                      )}
+                                </li>
                               </ul>
                             : `${schedule.learner?.name || "Booked"}`
                           : unavailable
