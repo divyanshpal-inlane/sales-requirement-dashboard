@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
+import { Badge } from "../ui/badge";
 
 type ScheduleInfoData = {
   date: Date;
@@ -65,7 +66,6 @@ export const SearchInstructorScheduleInfo: React.FC<SearchInstructorScheduleInfo
       const { data, error } = await supabase
           .from("Schedule")
           .select(`*`)
-          .eq("isTentative", true)
           .eq("instructor_id", instructorId)
           .order("date", { ascending: true });
       if (error) throw error;
@@ -201,9 +201,21 @@ export const SearchInstructorScheduleInfo: React.FC<SearchInstructorScheduleInfo
                               schedule.start_time,
                             )}
                         </p>
-
-                        
                       </div>
+                      {schedule.isTentative ?
+                        <Badge
+                        variant="outline"
+                        className="border-orange-200 bg-orange-50 text-orange-700"
+                        >
+                          Tentative
+                        </Badge>
+                      : <Badge
+                        variant="outline"
+                        className="border-blue-200 bg-blue-50 text-blue-700"
+                        >
+                          Booked
+                        </Badge>
+                    }
                     </div>
                   </div>
                 </div>
@@ -219,4 +231,4 @@ export const SearchInstructorScheduleInfo: React.FC<SearchInstructorScheduleInfo
     </div>
   );
 
-};
+};
