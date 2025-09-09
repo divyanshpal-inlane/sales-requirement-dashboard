@@ -351,7 +351,6 @@ export default function InstructorsManagement() {
   };
 
   // Handle address change with coordinates
-  // Handle address change with coordinates
   const handleAddressChange = useCallback(
     (address: string, lat: number | null, lng: number | null) => {
       console.log("Address changed:", address, lat, lng); // Add this for debugging
@@ -1568,6 +1567,9 @@ function WeeklyScheduleView({
       pickup_location: "",
       description: "",
       leadName: "",
+      address: "",
+      latitude: "",
+      longitude: "",
     },
   });
   // const [tentativeSchedule, setTentativeSchedule] = useState<any>(null);
@@ -1611,6 +1613,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
             paid_info: "",
             pickup_location: "",
             description: "",
+            address: "",
+            latitude: "",
+            longitude: "",
           },
     }
     setTentativeSchedule(initialTentativeSchedule);
@@ -1636,6 +1641,8 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
                 pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                latitude: tentativeSchedule.tentative_details.latitude,
+                longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
                 leadName: tentativeSchedule.tentative_details.leadName,
               }
@@ -1664,6 +1671,8 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
                 pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                latitude: tentativeSchedule.tentative_details.latitude,
+                longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
                 leadName: tentativeSchedule.tentative_details.leadName,
               }
@@ -1802,6 +1811,23 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     });
   };
 
+    // Handle address change with coordinates - Tentative Schedule
+  const handleAddressChangeTentative = useCallback(
+    (address: string, lat: number | null, lng: number | null) => {
+      console.log("Address changed:", address, lat, lng); // Add this for debugging
+      setTentativeSchedule({
+        ...tentativeSchedule,
+        tentative_details: {
+          ...tentativeSchedule.tentative_details,
+          pickup_location: address,
+          latitude: lat,
+          longitude: lng,
+        },
+      });
+
+      },
+    [tentativeSchedule], // No dependencies to avoid recreating this function
+  );
   // Helper function to check if a time slot is unavailable
   const isTimeSlotUnavailable = (day: Date, hour: number, minute: number) => {
     const currentTime = new Date(day);
@@ -1945,6 +1971,13 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     }
     setIsTentativeDialogOpen(true);
   }
+
+  // Clear the form when closed
+  useEffect(() => {
+    if (!isTentativeDialogOpen) {
+      resetTentativeForm();
+    }
+  }, [isTentativeDialogOpen]);
 
   return (
     <div>
@@ -2114,7 +2147,17 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
         <DialogContent
           className="scrollbar-none h-[calc(100vh-50px)] max-h-[80vh] overflow-y-auto sm:max-w-[500px]"
           style={{ scrollbarWidth: "none" }}
-        >
+          // Prevent clicks inside from closing the dialog
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (
+              target.closest(".pac-container") ||
+              target.closest(".pac-item")
+            ) {
+              e.preventDefault();
+            }
+          }}
+          >
           <DialogHeader>
             <DialogTitle>
               {formMode === "add"
@@ -2213,24 +2256,15 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="tentative_details-pickup_location" className="text-right">
-                  Pickup location<span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="tentative_details-description"
-                  value={tentativeSchedule.tentative_details.pickup_location}
-                  onChange={(e) =>
-                    setTentativeSchedule({
-                      ...tentativeSchedule,
-                      tentative_details: {
-                        ...tentativeSchedule.tentative_details,
-                        pickup_location: e.target.value,
-                      },
-                    })
-                  }
-                  className="col-span-3"
-                  required
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">
+                Address
+              </Label>
+              <div className="col-span-3">
+                <AddressAutocomplete
+                  value={tentativeSchedule.tentative_details.address}
+                  onChange={handleAddressChangeTentative}
                 />
               </div>
             </div>
