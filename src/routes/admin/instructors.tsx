@@ -1979,6 +1979,49 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     }
   }, [isTentativeDialogOpen]);
 
+
+  const deleteTentativeMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const { error } = await supabase
+      .from("Schedule")
+      .delete()
+      .eq("id", Number(scheduleId));
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: () => {
+      // This will automatically refetch the schedules list after a successful delete
+      queryClient.invalidateQueries({
+        queryKey: ["Schedule", instructorId],
+      });
+      toast({
+        title: "Success",
+        description: "Tentative schedule deleted.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  const handleDeleteTentative = (scheduleId: string) => {
+    if (!scheduleId) {
+      toast({
+        title: "Error",
+        description: "Schedule ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteTentativeMutation.mutate(scheduleId);
+
+  }
   return (
     <div>
       {/* Week Navigation */}
@@ -2090,7 +2133,9 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                             >
                         {schedule
                           ? schedule.isTentative
-                            ? <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
+                            ? 
+                              <>
+                              <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
                                 <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
                                 <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
                                 <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
@@ -2114,6 +2159,18 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                                       )}
                                 </li>
                               </ul>
+                              <div className="mt-2">
+                              <Button
+                                variant="secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // FIX: Stop the click from bubbling
+                                  handleDeleteTentative(schedule.id);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                            </>
                             : `${schedule.learner?.name || "Booked"}`
                           : unavailable
                             ? ""
