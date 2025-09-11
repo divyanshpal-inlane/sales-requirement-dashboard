@@ -2291,8 +2291,6 @@ function CreateSchedule({
       </Dialog>
     );
   };
-{/* <CreateFromAdmin></CreateFromAdmin> */}
-  // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
     if (!selectedInstructorId) {
       alert("Select Instructor");
@@ -2300,14 +2298,21 @@ function CreateSchedule({
     }
     if (!slot.state.isAvailable || slot.state.isSelected) {
       if (!slot.state.isAvailable) {
-        alert("Unavailable slot time");
+        alert(
+          "Unavailable slot time. It means at least one of the following \n" + 
+            " already there's schedule on the slot or \n" +
+            " no available instructor or \n"+
+            " the reschedule request falls on the" +
+            " same day as old schedule or\n" +
+            " the time falls in the past \n"
+        );
         return;
       }
       if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
         alert("Unavailable Instructor");
         return;
       }
-      console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
+      // console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
         alert("Slot is already selected");
@@ -2326,7 +2331,7 @@ function CreateSchedule({
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
       }
-      else { console.log("NOT SELECTED. selected slots are unchanged", slot.state.isSelected, selectedSlots); }
+      // else { console.log("NOT SELECTED. selected slots are unchanged", slot.state.isSelected, selectedSlots); }
       return;
     }
 
@@ -3187,6 +3192,7 @@ console.log("Setting state to slot", slot);
     if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
     if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
       return "bg-gray-300";
+    if (!slot.state.isAvailable) return "bg-gray-300";
     if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
