@@ -415,7 +415,7 @@ export default function CreateScheduleWithInstructor({
       const end = format(addDays(currentRangeStart, 6), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("Schedule")
-        .select("*")
+        .select("*, learner:learner_id(name, area)")
         .eq("instructor_id", selectedInstructorId)
         .gte("date", start)
         .lte("date", end);
@@ -965,6 +965,32 @@ export default function CreateScheduleWithInstructor({
     //   console.error('Mutation failed:', error.message);
     // }
   }
+
+
+  const getBookedDetailsForShow = (schedule) => {
+    // console.log("Fetch learner from ", schedule);
+    const learnerDetails = schedule.learner;
+    return (
+        <>
+      {/* Learner name (bold), area (optional) */}
+      <span className="text-base font-bold leading-tight">
+        {learnerDetails?.name}
+      </span>
+      {learnerDetails?.area && (
+        <span className="text-xs text-white/90">
+          {learnerDetails?.area}
+        </span>
+      )}
+      {/* Time range */}
+      <span className="mt-1 text-xs font-medium">
+        {schedule.start_time.slice(0, 5)} -{" "}
+        {schedule.end_time.slice(0, 5)}
+      </span>
+    </>
+
+    )
+  }
+  
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
@@ -1172,22 +1198,7 @@ export default function CreateScheduleWithInstructor({
                             >
                               <div className="flex h-full flex-col items-center justify-center">
                                 {isScheduleStart && schedule && !schedule.isTentative ? (
-                                  <>
-                                    {/* Learner name (bold), area (optional) */}
-                                    <span className="text-base font-bold leading-tight">
-                                      {learnerDetails?.name}
-                                    </span>
-                                    {learnerDetails?.area && (
-                                      <span className="text-xs text-white/90">
-                                        {learnerDetails?.area}
-                                      </span>
-                                    )}
-                                    {/* Time range */}
-                                    <span className="mt-1 text-xs font-medium">
-                                      {schedule.start_time.slice(0, 5)} -{" "}
-                                      {schedule.end_time.slice(0, 5)}
-                                    </span>
-                                  </>
+                                  getBookedDetailsForShow(schedule, learnerDetails)
                                 ) : isScheduleStart && schedule && schedule.isTentative ? (
                                   <span className="text-base leading-tight text-gray-500"> 
                                     <ul className="text-left text-xs">
