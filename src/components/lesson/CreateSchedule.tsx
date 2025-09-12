@@ -415,7 +415,7 @@ export default function CreateScheduleWithInstructor({
       const end = format(addDays(currentRangeStart, 6), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("Schedule")
-        .select("*")
+        .select("*, learner:learner_id(name, area)")
         .eq("instructor_id", selectedInstructorId)
         .gte("date", start)
         .lte("date", end);
@@ -965,6 +965,32 @@ export default function CreateScheduleWithInstructor({
     //   console.error('Mutation failed:', error.message);
     // }
   }
+
+
+  const getBookedDetailsForShow = (schedule) => {
+    // console.log("Fetch learner from ", schedule);
+    const learnerDetails = schedule.learner;
+    return (
+        <>
+      {/* Learner name (bold), area (optional) */}
+      <span className="text-base font-bold leading-tight">
+        {learnerDetails?.name}
+      </span>
+      {learnerDetails?.area && (
+        <span className="text-xs text-white/90">
+          {learnerDetails?.area}
+        </span>
+      )}
+      {/* Time range */}
+      <span className="mt-1 text-xs font-medium">
+        {schedule.start_time.slice(0, 5)} -{" "}
+        {schedule.end_time.slice(0, 5)}
+      </span>
+    </>
+
+    )
+  }
+  
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
@@ -1172,22 +1198,7 @@ export default function CreateScheduleWithInstructor({
                             >
                               <div className="flex h-full flex-col items-center justify-center">
                                 {isScheduleStart && schedule && !schedule.isTentative ? (
-                                  <>
-                                    {/* Learner name (bold), area (optional) */}
-                                    <span className="text-base font-bold leading-tight">
-                                      {learnerDetails?.name}
-                                    </span>
-                                    {learnerDetails?.area && (
-                                      <span className="text-xs text-white/90">
-                                        {learnerDetails?.area}
-                                      </span>
-                                    )}
-                                    {/* Time range */}
-                                    <span className="mt-1 text-xs font-medium">
-                                      {schedule.start_time.slice(0, 5)} -{" "}
-                                      {schedule.end_time.slice(0, 5)}
-                                    </span>
-                                  </>
+                                  getBookedDetailsForShow(schedule, learnerDetails)
                                 ) : isScheduleStart && schedule && schedule.isTentative ? (
                                   <span className="text-base leading-tight text-gray-500"> 
                                     <ul className="text-left text-xs">
@@ -2291,8 +2302,6 @@ function CreateSchedule({
       </Dialog>
     );
   };
-{/* <CreateFromAdmin></CreateFromAdmin> */}
-  // REPLACE YOUR EXISTING handleSlotClick FUNCTION WITH THIS
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
     if (!selectedInstructorId) {
       alert("Select Instructor");
@@ -2300,14 +2309,21 @@ function CreateSchedule({
     }
     if (!slot.state.isAvailable || slot.state.isSelected) {
       if (!slot.state.isAvailable) {
-        alert("Unavailable slot time");
+        alert(
+          "Unavailable slot time. It means at least one of the following \n" + 
+            " already there's schedule on the slot or \n" +
+            " no available instructor or \n"+
+            " the reschedule request falls on the" +
+            " same day as old schedule or\n" +
+            " the time falls in the past \n"
+        );
         return;
       }
       if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
         alert("Unavailable Instructor");
         return;
       }
-      console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
+      // console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
         alert("Slot is already selected");
@@ -2326,7 +2342,7 @@ function CreateSchedule({
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
       }
-      else { console.log("NOT SELECTED. selected slots are unchanged", slot.state.isSelected, selectedSlots); }
+      // else { console.log("NOT SELECTED. selected slots are unchanged", slot.state.isSelected, selectedSlots); }
       return;
     }
 
@@ -3187,6 +3203,7 @@ console.log("Setting state to slot", slot);
     if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
     if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
       return "bg-gray-300";
+    if (!slot.state.isAvailable) return "bg-gray-300";
     if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";

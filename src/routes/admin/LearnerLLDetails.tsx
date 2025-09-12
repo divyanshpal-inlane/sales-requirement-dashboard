@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Badge, Search } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -391,12 +391,19 @@ const LearnerLLDetails = () => {
                       }`}
                       onClick={() => handleLearnerSelect(learner)}
                     >
+                    <div className="flex w-full items-start justify-between">
                       <div className="font-semibold text-gray-900">
                         {learner.name}
                       </div>
-                      <div className="mt-1 text-sm text-gray-600">
-                        📱 {learner.phone}
-                      </div>
+                      {learner.address_change_required && (
+                        <div className="font-semibold text-red-400">
+                          Address change required
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-1 text-sm text-gray-600">
+                      📱 {learner.phone}
+                    </div>
                     </div>
                   ))}
                 </div>

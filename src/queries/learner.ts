@@ -22,6 +22,7 @@ export function useLearner() {
         .single();
 
       if (error) throw new Error("Supabase error");
+      console.log("Learner retrieved is", Learner.onboarding_completed, Learner.dob);
       return Learner;
     },
     staleTime: Infinity,
