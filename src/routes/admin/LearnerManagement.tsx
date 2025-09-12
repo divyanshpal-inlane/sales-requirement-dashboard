@@ -37,6 +37,7 @@ export default function LearnerManagement() {
     installment2Amount: 0,
     unlockedLessons: [],
     has_a_DL: false,
+    address_change_required: false,
   });
 
   const [createdLearnerId, setCreatedLearnerId] = useState(null);
@@ -480,6 +481,16 @@ export default function LearnerManagement() {
                     onChange={handleInputChange}
                   />
                   <Label htmlFor="has_a_DL">Has a Driving License</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="address_change_required"
+                    name="address_change_required"
+                    checked={learnerData.address_change_required}
+                    onChange={handleInputChange}
+                  />
+                  <Label htmlFor="address_change_required">License address change required</Label>
                 </div>
                 <Button onClick={createLearnerAndEnrollment}>
                   Create Learner
