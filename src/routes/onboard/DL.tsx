@@ -4,14 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
-import { useQueryClient } from "@tanstack/react-query";
 
 
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
   const [learner, setLearner] = useState<any>(null);
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Fetch learner details
@@ -93,9 +91,6 @@ export default function DLQuestion() {
                     console.error("Error sending message:", error);
                   });
                 }
-
-                // invalidate queries
-                queryClient.invalidateQueries('learner');
               },
           },
         );
@@ -140,7 +135,6 @@ export default function DLQuestion() {
                   console.error("Error sending admin email:", error);
                 });
               }
-              queryClient.invalidateQueries('learner');
             },
           },
         );

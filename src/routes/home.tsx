@@ -110,8 +110,7 @@ export default function Home() {
     );
   }
 
-  if (!learner?.onboarding_completed && !learner?.dob && !isLoading) {
-    // console.log("learner onboarding and dob data", learner?.onboarding_completed, learner?.dob, isLoading);
+  if (!learner?.onboarding_completed && !learner?.dob) {
     return <Navigate to="/onboard/birthday" />;
   }
   
