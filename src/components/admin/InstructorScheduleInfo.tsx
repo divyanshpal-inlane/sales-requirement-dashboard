@@ -110,7 +110,7 @@ export const SearchInstructorScheduleInfo: React.FC<SearchInstructorScheduleInfo
   // render the component
   return (
     <div>
-      The ID sent {instructorId}
+      {/* The ID sent {instructorId} */}
       {/* Card for each tentative schedule */}
         <div className="flex-1 p-6">
           <div className="mb-6">
