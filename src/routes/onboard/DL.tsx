@@ -81,8 +81,7 @@ export default function DLQuestion() {
               // Refetch queries to ensure Learner data is updated on home page
               // Better solution than addding delays
               await queryClient.refetchQueries({ queryKey: ['learner'] });
-              // Navigate to loading page
-              navigate("/loading", { state: { next: "/home" } });
+              navigate("/home");
               
               // Send message in the background without awaiting
               if (learner) {
@@ -119,7 +118,7 @@ export default function DLQuestion() {
               // Refetch queries to ensure Learner data is updated on home page
               // Better solution than addding delays
               await queryClient.refetchQueries({ queryKey: ['learner'] });
-              navigate("/loading", { state: { next: "/home" } });
+              navigate("/home");
 
               // Send messages in the background without awaiting
               if (learner) {
