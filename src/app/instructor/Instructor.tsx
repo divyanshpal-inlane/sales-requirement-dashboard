@@ -107,7 +107,7 @@ const loadGoogleAPIs = () => {
               discoveryDocs: [DISCOVERY_DOC],
             });
             gapiInited = true;
-            console.log("GAPI initialized");
+            // console.log("GAPI initialized");
             if (gisInited) resolve(true);
           } catch (error) {
             reject(error);
@@ -133,7 +133,7 @@ const loadGoogleAPIs = () => {
           callback: "", // Will be set later
         });
         gisInited = true;
-        console.log("GIS initialized");
+        // console.log("GIS initialized");
         if (gapiInited) resolve(true);
       };
       gisScript.onerror = reject;
@@ -345,10 +345,10 @@ function Instructor() {
   useEffect(() => {
     const initGoogle = async () => {
       try {
-        console.log("Initializing Google APIs...");
+        // console.log("Initializing Google APIs...");
         await loadGoogleAPIs();
         setGoogleAPIReady(true);
-        console.log("Google APIs ready");
+        // console.log("Google APIs ready");
 
         // Check if already authenticated
         if (window.gapi?.client?.getToken()) {

@@ -41,6 +41,7 @@ const isWithin30MinutesOfLesson = (
   scheduleDate: string,
   scheduleTime: string,
 ) => {
+  if (!scheduleDate || !scheduleTime) return false;
   const lessonTime = new Date(`${scheduleDate}T${scheduleTime}`);
   const now = new Date();
   const diffInMinutes = (lessonTime.getTime() - now.getTime()) / (1000 * 60);
@@ -110,8 +111,7 @@ export default function Home() {
     );
   }
 
-  if (!learner?.onboarding_completed && !learner?.dob && !isLoading) {
-    // console.log("learner onboarding and dob data", learner?.onboarding_completed, learner?.dob, isLoading);
+  if (!learner?.onboarding_completed && !learner?.dob) {
     return <Navigate to="/onboard/birthday" />;
   }
   
@@ -272,9 +272,10 @@ export default function Home() {
               <TooltipTrigger asChild>
                 <Button
                   onClick={() =>
+                    { console.log("Starting lesson", LessonData?.upcomingLesson?.number);
                     navigate(
                       `/startLesson/${LessonData?.upcomingLesson?.number}`,
-                    )
+                    ) }
                   }
                   className="w-full"
                   disabled={
@@ -292,8 +293,8 @@ export default function Home() {
                 </Button>
               </TooltipTrigger>
               {!isWithin30MinutesOfLesson(
-                LessonData.upcomingSchedule.date,
-                LessonData.upcomingSchedule.start_time,
+                LessonData?.upcomingSchedule?.date,
+                LessonData?.upcomingSchedule?.start_time,
               ) &&
                 !lessonSchedule?.status && (
                   <TooltipContent>
@@ -313,8 +314,11 @@ export default function Home() {
             </Tooltip>
           </TooltipProvider>
           <Button
-            onClick={() =>
-              navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
+            onClick={() => {
+
+                console.log("Navigating to lesson details", LessonData?.upcomingLesson?.id);
+                navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
+              }
             }
             variant="outline"
             className="grow"

@@ -76,9 +76,12 @@ export default function DLQuestion() {
             onboarding_completed: true,
           },
           {
-            onSuccess: () => {
-              // Navigate to loading page
-              navigate("/loading", { state: { next: "/home" } });
+            onSuccess: async () => {
+              console.log("Refetching learner query");
+              // Refetch queries to ensure Learner data is updated on home page
+              // Better solution than addding delays
+              await queryClient.refetchQueries({ queryKey: ['learner'] });
+              navigate("/home");
               
               // Send message in the background without awaiting
               if (learner) {
@@ -93,9 +96,6 @@ export default function DLQuestion() {
                     console.error("Error sending message:", error);
                   });
                 }
-
-                // invalidate queries
-                queryClient.invalidateQueries('learner');
               },
           },
         );
@@ -108,13 +108,17 @@ export default function DLQuestion() {
             onboarding_completed: true,
           },
           {
-            onSuccess: () => {
+            onSuccess: async () => {
               // Navigate and open form immediately
               // Form should not be displayed immediately
               // User should be redirected to home, then page
               // for filling form and booking appointment should be shown
               // window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
-              navigate("/loading", { state: { next: "/home" } });
+              console.log("Refetching learner query");
+              // Refetch queries to ensure Learner data is updated on home page
+              // Better solution than addding delays
+              await queryClient.refetchQueries({ queryKey: ['learner'] });
+              navigate("/home");
 
               // Send messages in the background without awaiting
               if (learner) {
@@ -140,7 +144,6 @@ export default function DLQuestion() {
                   console.error("Error sending admin email:", error);
                 });
               }
-              queryClient.invalidateQueries('learner');
             },
           },
         );
