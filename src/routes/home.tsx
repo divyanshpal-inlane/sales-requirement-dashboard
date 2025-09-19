@@ -54,6 +54,7 @@ const isLessonCompleted = (lesson) => {
 
 export default function Home() {
   const navigate = useNavigate();
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const { data: learner, isLoading, error } = useLearner();
   const { data: enrolledCourse, isLoading: isEnrolledCourseLoading } =
@@ -271,9 +272,10 @@ export default function Home() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() =>
+                  onClick={async () =>
                     { console.log("Starting lesson", LessonData?.upcomingLesson?.number);
-                    navigate(
+                      await sleep(1000); // 1 second
+                      navigate(
                       `/startLesson/${LessonData?.upcomingLesson?.number}`,
                     ) }
                   }
