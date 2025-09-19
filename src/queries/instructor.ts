@@ -275,6 +275,7 @@ export const useVerifyOtp = ({
       const schedule = data as unknown as ScheduleWithOtp;
       const isValid = schedule.otp === otp;
 
+      console.log("Returning verification data", {isValid, schedule});
       return {
         isValid,
         schedule,
