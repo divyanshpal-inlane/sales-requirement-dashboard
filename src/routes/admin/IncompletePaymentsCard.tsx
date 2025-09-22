@@ -22,6 +22,7 @@ export function IncompletePaymentsCard() {
           `
           id,
           installment_mode,
+          amount,
           installment1_amount,
           installment2_amount,
           payment_status,
@@ -147,8 +148,18 @@ export function IncompletePaymentsCard() {
 
   // Helper function to determine payable amount
   const getPayableAmount = (enrollment) => {
+    // console.log(
+    //   "Calculating Payable amount for enrollment ",
+    //   enrollment.installment_mode,
+    //   enrollment.amount,
+    //   enrollment.installment1_amount,
+    //   enrollment.installment2_amount,
+    // );
     if (enrollment.installment_mode === "full") {
-      return enrollment.installment1_amount + enrollment.installment2_amount;
+      // when enrolment mode is full, installment1 and installment2 field might be 0
+      // return amount directly
+      // return enrollment.installment1_amount + enrollment.installment2_amount;
+      return enrollment.amount;
     } else if (
       enrollment.installment_mode === "first_half" ||
       enrollment.installment_mode === "installment"
@@ -156,6 +167,8 @@ export function IncompletePaymentsCard() {
       return enrollment.installment1_amount;
     } else if (enrollment.installment_mode === "second_half") {
       return enrollment.installment2_amount;
+    } else {
+      console.error("Invalid installment mode");
     }
     return 0;
   };
