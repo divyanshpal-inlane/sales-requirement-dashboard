@@ -181,9 +181,8 @@ export default function LearnerManagement() {
           (course) => course.id === dataToSend.courseId,
         );
         if (selectedCourse) {
-          // Unlock only the first 2 lessons, or fewer if the course has less than 2 lessons
-          const unlockCount =
-            selectedCourse.duration < 2 ? selectedCourse.duration : 2;
+          // Unlock only 1 lesson for half_paid
+          const unlockCount = 1;
           dataToSend.unlockedLessons = Array.from(
             { length: unlockCount },
             (_, i) => i + 1,
