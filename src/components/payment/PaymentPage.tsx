@@ -521,10 +521,13 @@ function PaymentPage() {
                 </label>
                 <Select
                   value={paymentOption}
+                  defaultValue={
+                    paymentDetails.installmentType === "full" ? "full" : "installment"
+                  }
                   onValueChange={(value: "full" | "installment") =>
                     setPaymentOption(value)
                   }
-                  disabled={isSecondInstallment}
+                  disabled={isPrefilled || isSecondInstallment}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select payment option" />
