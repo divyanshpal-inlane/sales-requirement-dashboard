@@ -103,11 +103,13 @@ const LearnerLLDetails = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Learner")
-        .select("*")
+        .select("*, enrollment(learner_id)") // Select all Learner columns with Enrollment info
         .eq("has_a_DL", false)
-        .is("LL_result", null)
-        .is("LL_application_approved", false);
+        .eq("LL_application_approved", true)
+        .neq("LL_received", true)
+        .eq("enrollment.status", "active"); // Only paid learners
       if (error) throw error;
+      console.log("Learner LL paid", data);
       return data;
     },
   });
