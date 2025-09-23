@@ -42,6 +42,22 @@
   font-style: normal;
 }
 
+@layer layout {
+  /*
+   * The 'layout' layer is used for foundational, high-level styling that affects
+   * the overall structure of the application.
+   * Setting 'height: 100%' on html, body, and #root ensures that the main
+   * application container takes up the full height of the viewport.
+   * Without this, the content container might not have a defined height, causing elements
+   * at the bottom (like buttons) to be pushed out of view without a scrollbar.
+   */
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
