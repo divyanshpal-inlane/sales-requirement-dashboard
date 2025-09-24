@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDays, addMinutes, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
+import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
 import { ArrowLeft, Check, ChevronsUpDown, PlusCircle, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -1551,6 +1551,7 @@ function WeeklyScheduleView({
     startOfWeek(new Date()),
   );
   const [isTentativeDialogOpen, setIsTentativeDialogOpen] = useState(false);
+  const [isTentativeCopyDialogOpen, setIsTentativeCopyDialogOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
   const [instructorId, setInstructorId] = useState(instructor_id);
   const [tentativeSchedule, setTentativeSchedule] = useState<any>({
@@ -1573,10 +1574,29 @@ function WeeklyScheduleView({
     },
   });
   // const [tentativeSchedule, setTentativeSchedule] = useState<any>(null);
+  const [tentativeScheduleCopy, setTentativeScheduleCopy] = useState<any>({
+    id: "",
+    date: "",
+    start_time: "",
+    end_time: "",
+    enabled: true,
+    isTentative: true,
+    tentative_details: {
+      name: "",
+      phone: "",
+      paid_info: "",
+      pickup_location: "",
+      description: "",
+      leadName: "",
+      address: "",
+      latitude: "",
+      longitude: "",
+    },
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-console.log("Initial state of tentative schedule and isTentativeDialogOpen", tentativeSchedule, isTentativeDialogOpen);
+  // console.log("Initial state of tentative schedule and isTentativeDialogOpen", tentativeSchedule, isTentativeDialogOpen);
   const setScheduleHelper = (schedule) => {
     console.log("Helper setting tentative details as", schedule.tentative_details);
     setTentativeSchedule({
@@ -1621,6 +1641,30 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     setTentativeSchedule(initialTentativeSchedule);
   };
 
+  const resetTentativeCopyForm = () => {
+    const initialTentativeCopySchedule = {
+          id: "",
+          date: "",
+          start_time: "",
+          end_time: "",
+          enabled: true,
+          isTentative: true,
+          learner_id: "",
+          instructor_id: instructorId,
+          tentative_details: {
+            name: "",
+            phone: "",
+            paid_info: "",
+            pickup_location: "",
+            description: "",
+            address: "",
+            latitude: "",
+            longitude: "",
+          },
+    }
+    setTentativeScheduleCopy(initialTentativeCopySchedule);
+  };
+
   // Add or update a tentative schedule
   const tentativeScheduleMutation = useMutation({
     mutationFn: async (data: Schedule) => {
@@ -1640,7 +1684,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 name: tentativeSchedule.tentative_details.name,
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
-                pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                pickup_location: tentativeSchedule.tentative_details.address,
                 latitude: tentativeSchedule.tentative_details.latitude,
                 longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
@@ -1670,7 +1714,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                 name: tentativeSchedule.tentative_details.name,
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
-                pickup_location: tentativeSchedule.tentative_details.pickup_location,
+                pickup_location: tentativeSchedule.tentative_details.address,
                 latitude: tentativeSchedule.tentative_details.latitude,
                 longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
@@ -1710,91 +1754,116 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     );
   };
 
+  const validateTentativeForm = (formDataSchedule):boolean => {
+    console.log("Validating", formDataSchedule);
+    // Validate form
+    if (!formDataSchedule.date || !formDataSchedule.date instanceof Date && !isNaN(date.getTime())) {
+      toast({
+        title: "Error",
+        description: "Cannot retrieve date info",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!formDataSchedule.start_time.trim()) {
+      toast({
+        title: "Error",
+        description: "Cannot retreive start time",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!formDataSchedule.end_time.trim()) {
+      toast({
+        title: "Error",
+        description: "Cannot retreive end time",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (formDataSchedule.tentative_details.name.length === 0) {
+      toast({
+        title: "Error",
+        description: "Customer name is required",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (formDataSchedule.tentative_details.phone.length === 0) {
+      toast({
+        title: "Error",
+        description: "Customer phone is required",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (formDataSchedule.tentative_details.paid_info.length === 0) {
+      toast({
+        title: "Error",
+        description: "Paid/Unpaid information is required",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (formDataSchedule.tentative_details.pickup_location.length === 0) {
+      toast({
+        title: "Error",
+        description: "Customer pickup location is required",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (formDataSchedule.tentative_details.description.length > 1024) {
+      toast({
+        title: "Error",
+        description: "Description length exceeded (1024 characters)",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (formDataSchedule.tentative_details.leadName.length === 0) {
+      toast({
+        title: "Error",
+        description: "Lead name is required",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  }
   const handleTentativeSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tentativeSchedule) {
       console.error("Tentative schedule is null");
       return;
     }
-    // Validate form
-    if (!tentativeSchedule.date || !tentativeSchedule.date instanceof Date && !isNaN(date.getTime())) {
-      toast({
-        title: "Error",
-        description: "Cannot retrieve date info",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    if (!tentativeSchedule.start_time.trim()) {
-      toast({
-        title: "Error",
-        description: "Cannot retreive start time",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!tentativeSchedule.end_time.trim()) {
-      toast({
-        title: "Error",
-        description: "Cannot retreive end time",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (tentativeSchedule.tentative_details.name.length === 0) {
-      toast({
-        title: "Error",
-        description: "Customer name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (tentativeSchedule.tentative_details.phone.length === 0) {
-      toast({
-        title: "Error",
-        description: "Customer phone is required",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (tentativeSchedule.tentative_details.paid_info.length === 0) {
-      toast({
-        title: "Error",
-        description: "Paid/Unpaid information is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (tentativeSchedule.tentative_details.pickup_location.length === 0) {
-      toast({
-        title: "Error",
-        description: "Customer pickup location is required",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (tentativeSchedule.tentative_details.description.length > 1024) {
-      toast({
-        title: "Error",
-        description: "Description length exceeded (1024 characters)",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (tentativeSchedule.tentative_details.leadName.length === 0) {
-      toast({
-        title: "Error",
-        description: "Lead name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    if (!validateTentativeForm(tentativeSchedule)) return;
+    
     tentativeScheduleMutation.mutate(tentativeSchedule);
+  };
+
+  const handleTentativeCopySave = (e: React.FormEvent) => {
+    e.preventDefault();
+    // alert("Saving copy data");
+    if (!tentativeScheduleCopy) {
+        console.error("Tentative schedule copy is null");
+        return;
+      }
+
+    if (!validateTentativeForm(tentativeScheduleCopy)) {
+      console.error("Copy form validation failed", tentativeScheduleCopy);
+      return;
+    }
+      
+    copyTentativeMutation.mutate(tentativeScheduleCopy);
+    // tentativeScheduleMutation.mutate(tentativeScheduleCopy);
+
   };
 
   
@@ -1825,9 +1894,10 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
         },
       });
 
-      },
+    },
     [tentativeSchedule], // No dependencies to avoid recreating this function
   );
+
   // Helper function to check if a time slot is unavailable
   const isTimeSlotUnavailable = (day: Date, hour: number, minute: number) => {
     const currentTime = new Date(day);
@@ -1932,13 +2002,14 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     });
   };
 
-  const formatDateForInput = (date: Date): string => {
+  const formatDateForInput = (dateStr: string): string => {
     // Add a check to ensure 'date' is a valid Date object before calling toISOString().
-    if (date instanceof Date && !isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
+    if (!dateStr) {
+      // console.log("Date is empty", dateStr);
+      return '';
     }
     // Return an empty string if the date is invalid to prevent errors.
-    return '';
+    return dateStr;
   };
 
   const handleOccupiedSlotClick = (schedule: Schedule) => {
@@ -1950,7 +2021,7 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     console.log("Occupied schedule details:", schedule);
   }
   const handleTentativeSlotClick = (schedule, day, hour, minute) => {
-    // alert("This slot is available for booking.");
+    // alert("The slot is not available for booking.");
     console.log("Tentative slot clicked:", { tentativeSchedule, day, hour, minute });
     
     if (tentativeSchedule?.tentative_details.length > 0) {
@@ -2022,6 +2093,126 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
     deleteTentativeMutation.mutate(scheduleId);
 
   }
+
+
+  const copyTentativeMutation = useMutation({
+    mutationFn: async (copyData: Schedule) => {
+      // console.log("Mutation Copying data", copyData);
+      // console.log("Current instructorId:", instructorId);
+      const { data: copiedData, error } = await supabase
+      .from("Schedule")
+      .insert([
+        {
+          date: tentativeScheduleCopy.date,
+          start_time: tentativeScheduleCopy.start_time,
+          end_time: tentativeScheduleCopy.end_time,
+          enabled: true,
+          isTentative: true,
+          instructor_id: instructorId,
+          tentative_details: {
+            name: tentativeScheduleCopy.tentative_details.name,
+            phone: tentativeScheduleCopy.tentative_details.phone,
+            paid_info: tentativeScheduleCopy.tentative_details.paid_info,
+            pickup_location: tentativeScheduleCopy.tentative_details.pickup_location,
+            latitude: tentativeScheduleCopy.tentative_details.latitude,
+            longitude: tentativeScheduleCopy.tentative_details.longitude,
+            description: tentativeScheduleCopy.tentative_details.description,
+            leadName: tentativeScheduleCopy.tentative_details.leadName,
+          }
+        },
+      ])
+      .select();
+
+      if (error) throw error;
+      return copiedData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instructors"] });
+      setIsTentativeCopyDialogOpen(false);
+      resetTentativeCopyForm();
+      toast({
+        title: "Tentative Schedule Copied",
+        description: "New tentative schedule has been copied successfully"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  const handleCopyTentative = (scheduleToCopy) => {
+    console.log("CopyTentative Arguments are ", scheduleToCopy);
+
+    if (!scheduleToCopy) {
+      toast({
+        title: "Error",
+        description: "Schedule, date or time missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTentativeScheduleCopy(scheduleToCopy);
+    // set ID to null 
+    setTentativeScheduleCopy({
+      ...scheduleToCopy, 
+      id: "", 
+    });
+
+    console.log("Tentative schedule state set", tentativeScheduleCopy);
+  }
+
+  const calculateEndTime = (startTimeString) => {
+    const TIME_FORMAT = 'HH:mm'; 
+    // 1. Create a base Date object for today.
+    const today = new Date();
+    
+    // 2. Create the full date string: YYYY/MM/DD + HH:MM from the input.
+    //    This ensures new Date() parses the time correctly for today.
+    const dateString = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()} ${startTimeString}`;
+    
+    // 3. Parse the full string into a Date object.
+    const startDate = new Date(dateString);
+
+    // 4. Calculate the new date/time by adding 1 hour.
+    const newDate = addHours(startDate, 1);
+    
+    // 5. Format the result back into the required string format ('HH:mm').
+    return format(newDate, TIME_FORMAT);
+  };
+
+  const handleTimeChange = (e) => {
+  const { name, value, type, checked } = e.target;
+    console.log("", name, value, type, checked, "name", e.target.name);
+    setTentativeScheduleCopy((prev) => {
+      const updatedData = {
+        ...prev,
+        [name]: value,
+      };
+
+    // Auto-calculate end_time when start_time changes
+    if (name === "tentative_copy_start_time") {
+        updatedData.end_time = calculateEndTime(value);
+        console.log(
+          "handleTimeChange: end_time calculated as ",
+          updatedData.end_time,
+        );
+    }
+
+    return updatedData;
+  });
+};
+
+  // for logging copy steps
+  useEffect(() => {
+    console.log("useEffect: Tentative schedule copy state set:", tentativeScheduleCopy);
+  }, [tentativeScheduleCopy]);
+
   return (
     <div>
       {/* Week Navigation */}
@@ -2163,7 +2354,17 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                               <Button
                                 variant="secondary"
                                 onClick={(e) => {
-                                  e.stopPropagation(); // FIX: Stop the click from bubbling
+                                    e.stopPropagation(); // Stop the click from bubbling
+                                    setIsTentativeCopyDialogOpen(true);
+                                    handleCopyTentative(schedule);
+                                }}
+                              >
+                                Copy
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Stop the click from bubbling
                                   handleDeleteTentative(schedule.id);
                                 }}
                               >
@@ -2395,7 +2596,6 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
               type="text"
               value={tentativeSchedule.end_time}
               className="col-span-3 px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed focus:outline-none"
-              readOnly
             />
           </div>
             <DialogFooter>
@@ -2412,6 +2612,191 @@ console.log("Initial state of tentative schedule and isTentativeDialogOpen", ten
                   : formMode === "add"
                     ? "Add Tentative Schedule"
                     : "Update Tentative Schedule"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+
+
+      {/* Copy Tentative Schedule Dialog */}
+      <Dialog
+        open={isTentativeCopyDialogOpen}
+        onOpenChange={(open) => {
+          // Only close if explicitly set to false
+          if (!open) {
+            setIsTentativeCopyDialogOpen(false);
+          }
+        }}
+      >
+        <DialogContent
+          className="scrollbar-none h-[calc(100vh-50px)] max-h-[80vh] overflow-y-auto sm:max-w-[500px]"
+          style={{ scrollbarWidth: "none" }}
+          // Prevent clicks inside from closing the dialog
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (
+              target.closest(".pac-container") ||
+              target.closest(".pac-item")
+            ) {
+              e.preventDefault();
+            }
+          }}
+          >
+          <DialogHeader>
+            <DialogTitle>
+              Copy Tentative Schedule
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleTentativeCopySave}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_copy_details-name" className="text-right">
+                  Name<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_copy_details-name"
+                  value={tentativeScheduleCopy.tentative_details.name}
+                  disabled={true}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_copy_details-phone" className="text-right">
+                  Phone<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_copy_details-phone"
+                  value={tentativeScheduleCopy.tentative_details.phone}
+                  disabled={true}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_copy_details-description" className="text-right">
+                  Description<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_copy_details-description"
+                  value={tentativeScheduleCopy.tentative_details.description}
+                  disabled={true}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_copy_details-paid_info" className="text-right">
+                  Paid information
+                </Label>
+                <Select
+                  value={tentativeScheduleCopy.tentative_details.paid_info || undefined}
+                  disabled={true}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select Paid info" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Unpaid">Unpaid</SelectItem>
+                    <SelectItem value="Half paid">Half Paid</SelectItem>
+                    <SelectItem value="Full paid">Full Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="tentative_copy_details-address" className="text-right">
+                Address
+              </Label>
+              <Input
+                id="tentative_copy_details-address"
+                value={tentativeScheduleCopy.tentative_details.pickup_location}
+                disabled={true}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tentative_copy_details-leadName" className="text-right">
+                  Lead Name<span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tentative_copy_details-leadName"
+                  value={tentativeScheduleCopy.tentative_details.leadName}
+                  disabled={true}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+            {/* Active Date Fields filled for copy*/}
+            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+              <label htmlFor="tentative_copy_details-date" className="text-right font-medium">
+                Date
+              </label>
+              <input
+                id="tentative_copy_details-date"
+                type="date"
+                // value={formatDateForInput(tentativeScheduleCopy.date)}
+                value={tentativeScheduleCopy.date}
+                onChange={ (e) => {
+                  setTentativeScheduleCopy((prev) => ({
+                    ...prev,
+                    date: e.target.value,
+                  }));
+                }}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4 mt-4">
+            <label htmlFor="tentative_copy_start_time" className="text-right font-medium">
+              Start Time
+            </label>
+            <input
+              id="tentative_copy_start_time"
+              type="text"
+              value={tentativeScheduleCopy.start_time}
+              // onChange={handleTimeChange} // can be tied to end_time
+              onChange={(e) => {
+                  setTentativeScheduleCopy((prev) => ({
+                    ...prev,
+                    start_time: e.target.value,
+                }));
+              }}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <label htmlFor="tentative_copy_end_time" className="text-right font-medium">
+              End Time
+            </label>
+            <input
+              id="tentative_copy_end_time"
+              type="text"
+              value={tentativeScheduleCopy.end_time}
+              onChange={(e) => {
+                  setTentativeScheduleCopy((prev) => ({
+                    ...prev,
+                    end_time: e.target.value,
+                }));
+              }}
+              className="col-span-3"
+            />
+          </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsTentativeCopyDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={copyTentativeMutation.isPending}>
+                {copyTentativeMutation.isPending
+                  ? "Saving..."
+                  : "Copy Tentative Schedule"
+                }
               </Button>
             </DialogFooter>
           </form>
