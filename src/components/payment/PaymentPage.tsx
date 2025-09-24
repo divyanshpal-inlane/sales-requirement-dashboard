@@ -521,10 +521,13 @@ function PaymentPage() {
                 </label>
                 <Select
                   value={paymentOption}
+                  defaultValue={
+                    paymentDetails.installmentType === "full" ? "full" : "installment"
+                  }
                   onValueChange={(value: "full" | "installment") =>
                     setPaymentOption(value)
                   }
-                  disabled={isSecondInstallment}
+                  disabled={isPrefilled || isSecondInstallment}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select payment option" />
@@ -541,7 +544,7 @@ function PaymentPage() {
                 </Select>
                 {paymentOption === "installment" && (
                   <p className="text-xs text-gray-500">
-                    Note: Only the first half of lessons will be unlocked.
+                    Note: Only 1 lesson will be unlocked.
                     You&apos;ll need to pay the remaining amount to unlock all
                     lessons.
                   </p>

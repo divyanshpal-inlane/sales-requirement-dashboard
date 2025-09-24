@@ -12,11 +12,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLearnerUpdate } from "@/queries/learner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Aadhar() {
   const [selectedState, setSelectedState] = useState<string>("");
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
 
   const handleContinueClick = useCallback(() => {
     if (!selectedState) {
@@ -28,10 +31,15 @@ export default function Aadhar() {
         aadhar_state: selectedState,
       },
       {
-        onSuccess: () => navigate("/onboard/dl"),
+        onSuccess: async () => {
+          await queryClient.refetchQueries({ queryKey: ['learner'] });
+
+          //  navigate home as licence info already filled by admin 
+          navigate("/home");
+        }
       },
     );
-  }, [mutate, navigate, selectedState]);
+  }, [mutate, navigate, selectedState, queryClient]);
 
   const states = [
     "Andaman and Nicobar Islands",

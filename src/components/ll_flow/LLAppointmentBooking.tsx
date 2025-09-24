@@ -37,6 +37,12 @@ export default function LLAppointmentBooking() {
     })();
   }, [updateLearner, learner]);
 
+  // For logging only
+  // useEffect(() => {
+  //   This will only run when the `learner` object changes
+  //   console.log("updated learner", learner);
+  //   console.log("updated learner", JSON.stringify(learner, null, 2));
+  // }, [learner]);
 
 return (
     <div className="flex w-full grow flex-col">
@@ -65,6 +71,15 @@ return (
                 verification and confirming your details for your Learner&apos;s
                 License application.
               </p>
+              <Button
+                className="w-full py-3 text-lg"
+                data-cal-namespace="30min"
+                data-cal-link="inlane.in/30min"
+                data-cal-config='{"layout":"month_view","theme":"light"}'
+                disabled={!learner.data.is_LL_form_filled}
+              >
+                Book Appointment
+              </Button>
             </CardContent>
           </Card>
           <p className="mt-auto text-center text-base">
