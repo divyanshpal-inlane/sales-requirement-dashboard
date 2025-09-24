@@ -1,15 +1,19 @@
-import { RefreshCcw, Send } from "lucide-react";
+import { RefreshCcw, Send, Delete, ArrowBigLeft } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { useMutation } from "@tanstack/react-query";
 
 export function IncompletePaymentsCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sendingPaymentLink, setSendingPaymentLink] = useState({});
+  const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
+  const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState({});
+  const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] = useState({});
   const { toast } = useToast();
 
   const fetchIncompletePayments = async () => {
@@ -234,6 +238,95 @@ export function IncompletePaymentsCard() {
     }
   };
 
+  // Delete button 
+  // Defined at top, here for ref
+  // const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
+  // const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState({});
+  // const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] = useState({});
+  
+  
+  // type DeleteRequestIdToFlagsMap = Record<string, boolean>;
+  // const [isDeleteRequestedList, setIsDeleteRequestedList] = useState<DeleteRequestIdToFlagsMap>({});
+  // const [isDeleteRequestedList, setIsDeleteRequestedList] = useState({});
+
+
+    // UseMutation hook for the delete operation
+  const deleteLearnerMutation = useMutation({
+    mutationFn: async (learner_id) => {
+      // remove from auth before regular tables
+      // call edge function as auth cannot be accessed from frontend
+
+      // auth requires phone , but only learner_id available 
+      
+      // remove from dependent tables
+      // remove from enrollment
+      const { enrollmentDeleteerror } = await supabase
+      .from('enrollment') 
+      .delete()
+      .eq('learner_id', learner_id);
+      
+      if (enrollmentDeleteerror) {
+        throw new Error('Failed to delete the record.');
+      }
+      
+      // remove from learner
+      const { learnerDeleteError } = await supabase
+        .from('Learner') 
+        .delete()
+        .eq('id', learner_id);
+
+      if (learnerDeleteError) {
+        throw new Error('Failed to delete the record.');
+      }
+    },
+    onSuccess: () => {
+      toast ({
+        'title': "Success",
+        'description': "Deleted learner. Hit refresh ↻ to delete the learner",
+      });
+      // setItems(prevItems => prevItems.filter(item => item.id !== variables));
+      // queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+    onSettled: () => {
+      // Remove the ID from the set when the mutation is complete
+      setDeleteLearnerProcessingList({ ...deleteLearnerProcessingList, [learner_id]: false });
+      setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
+    }
+  });
+
+  const handleDeleteLearnerRequest = (learner_id: string) => {
+    setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: true });
+    console.log("Request", learner_id, deleteLearnerRequests[learner_id] );
+    
+  };
+  
+  const handleDeleteLearnerConfirm = async (learner_id: string) => {
+    console.log("Removing learner", learner_id);
+    
+    if (!learner_id) {
+      console.error("Learner ID cannot be empty.");
+      return;
+    }
+
+    if (!deleteLearnerRequests[learner_id]) {
+      console.error(learner_id + "not requested for delete but it's confirmed");
+      return;
+    }
+    console.log("Confirm", learner_id, deleteLearnerRequests[learner_id] );
+    setDeleteLearnerProcessingList({...deleteLearnerProcessingList, [learner_id]: true});
+    
+    await deleteLearnerMutation.mutate(learner_id);
+
+    setDeleteLearnerProcessingList({...deleteLearnerProcessingList, [learner_id]: false});
+    setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
+    return ;
+  };
+  
+  const handleDeleteLearnerCancel = (learner_id: string) => {
+    setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
+    console.log("Cancel", learner_id, deleteLearnerRequests[learner_id] );
+  };
+
   return (
     <Card className="mt-6 transition-all hover:shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -347,6 +440,70 @@ export function IncompletePaymentsCard() {
                           )}
                           Send Payment Link
                         </Button>
+                        {
+                          deleteLearnerRequests[enrollment.learner_id] 
+                          ? (  
+                          <>
+                          {/* Request phase confirmation pending */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            // onClick={() => setShowDeleteDialog(true); enrollment.learner_id)}
+                            onClick= {() => handleDeleteLearnerConfirm(enrollment.learner_id)}
+                            disabled={deleteLearnerProcessingList[enrollment.learner_id]}
+                            className="whitespace-nowrap"
+                          >
+                            {deleteLearnerProcessingList[enrollment.learner_id] ? (
+                              <RefreshCcw
+                                size={14}
+                                className="mr-1 animate-spin"
+                              />
+                            ) : (
+                              <Delete size={14} className="mr-1" />
+                            )}
+                            Confirm
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick= {() => handleDeleteLearnerCancel(enrollment.learner_id)}
+                            disabled={deleteLearnerProcessingList[enrollment.learner_id]}
+                            className="whitespace-nowrap"
+                          >
+                            {deleteLearnerProcessingList[enrollment.learner_id] ? (
+                              <RefreshCcw
+                                size={14}
+                                className="mr-1 animate-spin"
+                              />
+                            ) : (
+                              <ArrowBigLeft size={14} className="mr-1" />
+                            )}
+                            Cancel
+                          </Button>
+                          
+                          </>
+                          )
+                          :(
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick= {() => handleDeleteLearnerRequest(enrollment.learner_id)}
+                            disabled={deleteLearnerProcessingList[enrollment.learner_id]}
+                            className="whitespace-nowrap"
+                          >
+                            {deleteLearnerProcessingList[enrollment.learner_id] ? (
+                              <RefreshCcw
+                                size={14}
+                                className="mr-1 animate-spin"
+                              />
+                            ) : (
+                              <Delete size={14} className="mr-1" />
+                            )}
+                            Delete
+                          </Button>
+                          )
+                        }
                       </td>
                     </tr>
                   ))}
