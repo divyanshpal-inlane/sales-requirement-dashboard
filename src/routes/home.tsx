@@ -112,8 +112,9 @@ export default function Home() {
     );
   }
 
+  const ls_onboarding_done = localStorage.getItem("onboardingDone");
   if (!learner?.onboarding_completed && !learner?.dob 
-      && localStorage.getItem("onboardingDone") != "true") {
+      && (!ls_onboarding_done || ls_onboarding_done != "true")) {
     // learner does not get updated after onboarding page
     // hence use local storage to ensure onboarding only redirect once
     return <Navigate to="/onboard/birthday" />;

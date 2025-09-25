@@ -35,6 +35,8 @@ export default function Aadhar() {
           await queryClient.refetchQueries({ queryKey: ['learner'] });
 
           //  navigate home as licence info already filled by admin 
+          localStorage.setItem("onboardingDone", "true");
+
           navigate("/home");
         }
       },
