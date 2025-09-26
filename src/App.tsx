@@ -1,4 +1,5 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import React, { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import {
@@ -48,9 +49,9 @@ import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
 import DLQuestion from "@/routes/onboard/DL";
 import Preferences from "@/routes/preferences";
-import Prep from "@/routes/prep";
+// import Prep from "@/routes/prep";
 import Profile2 from "@/routes/profile2";
-import Schedule from "@/routes/schedule";
+// import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 import LoadingAndRedirect from "@/routes/LoadingandRedirect";
@@ -65,6 +66,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Dynamic import for large components (Lazy loading)
+const Schedule = React.lazy(() => import("@/routes/schedule"));
+const Prep = React.lazy(() => import("@/routes/prep"));
 
 export default function App() {
   return (
@@ -98,11 +103,28 @@ export default function App() {
             >
               <Route index element={<Navigate to="/home" replace />} />
               <Route path="home" element={<Home />} />
-              <Route path="prep" element={<Prep />} />
-              <Route path="schedule" element={<Schedule />} />
-              <Route path="help" element={<HelpSupport />} />
-              <Route path="profile" element={<Profile2 />} />
-              {/* <Route path="preferences" element={<Preferences />} /> */}
+              {/* <Route path="prep" element={<Prep />} /> */}
+              <Route
+                path="prep" 
+                element={
+                  <Suspense fallback={<div>Loading prep...</div>}>
+                    <Prep /> 
+                  </Suspense>
+                }
+              />
+              <Route
+                path="schedule" 
+                element={
+                  <Suspense fallback={<div>Loading schedule...</div>}>
+                    <Schedule /> 
+                  </Suspense>
+                }
+              />
+                {/* <Route path="schedule" element={<Schedule />} /> */}
+                <Route path="help" element={<HelpSupport />} />
+                <Route path="profile" element={<Profile2 />} />
+                {/* <Route path="preferences" element={<Preferences />} /> */}
+                
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
             <Route
