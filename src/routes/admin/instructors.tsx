@@ -2063,9 +2063,12 @@ function WeeklyScheduleView({
     },
     onSuccess: () => {
       // This will automatically refetch the schedules list after a successful delete
-      queryClient.invalidateQueries({
-        queryKey: ["Schedule", instructorId],
-      });
+      // queryClient.invalidateQueries({
+      //   queryKey: ["Schedule", instructorId],
+      // });
+      // Reqire the following as the above does not refresh the modal
+      queryClient.invalidateQueries({ queryKey: ["instructors"] });
+
       toast({
         title: "Success",
         description: "Tentative schedule deleted.",
