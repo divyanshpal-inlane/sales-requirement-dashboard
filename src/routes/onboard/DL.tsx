@@ -81,6 +81,9 @@ export default function DLQuestion() {
               // Refetch queries to ensure Learner data is updated on home page
               // Better solution than addding delays
               await queryClient.refetchQueries({ queryKey: ['learner'] });
+
+              localStorage.setItem("onboardingDone", "true");
+
               navigate("/home");
               
               // Send message in the background without awaiting
@@ -118,6 +121,10 @@ export default function DLQuestion() {
               // Refetch queries to ensure Learner data is updated on home page
               // Better solution than addding delays
               await queryClient.refetchQueries({ queryKey: ['learner'] });
+              
+              // Also set onboardingDone on localStorage
+              localStorage.setItem("onboardingDone", "true");
+
               navigate("/home");
 
               // Send messages in the background without awaiting

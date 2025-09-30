@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Search } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -14,7 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { differenceInDays, addDays, format, subDays, isBefore } from "date-fns";
+import { differenceInDays, addDays, format, subDays, isBefore, set, setYear, setMonth, getYear, getMonth } from "date-fns";
+import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { SelectValue } from "@radix-ui/react-select";
+import { Dialog } from "@radix-ui/react-dialog";
+import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Animated Search Bar Component
 const AnimatedSearchBar = ({ value, onChange, placeholder }) => {
@@ -78,7 +84,8 @@ const LearnerDetails = () => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  
+  const [isBookedTestDateDialogOpen, setIsBookedTestDateDialogOpen] = useState(false);
+  const [bookedTest, setBookedTest] = useState("");
 
   // Query for past LL approved applications
   const {
@@ -161,12 +168,88 @@ const LearnerDetails = () => {
   };
 
 
+    const updateLearnerPostLLMutation = useMutation({
+      mutationFn: async ({
+        learnerId,
+        updates,
+      }: {
+        learnerId: string;
+        updates: Partial<any>;
+      }) => {
+        const { error } = await supabase
+          .from("Learner")
+          .update(updates)
+          .eq("id", learnerId);
+        if (error) throw error;
+      },
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Learner LL details updated successfully.",
+        });
+        queryClient.invalidateQueries(["learners", "llDetails"]);
+        queryClient.invalidateQueries(["learners", "pastLLApplications"]);
+      },
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
+    });
+
+  const handleSaveBookedTestDate = (learnerId: string) => {
+    // console.log("learnerId", learnerId);
+
+
+    updateLearnerPostLLMutation.mutate(
+      {
+        // 1. Mutation Variables (The Payload)
+        learnerId: learnerId,
+        updates: {
+          DL_test_date: bookedTest,
+        },
+      },
+      {
+        // 2. Mutation Options Object (The Callbacks)
+        onSuccess: () => {
+          toast({
+            title: "Success",
+            description: "Learner details updated successfully.",
+          });
+          // TODO: seperate query keys to be added and called
+          queryClient.invalidateQueries(["learners", "llDetails"]);
+          queryClient.invalidateQueries(["learners", "pastLLApplications"]);
+        },
+        onError: (error) => {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+          });
+        },
+      }
+    );
+        
+
+
+
+    
+
+  
+  }
+
   const calculateLesson10Start = (learner) => {
     if (!learner.DL_test_date) {
       return null;
     }
     return format(subDays(new Date(learner.DL_test_date), 7), "yyyy-MM-dd");
   };
+
+  const handleCloseBookedTestDate = () => {
+    setIsBookedTestDateDialogOpen(false);
+  }
   
   const isLesson10ButtonDisabled = (learner): boolean => {
       const calculatedStartDate = calculateLesson10Start (learner);
@@ -342,6 +425,9 @@ const LearnerDetails = () => {
                         Start day of DL test (after 30 days from LL)
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Booked Test date
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
                         10th lesson booking start (before 7 days of test)
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
@@ -400,9 +486,82 @@ const LearnerDetails = () => {
                             }
                           </div>
                         </td>
+
+
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            calculateLesson10Start(learner) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                            learner.DL_test_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {learner.DL_test_date ? learner.DL_test_date : "N/A"}
+                          </div>
+                          <div className="mt-2">
+                            <button
+                              onClick={() => setIsBookedTestDateDialogOpen(true)}
+                              className="text-indigo-600 hover:text-indigo-900 text-sm font-medium focus:outline-none"
+                              title="Update Test Date"
+                            >
+                              {learner.DL_test_date ? "Change test date" : "Add test date"}
+                            </button>
+                          </div>
+
+                          <Dialog
+                            open={isBookedTestDateDialogOpen}
+                            onOpenChange={setIsBookedTestDateDialogOpen}
+                          >
+                            <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Enter Booked test date</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label
+                                    htmlFor="app-booked_test"
+                                    className="text-right"
+                                  >
+                                  Test Date
+                                </Label>
+                              <Input
+                                id="booked_test-date"
+                                type="date"
+                                // value={formatDateForInput(tentativeScheduleCopy.date)}
+                                value={bookedTest|| ''}
+                                onChange={(e) => {
+                                  setBookedTest(e.target.value);
+                                }}
+                                disabled={updateLearnerPostLLMutation.isPending}
+                                className="col-span-3"
+
+                              />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button onClick={handleCloseBookedTestDate} variant="secondary">
+                                Close
+                              </Button>
+                              <Button onClick={() => handleSaveBookedTestDate(learner.id)}>Save</Button>
+                            </DialogFooter>
+                          </DialogContent>
+                            
+                          </Dialog>
+
+
+
+
+                            {/* {isBookedTestDateDialogOpen && (
+                            <BookedTestDateInputDialog
+                              learnerId={learner.id}
+                              currentTestDate={learner.DL_test_date}
+                              onClose={() => setIsBookedTestDateDialogOpen(false)}
+                              // onSave={handleSaveBookedTestDate}
+                            />
+                          )} */}
+                        </td>
+
+
+
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                            calculateLesson10Start(learner) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"  
                           }`}>
                             {calculateLesson10Start(learner) || "N/A" }
                           </div>
@@ -411,13 +570,14 @@ const LearnerDetails = () => {
                             <button
                             onClick={() => { handleLesson10Click(learner);
                                            } 
-                                    }
-                            className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                                    }       
+                            className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"        
                           >
                             Send notification
-                          </button>
+                          </button>                            
                           )}
                         </td>
+
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                             learner.has_lesson10_booked === true
@@ -497,3 +657,153 @@ const LearnerDetails = () => {
 };
 
 export default LearnerDetails;
+
+const BookedTestDateInputDialog = ({
+  learnerId,
+  currentTestDate,
+  onClose,
+  // onSave,
+}) => {
+  console.log('%c ~ file: \src\routes\admin\LearnerDetails.tsx:543 : ', 'color: #d83349', ({ learnerId, currentTestDate, onClose }));
+
+  const [date, setDate] = useState<Date>();
+  
+  const [currentDate, setCurrentDate] = useState(setYear(new Date(), 2010));
+  const { mutate: learnerMutate, isPending: isUpdatePending } = useLearnerUpdateById(learnerId);
+
+  const years = Array.from(
+    { length: 61 },
+    (_, i) => getYear(new Date()) - 60 + i,
+  );
+
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+
+
+
+  const handleYearChange = (year: string) => {
+    setCurrentDate(setYear(currentDate, parseInt(year)));
+  };
+
+  const handleMonthChange = (month: string) => {
+    setCurrentDate(setMonth(currentDate, months.indexOf(month)));
+  };
+
+  const handleBookedDateSave = useCallback(() => {
+      learnerMutate(
+        {
+          DL_test_date: format(date, "yyyy-MM-dd"),
+        },
+        {
+          onSuccess: () => {
+          toast({
+            title: 'Success',
+            description: 'Booked test date of the user updated',
+            variant: 'destructive',
+          });
+          onClose();
+
+          },
+          onError: (error) => {
+            toast({
+              title: 'Failed to set booked test date',
+              description: error instanceof Error ? error.message : "An error occurred",
+              variant: "destructive",
+            }); // toast ends
+          }, // on Error ends
+        }
+      ); // learn mutate ends 
+    }, // call back func arg ends
+    [date, learnerMutate] // callback dependency arr
+  ); // callback hook ends
+
+  return (
+    <div className="mt-8 flex grow flex-col justify-between bg-white p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <Select
+              onValueChange={handleYearChange}
+              value={getYear(currentDate).toString()}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              onValueChange={handleMonthChange}
+              value={months[getMonth(currentDate)]}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((month) => (
+                  <SelectItem key={month} value={month}>
+                    {month}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={setDate}
+            month={currentDate}
+            onMonthChange={setCurrentDate}
+            className="rounded-lg border border-border p-4"
+            initialFocus
+          />
+        </div>
+        <Button
+          onClick={handleBookedDateSave}
+          className="w-full"
+          disabled={isUpdatePending}
+        >
+          Continue
+        </Button>
+      </div>
+  )
+}
+
+function useLearnerUpdateById(learnerId: string) {
+  const queryClient = useQueryClient();
+  const mutate = useMutation({
+    mutationFn: async (data: PartialLearner) => {
+      const { error } = await supabase
+        .from("Learner")
+        .update(data)
+        .eq("id", learnerId);
+      if (error) throw new Error(error.message);
+      return null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["learner", learnerId],
+      });
+    },
+  });
+  return mutate;
+}
+
+
