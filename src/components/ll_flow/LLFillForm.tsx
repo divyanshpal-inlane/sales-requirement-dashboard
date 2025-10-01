@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import LLAppointmentBooking from "./LLAppointmentBooking";
 import ImagePopup from "@/components/ui/imagePopup";
 
-export default function LLFillForm() {
+export default function LLFillForm({learnerName, learnerEmail, learnerPhone}) {
   const localImageUrl = '/assets/documents_list.jpg';
 
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -25,7 +25,20 @@ export default function LLFillForm() {
     return <LLAppointmentBooking />;
   }
   if (continueToForm) {
-    window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
+    if (!learnerName || !learnerEmail || !learnerPhone) {
+      console.error("Name, email or phone empty, redirecting to unfilled form", learnerName, learnerEmail, learnerPhone);
+      // unfilled form
+      window.open("https://forms.gle/4Qe8ttAhBYHE7PDq8", "_blank");
+
+    } else {
+      const preFilledFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSffjo3ewZLOspMsNB-4j82PSx3XMp-Zw-PSEvLi4cCY_4jV9A/viewform?usp=pp_url" +
+                              "&entry.799475635=" + learnerName +
+                              "&entry.1911735067=" + learnerEmail +
+                              "&entry.55658890=" + learnerPhone;
+      // prefilled form 
+      console.log(learnerName, learnerEmail, learnerPhone);
+      window.open(preFilledFormUrl, "_blank");
+    }
     // The page should go to /home but currently the prop are redered at
     // '/home' only, so return back to previous page
 
