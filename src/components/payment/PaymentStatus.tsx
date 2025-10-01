@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/context/auth-context";
 
 function PaymentStatus() {
   const navigate = useNavigate();
@@ -68,7 +69,12 @@ function PaymentStatus() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button onClick={() => navigate(isLoggedIn ? "/home" : "/login?active=signup")} variant="default">
+            <Button
+              onClick={() =>
+                navigate(isLoggedIn ? "/home" : "/login?active=signup")
+              }
+              variant="default"
+            >
               Return to Home
             </Button>
             {!isSuccess && (
