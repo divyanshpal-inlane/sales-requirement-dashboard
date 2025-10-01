@@ -10,6 +10,7 @@ function PaymentStatus() {
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
   const reference = searchParams.get("reference");
+  const { isLoggedIn } = useAuth();
 
   useEffect(() => {
     // If no status is provided, redirect to home
@@ -67,7 +68,7 @@ function PaymentStatus() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button onClick={() => navigate("/home")} variant="default">
+            <Button onClick={() => navigate(isLoggedIn ? "/home" : "/login?active=signup")} variant="default">
               Return to Home
             </Button>
             {!isSuccess && (

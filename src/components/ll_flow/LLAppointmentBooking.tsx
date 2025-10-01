@@ -18,6 +18,11 @@ export default function LLAppointmentBooking() {
     setShowFillFormBanner(true);
   };
   
+  if (!learner) {
+    // This assumes useLearner() returns undefined or null while loading.
+    return <div>Loading data...</div>; 
+  }
+
   useEffect(() => {
     (async function () {
       const cal = await getCalApi({ namespace: "30min" });
@@ -39,15 +44,19 @@ export default function LLAppointmentBooking() {
 
   // For logging only
   // useEffect(() => {
-  //   This will only run when the `learner` object changes
-  //   console.log("updated learner", learner);
-  //   console.log("updated learner", JSON.stringify(learner, null, 2));
+  //   // This will only run when the `learner` object changes
+  //   console.log("updated learner", learner.data);
+  //   console.log("updated learner", JSON.stringify(learner.data, null, 2));
   // }, [learner]);
 
 return (
     <div className="flex w-full grow flex-col">
       {showFillFormBanner ? (
-        <LLFillForm />
+        <LLFillForm 
+          learnerName={learner.data.name}
+          learnerPhone={learner.data.phone}
+          learnerEmail={learner.data.email}
+        />
       ) : ( // The colon is followed by a valid JSX expression
         <>
           <Card className="mx-auto mt-4 max-w-2xl">

@@ -1669,6 +1669,7 @@ function WeeklyScheduleView({
   const tentativeScheduleMutation = useMutation({
     mutationFn: async (data: Schedule) => {
       // Now proceed with tentative schedule update/insert
+      // console.log("tentativeSch at mutation", tentativeSchedule);
       if (formMode === "add") {
         const { data: newTentativeSchedule, error } = await supabase
           .from("Schedule")
@@ -1684,7 +1685,7 @@ function WeeklyScheduleView({
                 name: tentativeSchedule.tentative_details.name,
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
-                pickup_location: tentativeSchedule.tentative_details.address,
+                pickup_location: tentativeSchedule.tentative_details.pickup_location,
                 latitude: tentativeSchedule.tentative_details.latitude,
                 longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
@@ -1714,7 +1715,7 @@ function WeeklyScheduleView({
                 name: tentativeSchedule.tentative_details.name,
                 phone: tentativeSchedule.tentative_details.phone,
                 paid_info: tentativeSchedule.tentative_details.paid_info,
-                pickup_location: tentativeSchedule.tentative_details.address,
+                pickup_location: tentativeSchedule.tentative_details.pickup_location,
                 latitude: tentativeSchedule.tentative_details.latitude,
                 longitude: tentativeSchedule.tentative_details.longitude,
                 description: tentativeSchedule.tentative_details.description,
@@ -1893,6 +1894,9 @@ function WeeklyScheduleView({
           longitude: lng,
         },
       });
+      // if (!lat || !lng) {console.log("Either lat or lng was null", lat, lng);
+      // console.log('%c[] -> tentativeSchedule : ', 'color: #50952e', tentativeSchedule.tentative_details);
+      // }
 
     },
     [tentativeSchedule], // No dependencies to avoid recreating this function
@@ -2002,14 +2006,25 @@ function WeeklyScheduleView({
     });
   };
 
-  const formatDateForInput = (dateStr: string): string => {
-    // Add a check to ensure 'date' is a valid Date object before calling toISOString().
-    if (!dateStr) {
-      // console.log("Date is empty", dateStr);
+  const formatDateForInput = (date: string | Date): string => {
+    if (!date) {
       return '';
     }
-    // Return an empty string if the date is invalid to prevent errors.
-    return dateStr;
+
+    // Convert the input (which might be a Date object or string) into a Date object.
+    const dateObj = new Date(date);
+
+    // Check if the date conversion resulted in an invalid date
+    if (isNaN(dateObj.getTime())) {
+      console.error("Invalid date passed to formatter:", date);
+      return '';
+    }
+
+    // The .toISOString() method returns a string like "2025-09-30T07:30:00.000Z".
+    // We take the first 10 characters to get the required "YYYY-MM-DD" format.
+    // NOTE: This will treat the date as a UTC date, which is standard practice 
+    // for date inputs unless specific local-time handling is needed.
+    return dateObj.toISOString().substring(0, 10);
   };
 
   const handleOccupiedSlotClick = (schedule: Schedule) => {
@@ -2534,12 +2549,12 @@ function WeeklyScheduleView({
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
+              <Label htmlFor="tentative_details-address" className="text-right">
                 Address
               </Label>
               <div className="col-span-3">
                 <AddressAutocomplete
-                  value={tentativeSchedule.tentative_details.address}
+                  value={tentativeSchedule.tentative_details.pickup_location}
                   onChange={handleAddressChangeTentative}
                 />
               </div>
@@ -2573,7 +2588,7 @@ function WeeklyScheduleView({
               <input
                 id="tentative_details-date"
                 type="date"
-                value={formatDateForInput(tentativeSchedule.date)}
+                defaultValue={formatDateForInput(tentativeSchedule.date)}
                 className="col-span-3 px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed focus:outline-none"
                 readOnly
               />
@@ -2599,6 +2614,7 @@ function WeeklyScheduleView({
               type="text"
               value={tentativeSchedule.end_time}
               className="col-span-3 px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed focus:outline-none"
+              readOnly
             />
           </div>
             <DialogFooter>
