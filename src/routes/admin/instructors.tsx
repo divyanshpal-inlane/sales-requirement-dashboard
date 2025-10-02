@@ -537,6 +537,22 @@ export default function InstructorsManagement() {
       return;
     }
 
+    // --- Email Validation Check ---
+    const isValidEmail = (email) => {
+      // Regex to check for a basic email structure (e.g., user@domain.com)
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    };
+    if (instructorData.email && !isValidEmail(instructorData.email)) {
+      toast({
+        title: "Error",
+        description: "Invalid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+
     if (!instructorData.phone.trim()) {
       toast({
         title: "Error",
@@ -545,6 +561,15 @@ export default function InstructorsManagement() {
       });
       return;
     }
+
+    if (instructorData.phone.length != 10) {
+        toast({
+          title: "Error",
+          description: "Invalid phone number",
+          variant: "destructive",
+        });
+        return;
+      }
 
     if (instructorData.areas.length === 0) {
       toast({
@@ -927,7 +952,9 @@ export default function InstructorsManagement() {
                       radius: parseFloat(e.target.value) || 0,
                     })
                   }
+                  min={0}
                   className="col-span-3"
+                  onWheel={(e) => e.currentTarget.blur()}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -1042,7 +1069,9 @@ export default function InstructorsManagement() {
                       experience: parseFloat(e.target.value) || 0,
                     })
                   }
+                  min={0}
                   className="col-span-3"
+                  onWheel={(e) => e.currentTarget.blur()}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">

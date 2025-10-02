@@ -174,13 +174,12 @@ export default function LearnerManagement() {
         return;
       }
 
-      // Function to check if the email format is valid
+      // --- Email Validation Check ---
       const isValidEmail = (email) => {
         // Regex to check for a basic email structure (e.g., user@domain.com)
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
       };
-      // --- Email Validation Check ---
       if (!isValidEmail(learnerData.email)) {
         toast({
           title: "Error",
