@@ -408,6 +408,7 @@ export default function LearnerManagement() {
                     type="number"
                     value={learnerData.amount}
                     onChange={handleInputChange}
+                    min={0}
                     className="col-span-3"
                     onWheel={(e) => e.currentTarget.blur()}
                   />
@@ -439,6 +440,7 @@ export default function LearnerManagement() {
                     type="number"
                     value={learnerData.installment1Amount}
                     onChange={handleInputChange}
+                    min={0}
                     className="col-span-3"
                     disabled={learnerData.installmentType === "full"}
                     onWheel={(e) => e.currentTarget.blur()}
