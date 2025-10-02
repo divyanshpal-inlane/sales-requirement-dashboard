@@ -409,6 +409,7 @@ export default function LearnerManagement() {
                     value={learnerData.amount}
                     onChange={handleInputChange}
                     className="col-span-3"
+                    onWheel={(e) => e.currentTarget.blur()}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -440,6 +441,7 @@ export default function LearnerManagement() {
                     onChange={handleInputChange}
                     className="col-span-3"
                     disabled={learnerData.installmentType === "full"}
+                    onWheel={(e) => e.currentTarget.blur()}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
