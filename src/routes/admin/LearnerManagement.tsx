@@ -174,6 +174,30 @@ export default function LearnerManagement() {
         return;
       }
 
+      // Function to check if the email format is valid
+      const isValidEmail = (email) => {
+        // Regex to check for a basic email structure (e.g., user@domain.com)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+      };
+      // --- Email Validation Check ---
+      if (!isValidEmail(learnerData.email)) {
+        toast({
+          title: "Error",
+          description: "Invalid email address.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (learnerData.phone.length != 10) {
+        toast({
+          title: "Error",
+          description: "Invalid phone number",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // If unlockedLessons is empty, set it to half the course duration
       const dataToSend = { ...learnerData };
       if (dataToSend.unlockedLessons.length === 0) {
