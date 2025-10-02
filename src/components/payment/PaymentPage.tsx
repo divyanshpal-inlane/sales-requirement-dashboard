@@ -69,7 +69,9 @@ function PaymentPage() {
             .from("Learner")
             .select("email, phone, name, id")
             .eq("phone", phone)
-            .single();
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
           if (error) throw new Error("Failed to fetch learner details");
 
@@ -81,7 +83,8 @@ function PaymentPage() {
             )
             .eq("learner_id", learner.id)
             .order("created_at", { ascending: false })
-            .limit(1);
+            .limit(1)
+            .maybeSingle();
 
           if (enrollmentError)
             throw new Error("Failed to fetch enrollment details");
@@ -115,7 +118,8 @@ function PaymentPage() {
               .eq("installment_type", "first_half")
               .eq("status", "completed")
               .order("created_at", { ascending: false })
-              .limit(1);
+              .limit(1)
+              .maybeSingle();
 
             if (!paymentsError && firstPayments && firstPayments.length > 0) {
               // If there's a completed first installment payment, this is a second installment

@@ -19,7 +19,9 @@ export function useLearner() {
         .from("Learner")
         .select()
         .eq("phone", phone)
-        .single();
+        .order("created_at", { ascending: false }) // replace created_at with your time column
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw new Error("Supabase error");
       console.log("Fetched learner:", Learner.onboarding_completed, Learner.dob);

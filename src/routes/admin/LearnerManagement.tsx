@@ -174,6 +174,29 @@ export default function LearnerManagement() {
         return;
       }
 
+      // --- Email Validation Check ---
+      const isValidEmail = (email) => {
+        // Regex to check for a basic email structure (e.g., user@domain.com)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+      };
+      if (!isValidEmail(learnerData.email)) {
+        toast({
+          title: "Error",
+          description: "Invalid email address.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (learnerData.phone.length != 10) {
+        toast({
+          title: "Error",
+          description: "Invalid phone number",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // If unlockedLessons is empty, set it to half the course duration
       const dataToSend = { ...learnerData };
       if (dataToSend.unlockedLessons.length === 0) {
@@ -408,7 +431,9 @@ export default function LearnerManagement() {
                     type="number"
                     value={learnerData.amount}
                     onChange={handleInputChange}
+                    min={0}
                     className="col-span-3"
+                    onWheel={(e) => e.currentTarget.blur()}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -438,8 +463,10 @@ export default function LearnerManagement() {
                     type="number"
                     value={learnerData.installment1Amount}
                     onChange={handleInputChange}
+                    min={0}
                     className="col-span-3"
                     disabled={learnerData.installmentType === "full"}
+                    onWheel={(e) => e.currentTarget.blur()}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
