@@ -69,11 +69,12 @@ function PaymentPage() {
             .from("Learner")
             .select("email, phone, name, id")
             .eq("phone", phone)
-            .order("created_at", { ascending: false })
+            .order("created_at", {ascending: false})
             .limit(1)
             .maybeSingle();
+            
 
-          if (error) throw new Error("Failed to fetch learner details");
+          if (error || !learner) throw new Error("Failed to fetch learner details");
 
           // Check if there's an existing enrollment for this learner
           const { data: enrollments, error: enrollmentError } = await supabase
@@ -83,8 +84,7 @@ function PaymentPage() {
             )
             .eq("learner_id", learner.id)
             .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .limit(1);
 
           if (enrollmentError)
             throw new Error("Failed to fetch enrollment details");
@@ -118,8 +118,7 @@ function PaymentPage() {
               .eq("installment_type", "first_half")
               .eq("status", "completed")
               .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
+              .limit(1);
 
             if (!paymentsError && firstPayments && firstPayments.length > 0) {
               // If there's a completed first installment payment, this is a second installment
