@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
+import { LLWaitVerification } from "./LLWaitVerification";
 
 export function LLTestPreparation({ learnerId }: { learnerId: string }) {
   const [testStatus, setTestStatus] = useState<"initial" | "passed" | "failed">(
@@ -42,6 +43,10 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
 
     fetchLearnerDetails();
   }, [learnerId]);
+
+  if (learner?.LL_result) {
+    return <LLWaitVerification />;
+  }
 
   // Function to send admin email notifications
   const sendAdminEmail = async (subject: string, message: string) => {

@@ -40,7 +40,7 @@ function LLFlow() {
     return <LLTestPreparation learnerId={learner.id} />;
   }
 
-  if (!learner.LL_result) {
+  if (!learner.LL_received) {
     return <LLWaitVerification />
   }
   
