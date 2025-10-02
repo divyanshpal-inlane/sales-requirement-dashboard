@@ -341,9 +341,12 @@ export default function CreateScheduleWithInstructor({
           // Only fetch driving distance if straight-line distance is within a reasonable range
           // (e.g., 1.5x the instructor's radius) to save API calls
           let drivingDistance: number | null = null;
+          const maxRetryDistanceAPICallCount = 1000;
+          let retryDistanceAPICallCount = 0;
 
-          if (straightLineDistance <= (instructor.radius || 20) * 1.5) {
+          while (!drivingDistance && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
             try {
+              console.log("Call distance API retry: ", retryDistanceAPICallCount)
               drivingDistance = await getDrivingDistanceViaSDK(
                 learnerLat,
                 learnerLng,
@@ -353,12 +356,26 @@ export default function CreateScheduleWithInstructor({
             } catch (error) {
               console.error("Error fetching driving distance:", error);
               // Fall back to straight-line distance if API fails
-              drivingDistance = straightLineDistance;
+              // Update: Remove setting straight line distance as it causes faulty
+              // results when slider set to small value
+              // drivingDistance = straightLineDistance;
+            } finally {
+              retryDistanceAPICallCount ++;
             }
-          } else {
-            // Use straight-line distance if outside reasonable range
-            drivingDistance = straightLineDistance;
           }
+
+          if (!drivingDistance) {
+            console.error(
+              "Distance API failed after " +
+                maxRetryDistanceAPICallCount +
+                " retries");
+            
+            // set to straight line distance to avoid UI failure
+            drivingDistance = straightLineDistance;
+            // TODO: handle the error
+            // throw new Error("Cannot calculate driving distance.");
+          }
+
 
           instructorsWithDistanceData.push({
             ...instructor,
