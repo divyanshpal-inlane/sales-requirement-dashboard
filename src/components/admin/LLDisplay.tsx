@@ -30,9 +30,10 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
     try {
       // List files from the LL bucket in the folder matching the phone number
       const { data, error } = await supabase.storage
-        .from("ll")
+        .from("LL")
         .list(learnerPhone);
 
+      // console.log("LL data", data);
       if (error) throw error;
 
       if (data && data.length > 0) {
@@ -40,7 +41,7 @@ export const LearnerLLDisplay = ({ learnerPhone }: LearnerLLDisplayProps) => {
         const signedUrls = await Promise.all(
           data.map(async (file) => {
             const { data: signedUrlData } = await supabase.storage
-              .from("ll")
+              .from("LL")
               .createSignedUrl(`${learnerPhone}/${file.name}`, 3600); // 1 hour expiry
 
             return signedUrlData?.signedUrl || null;
