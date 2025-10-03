@@ -16,16 +16,17 @@ export function LLWaitVerification() {
         </CardHeader>
         <CardContent>
           <p>
-            On passing the test. Please wait while you douments are verified. You will be notified once the verification is complete.
+            On passing the test. Please wait while you documents are verified. You will be notified once the verification is complete.
           </p>
         </CardContent>
-        <Button
-          className="mt-4"
-          onClick={() => {navigate("/home")}}
-        >
-
-          Go to Home
-        </Button>
+        <div className="flex justify-center p-6 pt-0">
+          <Button
+            className="w-1/2"
+            onClick={() => {navigate("/prep")}}
+          >
+            Prep for lessons
+          </Button>
+        </div>
       </Card>
     );
 

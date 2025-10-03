@@ -542,9 +542,9 @@ export default function Home() {
             {!LessonData?.upcomingLesson &&
               !(scheduleRequests && scheduleRequests.length > 0) && (
                 <>
-                  {learner && !learner.LL_result ? (
+                  {learner && !learner.LL_received ? (
                     <LLFlow />
-                  ) : learner && learner.LL_result === true ? (
+                  ) : learner && learner.LL_received ? (
                     scheduledLessons && scheduledLessons.length === 0 ? (
                       <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
                         <img

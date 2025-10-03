@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSetLLResult } from "@/queries/learner";
 import { Tables } from "@/types/database.types";
+import { LLWaitVerification } from "./LLWaitVerification";
 
 interface LLTestResultProps {
   learner: Tables<"Learner">;
@@ -19,19 +20,7 @@ export function LLTestResult({ learner }: LLTestResultProps) {
   };
 
   if (learner.LL_result === true) {
-    return (
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>Congratulations!</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>
-            You&apos;ve passed your LL test. You&apos;re now ready to start your
-            practical driving lessons.
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <LLWaitVerification />;
   }
 
   const testDate = new Date(learner.LL_test_date!);
