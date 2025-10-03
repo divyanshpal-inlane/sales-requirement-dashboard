@@ -543,7 +543,7 @@ export default function Home() {
             ) : LessonData?.upcomingLesson ? (
               <div className="mb-6">{renderUpcomingLesson()}</div>
             ) : (
-              <p>No upcoming lesson</p>
+              <p className="text-center"> { learner?.LL_received ? "No upcoming lesson" : "" }</p>
             )}
             {/* If no upcoming lesson and no schedule requests, show appropriate content */}
             {!LessonData?.upcomingLesson &&
