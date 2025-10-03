@@ -1686,7 +1686,7 @@ function CreateSchedule({
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];
     const dateStr = format(date, "yyyy-MM-dd");
-    // TODO: check is the flag is set correctly, it shoukd check instructors schedule , not schedules list
+    // From the re-schedule requests, none should fall on same day 
     const isDayBlocked = schedulesToChange.some(
       (s) => (format(new Date(s.date), "yyyy-MM-dd") === dateStr) && (!s.isTentative),
     );
@@ -1806,7 +1806,7 @@ function CreateSchedule({
               availableInstructors.length > 0 &&
               !selectedInstrUnvailable &&
               !isLearnerSchedule &&
-              !isDayBlocked &&
+              // !isDayBlocked && // same day re-scheduling available
               !isInPast, // Add this condition to prevent selecting past slots
             isSelected: selectedSlots.some(
               (s) =>
