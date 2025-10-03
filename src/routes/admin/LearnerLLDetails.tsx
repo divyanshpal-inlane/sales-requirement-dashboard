@@ -103,7 +103,7 @@ const LearnerLLDetails = () => {
     queryFn: async () => {
       const { data, error } = await supabase
       .from("Learner")
-      .select("*, enrollment(learner_id)") // Select all Learner columns with Enrollment info
+      .select("*, enrollment!inner(learner_id)") // Select all Learner columns with Enrollment info
       .eq("has_a_DL", false)
       .neq("LL_application_approved", true)
       .neq("LL_received", true)
