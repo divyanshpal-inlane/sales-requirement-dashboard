@@ -68,7 +68,8 @@ export default function Home() {
     isLoading: LessonIsLoading,
     error: LessonError,
   } = useUpcomingLesson();
-
+  // console.log("Schedule Requests", scheduleRequests);
+  // console.log("LessonData", LessonData);
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
@@ -78,7 +79,7 @@ export default function Home() {
     courseId: enrolledCourse?.course_id,
   });
   const { mutate: updateLearner } = useLearnerUpdate();
-
+  // console.log('scheduledLessons', scheduledLessons);
   // Fetch all payments for the learner
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
     learner?.id,
@@ -475,7 +476,30 @@ export default function Home() {
     scheduledLessons &&
     scheduledLessons.length === 10 &&
     scheduledLessons.every((lesson) => isLessonCompleted(lesson));
-    
+  
+  if (scheduleRequests?.length > 0 && !LessonData?.upcomingLesson) {
+    // lesson 1 getting scheduled
+    return (
+    <div className="flex min-h-screen flex-col">
+
+      {/* Static header */}
+      <header className="sticky top-0 z-10 flex items-center justify-between p-4">
+        <h1 className="text-2xl font-medium">
+          Hi {learner?.name || "Learner"}!
+        </h1>
+        <Link to="/profile" className="rounded-full bg-white p-1">
+          <User size={24} className="hover:text-primary-dark text-primary" />
+        </Link>
+      </header>
+
+        <p className="text-justify">
+          {" "}
+          Your lessons are getting scheduled. You can start taking lessons once
+          our team does the scheduling as per the preferences
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
@@ -543,7 +567,7 @@ export default function Home() {
             ) : LessonData?.upcomingLesson ? (
               <div className="mb-6">{renderUpcomingLesson()}</div>
             ) : (
-              <p className="text-center"> { learner?.LL_received ? "No upcoming lesson" : "" }</p>
+              <p className="text-center"> { (learner?.LL_received && (scheduleRequests?.length > 0)) ? "No upcoming lesson" : "" }</p>
             )}
             {/* If no upcoming lesson and no schedule requests, show appropriate content */}
             {!LessonData?.upcomingLesson &&
