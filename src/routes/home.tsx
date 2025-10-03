@@ -113,6 +113,11 @@ export default function Home() {
     );
   }
 
+  // localStorage init
+  localStorage.setItem(
+    "onboardingDone",
+    learner?.onboarding_completed ? "true" : "false",
+  );
   const ls_onboarding_done = localStorage.getItem("onboardingDone");
   if (!learner?.onboarding_completed && !learner?.dob 
       && (!ls_onboarding_done || ls_onboarding_done != "true")) {
