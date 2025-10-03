@@ -101,6 +101,7 @@ export default function Home() {
     completedPayment && completedPayment?.status === "completed";
 
   if (paymentLoading || isLoading) {
+    console.log("Loading learner and payments info");
     return <div>Loading...</div>;
   }
   
@@ -126,6 +127,7 @@ export default function Home() {
     scheduleRequestsLoading ||
     isEnrolledCourseLoading
   ) {
+    console.log("Loading learner, lessons, schedule requests and enrollment");
     return <div>Loading...</div>;
   }
   
@@ -143,7 +145,7 @@ export default function Home() {
     scheduleItem.status?.toUpperCase() === "COMPLETED",
   );
   
-  if (true && showPaymentCompletion) {
+  if (showPaymentCompletion) {
     return (
       <div className="mb-6">
         <ReminderFullPayment learner />
