@@ -16,6 +16,7 @@ const dayVariants = cva(
         purple:
           "bg-accent-purple hover:bg-accent-purple focus:bg-accent-purple",
         dot: "dot-date flex gap-1 justify-center border text-foreground border-primary hover:text-foreground",
+        reschedule: "bg-yellow-500 hover:bg-yellow-600 focus:bg-yellow-600",
       },
     },
     defaultVariants: {
@@ -68,7 +69,7 @@ function Calendar({
         ),
         day_range_start: "day-range-start",
         day_range_end: "day-range-end",
-        day_selected: cn(dayVariants({ variant })), // Update this line
+        day_selected: cn(dayVariants({ variant: variant === 'reschedule' ? 'reschedule' : 'default' })), 
         day_today: "bg-accent text-accent-foreground",
         day_outside:
           "day-outside text-muted-foreground opacity-50  aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
