@@ -1686,7 +1686,7 @@ function CreateSchedule({
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];
     const dateStr = format(date, "yyyy-MM-dd");
-    // TODO: check is the flag is set correctly, it shoukd check instructors schedule , not schedules list
+    // From the re-schedule requests, none should fall on same day 
     const isDayBlocked = schedulesToChange.some(
       (s) => (format(new Date(s.date), "yyyy-MM-dd") === dateStr) && (!s.isTentative),
     );
@@ -1806,7 +1806,7 @@ function CreateSchedule({
               availableInstructors.length > 0 &&
               !selectedInstrUnvailable &&
               !isLearnerSchedule &&
-              !isDayBlocked &&
+              // !isDayBlocked && // same day re-scheduling available
               !isInPast, // Add this condition to prevent selecting past slots
             isSelected: selectedSlots.some(
               (s) =>
@@ -3200,14 +3200,15 @@ console.log("Setting state to slot", slot);
               hour < parseInt(s.end_time.split(":")[0]))),
       );
 
+    // coloring priority - Past , Learner state, instructor state, learner tentative, learner previous preferences
     if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
-    if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
-      return "bg-gray-300";
-    if (!slot.state.isAvailable) return "bg-gray-300";
-    if (isSelected) return "bg-primary";
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
-    if (hasExistingSchedule) return "bg-gray-100";
+    if (!slot.state.isAvailable) return "bg-gray-300";
+    if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
+      return "bg-gray-300";
+    if (hasExistingSchedule) return "bg-gray-100"; // Instructor has other schedule
+    if (isSelected) return "bg-primary";
     if (isAtleastOneTentativeForLearnerForSlot) return "bg-orange-200"; // Tentative schedules are prefferred over onboarding preferences
     if (slot.state.isPreferred) return "bg-primary/30";
     return "bg-white";

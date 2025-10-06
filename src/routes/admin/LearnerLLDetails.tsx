@@ -102,15 +102,16 @@ const LearnerLLDetails = () => {
     queryKey: ["learners", "llDetails"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("Learner")
-        .select("*, enrollment(learner_id)") // Select all Learner columns with Enrollment info
-        .eq("has_a_DL", false)
-        .neq("LL_application_approved", true)
-        .neq("LL_received", true)
-        .eq("enrollment.status", "active"); // Only paid learners
+      .from("Learner")
+      .select("*, enrollment!inner(learner_id)") // Select all Learner columns with Enrollment info
+      .eq("has_a_DL", false)
+      .neq("LL_application_approved", true)
+      .neq("LL_received", true)
+      .eq("enrollment.status", "active"); // Only paid learners
       if (error) throw error;
       console.log("Learner LL paid", data);
-      return data;
+      // Apply the client-side deduplication based on phone and created_at
+      return filterMostRecentLearner(data);
     },
   });
 
@@ -132,6 +133,31 @@ const LearnerLLDetails = () => {
       return data;
     },
   });
+
+  // The necessary helper function (outside of the component/useQuery)
+  // to select the single, most recent Learner for each unique phone number.
+  function filterMostRecentLearner(learners) {
+    if (!learners || learners.length === 0) return [];
+
+    const uniqueLearnersMap = new Map();
+
+    console.log("check duplicate of ", learners);
+    for (const learner of learners) {
+      const phoneNumber = learner.phone;
+      const currentCreatedAt = new Date(learner.created_at);
+
+      // Keep the entry only if it's not seen the phone, or if the current entry's recent
+      if (
+        !uniqueLearnersMap.has(phoneNumber) ||
+        currentCreatedAt > new Date(uniqueLearnersMap.get(phoneNumber).created_at)
+      ) {
+        uniqueLearnersMap.set(phoneNumber, learner);
+      }
+    }
+
+    return Array.from(uniqueLearnersMap.values());
+  }
+
 
   // Filter past LL applications based on search term
   const filteredPastApplications = pastLLApplications?.filter((learner) => {

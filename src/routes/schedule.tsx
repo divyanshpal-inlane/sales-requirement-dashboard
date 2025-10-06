@@ -21,6 +21,7 @@ import {
   useLearnerSchedule,
 } from "@/queries/learner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRescheduleLearnerLessonRequests } from "@/queries/schedule-requests";
 
 type CustomDayProps = {
   date: Date;
@@ -58,6 +59,8 @@ export default function Schedule() {
     learnerId,
     courseId: enrollment?.course_id,
   });
+  const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
+  useRescheduleLearnerLessonRequests(learner?.id);
 
   useEffect(() => {
     if (scheduledLessons) {
@@ -75,16 +78,45 @@ export default function Schedule() {
     if (lessonsForDay.length === 0) {
       return <div className="h-8 w-8 p-0">{date.getDate()}</div>;
     }
+    
+    // Determine if the day contains a lesson that can be rescheduled
+    // Collect all lesson_ids from scheduleRequests into a Set for fast lookup
+    const requestLessonIds = new Set(
+      (scheduleRequests ?? []).flatMap(req => req.lesson_ids || [])
+    );
+
+    // Store the boolean directly
+    const isRescheduleDay: boolean = (lessonsForDay ?? []).some(lesson =>
+      requestLessonIds.has(lesson.lessonId)
+    );
+
+    // console.log("lessonsForDay", lessonsForDay);
+    // console.log("Schedule requests", scheduleRequests);
+    const isPast = date < new Date().setHours(0, 0, 0, 0);
+    let dayColorClasses = "";
+
+    if (isPast) {
+      // Gray for past days
+       dayColorClasses = "bg-gray-300 text-gray-600";
+   } else if (isRescheduleDay) {
+        // High priority: Yellow color for reschedule status
+        dayColorClasses = "bg-yellow-500 hover:bg-yellow-500 focus:bg-yellow-500 text-gray-800";
+    } else {
+        // Default: Primary color for future days
+        dayColorClasses = "bg-primary text-primary-foreground";
+    }
+    
+    if (scheduleRequestsLoading) {
+      console.log("Loading reschedule requests");
+      return <div>Loading ... </div>
+    }
     return (
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className={`h-8 w-8 p-0 font-normal ${
-              date < new Date().setHours(0, 0, 0, 0)
-                ? "bg-gray-300 text-gray-600"
-                : "bg-primary text-primary-foreground"
-            }`}
+            // Modified class strings for other types of day, eg reschedule
+            className={`h-8 w-8 p-0 font-normal ${dayColorClasses}`}
           >
             {date.getDate()}
           </Button>
@@ -98,7 +130,7 @@ export default function Schedule() {
               const now = new Date();
               const isLessonPast =
                 new Date(`${lesson.date}T${lesson.startTime}`) < now;
-              return (
+                return (
                 <p
                   key={lesson.id}
                   className={`flex flex-col gap-1 text-xs ${isLessonPast ? "text-gray-400 line-through" : ""}`}
@@ -122,18 +154,17 @@ export default function Schedule() {
                     onClick={() => {
                       if (lesson.status && lesson.status != "completed") {
                         navigate(
-                        `/reschedule/${lesson?.lesson?.id}`,
+                          `/reschedule/${lesson?.lesson?.id}`,
                         )
 
                       } else {
                         alert("Lesson already completed")
                       }
-                    }
-                }
-                disabled={!lesson || !lesson.lesson || (lesson.status==="completed")}
-                  >
-                    Reschedule
-                  </Button>
+                    }}
+                    disabled={!lesson || !lesson.lesson || (lesson.status==="completed")}
+                      >
+                        Reschedule
+                      </Button>
                   </span>
                 </p>
               );

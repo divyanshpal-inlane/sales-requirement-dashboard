@@ -138,6 +138,11 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
     );
   }
 
+  if (testStatus === "passed") {
+    return (
+      <LLWaitVerification />
+    )
+  }
   return (
     <>
       <Card className="mx-auto mt-4 w-full max-w-xl px-4">
@@ -193,40 +198,6 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
             </div>
           )}
 
-          {testStatus === "passed" && hasReceivedLL === null && (
-            <div className="space-y-4">
-              <p className="text-lg font-medium">
-                Have you received your Learner&apos;s License?
-              </p>
-              <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Button onClick={() => handleLLReceived(true)}>
-                  Yes, I&apos;ve received it
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleLLReceived(false)}
-                >
-                  Not yet
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {testStatus === "passed" && hasReceivedLL === false && (
-            <div className="space-y-4">
-              <p className="break-words text-lg font-medium">
-                No problem! The government is processing your Learner&apos;s
-                License. Please wait for the confirmation message.
-              </p>
-              <Button
-                onClick={() => handleLLReceived(true)}
-                className="w-full sm:w-auto"
-              >
-                I&apos;ve received it now
-              </Button>
-            </div>
-          )}
-
           {testStatus === "failed" && (
             <div className="space-y-4">
               <p className="break-words text-lg font-medium">
@@ -249,14 +220,6 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
             </div>
           )}
 
-          {testStatus === "passed" && hasReceivedLL === true && (
-            <div className="space-y-4">
-              <p className="break-words text-lg font-medium text-green-600">
-                Great! You've received your Learner's License. You're now ready
-                to proceed with driving lessons.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </>
