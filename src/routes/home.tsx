@@ -114,14 +114,26 @@ export default function Home() {
     );
   }
 
-  // localStorage init
-  localStorage.setItem(
-    "onboardingDone",
-    learner?.onboarding_completed ? "true" : "false",
-  );
+  const localStorageInitOnce = (local_var_name: string) => {
+    // will inistialise the approriate value only if not exists on cache and learner's valid
+    if (localStorage.getItem(local_var_name)) {
+      console.log(local_var_name, "already set to", localStorage.getItem(local_var_name), " not initialised"); 
+      return;
+    }
+    if (!learner) return;
+    switch (local_var_name) {
+      case "onboardingDone":
+        console.log("learner onboarding", learner.onboarding_completed);
+        localStorage.setItem(local_var_name, (learner.onboarding_completed) ? "true" : "false");
+    }
+  }
+  // local storage initialiasation - do only once if not exist
+  localStorageInitOnce("onboardingDone");
+  // local storage init ends
+
   const ls_onboarding_done = localStorage.getItem("onboardingDone");
-  if (!learner?.onboarding_completed && !learner?.dob 
-      && (!ls_onboarding_done || ls_onboarding_done != "true")) {
+  if (!learner?.onboarding_completed
+      && (ls_onboarding_done != "true")) {
     // learner does not get updated after onboarding page
     // hence use local storage to ensure onboarding only redirect once
     return <Navigate to="/onboard/birthday" />;
