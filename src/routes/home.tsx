@@ -114,14 +114,26 @@ export default function Home() {
     );
   }
 
-  // localStorage init
-  localStorage.setItem(
-    "onboardingDone",
-    learner?.onboarding_completed ? "true" : "false",
-  );
+  const localStorageInitOnce = (local_var_name: string) => {
+    // will inistialise the approriate value only if not exists on cache and learner's valid
+    if (localStorage.getItem(local_var_name)) {
+      console.log(local_var_name, "already set to", localStorage.getItem(local_var_name), " not initialised"); 
+      return;
+    }
+    if (!learner) return;
+    switch (local_var_name) {
+      case "onboardingDone":
+        console.log("learner onboarding", learner.onboarding_completed);
+        localStorage.setItem(local_var_name, (learner.onboarding_completed) ? "true" : "false");
+    }
+  }
+  // local storage initialiasation - do only once if not exist
+  localStorageInitOnce("onboardingDone");
+  // local storage init ends
+
   const ls_onboarding_done = localStorage.getItem("onboardingDone");
-  if (!learner?.onboarding_completed && !learner?.dob 
-      && (!ls_onboarding_done || ls_onboarding_done != "true")) {
+  if (!learner?.onboarding_completed
+      && (ls_onboarding_done != "true")) {
     // learner does not get updated after onboarding page
     // hence use local storage to ensure onboarding only redirect once
     return <Navigate to="/onboard/birthday" />;
@@ -167,6 +179,41 @@ export default function Home() {
       (request) => request.lesson_id === LessonData.upcomingLesson.id,
     );
 
+    const renderLesson1ScheduleState = () => (
+    <div className="flex flex-col items-center gap-6 p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center gap-4 p-6">
+          <div className="relative">
+            <Clock size={48} className="animate-pulse" />
+            <div className="absolute -right-1 -top-1 h-3 w-3 animate-ping rounded-full" />
+          </div>
+          <h2 className="text-center text-2xl font-semibold">
+            Your Schedule is Being Created
+          </h2>
+          <p className="text-center text-muted-foreground">
+            Our team is working on crafting your perfect learning schedule.
+            While you wait, play some learning games!
+          </p>
+        </CardContent>
+      </Card>
+
+      <Button
+        className="flex w-full max-w-md items-center justify-between gap-2 p-6"
+        onClick={() => navigate("/prep")}
+      >
+        <div className="flex items-center gap-3">
+          <BookOpen className="h-5 w-5" />
+          <span>Start Your Prep Work</span>
+        </div>
+        <ArrowRight className="h-5 w-5" />
+      </Button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        We'll notify you once your schedule is ready.
+      </p>
+    </div>
+  );
+  
   const renderScheduleCreationState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-md">
@@ -492,11 +539,7 @@ export default function Home() {
         </Link>
       </header>
 
-        <p className="text-justify">
-          {" "}
-          Your lessons are getting scheduled. You can start taking lessons once
-          our team does the scheduling as per the preferences
-        </p>
+      {renderLesson1ScheduleState()}
       </div>
     )
   }

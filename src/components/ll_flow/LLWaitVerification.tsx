@@ -16,7 +16,8 @@ export function LLWaitVerification() {
         </CardHeader>
         <CardContent>
           <p>
-            On passing the test. Please wait while you documents are verified. You will be notified once the verification is complete.
+            On passing the test. The government is processing your Learner&apos;s
+            License. Please wait for the confirmation message.
           </p>
         </CardContent>
         <div className="flex justify-center p-6 pt-0">

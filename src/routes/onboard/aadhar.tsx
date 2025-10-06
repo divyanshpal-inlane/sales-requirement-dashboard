@@ -29,6 +29,7 @@ export default function Aadhar() {
     mutate(
       {
         aadhar_state: selectedState,
+        onboarding_completed: true,
       },
       {
         onSuccess: async () => {
