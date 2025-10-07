@@ -271,15 +271,15 @@ export default function Schedule() {
                       <div className="absolute bottom-0 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
                         <Link
                           to={`/lesson/${nextLesson.lesson.id}`}
-                          className="font-medium text-primary"
+                          className="font-medium text-primary flex items-center space-x-1"
                         >
                           More details
-                        </Link>
                         <ChevronRight
                           color="white"
                           className="rounded-full bg-primary"
                           size={20}
-                        />
+                          />
+                          </Link>
                       </div>
                     </div>
                   </div>
@@ -347,16 +347,16 @@ export default function Schedule() {
                                 (l) => l.number === parseInt(lesson.id),
                               )?.id
                             }`}
-                            className={`text-xs ${isLocked ? "text-gray-400" : "text-primary"}`}
+                            className={`text-xs ${isLocked ? "text-gray-400" : "text-primary"} flex items-center space-x-1`}
                             onClick={(e) => isLocked && e.preventDefault()}
                           >
                             More details
-                          </Link>
                           <ChevronRight
                             color={isLocked ? "gray" : "white"}
                             className={`rounded-full ${isLocked ? "bg-gray-400" : "bg-primary"}`}
                             size={16}
-                          />
+                            />
+                          </Link>
                         </div>
                       </div>
                       <Link

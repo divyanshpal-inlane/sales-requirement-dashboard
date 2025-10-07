@@ -118,7 +118,7 @@ export async function sendMultiEventCalendarInvite(
           event.pickupLocation,
           import.meta.env.VITE_SMTP_FROM,
           learnerEmail, // Main recipient
-          "ankit.inlane@gmail.com", // Add Ankit's email as BCC here
+          "laneschool@inlane.in", // Add team's email as BCC here
           uid,
           event.isCancellation,
           event.sequence || 0,
@@ -132,7 +132,7 @@ export async function sendMultiEventCalendarInvite(
           event.pickupLocation,
           import.meta.env.VITE_SMTP_FROM,
           instructorEmail,
-          "ankit.inlane@gmail.com", // Add Ankit's email as BCC here too
+          "laneschool@inlane.in", // Add team's email as BCC here
           uid,
           event.isCancellation,
           event.sequence || 0,

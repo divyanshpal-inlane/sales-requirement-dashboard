@@ -198,7 +198,7 @@ export default function LearnerManagement() {
       }
 
       // If unlockedLessons is empty, set it to half the course duration
-      const dataToSend = { ...learnerData };
+      let dataToSend = { ...learnerData };
       if (dataToSend.unlockedLessons.length === 0) {
         const selectedCourse = courses.find(
           (course) => course.id === dataToSend.courseId,
@@ -213,6 +213,13 @@ export default function LearnerManagement() {
         }
       }
 
+      // Relational attributes set
+      // Following attributes are derived from form data and set
+      // to render correct pages later
+      dataToSend.LL_received = dataToSend.has_a_DL ? true : false;
+
+      // send to backend
+      console.log("Sending data to edge function", dataToSend);
       const { data, error } = await supabase.functions.invoke(
         "create-learner-and-enrollment",
         {
