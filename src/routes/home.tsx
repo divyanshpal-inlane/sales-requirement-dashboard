@@ -659,7 +659,14 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="mt-24 text-center text-xl">
-                        No Upcoming Lesson. 😓
+                        Your LL was issued on {learner.LL_received_date}. 
+                        You can apply for the Driver licence test after 30 days
+                        of LL date. 
+                        {!learner.DL_test_date
+                          ? "Once the test date gets confirmed by you, the lesson 10 can be scheduled within 1 week of the driving test date."
+                          : "" }
+                          {/*  !learner.has_lesson10_booked ? " Book lesson 10"
+                             : "You've booked it" */}
                         {scheduledLessons &&
                           scheduledLessons.length === 9 &&
                           isLesson10Completed === undefined && (
