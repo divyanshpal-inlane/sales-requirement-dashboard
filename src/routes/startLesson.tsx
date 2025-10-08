@@ -12,7 +12,7 @@ import { useLessonSchedule, useUpcomingLesson } from "@/queries/learner";
 
 export default function StartLesson() {
   const { lessonNumber } = useParams();
-  invariant(lessonNumber, "lessonNumber is required");
+  // invariant(lessonNumber, "lessonNumber is required");
   const { data, isLoading, error } = useUpcomingLesson();
   const queryClient = useQueryClient();
   const scheduleData = queryClient.getQueryData([
@@ -27,8 +27,8 @@ export default function StartLesson() {
         : undefined,
   });
   const navigate = useNavigate();
-
-  if (isLoading) return <div>Loading...</div>;
+  
+  if (isLoading || !lessonNumber) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
