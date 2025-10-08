@@ -228,6 +228,22 @@ export default function Schedule() {
                     Day: CustomDay,
                   }}
                 />
+                
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4 text-sm flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded bg-yellow-500" />
+                <span>Reschedule Requests</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded bg-primary" />
+                <span>Scheduled Lessons</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-500"></div>
+            </div>
+          </div>
               </CardContent>
             </Card>
 
