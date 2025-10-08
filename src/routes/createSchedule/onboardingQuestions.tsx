@@ -114,6 +114,7 @@ export default function OnboardingQuestions() {
               placeholder="Enter number of days"
               value={completionDays}
               onChange={(e) => setCompletionDays(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
             />
           </div>
 
