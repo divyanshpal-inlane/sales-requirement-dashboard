@@ -3201,13 +3201,13 @@ console.log("Setting state to slot", slot);
       );
 
     // coloring priority - Past , Learner state, instructor state, learner tentative, learner previous preferences
-    if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
+    if (isInPast) return "bg-gray-400"; // Add a distinct color for past slots
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
     if (!slot.state.isAvailable) return "bg-gray-300";
     if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
       return "bg-gray-300";
-    if (hasExistingSchedule) return "bg-gray-100"; // Instructor has other schedule
+    if (hasExistingSchedule) return "bg-gray-300"; // Instructor has other schedule
     if (isSelected) return "bg-primary";
     if (isAtleastOneTentativeForLearnerForSlot) return "bg-orange-200"; // Tentative schedules are prefferred over onboarding preferences
     if (slot.state.isPreferred) return "bg-primary/30";
@@ -3345,11 +3345,11 @@ console.log("Setting state to slot", slot);
             <span>Scheduled Lessons</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-100" />
+            <div className="h-3 w-3 rounded bg-gray-300" />
             <span>Unavailable</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-300" />
+            <div className="h-3 w-3 rounded bg-gray-400" />
             <span>Past Time </span>
           </div>
           <div className="flex items-center gap-2">
