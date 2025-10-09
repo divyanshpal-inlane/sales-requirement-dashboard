@@ -5,6 +5,7 @@ import { Navigate, useSearchParams } from "react-router-dom"; // Fixed import
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
+import { Label } from "@/components/ui/label";
 
 export default function Login() {
   const {
@@ -29,6 +30,7 @@ export default function Login() {
   const [otpVerified, setOtpVerified] = useState<boolean>(false);
   const [timer, setTimer] = useState<number>(0); // Timer for resend OTP
   const [isRequestingOtp, setIsRequestingOtp] = useState<boolean>(false); // Prevent multiple OTP requests
+  const [agreedTnc, setAgreedTnc] = useState<boolean>(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -146,6 +148,10 @@ export default function Login() {
     return <Navigate to="/instructor" />;
   }
 
+  const handleTncAgree = (event) => {
+    setAgreedTnc(event.target.checked);
+  }
+
   return (
     <div className="flex h-screen items-center justify-center font-glancyr">
       <div className="mx-auto flex aspect-[9/16] h-full max-h-[1000px] overflow-hidden rounded-lg bg-white shadow-lg">
@@ -219,7 +225,6 @@ export default function Login() {
                     </div>
                   </div>
                 )}
-
                 {/* OTP input - shown only in forgot-password after requesting OTP */}
                 {active === "forgot-password" && resetRequested && (
                   <div className="space-y-1">
@@ -313,7 +318,40 @@ export default function Login() {
                     </>
                   ) : active === "signup" ? (
                     <>
-                      <Button className="w-full" type="submit">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="agree_to_tnc"
+                          name="agree_to_tnc"
+                          checked={agreedTnc}
+                          onChange={handleTncAgree}
+                        />
+                        <Label htmlFor="agree_to_tnc">
+                          I have and agree to the&nbsp;
+                          <a
+                            target="_blank"
+                            href="https://inlane.in/terms-and-conditions"
+                            className="text-muted-foreground hover:text-blue-500 hover:underline"
+                            rel="noreferrer"
+                          >
+                            Terms of Service
+                          </a>
+                          &nbsp; and&nbsp;
+                          <a
+                            target="_blank"
+                            href="https://inlane.in/privacy-policy"
+                            className="text-muted-foreground hover:text-blue-500 hover:underline"
+                            rel="noreferrer"
+                          >
+                            Privacy Policy
+                          </a>
+                        </Label>
+                      </div>
+                      <Button
+                        className="w-full"
+                        type="submit"
+                        disabled={!agreedTnc}
+                      >
                         Signup
                       </Button>
                       <p className="text-sm text-muted-foreground">
@@ -383,7 +421,9 @@ export default function Login() {
               </div>
             </form>
 
-            <footer className="mt-auto flex flex-col text-center text-sm">
+            {
+            active != "signup" && (
+              <footer className="mt-auto flex flex-col text-center text-sm">
               <div className="flex items-center justify-center gap-2 py-4">
                 <span>Made in</span>
                 <img
@@ -411,7 +451,10 @@ export default function Login() {
                   Privacy Policies
                 </a>
               </nav>
-            </footer>
+              </footer>  
+              )
+            }
+
           </div>
         </div>
       </div>
