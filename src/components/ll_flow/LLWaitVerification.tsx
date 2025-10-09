@@ -12,11 +12,11 @@ export function LLWaitVerification() {
     return (
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle>Congratulations!</CardTitle>
+          <CardTitle>Congratulations! On passing the test. </CardTitle>
         </CardHeader>
         <CardContent>
           <p>
-            On passing the test. The government is processing your Learner&apos;s
+            The government is processing your Learner&apos;s
             License. Please wait for the confirmation message.
           </p>
         </CardContent>

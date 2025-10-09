@@ -64,8 +64,17 @@ const OTPVerification = () => {
     enabled: otp.length === 6,
   });
 
-  const handleOtpChange = (value: string) => {
-    setOTP(value);
+  const handleOtpInputChange = (event) => {
+    const value = event.target.value;
+    
+    // 1. Filter: Only allow digits
+    const numericValue = value.replace(/\D/g, '');
+
+    // 2. Limit: Enforce the maximum length
+    const finalOtp = numericValue.slice(0, 6);
+
+    setOTP(finalOtp);
+    // console.log("otp set to ", finalOtp, otp);
   };
 
   const handleSubmit = () => {
@@ -174,7 +183,17 @@ const OTPVerification = () => {
                     </p>
 
                     <div className="w-full max-w-xs sm:max-w-md">
-                      <OTPInput length={6} onChange={handleOtpChange} />
+                      {/* {console.log("Re-rendering input");} */}
+                      <input
+                        type="tel" // Use 'tel' for better mobile keyboard experience (numeric)
+                        value={otp}
+                        onChange={handleOtpInputChange}
+                        maxLength={6}
+                        pattern="\d{6}" // HTML5 validation hint
+                        className="border border-gray-300 rounded-lg p-3 text-2xl tracking-widest text-center"
+                        placeholder="Enter 6-digit code"
+                        style={{ width: '100%', letterSpacing: '20px' }} // Custom styling for wide spacing
+                      />
                     </div>
 
                     {verificationData?.isValid === false && (
