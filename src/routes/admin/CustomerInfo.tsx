@@ -53,6 +53,7 @@ export default function CustomerInfo() {
   );
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
+    
     setSelectedLearner(learner);
     setDialogOpen(true);
   };
@@ -141,7 +142,28 @@ export default function CustomerInfo() {
                     <div
                       key={learner.id}
                       className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
-                      onClick={() => handleLearnerSelect(learner)}
+                      onClick={() => handleLearnerSelect(
+                        learner={
+                            id: learner.id || "",
+                            name: learner.name || "",
+                            phone: learner.phone || "",
+                            email: learner.email || "",
+                            area: learner.area || "",
+                            pick_up_location: learner.pick_up_location,
+                            pincode: learner.pincode,
+                            signed_up: learner.signed_up,
+                            created_at: learner.created_at,
+                            address_lat: learner.address_lat,
+                            address_lng: learner.address_lng,
+                            preferred_start_date:
+                              learner.preferred_start_date,
+                            preferred_completion_days:
+                              learner.preferred_completion_days,
+                            prefers_two_hour_classes:
+                              learner.prefers_two_hour_classes,
+                            preferred_two_hour_days: learner.two_hour_days,
+                        }
+                      )}
                     >
                       <div className="flex items-start gap-4">
                         <Avatar className="h-12 w-12">

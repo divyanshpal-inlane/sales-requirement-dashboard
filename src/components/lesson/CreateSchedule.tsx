@@ -717,9 +717,11 @@ export default function CreateScheduleWithInstructor({
         preferred_start_date: learnerData.preferred_start_date,
         preferred_completion_days: learnerData.preferred_completion_days,
         prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
+        preferred_two_hour_days: learnerData.two_hour_days,
         pick_up_location: learnerData.pick_up_location,
       };
 
+      console.log("T5 Learner passed", learnerInfo);
       setSelectedLearner(learnerInfo);
       setShowLearnerDialog(true);
     } catch (error) {

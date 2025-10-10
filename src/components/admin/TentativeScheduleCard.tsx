@@ -61,6 +61,7 @@ export interface LearnerInfo {
   preferred_start_date?: string;
   preferred_completion_days?: number;
   prefers_two_hour_classes?: boolean;
+  two_hour_days?: string;
   pick_up_location?: string; // Added pickup address field
   comments?: string; // Added comments field
 }

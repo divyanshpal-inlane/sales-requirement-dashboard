@@ -237,6 +237,7 @@ export default function AdminSchedules() {
         preferred_start_date: learner.preferred_start_date,
         preferred_completion_days: learner.preferred_completion_days,
         prefers_two_hour_classes: learner.prefers_two_hour_classes,
+        preferred_two_hour_days: learner.two_hour_days,
       });
     } else {
       // Otherwise, just select the learner
@@ -249,6 +250,7 @@ export default function AdminSchedules() {
   const handleRequestSelect = (request: SchedulingRequests[number]) => {
     // If this request is already selected, open the dialog
     if (selectedRequest?.id === request.id) {
+
       handleOpenLearnerInfo({
         id: request.Learner?.id || "",
         name: request.Learner?.name || "",
@@ -264,6 +266,7 @@ export default function AdminSchedules() {
         preferred_start_date: request.Learner?.preferred_start_date,
         preferred_completion_days: request.Learner?.preferred_completion_days,
         prefers_two_hour_classes: request.Learner?.prefers_two_hour_classes,
+        preferred_two_hour_days: request.Learner?.two_hour_days,
       });
     } else {
       // Otherwise, just select the request
@@ -377,6 +380,7 @@ export default function AdminSchedules() {
         preferred_start_date,
         preferred_completion_days,
         prefers_two_hour_classes,
+        two_hour_days,
         pick_up_location,
         created_at,
         address_lat,
@@ -1293,6 +1297,8 @@ export default function AdminSchedules() {
                               request.Learner?.preferred_completion_days,
                             prefers_two_hour_classes:
                               request.Learner?.prefers_two_hour_classes,
+                            preferred_two_hour_days:
+                              request.Learner?.two_hour_days,
                           }}
                           compact={true}
                           onClick={(learner) => {
@@ -1364,6 +1370,8 @@ export default function AdminSchedules() {
                               request.Learner?.preferred_completion_days,
                             prefers_two_hour_classes:
                               request.Learner?.prefers_two_hour_classes,
+                            preferred_two_hour_days:
+                              request?.Learner?.two_hour_days,
                           }}
                           compact={true}
                           onClick={(learner) => {
@@ -1435,6 +1443,8 @@ export default function AdminSchedules() {
                               request.Learner?.preferred_completion_days,
                             prefers_two_hour_classes:
                               request.Learner?.prefers_two_hour_classes,
+                            preferred_two_hour_days:
+                              request.Learner?.two_hour_days,
                           }}
                           compact={true}
                           onClick={(learner) => {
@@ -1511,6 +1521,7 @@ export default function AdminSchedules() {
                                 learner.preferred_completion_days,
                               prefers_two_hour_classes:
                                 learner.prefers_two_hour_classes,
+                              preferred_two_hour_days: learner.two_hour_days,
                             }}
                             compact={true}
                             onClick={(learnerInfo) => {
