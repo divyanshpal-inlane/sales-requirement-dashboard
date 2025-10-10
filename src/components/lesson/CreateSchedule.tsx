@@ -993,6 +993,9 @@ export default function CreateScheduleWithInstructor({
     )
   }
   
+  // useEffect(() => {
+  //   console.log("instructorsWithDistance", instructorsWithDistance);
+  // }, [instructorsWithDistance]);
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
@@ -1029,7 +1032,13 @@ export default function CreateScheduleWithInstructor({
                       <div className="flex w-full items-center justify-between flex-wrap">
                         {/* Name + badges container */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <span>{instructor.name}</span>
+                          <span>
+                            {instructor.name}
+                            {instructor.areas && instructor.areas.length > 0
+                              ? ` (${instructor.areas.join(', ')})`
+                              : ''
+                            }
+                          </span>
 
                           {instructor.areas.some(
                             (area) => area.toLowerCase() === learnerArea.toLowerCase(),
