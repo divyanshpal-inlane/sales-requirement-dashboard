@@ -241,6 +241,8 @@ export default function AdminSchedules() {
     } else {
       // Otherwise, just select the learner
       setSelectedRequest(learner);
+      // reset instructor selection
+      setSelectedInstructorId("");
     }
   };
 

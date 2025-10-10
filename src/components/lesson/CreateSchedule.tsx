@@ -54,6 +54,8 @@ import LearnerScheduleSelector from "./schedule";
 import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 import { TentativeScheduleDialog } from "../admin/TentativeScheduleCard";
 import { useToast } from "@/components/ui/use-toast";
+import { ControlPosition } from "@vis.gl/react-google-maps";
+import { describe } from "node:test";
 
 interface TimeSlotState {
   isAvailable: boolean;
@@ -991,6 +993,9 @@ export default function CreateScheduleWithInstructor({
     )
   }
   
+  // useEffect(() => {
+  //   console.log("instructorsWithDistance", instructorsWithDistance);
+  // }, [instructorsWithDistance]);
   return (
     <div className="flex space-x-4">
       {/* Left Panel: Instructor's Schedule */}
@@ -1027,7 +1032,13 @@ export default function CreateScheduleWithInstructor({
                       <div className="flex w-full items-center justify-between flex-wrap">
                         {/* Name + badges container */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <span>{instructor.name}</span>
+                          <span>
+                            {instructor.name}
+                            {instructor.areas && instructor.areas.length > 0
+                              ? ` (${instructor.areas.join(', ')})`
+                              : ''
+                            }
+                          </span>
 
                           {instructor.areas.some(
                             (area) => area.toLowerCase() === learnerArea.toLowerCase(),
@@ -1493,6 +1504,7 @@ function CreateSchedule({
   const [selectedInstructorId, setSelectedInstructorId] = useState<
     string | null
   >(defaultInstructorId);
+  const { toast } = useToast();
 
   // get Unvailability of default instructor
   const defaultInstructorUnavailability = useMemo ( () => {
@@ -1603,6 +1615,8 @@ function CreateSchedule({
     },
   });
 
+  // find the minimum lesson number that needs to be re-scheduled from
+  // all the lessons that are requested
   const lessons = allLessons?.filter((l) => request.lesson_ids.includes(l.id));
 
   const minLessonNumber =
@@ -1651,12 +1665,16 @@ function CreateSchedule({
     useMemo(() => {
       if (!existingLearnerSchedules) return [[], [], []];
 
+      // from all requests, filter matching current learner request
       const toChange = existingLearnerSchedules.filter(
         (s) =>
           request.lesson_ids.includes(s.lesson_id ?? "") &&
           s.learner_id === learnerId,
       );
 
+      // from the minimum lesson number that's requested for the current learner, 
+      // filter other later lessons that were scheduled after the minimum requested 
+      // but are not part of the request list.
       const laterScheduleOfLearnerToChange = existingLearnerSchedules.filter(
         (s) =>
           s.learner_id === learnerId &&
@@ -1669,6 +1687,7 @@ function CreateSchedule({
       if (!existingSchedules)
         return [toChange, laterScheduleOfLearnerToChange, []];
 
+      // schedules of other learners
       const others = existingSchedules.filter(
         (s) => s.learner_id !== learnerId,
       );
@@ -1715,7 +1734,7 @@ function CreateSchedule({
             (s) =>
               s.date === dateStr &&
               parseInt(s.start_time.split(":")[0]) === hour &&
-              parseInt(s.start_time.split(":")[1] || "0") === minute,
+              parseInt(s.start_time.split(":")[1] || "0") <= minute,
           ) ?? [];
 
         // Get learner preferences for this slot
@@ -1743,12 +1762,20 @@ function CreateSchedule({
 
         // console.log("selectedInstr: ", defaultInstructorId);
         // Get available instructors for this slot
+        // Note that it only checks the unavailability
         // Filter to only include instructors within their service radius
         let selectedInstrUnvailable = false; //assum instructors are available unless blocked
+        
         const availableInstructors =
           instructorsWithDistance
             ?.filter((instructor) => {
+              const instrBookedForSlot = slotSchedules.some(
+                (s) =>
+                  s.instructor_id === instructor.id_instructor &&
+                  !s.isTentative,
+              );
               // TODO: move code to seperate function
+              // It's only added here to avoid running another loop
               if (instructor.id_instructor === selectedInstructorId) {
                 // console.log("availability for slot ", hour, minute, instructor);
                 selectedInstrUnvailable = unavailabilityDataChecker(
@@ -1757,17 +1784,27 @@ function CreateSchedule({
                   date,
                   hour,
                   minute,
-                );
+                ) || instrBookedForSlot;
 
-                // console.log("selectedInstrAvailable updated to", selectedInstrUnvailable);
+                // if (dateStr === "2025-10-10" && hour === 6) console.log("selectedInstrAvailable updated to", selectedInstrUnvailable);
               }
               // move above code to seperate function
 
-              return !slotSchedules.some(
-                (s) => (s.instructor_id === instructor.id_instructor) && (!s.isTentative),
-              );
+              return !instrBookedForSlot;
             })
             .map((i) => i.id_instructor) ?? [];
+
+        // if (dateStr === "2025-10-10" && hour === 6) {
+
+        //   console.log(dateStr, hour, minute);
+        //   console.log("ID and schedules", selectedInstructorId, availableInstructors, instructorsWithDistance);
+        //   // assuming availableInstructors's a list of IDs
+        //   selectedInstrUnvailable = !availableInstructors.some(
+        //     (availInstrId) => 
+        //       (availInstrId === selectedInstructorId)
+        //   );
+        //   console.log("Unvailasble", selectedInstrUnvailable);
+        // }
 
         const existingSchedule =
           !isLearnerSchedule &&
@@ -2307,14 +2344,23 @@ function CreateSchedule({
       alert("Select Instructor");
       return;
     }
+    if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
+      toast(
+        {
+          title: "Not available on " + format(slot.timestamp, "hh:mm"),
+          describe: "Selected Instructor not available",
+          variant: "destructive"
+        }
+      );
+      // alert("Selected Instructor not available");
+      return;
+    }
     if (!slot.state.isAvailable || slot.state.isSelected) {
       if (!slot.state.isAvailable) {
         alert(
           "Unavailable slot time. It means at least one of the following \n" + 
             " already there's schedule on the slot or \n" +
-            " no available instructor or \n"+
-            " the reschedule request falls on the" +
-            " same day as old schedule or\n" +
+            " selected instructor not available or \n"+
             " the time falls in the past \n"
         );
         return;
@@ -3176,7 +3222,7 @@ console.log("Setting state to slot", slot);
       );
       const isAtleastOneTentativeForLearnerForSlot = schedulesToChange.some((s) => {
         if (!checkSlotOverlap(s)) return false;
-        if (s.id === 105) console.log("showing all ids ", s.id);
+        if (s.id === 1207) console.log("showing all ids ", s.id);
         return ((s.learner_id != learnerId) || (s.isTentative));
       });
       
@@ -3201,13 +3247,13 @@ console.log("Setting state to slot", slot);
       );
 
     // coloring priority - Past , Learner state, instructor state, learner tentative, learner previous preferences
-    if (isInPast) return "bg-gray-300"; // Add a distinct color for past slots
+    if (isInPast) return "bg-gray-400"; // Add a distinct color for past slots
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
     if (!slot.state.isAvailable) return "bg-gray-300";
     if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
       return "bg-gray-300";
-    if (hasExistingSchedule) return "bg-gray-100"; // Instructor has other schedule
+    if (hasExistingSchedule) return "bg-gray-300"; // Instructor has other schedule
     if (isSelected) return "bg-primary";
     if (isAtleastOneTentativeForLearnerForSlot) return "bg-orange-200"; // Tentative schedules are prefferred over onboarding preferences
     if (slot.state.isPreferred) return "bg-primary/30";
@@ -3345,11 +3391,11 @@ console.log("Setting state to slot", slot);
             <span>Scheduled Lessons</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-100" />
+            <div className="h-3 w-3 rounded bg-gray-300" />
             <span>Unavailable</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-300" />
+            <div className="h-3 w-3 rounded bg-gray-400" />
             <span>Past Time </span>
           </div>
           <div className="flex items-center gap-2">
