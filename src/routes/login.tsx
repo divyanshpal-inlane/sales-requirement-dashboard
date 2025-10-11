@@ -214,6 +214,7 @@ export default function Login() {
                         }
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        minLength={6}
                       />
                       <button
                         type="button"
@@ -229,6 +230,9 @@ export default function Login() {
                           <Eye size={20} />
                         )}
                       </button>
+                      <p className="text-sm text-muted-foreground">
+                      Password should be minimum 6 characters
+                      </p>
                     </div>
                   </div>
                 )}
