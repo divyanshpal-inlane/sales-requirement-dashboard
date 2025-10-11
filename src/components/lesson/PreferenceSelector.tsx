@@ -223,6 +223,12 @@ function PreferenceSelector({
     <div className="flex h-full flex-col">
       <Card className="flex-1 border-none shadow-none">
         <CardContent className="relative h-full px-0 pt-4">
+          {type !== "new" ? (
+          <>
+            You have the following preferences set for scheduling time.<br />
+            You can modify the slot preferences if required and they will be used for scheduling.
+          </>
+          ) : ""}
           <div className="grid grid-cols-[120px,1fr]">
             {/* Fixed time slots column */}
             <div className="relative z-10 bg-white">
