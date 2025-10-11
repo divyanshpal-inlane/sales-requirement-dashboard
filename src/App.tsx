@@ -79,7 +79,7 @@ export default function App() {
           <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/admin-byser-secu7" element={<AdminLogin />} />
             <Route path="/instructor-login" element={<InstructorAuth />} />
             <Route
               path="/onboard"
