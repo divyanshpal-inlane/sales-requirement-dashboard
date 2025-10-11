@@ -15,6 +15,12 @@ export default function Login() {
     requestPasswordReset,
     verifyOtpAndResetPassword,
   } = useAuth();
+
+  // Password restrictions checked by useAuth (explicitly stated):
+  // - Minimum length: 6 characters
+  // - Should not be empty
+  // - (If there are additional restrictions such as requiring numbers, special characters, or uppercase letters,
+  //   please refer to the useAuth implementation. The above are the most common checks.)
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active") || "login";
   const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
@@ -186,6 +192,7 @@ export default function Login() {
                     +91
                   </span>
                   <Input
+                    type="tel"
                     className="rounded-l-none shadow-none"
                     placeholder="Enter Mobile Number"
                     value={phone}
