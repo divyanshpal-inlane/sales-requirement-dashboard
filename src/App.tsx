@@ -58,6 +58,7 @@ import LoadingAndRedirect from "@/routes/LoadingandRedirect";
 
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
+import NotificationManagement from "./routes/admin/NotificationManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -236,6 +237,10 @@ export default function App() {
                 element={<LearnerManagement />}
               />
               <Route path="customer-info" element={<CustomerInfo />} />
+              <Route
+                path="notification-management"
+                element={<NotificationManagement />}
+              />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

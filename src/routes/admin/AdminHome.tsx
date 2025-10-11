@@ -5,6 +5,7 @@ import {
   UserPlus,
   Users,
   UserCircle,
+  PhoneCall,
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -63,6 +64,13 @@ export default function AdminHome() {
       icon: Users,
       link: "/admin/instructors",
       color: "text-orange-500",
+    },
+    {
+      title: "Daily Notification Management",
+      description: "Set reminders and send daily notifications to learners",
+      icon: PhoneCall,
+      link: "/admin/notification-management",
+      color: "text-teal-500",
     },
     {
       title: "Paid Customer Information",
