@@ -10,6 +10,7 @@ import {
   isSameDay,
   set,
   startOfWeek,
+  subDays,
 } from "date-fns";
 import {
   Check,
@@ -341,9 +342,12 @@ export default function CreateScheduleWithInstructor({
           // Only fetch driving distance if straight-line distance is within a reasonable range
           // (e.g., 1.5x the instructor's radius) to save API calls
           let drivingDistance: number | null = null;
+          const maxRetryDistanceAPICallCount = 1000;
+          let retryDistanceAPICallCount = 0;
 
-          if (straightLineDistance <= (instructor.radius || 20) * 1.5) {
+          while (!drivingDistance && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
             try {
+              console.log("Call distance API retry: ", retryDistanceAPICallCount)
               drivingDistance = await getDrivingDistanceViaSDK(
                 learnerLat,
                 learnerLng,
@@ -353,12 +357,26 @@ export default function CreateScheduleWithInstructor({
             } catch (error) {
               console.error("Error fetching driving distance:", error);
               // Fall back to straight-line distance if API fails
-              drivingDistance = straightLineDistance;
+              // Update: Remove setting straight line distance as it causes faulty
+              // results when slider set to small value
+              // drivingDistance = straightLineDistance;
+            } finally {
+              retryDistanceAPICallCount ++;
             }
-          } else {
-            // Use straight-line distance if outside reasonable range
-            drivingDistance = straightLineDistance;
           }
+
+          if (!drivingDistance) {
+            console.error(
+              "Distance API failed after " +
+                maxRetryDistanceAPICallCount +
+                " retries");
+            
+            // set to straight line distance to avoid UI failure
+            drivingDistance = straightLineDistance;
+            // TODO: handle the error
+            // throw new Error("Cannot calculate driving distance.");
+          }
+
 
           instructorsWithDistanceData.push({
             ...instructor,
@@ -717,9 +735,11 @@ export default function CreateScheduleWithInstructor({
         preferred_start_date: learnerData.preferred_start_date,
         preferred_completion_days: learnerData.preferred_completion_days,
         prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
+        preferred_two_hour_days: learnerData.two_hour_days,
         pick_up_location: learnerData.pick_up_location,
       };
 
+      console.log("T5 Learner passed", learnerInfo);
       setSelectedLearner(learnerInfo);
       setShowLearnerDialog(true);
     } catch (error) {
@@ -1550,29 +1570,64 @@ function CreateSchedule({
       return data;
     },
   });
+
+  const { data: prevSchedules } = useQuery({
+    queryKey: [
+      "prevSchedules",
+      startDate,
+    ],
+    queryFn: async () => {
+      if (!startDate) return null;
+      const windowRange = 2;
+      const prevWindowEnd = addDays(startDate, windowRange);
+      const prevWindowStart = subDays(startDate, windowRange);
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select(
+          ` date, start_time, end_time, learner_id, instructor_id, isTentative, Learner(name, area, pick_up_location, address_lat, address_lng)`,
+        )
+        .gte("date", prevWindowStart.toISOString().split("T")[0])
+        .lte("date", prevWindowEnd.toISOString().split("T")[0])
+        .order("date", { ascending: false })
+        .order("end_time", { ascending: false });
+
+      if (error) throw error;
+      // console.log("Fetched instructor schedules in time range:", prevWindowStart, prevWindowEnd, data);
+      return data;
+    },
+    enabled: !!startDate,
+  });
+
   const getInstructorDynamicLocation = async (
     instructorId: string,
     slotTime: Date,
   ) => {
-    const numHoursWindowForPrevLoc = 12;
-    const nHourBefore = new Date(
-      slotTime.getTime() - 60 * 60 * 1000 * numHoursWindowForPrevLoc,
-    );
+    const endDate = subDays(slotTime.getTime(), 2).setHours(0, 0, 0, 0);
+    // const numHoursWindowForPrevLoc = 12;
+    // const nHourBefore = new Date(
+    //   slotTime.getTime() - 60 * 60 * 1000 * numHoursWindowForPrevLoc,
+    // );
 
     // Find if instructor has any booking wothin the numHoursWindowForPrevLoc 
     // hours before the selected slot
-    const previousBooking = otherSchedules?.find((schedule) => {
-      if (schedule.instructor_id !== instructorId) return false;
+    // Searching on other shcedules assumes the instructor might not have class for the
+    // same instructor
+    // another query should be made to fetch last schedule of the instructor before the current slot
+
+    const previousBooking = prevSchedules?.find((schedule) => {
+      if (schedule.instructor_id !== instructorId || schedule.isTentative) return false;
 
       const scheduleEndTime = new Date(`${schedule.date}T${schedule.end_time}`);
       const scheduleStartTime = new Date(
         `${schedule.date}T${schedule.start_time}`,
       );
-
+    // console.log(`T7_1 ${scheduleEndTime} > ${endDate} (${scheduleEndTime >= endDate }) \n
+    //   && ${scheduleEndTime} <= ${slotTime} (${scheduleEndTime <= slotTime}) \n
+    //   = (${scheduleEndTime >= endDate && scheduleEndTime <= slotTime})`);
       // Check if the schedule ends within 1 hour before our slot
-      return scheduleEndTime > nHourBefore && scheduleEndTime <= slotTime;
+      return scheduleEndTime >= endDate && scheduleEndTime <= slotTime;
     });
-
+    // console.log("previousBooking", previousBooking, prevSchedules, instructorId);
     if (previousBooking && previousBooking.Learner) {
       // Use previous learner's location if instructor was busy before
       return {
@@ -1581,7 +1636,8 @@ function CreateSchedule({
         source: "previous_booking",
       };
     }
-
+    // Not for instructors other than seelcted, there are not schedules avilable, hence code will reach here
+    // console.log("previousBooking NA now calculating default distance (it's not expeccted to reach here");
     // Use instructor's default location if free
     const instructor = instructorsWithDistance.find(
       (i) => i.id_instructor === instructorId,
@@ -1688,6 +1744,17 @@ function CreateSchedule({
         return [toChange, laterScheduleOfLearnerToChange, []];
 
       // schedules of other learners
+      // existingShcedules has all schedules from the current start date of the
+      // calender view upto the 9 days of any instructor or learner
+      // hence others contains schedules of any instructor and learner except the current learner
+      // that has use when for a selected slot, other learner schedules are required to get instructor
+      // availablility
+      // that has faulty behaviour when it's used to calculate dynamic location of the previous
+      // location of the instructor because if the previous schedule of the same learner
+      // that's not listed on the other schedules and previous location's calculated only if there was another schedule from
+      // different learner. Also, otherSchedules only contains schedules from calender view start date
+      // not the previous schedules, hence it anyways does not contains the required info until the slot selected
+      // different from the 0th startDate of the calender view
       const others = existingSchedules.filter(
         (s) => s.learner_id !== learnerId,
       );
@@ -1700,7 +1767,7 @@ function CreateSchedule({
       allLessons,
       minLessonNumber,
     ]);
-
+    // console.log("T7_5 other schedules calculated", otherSchedules);
   // Calculate hourly slots for each day
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];
@@ -1716,7 +1783,7 @@ function CreateSchedule({
       for (const minute of [0, 30]) {
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
-// console.log("hour and minute", hour, minute, schedulesToChange);
+        // console.log("hour and minute", hour, minute, schedulesToChange);
         // Check if the slot is in the past for today
         const isInPast = isToday && timestamp < currentTime;
 

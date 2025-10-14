@@ -36,6 +36,7 @@ import {
 import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
 import { ReminderFullPayment } from "./reminder_full_payment";
+import PreferenceSelector from "@/components/lesson/PreferenceSelector";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -73,7 +74,7 @@ export default function Home() {
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
-  
+
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
@@ -113,6 +114,7 @@ export default function Home() {
       </div>
     );
   }
+
 
   const localStorageInitOnce = (local_var_name: string) => {
     // will inistialise the approriate value only if not exists on cache and learner's valid

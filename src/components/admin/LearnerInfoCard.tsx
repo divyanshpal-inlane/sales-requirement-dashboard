@@ -42,6 +42,7 @@ export interface LearnerInfo {
   preferred_start_date?: string;
   preferred_completion_days?: number;
   prefers_two_hour_classes?: boolean;
+  preferred_two_hour_days?: string;
   pick_up_location?: string; // Added pickup address field
   comments?: string; // Added comments field
 }
@@ -579,9 +580,10 @@ export const LearnerInfoDialog = ({
                         {learner.prefers_two_hour_classes && (
                           <div className="mt-2">
                             <label className="mb-1 block text-sm font-medium text-gray-700">
-                              Preferred Day
+                              Preferred Days
                             </label>
-                            <select
+                            {learner.preferred_two_hour_days}
+                            {/* <select
                               className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
                               value={learner.preferred_two_hour_day || ""}
                               onChange={(e) => {
@@ -600,7 +602,7 @@ export const LearnerInfoDialog = ({
                               <option value="Friday">Friday</option>
                               <option value="Saturday">Saturday</option>
                               <option value="Sunday">Sunday</option>
-                            </select>
+                            </select> */}
                           </div>
                         )}
                       </div>
