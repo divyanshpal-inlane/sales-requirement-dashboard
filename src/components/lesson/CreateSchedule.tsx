@@ -1571,32 +1571,33 @@ function CreateSchedule({
     },
   });
 
-  const { data: instructorSchedules } = useQuery({
+  const { data: prevSchedules } = useQuery({
     queryKey: [
-      "instructorSchedules",
-      selectedInstructorId,
-      request.Learner.id,
+      "prevSchedules",
       startDate,
     ],
     queryFn: async () => {
-      if (!selectedInstructorId || !request?.Learner?.id || !startDate) return null;
-      const endDate = subDays(startDate, 1);
+      if (!startDate) return null;
+      const windowRange = 2;
+      const prevWindowEnd = addDays(startDate, windowRange);
+      const prevWindowStart = subDays(startDate, windowRange);
       const { data, error } = await supabase
         .from("Schedule")
         .select(
-          "*, Learner(name, area, pick_up_location, address_lat, address_lng)",
+          ` date, start_time, end_time, learner_id, instructor_id, isTentative, Learner(name, area, pick_up_location, address_lat, address_lng)`,
         )
-        .eq("instructor_id", selectedInstructorId)
-        .lte("date", startDate.toISOString().split("T")[0])
-        .gte("date", endDate.toISOString().split("T")[0])
-        .order("date", { ascending: false });
+        .gte("date", prevWindowStart.toISOString().split("T")[0])
+        .lte("date", prevWindowEnd.toISOString().split("T")[0])
+        .order("date", { ascending: false })
+        .order("end_time", { ascending: false });
 
       if (error) throw error;
-      console.log("Fetched instructor schedules:", data);
+      // console.log("Fetched instructor schedules in time range:", prevWindowStart, prevWindowEnd, data);
       return data;
     },
-    enabled: !!selectedInstructorId && !!request?.Learner?.id && !!startDate,
+    enabled: !!startDate,
   });
+
   const getInstructorDynamicLocation = async (
     instructorId: string,
     slotTime: Date,
@@ -1613,20 +1614,20 @@ function CreateSchedule({
     // same instructor
     // another query should be made to fetch last schedule of the instructor before the current slot
 
-    const previousBooking = instructorSchedules?.find((schedule) => {
+    const previousBooking = prevSchedules?.find((schedule) => {
       if (schedule.instructor_id !== instructorId || schedule.isTentative) return false;
 
       const scheduleEndTime = new Date(`${schedule.date}T${schedule.end_time}`);
       const scheduleStartTime = new Date(
         `${schedule.date}T${schedule.start_time}`,
       );
-console.log(`T7_1 ${scheduleEndTime} > ${endDate} (${scheduleEndTime >= endDate }) \n
-  && ${scheduleEndTime} <= ${slotTime} (${scheduleEndTime <= slotTime}) \n
-  = (${scheduleEndTime >= endDate && scheduleEndTime <= slotTime})`);
+    // console.log(`T7_1 ${scheduleEndTime} > ${endDate} (${scheduleEndTime >= endDate }) \n
+    //   && ${scheduleEndTime} <= ${slotTime} (${scheduleEndTime <= slotTime}) \n
+    //   = (${scheduleEndTime >= endDate && scheduleEndTime <= slotTime})`);
       // Check if the schedule ends within 1 hour before our slot
       return scheduleEndTime >= endDate && scheduleEndTime <= slotTime;
     });
-console.log("previousBooking", previousBooking, instructorSchedules, instructorId);
+    // console.log("previousBooking", previousBooking, prevSchedules, instructorId);
     if (previousBooking && previousBooking.Learner) {
       // Use previous learner's location if instructor was busy before
       return {
@@ -1636,7 +1637,7 @@ console.log("previousBooking", previousBooking, instructorSchedules, instructorI
       };
     }
     // Not for instructors other than seelcted, there are not schedules avilable, hence code will reach here
-console.log("previousBooking NA now calculating default distance (it's not expeccted to reach here");
+    // console.log("previousBooking NA now calculating default distance (it's not expeccted to reach here");
     // Use instructor's default location if free
     const instructor = instructorsWithDistance.find(
       (i) => i.id_instructor === instructorId,
@@ -1766,7 +1767,7 @@ console.log("previousBooking NA now calculating default distance (it's not expec
       allLessons,
       minLessonNumber,
     ]);
-    console.log("T7_5 other schedules calculated", otherSchedules);
+    // console.log("T7_5 other schedules calculated", otherSchedules);
   // Calculate hourly slots for each day
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];

@@ -1321,6 +1321,14 @@ export default function AdminSchedules() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {selectedRequest 
+                  ? (<p className="mb-4 mt-4 text-sm text-gray-500">
+                      Distance measured from Instructor's base location to the selected learner location
+                      <br />
+                      Click on a slot to measure distances from previous booking of Instructor to learner
+                    </p>)
+                  :""}
+                  
                   {selectedRequest ? (
                     <CreateScheduleWithInstructor
                       learnerId={selectedRequest.Learner?.id || ""}
