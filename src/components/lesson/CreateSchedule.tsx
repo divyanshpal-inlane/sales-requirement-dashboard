@@ -1578,9 +1578,10 @@ function CreateSchedule({
     ],
     queryFn: async () => {
       if (!startDate) return null;
-      const windowRange = 2;
+      const windowRange = 10;
       const prevWindowEnd = addDays(startDate, windowRange);
-      const prevWindowStart = subDays(startDate, windowRange);
+      const prevWindowStart = subDays(startDate, 0);
+      prevWindowStart.setHours(0, 0, 0, 0);
       const { data, error } = await supabase
         .from("Schedule")
         .select(
@@ -1602,7 +1603,8 @@ function CreateSchedule({
     instructorId: string,
     slotTime: Date,
   ) => {
-    const endDate = subDays(slotTime.getTime(), 2).setHours(0, 0, 0, 0);
+    const endDate = subDays(slotTime.getTime(), 0).setHours(0, 0, 0, 0);
+    // console.log("EndDate", new Date(endDate));
     // const numHoursWindowForPrevLoc = 12;
     // const nHourBefore = new Date(
     //   slotTime.getTime() - 60 * 60 * 1000 * numHoursWindowForPrevLoc,
@@ -1630,6 +1632,7 @@ function CreateSchedule({
     // console.log("previousBooking", previousBooking, prevSchedules, instructorId);
     if (previousBooking && previousBooking.Learner) {
       // Use previous learner's location if instructor was busy before
+      // console.log("Using prev location of Instructor", selectedInstructorId);
       return {
         lat: previousBooking.Learner.address_lat,
         lng: previousBooking.Learner.address_lng,
@@ -1642,6 +1645,7 @@ function CreateSchedule({
     const instructor = instructorsWithDistance.find(
       (i) => i.id_instructor === instructorId,
     );
+    // console.log("Using base location of Instructor", selectedInstructorId, instructor?.name);
     return {
       lat: instructor?.latitude,
       lng: instructor?.longitude,
