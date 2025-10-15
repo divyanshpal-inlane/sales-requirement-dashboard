@@ -108,10 +108,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const requestPasswordReset = async (phone: string) => {
     // Instead of querying auth tables directly (which requires special permissions),
     // we'll check if a user exists by attempting admin retrieval
+    console.log("get learner details");
     const { data, error } = await supabase.auth.admin.listUsers({
       filters: { phone },
     });
-
     // If no users found with this phone or error occurs
     if (error || !data || data.users.length === 0) {
       throw new Error("No account found with this phone number");
@@ -126,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now() + 10 * 60 * 1000, // 10 minutes expiry
     });
 
+    console.log("Get user details:");
     // Get user details to send OTP
     const { data: userData, error: userError } = await supabase
       .from("Learner")
@@ -156,10 +157,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .from("Learner")
       .select("id")
       .eq("phone", phone)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (userError || !userData) {
-      throw new Error("No account found with this phone number");
+      console.log("Failed");
+      console.error("No account or multiple accounts found with this phone number");
     }
 
     // Generate a 6-digit OTP
