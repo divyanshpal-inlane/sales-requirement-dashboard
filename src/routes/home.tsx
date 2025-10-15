@@ -80,6 +80,9 @@ export default function Home() {
     courseId: enrolledCourse?.course_id,
   });
   const { mutate: updateLearner } = useLearnerUpdate();
+  // Maximum number of lessons to unlock before full upgrade
+  const maxNumLessonsOnHalfInstallment = 1;
+
   // console.log('scheduledLessons', scheduledLessons);
   // Fetch all payments for the learner
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
@@ -172,10 +175,10 @@ export default function Home() {
   scheduledLessons &&
   scheduledLessons.some(
     (scheduleItem) =>
-      scheduleItem.lesson?.number === 2 &&
+      // find the highest unlocked lesson number and check its status
+      scheduleItem.lesson?.number === maxNumLessonsOnHalfInstallment &&
     scheduleItem.status?.toUpperCase() === "COMPLETED",
   );
-  
   if (showPaymentCompletion) {
     return (
       <div className="mb-6">
