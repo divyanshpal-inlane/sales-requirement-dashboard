@@ -24,7 +24,8 @@ import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { addDays } from "date-fns";
+import { addDays, formatDate } from "date-fns";
+import Schedule from "../schedule";
 
 export default function NotificationManagement() {
   const [learnerData, setLearnerData] = useState({
@@ -90,7 +91,7 @@ function LearnerNotificationCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schedulesList, setSchedulesList] = useState([]);
-  const maxDaysWindowToFetch = 2;
+  const maxDaysWindowToFetch = 1;
   // Array of status of each sending event
   // Each state corresponsds to reminder type
   // Each state's is an array corresponding to the number of schedules
@@ -125,7 +126,7 @@ function LearnerNotificationCard() {
           Courses(name, duration), 
           Lesson(description)`,
         )
-        .gte("date", startDate.toISOString().split("T")[0])
+        .gte("date", endDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0])
         .or("isTentative.eq.false,isTentative.is.null")
         .order("date", { ascending: true })
@@ -154,102 +155,127 @@ function LearnerNotificationCard() {
 
   const sendLearnerReminderLesson = async (scheduleData) => {
     if (!scheduleData) {
-      alert("No schedule info");
+      alert("No schedules info");
+      return;
     }
-    setSendingLearnerLessonReminderStatuses((prev) => ({ ...prev, [scheduleData.id]: false }));
-    try {
-      // Query params
-      const dateString = formatDate(scheduleData.date);
-      const startTimeString = formatTime(scheduleData.start_time);
-      const learner_id = scheduleData.Learner?.id;
-      const { error } = await supabase.functions.invoke("send-message", {
+    for (const schedule of scheduleData) {
+      if (!schedule) continue;
+      console.log("Sending reminder of schedule:", schedule);
+      setSendingLearnerLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      try {
+        // Query params
+        // const dateString = formatDate(schedule.date);
+        // const startTimeString = formatDate(schedule.start_time);
+        // const learner_id = schedule.Learner?.id;
+        const { error } = await supabase.functions.invoke("send-message", {
         body: {
           message_type: "REMINDER_CUSTOMER_FOR_CLASS",
-          learner_id: scheduleData.learner_id,
-          schedule_id: scheduleData.id,
+          learner_id: schedule.learner_id,
+          schedule_id: schedule.id,
         },
       });
 
       if (error) throw error;
-
+      
       toast({
         title: "Success",
-        description: `Lesson reminder sent to ${scheduleData.Learner.name} successfully!`,
+        description: `Lesson reminder sent to ${schedule.Learner.name} successfully!`,
       });
 
-    } catch (err) {
-      console.error("Error sending lesson reminder to learner:", err);
-      toast({
-        title: "Error",
-        description:  "Failed to send lesson reminder to learner",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingLearnerLessonReminderStatuses((prev) => ({ ...prev, [scheduleData.id]: false }));
+      } catch (err) {
+        console.error("Error sending lesson reminder to learner:", err);
+        toast({
+          title: "Error",
+          description:  "Failed to send lesson reminder to learner",
+          variant: "destructive",
+        });
+      } finally {
+        setSendingLearnerLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      }
     }
   };
 
   const sendLearnerReminderRescheduleWindow = async (scheduleData) => {
-    setSendingLearnerReschdWindowReminderStatuses((prev) => ({ ...prev, [scheduleData.id]: false }));
-    try {
-      const { error } = await supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "LESSON_RESCHEDULE_WINDOW_REMINDER_VARIABLE_TIME",
-          learner_id: scheduleData.learner_id,
-        },
-      });
+    if (!scheduleData) {
+      alert("No schedules info");
+      return;
+    }
+    for (const schedule of scheduleData) {
+      if (!schedule) continue;
+      setSendingLearnerReschdWindowReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      console.log("Sending Rescheudle reminder for schedule ", schedule);
+        try {
+          const { error } = await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: "LESSON_RESCHEDULE_WINDOW_REMINDER_VARIABLE_TIME",
+            learner_id: schedule.learner_id,
+          },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: `Lesson Reschedule window closing reminder sent to ${scheduleData.Learner.name} successfully!`,
-      });
+        toast({
+          title: "Success",
+          description: `Lesson Reschedule window closing reminder sent to ${schedule.Learner.name} successfully!`,
+        });
 
-    } catch (err) {
-      console.error("Error sending lesson reschedule window closing reminder to learner:", err);
-      toast({
-        title: "Error",
-        description:  "Failed to send lesson reschedule window closing reminder to learne",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingLearnerReschdWindowReminderStatuses((prev) => ({ ...prev, [scheduleData.id]: false }));
+      } catch (err) {
+        console.error("Error sending lesson reschedule window closing reminder to learner:", err);
+        toast({
+          title: "Error",
+          description:  "Failed to send lesson reschedule window closing reminder to learner",
+          variant: "destructive",
+        });
+      } finally {
+        setSendingLearnerReschdWindowReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      }
     }
   };
 
-    const sendInstrReminderLesson = async (scheduleData) => {
-    setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [scheduleData.id]: false }));
-    try {
-      const { error } = await supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_1DAY_BEFORE",
-          learner_id: scheduleData.learner_id,
-          course_name: enrollment.Courses.name,
-        },
-      });
+  const sendInstrReminderLesson = async (scheduleData) => {
+    if (!scheduleData) {
+      alert("No schedules info");
+      return;
+    }
+    for (const schedule of scheduleData) {
+      if (!schedule) continue;
+      setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      console.log("Sending Instructor reminder for schedule ", schedule);
+        try {
+          const { error } = await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_1DAY_BEFORE",
+            learner_id: schedule.learner_id,
+            course_name: schedule.Courses.name,
+          },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: `Lesson reminder sent to ${enrollment.Learner.name} successfully!`,
-      });
+        toast({
+          title: "Success",
+          description: `Lesson reminder sent to ${schedule.Learner.name} successfully!`,
+        });
 
-    } catch (err) {
-      console.error("Error sending lesson reminder to instructor:", err);
-      toast({
-        title: "Error",
-        description:  "Failed to send lesson reminder to instructor",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [enrollment.id]: false }));
+      } catch (err) {
+        console.error("Error sending lesson reminder to instructor:", err);
+        toast({
+          title: "Error",
+          description:  "Failed to send lesson reminder to instructor",
+          variant: "destructive",
+        });
+      } finally {
+        setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      }
     }
   };
 
-
-
+  const checkAtleastOneStatusToValue = (statusList, value) => {
+    // console.log(statusList);
+    if (!statusList) return false;
+    return Object.values(statusList).some((status) => status === value);
+  }
+  
   return (
     <Card className="mt-6 transition-all hover:shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -266,6 +292,69 @@ function LearnerNotificationCard() {
         </Button>
       </CardHeader>
       <CardContent>
+        {
+          // Add buttons for bulk messaging
+          <div className="flex flex-row space-x-2">  
+          <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendLearnerReminderLesson(schedulesList)}
+              disabled={
+                  checkAtleastOneStatusToValue(sendingLearnerLessonReminderStatuses, true)
+              }
+              className="whitespace-nowrap"
+              >
+              {checkAtleastOneStatusToValue(sendingLearnerLessonReminderStatuses, true) ? (
+                  <RefreshCcw
+                      size={14}
+                      className="mr-1 animate-spin"
+                  />
+              ) : (
+                  <Send size={14} className="mr-1" />
+              )}
+              Send Lesson reminders to Learners
+          </Button>
+
+          {/* // Button 2 - Reschedule window cut-off time reminder */}
+          <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendLearnerReminderRescheduleWindow(schedulesList)}
+              disabled={checkAtleastOneStatusToValue(sendingLearnerReschdWindowReminderStatuses, true)}
+              className="whitespace-nowrap"
+          >
+              {checkAtleastOneStatusToValue(sendingLearnerReschdWindowReminderStatuses, true) ? (
+                  <RefreshCcw
+                      size={14}
+                      className="mr-1 animate-spin"
+                  />
+              ) : (
+                  <Send size={14} className="mr-1" />
+              )}
+              Send Reschedule window reminder to Learners
+          </Button>
+
+          {/* // Button 3 - Instuctor reminder after reschedule confirmation */}
+          <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendInstrReminderLesson(schedulesList)}
+              disabled={checkAtleastOneStatusToValue(sendingInstrLessonReminderStatuses, true)}
+              className="whitespace-nowrap"
+          >
+              {checkAtleastOneStatusToValue(sendingInstrLessonReminderStatuses, true) ? (
+                  <RefreshCcw
+                      size={14}
+                      className="mr-1 animate-spin"
+                  />
+              ) : (
+                  <Send size={14} className="mr-1" />
+              )}
+              Send Lesson Reminders to Instructors
+          </Button>
+          </div>
+
+        }
         {schedulesList.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">
             {loading 
@@ -283,7 +372,6 @@ function LearnerNotificationCard() {
                   <th className="px-2 py-2 text-left">Instructor</th>
                   <th className="px-2 py-2 text-right">Date</th>
                   <th className="px-2 py-2 text-center">Start time</th>
-                  <th className="px-2 py-2 text-center">Notify</th>
                 </tr>
               </thead>
               <tbody>
@@ -323,67 +411,6 @@ function LearnerNotificationCard() {
                                   : "Unknown"
                           }
                         </span>
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        {/* Button 1 - Lesson reminder */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => sendLearnerReminderLesson(scheduleData.Learner.name)}
-                        disabled={
-                          sendingLearnerLessonReminderStatuses[scheduleData.id] 
-                        }
-                          className="whitespace-nowrap"
-                        >
-                          {sendingLearnerLessonReminderStatuses[scheduleData.id] ? (
-                            <RefreshCcw
-                              size={14}
-                              className="mr-1 animate-spin"
-                            />
-                          ) : (
-                            <Send size={14} className="mr-1" />
-                          )}
-                          Send Lesson reminder to Learner
-                        </Button>
-
-                        {/* Button 2 - Reschedule window cut-off time reminder */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => sendLearnerReminderRescheduleWindow(scheduleData.Learner.name)}
-                          disabled={sendingLearnerReschdWindowReminderStatuses[scheduleData.id]}
-                          className="whitespace-nowrap"
-                        >
-                          {sendingLearnerReschdWindowReminderStatuses[scheduleData.id] ? (
-                            <RefreshCcw
-                              size={14}
-                              className="mr-1 animate-spin"
-                            />
-                          ) : (
-                            <Send size={14} className="mr-1" />
-                          )}
-                          Send Reschedule window reminder to Learner
-                        </Button>
-
-                        {/* Button 3 - Instuctor reminder after reschedule confirmation */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => sendInstrReminderLesson(scheduleData.Learner.name)}
-                          disabled={sendingInstrLessonReminderStatuses[scheduleData.id]}
-                          className="whitespace-nowrap"
-                        >
-                          {sendingInstrLessonReminderStatuses[scheduleData.id] ? (
-                            <RefreshCcw
-                              size={14}
-                              className="mr-1 animate-spin"
-                            />
-                          ) : (
-                            <Send size={14} className="mr-1" />
-                          )}
-                          Send Lesson Reminder to Instructor
-                        </Button>
-
                       </td>
                     </tr>
                   ))}
