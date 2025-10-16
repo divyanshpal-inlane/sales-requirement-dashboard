@@ -208,7 +208,7 @@ console.log("Called send email");
 
       // Define the request body for email trigger.
       const bodyData = {
-          "learnerEmail": "nikhilesh@inlane.in",
+          "learnerEmail": enrollment.Learner.email,
           "learnerName": enrollment.Learner.name, 
           "course": enrollment.Courses.name,
           "amount": paymentAmount,

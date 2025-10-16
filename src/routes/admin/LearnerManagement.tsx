@@ -274,7 +274,7 @@ export default function LearnerManagement() {
   ) => {
     try {
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
-      console.error("Use edge function for email ");
+      console.log("Use edge function for email ", learner.email, learner.name, course.name, amount);
 
       // Define the request body for email trigger.
       const bodyData = {
@@ -587,6 +587,7 @@ export default function LearnerManagement() {
                       {
                         id: createdLearnerId,
                         name: learnerData.name,
+                        email: learnerData.email,
                         phone: learnerData.phone,
                       },
                       {
