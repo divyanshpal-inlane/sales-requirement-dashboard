@@ -275,17 +275,44 @@ export default function LearnerManagement() {
     try {
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
       console.error("Use edge function for email ");
-      // const { error } = await supabase.functions.invoke("send-message", {
-      //   body: {
-      //     message_type: "PAYMENT_LINK",
-      //     learner_id: learner.id,
-      //     enrollment_id: enrollmentId, // Include enrollment ID for tracking
-      //     course_name: course.name,
-      //     payment_amount: amount,
-      //     duration: course.duration,
-      //     payment_link: paymentLink,
-      //   },
-      // });
+
+      // Define the request body for email trigger.
+      const bodyData = {
+          "learnerEmail": learner?.email,
+          "learnerName": learner?.name, 
+          "course": course?.name,
+          "amount": amount,
+          "paymentLink": paymentLink
+      };
+
+      const { error: invokeError } = await supabase.functions.invoke("send-payment-link-email", {
+          body: bodyData,
+      });
+      if (invokeError) {
+        console.error(invokeError);
+        toast({
+          title: "Failed to send email",
+          description: `Failed to send link sent to ${learner?.email}`,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Payment link sent to ${learner?.email} successfully!`,
+        });
+      }
+
+
+      const { error } = await supabase.functions.invoke("send-message", {
+        body: {
+          message_type: "PAYMENT_LINK",
+          learner_id: learner.id,
+          enrollment_id: enrollmentId, // Include enrollment ID for tracking
+          course_name: course.name,
+          payment_amount: amount,
+          duration: course.duration,
+          payment_link: paymentLink,
+        },
+      });
 
       if (error) throw error;
 
