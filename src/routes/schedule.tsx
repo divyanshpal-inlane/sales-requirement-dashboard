@@ -220,6 +220,19 @@ export default function Schedule() {
             <Card className="flex-none">
               <CardHeader>Upcoming schedule</CardHeader>
               <CardContent>
+                <Alert className="mb-4 border-primary bg-white">
+                <AlertDescription>
+                  You have paid the first installment. Some lessons are locked
+                  until you complete the payment.
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-primary"
+                    onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+                  >
+                    Pay remaining amount
+                  </Button>
+                </AlertDescription>
+              </Alert>
                 <Calendar
                   mode="multiple"
                   selected={selectedDates}
