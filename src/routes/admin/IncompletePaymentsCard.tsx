@@ -191,6 +191,8 @@ export function IncompletePaymentsCard() {
   // Function to send payment link - based on LearnerManagement.tsx implementation
   const sendPaymentLink = async (enrollment) => {
     setSendingPaymentLink((prev) => ({ ...prev, [enrollment.id]: true }));
+console.log("Called send email");
+    
     try {
       // Get the payment amount based on installment mode
       const paymentAmount = getPayableAmount(enrollment);
@@ -204,8 +206,21 @@ export function IncompletePaymentsCard() {
       // Create the payment link
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${enrollment.Learner.phone}`;
 
-      // Call the send-message function to send the payment link via WhatsApp
-      const { error } = await supabase.functions.invoke("send-message", {
+      // Define the request body for email trigger.
+      const bodyData = {
+          "learnerEmail": "nikhilesh@inlane.in",
+          "learnerName": enrollment.Learner.name, 
+          "course": enrollment.Courses.name,
+          "amount": paymentAmount,
+          "paymentLink": paymentLink
+      };
+
+      const { error: invokeError } = await supabase.functions.invoke("send-payment-link-email", {
+          body: bodyData,
+      });
+
+      
+      const { error: invokeError2 } = await supabase.functions.invoke("send-message", {
         body: {
           message_type: "PAYMENT_LINK",
           learner_id: enrollment.Learner.id,
@@ -217,12 +232,32 @@ export function IncompletePaymentsCard() {
         },
       });
 
-      if (error) throw error;
+      if (invokeError) {
+        console.error(invokeError);
+        toast({
+          title: "Failed to send email",
+          description: `Failed to send link sent to ${enrollment.Learner.email}`,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Payment link sent to ${enrollment.Learner.email} successfully!`,
+        });
+      }
+      if (invokeError2) {
+        console.error(invokeError2);
+        toast({
+          title: "Failed to send email",
+          description: `Failed to send link sent to ${enrollment.Learner.phone}`,
+        });
+        throw invokeError2;
+      } else {
+        toast({
+          title: "Success",
+          description: `Payment link sent to ${enrollment.Learner.name} successfully!`,
+        });
+      }
 
-      toast({
-        title: "Success",
-        description: `Payment link sent to ${enrollment.Learner.name} successfully!`,
-      });
 
       // Refresh the list after sending
       fetchIncompletePayments();
@@ -438,7 +473,7 @@ export function IncompletePaymentsCard() {
                           ) : (
                             <Send size={14} className="mr-1" />
                           )}
-                          Send Payment Link
+                          Send Payment Link 
                         </Button>
                         {
                           deleteLearnerRequests[enrollment.learner_id] 

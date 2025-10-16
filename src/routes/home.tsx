@@ -80,6 +80,9 @@ export default function Home() {
     courseId: enrolledCourse?.course_id,
   });
   const { mutate: updateLearner } = useLearnerUpdate();
+  // Maximum number of lessons to unlock before full upgrade
+  const maxNumLessonsOnHalfInstallment = 1;
+
   // console.log('scheduledLessons', scheduledLessons);
   // Fetch all payments for the learner
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
@@ -127,10 +130,21 @@ export default function Home() {
       case "onboardingDone":
         console.log("learner onboarding", learner.onboarding_completed);
         localStorage.setItem(local_var_name, (learner.onboarding_completed) ? "true" : "false");
+        break;
+      case "schedulePreferencesUpdated":
+        // preferences are asked in 2 cases: during onboarding and reschduling
+        // the init's done based on onboarding, but during reschdule, it must be reset to false
+        console.log("learner preferred start", learner.preferred_start_date);
+        localStorage.setItem(local_var_name, (learner.preferred_start_date) ? "true" : "false");
+        break;
+      default:
+        console.error("Invalid cache state name for init: ", local_var_name);
     }
   }
   // local storage initialiasation - do only once if not exist
   localStorageInitOnce("onboardingDone");
+  localStorageInitOnce("schedulePreferencesUpdated");
+
   // local storage init ends
 
   const ls_onboarding_done = localStorage.getItem("onboardingDone");
@@ -161,10 +175,10 @@ export default function Home() {
   scheduledLessons &&
   scheduledLessons.some(
     (scheduleItem) =>
-      scheduleItem.lesson?.number === 2 &&
+      // find the highest unlocked lesson number and check its status
+      scheduleItem.lesson?.number === maxNumLessonsOnHalfInstallment &&
     scheduleItem.status?.toUpperCase() === "COMPLETED",
   );
-  
   if (showPaymentCompletion) {
     return (
       <div className="mb-6">
