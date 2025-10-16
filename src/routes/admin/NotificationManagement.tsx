@@ -169,9 +169,14 @@ function LearnerNotificationCard() {
         // const learner_id = schedule.Learner?.id;
         const { error } = await supabase.functions.invoke("send-message", {
         body: {
-          message_type: "REMINDER_CUSTOMER_FOR_CLASS",
-          learner_id: schedule.learner_id,
-          schedule_id: schedule.id,
+          message_type: "REMINDER_CUSTOMER_FOR_CLASS_FINAL",
+          learner_name: schedule.learner_name,
+          learner_phone: schedule.learner_phone,
+          start_time: schedule.start_time,
+          pickup_location: schedule.Learner.pick_up_location,
+          instructor_name: schedule.Instructor.name,
+          instructor_phone: schedule.Instructor.phone,
+          course_name: schedule.Courses.name,
         },
       });
 
@@ -207,8 +212,10 @@ function LearnerNotificationCard() {
         try {
           const { error } = await supabase.functions.invoke("send-message", {
           body: {
-            message_type: "LESSON_RESCHEDULE_WINDOW_REMINDER_VARIABLE_TIME",
-            learner_id: schedule.learner_id,
+            message_type: "REMINDER_LESSON_RESCHEDULE_WINDOW_TIME",
+            learner_name: schedule.learner_name,
+            learner_phone: schedule.learner_phone,
+            final_time: "6PM",
           },
         });
 
@@ -243,12 +250,26 @@ function LearnerNotificationCard() {
       console.log("Sending Instructor reminder for schedule ", schedule);
         try {
           const { error } = await supabase.functions.invoke("send-message", {
-          body: {
-            message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_1DAY_BEFORE",
-            learner_id: schedule.learner_id,
-            course_name: schedule.Courses.name,
-          },
-        });
+            body: {
+              message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_FINAL",
+              // pull required data from schedule.Instructor
+              instructor_name: schedule.Instructor?.name ?? "",
+              instructor_phone: schedule.Instructor?.phone ?? "",
+
+              // map the rest of the instructor fields into arg1..arg10
+              arg1: schedule.Instructor?.field1 ?? "",
+              arg2: schedule.Instructor?.field2 ?? "",
+              arg3: schedule.Instructor?.field3 ?? "",
+              arg4: schedule.Instructor?.field4 ?? "",
+              arg5: schedule.Instructor?.field5 ?? "",
+              arg6: schedule.Instructor?.field6 ?? "",
+              arg7: schedule.Instructor?.field7 ?? "",
+              arg8: schedule.Instructor?.field8 ?? "",
+              arg9: schedule.Instructor?.field9 ?? "",
+              arg10: schedule.Instructor?.field10 ?? "",
+            },
+          });
+
 
         if (error) throw error;
 
