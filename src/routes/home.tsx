@@ -334,12 +334,12 @@ export default function Home() {
     return (
       <div className="flex flex-col gap-2 p-4 text-center text-xl">
       <p>Here is your upcoming lesson!</p>
-        {showPaymentCompletion && (
+        {/* {showPaymentCompletion && (
             <div className="mb-6">
-              <ReminderFullPayment learner />
+              <ReminderFullPayment learner={learner} />
             </div>
           )
-        }
+        } */}
       {LessonData?.upcomingSchedule &&
         LessonData?.instructor &&
         LessonData?.upcomingLesson && (
@@ -606,25 +606,24 @@ export default function Home() {
       >
         {!allLessonsCompleted ? (
           showPaymentCompletion ? (
-            <Card className="mb-6 border-primary bg-white">
-              <CardHeader>
-                <CardTitle className="text-primary">
-                  Complete Your Payment
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-4 text-primary">
-                  You've completed the first installment. Pay the remaining
-                  amount to unlock all lessons.
-                </p>
-                <Button
-                  onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
-                  className="hover:bg-primary-dark w-full bg-primary"
-                >
-                  Pay Remaining Amount
-                </Button>
-              </CardContent>
-            </Card>
+          
+          <div className="max-w-md text-center">
+          <h2 className="mb-2 text-2xl font-bold text-gray-800">
+            Lesson Locked
+          </h2>
+          <p className="mb-6 text-gray-600">
+            The lesson's locked because you've only completed the first
+            installment payment. Complete your payment to unlock all lessons.
+          </p>
+          <div className="space-y-3">
+            <Button
+              onClick={() => navigate(`/payment?phone=${learner.phone}`)}
+              className="w-full"
+            >
+              Complete Payment
+            </Button>
+          </div>
+        </div>
           ) : (
             <p className="text-center text-xl font-medium">
               Let's start your journey!
