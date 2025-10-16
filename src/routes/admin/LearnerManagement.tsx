@@ -274,18 +274,18 @@ export default function LearnerManagement() {
   ) => {
     try {
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
-
-      const { error } = await supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "PAYMENT_LINK",
-          learner_id: learner.id,
-          enrollment_id: enrollmentId, // Include enrollment ID for tracking
-          course_name: course.name,
-          payment_amount: amount,
-          duration: course.duration,
-          payment_link: paymentLink,
-        },
-      });
+      console.error("Use edge function for email ");
+      // const { error } = await supabase.functions.invoke("send-message", {
+      //   body: {
+      //     message_type: "PAYMENT_LINK",
+      //     learner_id: learner.id,
+      //     enrollment_id: enrollmentId, // Include enrollment ID for tracking
+      //     course_name: course.name,
+      //     payment_amount: amount,
+      //     duration: course.duration,
+      //     payment_link: paymentLink,
+      //   },
+      // });
 
       if (error) throw error;
 
