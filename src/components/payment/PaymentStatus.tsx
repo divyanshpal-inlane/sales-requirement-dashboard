@@ -11,7 +11,8 @@ function PaymentStatus() {
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
   const reference = searchParams.get("reference");
-  const { isLoggedIn } = useAuth();
+  const { user: loggedInUser } = useAuth();
+  const isLoggedIn = !!loggedInUser;
 
   useEffect(() => {
     // If no status is provided, redirect to home
@@ -19,6 +20,11 @@ function PaymentStatus() {
       navigate("/");
     }
   }, [status, navigate]);
+
+  // useEffect(() => {
+  //   // If no status is provided, redirect to home
+  //     console.log("logedin,user=", isLoggedIn, loggedInUser);
+  // }, [isLoggedIn, loggedInUser, navigate]);
 
   const isSuccess = status === "completed";
 
@@ -75,7 +81,7 @@ function PaymentStatus() {
               }
               variant="default"
             >
-              Return to Home
+              Return to Home Page
             </Button>
             {!isSuccess && (
               <Button onClick={() => navigate(-2)} variant="outline">
