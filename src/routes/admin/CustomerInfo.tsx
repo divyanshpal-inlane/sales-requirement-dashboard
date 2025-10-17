@@ -30,18 +30,102 @@ export default function CustomerInfo() {
 
   // Fetch all learners whose payment status is completed
   // in descending order of signup time
-  const { data: learners, isLoading } = useQuery({
-    queryKey: ["learners"],
+  let { data: learners, isLoading } = useQuery({
+    queryKey: ["learners4"],
     queryFn: async () => {
       const { data, error } = await supabase
           .from("Learner")
-          .select(`*, payment!inner(status)`)
-          .eq("payment.status", "completed")
+          .select(`
+            *, 
+            payment!inner(created_at, updated_at, status),
+            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status)
+          `)
           .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as LearnerInfo[];
+      console.log("Fetched learners:", data, "enrollment", data?.[0]?.enrollment);
+      // data = getLatestRecords(data || []);
+      // console.log("FetchedSorted learners:", data, "enrollment", data?.[0]?.enrollment);
+      return data ; //as LearnerInfo[];
     },
   });
+  learners = getLatestRecords(learners);
+  console.log("Single enrollemt retreived learners", learners);
+  learners = sortLearnersByEnrollmentMode(learners);
+  function getLatestRecords(learners) {
+    if (!Array.isArray(learners) || learners.length === 0) {
+        return [];
+    }
+
+    // Custom sorting logic for finding the "latest" record
+    const getLatestRecord = (records) => {
+        if (!records || records.length === 0) {
+            return null;
+        }
+
+        // Sort function: Highest priority first (b - a for descending)
+        const sortedRecords = [...records].sort((a, b) => {
+            
+            // --- 1. Primary Sort: created_at (most recent first) ---
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            if (dateB !== dateA) {
+                return dateB - dateA;
+            }
+
+            // --- 2. Tie-breaker 1: updated_at (most recent first) ---
+            // If updated_at is null/undefined, it is treated as 0, which correctly sorts valid dates first.
+            const updatedA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+            const updatedB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+            if (updatedB !== updatedA) {
+                 return updatedB - updatedA;
+            }
+
+            // --- 3. Tie-breaker 2: amount (largest first) ---
+            // If amount is null/undefined/0, it is treated as 0.
+            const amountA = a.amount || 0;
+            const amountB = b.amount || 0;
+            return amountB - amountA; // Descending order for amount
+        });
+
+        // Return the single most recent record
+        return sortedRecords[0];
+    };
+
+    // The function continues here to process the learners array
+    return learners.map(learner => {
+        // Find the most recent Enrollment
+        const latestEnrollment = getLatestRecord(learner.enrollment);
+
+        // Find the most recent Payment
+        const latestPayment = getLatestRecord(learner.payment);
+
+        // Return a new learner object with the arrays replaced by single objects
+        return {
+            ...learner,
+            enrollment: latestEnrollment,
+            payment: latestPayment,
+        };
+    });
+}
+
+    function sortLearnersByEnrollmentMode(learnersWithSingleRecords) {
+        return [...learnersWithSingleRecords].sort((a, b) => {
+            const modeA = a.enrollment?.installment_mode;
+            const modeB = b.enrollment?.installment_mode;
+
+            const isAFirstHalf = modeA === "first_half";
+            const isBFirstHalf = modeB === "first_half";
+
+            if (isAFirstHalf && !isBFirstHalf) {
+                return -1; // A comes before B (prioritized)
+            }
+            if (!isAFirstHalf && isBFirstHalf) {
+                return 1; // B comes before A (prioritized)
+            }
+            
+            return 0; // Maintain order if modes are equal
+        });
+    }
 
   // Filter learners based on search query
   const filteredLearners = learners?.filter(
@@ -188,6 +272,24 @@ export default function CustomerInfo() {
                             <p className="text-sm">
                               <span className="font-medium">Email:</span>{" "}
                               {learner.email || "N/A"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm">
+                              <span className="font-medium">Installment mode</span>{" "}
+                              {learner.enrollment?.installment_mode || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">Total amount:</span>{" "}
+                              {learner.enrollment?.amount || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">2nd installment amount:</span>{" "}
+                              {learner.enrollment?.installment2_amount || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">Payment status:</span>{" "}
+                              {learner.enrollment?.payment_status || "N/A"}
                             </p>
                           </div>
                           <div className="text-right">
