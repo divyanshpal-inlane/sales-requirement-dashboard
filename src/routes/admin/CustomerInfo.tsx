@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Filter, Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -45,14 +45,14 @@ export default function CustomerInfo() {
           `)
           .order("created_at", { ascending: false });
       if (error) throw error;
-      console.log("Fetched learners:", data, "enrollment", data?.[0]?.enrollment);
+      // console.log("Fetched learners:", data, "enrollment", data?.[0]?.enrollment);
       // data = getLatestRecords(data || []);
       // console.log("FetchedSorted learners:", data, "enrollment", data?.[0]?.enrollment);
       return data ; //as LearnerInfo[];
     },
   });
   learners = getLatestRecords(learners);
-  console.log("Single enrollemt retreived learners", learners);
+  // console.log("Single enrollemt retreived learners", learners);
   function getLatestRecords(learners) {
     if (!Array.isArray(learners) || learners.length === 0) {
         return [];
@@ -169,28 +169,21 @@ export default function CustomerInfo() {
         .in("learner_id", learners.map((learner) => learner.id));
 
       if (error) throw error;
-      console.log("Fetched scheduleByLearnerData:", data);
+      // console.log("Fetched scheduleByLearnerData:", data);
       return data;
     },
     enabled: Array.isArray(learners) && learners.length > 0,
   });
 
-  useEffect(() => {
-    if (!Array.isArray(learners) || learners.length === 0) {
-        return [];
-    }
-    learners = sortLearnersByEnrollmentAndSchedule(learners);
-    console.log("Sorted learners after schedule fetch:", learners);
-
-  }, [learners]);
+  learners = sortLearnersByEnrollmentAndSchedule(learners);
 
 
   // Append Schedule data to each learner item when a schedule exists in scheduleByLearnerData
   if (Array.isArray(learners) && Array.isArray(scheduleByLearnerData)) {
-    console.log(
-      "Appending schedules - input:",
-      { learnersCount: learners.length, schedulesCount: scheduleByLearnerData.length },
-    );
+    // console.log(
+    //   "Appending schedules - input:",
+    //   { learnersCount: learners.length, schedulesCount: scheduleByLearnerData.length },
+    // );
 
     const scheduleMap = new Map<string, any>();
 
@@ -222,12 +215,12 @@ export default function CustomerInfo() {
       return out;
     });
 
-    console.log("Learners after attaching schedules (sample):", learners.slice?.(0, 5) ?? learners);
+    // console.log("Learners after attaching schedules (sample):", learners.slice?.(0, 5) ?? learners);
   } else {
-    console.log("No learners or schedules to process", {
-      learners: Array.isArray(learners) ? `count=${learners.length}` : learners,
-      scheduleByLearnerData: Array.isArray(scheduleByLearnerData) ? `count=${scheduleByLearnerData.length}` : scheduleByLearnerData,
-    });
+    // console.log("No learners or schedules to process", {
+    //   learners: Array.isArray(learners) ? `count=${learners.length}` : learners,
+    //   scheduleByLearnerData: Array.isArray(scheduleByLearnerData) ? `count=${scheduleByLearnerData.length}` : scheduleByLearnerData,
+    // });
   }
 
   // Helper to format "due since" for a given date
