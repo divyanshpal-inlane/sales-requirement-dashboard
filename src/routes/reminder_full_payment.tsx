@@ -13,6 +13,7 @@ interface ReminderFullPaymentProps {
 
 export function ReminderFullPayment({ learner }: ReminderFullPaymentProps) {
     const navigate = useNavigate();
+    console.log("Learner in ReminderFullPayment", learner);
 
     return (
         <Card className="mb-6 border-primary bg-white">

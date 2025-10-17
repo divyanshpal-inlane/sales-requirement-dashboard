@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDate } from "@/lib/utils";
 
 export default function CustomerInfo() {
   const navigate = useNavigate();
@@ -27,22 +28,293 @@ export default function CustomerInfo() {
     null,
   );
   const [dialogOpen, setDialogOpen] = useState(false);
+  const maxNumLessonsOnHalfInstallment = 1;
+
 
   // Fetch all learners whose payment status is completed
   // in descending order of signup time
-  const { data: learners, isLoading } = useQuery({
-    queryKey: ["learners"],
+  let { data: learners, isLoading } = useQuery({
+    queryKey: ["learners4"],
     queryFn: async () => {
       const { data, error } = await supabase
           .from("Learner")
-          .select(`*, payment!inner(status)`)
-          .eq("payment.status", "completed")
+          .select(`
+            *, 
+            payment!inner(created_at, updated_at, status),
+            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status)
+          `)
           .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as LearnerInfo[];
+      // console.log("Fetched learners:", data, "enrollment", data?.[0]?.enrollment);
+      // data = getLatestRecords(data || []);
+      // console.log("FetchedSorted learners:", data, "enrollment", data?.[0]?.enrollment);
+      return data ; //as LearnerInfo[];
     },
   });
+  learners = getLatestRecords(learners);
+  // console.log("Single enrollemt retreived learners", learners);
+  function getLatestRecords(learners) {
+    if (!Array.isArray(learners) || learners.length === 0) {
+        return [];
+    }
 
+    // Custom sorting logic for finding the "latest" record
+    const getLatestRecord = (records) => {
+        if (!records || records.length === 0) {
+            return null;
+        }
+
+        // Sort function: Highest priority first (b - a for descending)
+        const sortedRecords = [...records].sort((a, b) => {
+            
+            // --- 1. Primary Sort: created_at (most recent first) ---
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            if (dateB !== dateA) {
+                return dateB - dateA;
+            }
+
+            // --- 2. Tie-breaker 1: updated_at (most recent first) ---
+            // If updated_at is null/undefined, it is treated as 0, which correctly sorts valid dates first.
+            const updatedA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+            const updatedB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+            if (updatedB !== updatedA) {
+                 return updatedB - updatedA;
+            }
+
+            // --- 3. Tie-breaker 2: amount (largest first) ---
+            // If amount is null/undefined/0, it is treated as 0.
+            const amountA = a.amount || 0;
+            const amountB = b.amount || 0;
+            return amountB - amountA; // Descending order for amount
+        });
+
+        // Return the single most recent record
+        return sortedRecords[0];
+    };
+
+    // The function continues here to process the learners array
+    return learners.map(learner => {
+        // Find the most recent Enrollment
+        const latestEnrollment = getLatestRecord(learner.enrollment);
+
+        // Find the most recent Payment
+        const latestPayment = getLatestRecord(learner.payment);
+
+        // Return a new learner object with the arrays replaced by single objects
+        return {
+            ...learner,
+            enrollment: latestEnrollment,
+            payment: latestPayment,
+        };
+    });
+}
+
+    function sortLearnersByEnrollmentAndSchedule(learnersWithSingleRecords) {
+        return [...learnersWithSingleRecords].sort((a, b) => {
+            const modeA = a.enrollment?.installment_mode;
+            const modeB = b.enrollment?.installment_mode;
+
+            const isAFirstHalf = modeA === "first_half";
+            const isBFirstHalf = modeB === "first_half";
+
+            if (isAFirstHalf && !isBFirstHalf) {
+                return -1; // A comes before B (prioritized)
+            }
+            if (!isAFirstHalf && isBFirstHalf) {
+                return 1; // B comes before A (prioritized)
+            }
+            
+            // Second sorting based on schedule time using getHoursSince
+            // Prefer learners that have a schedule (with date or start_time).
+            const hasScheduleA = !!(a.schedule && (a.schedule.date || a.schedule.start_time));
+            const hasScheduleB = !!(b.schedule && (b.schedule.date || b.schedule.start_time));
+
+            if (hasScheduleA && !hasScheduleB) return -1;
+            if (!hasScheduleA && hasScheduleB) return 1;
+            if (!hasScheduleA && !hasScheduleB) return 0;
+
+            // Both have schedules — sort by hours since (higher hours => higher priority)
+            const hA = getHoursSince(a.schedule);
+            const hB = getHoursSince(b.schedule);
+
+            // If both hours are invalid, keep original order
+            if (hA === null && hB === null) return 0;
+            if (hA === null) return 1; // b has valid hours, a doesn't -> b first
+            if (hB === null) return -1; // a has valid hours, b doesn't -> a first
+
+            return (hB as number) - (hA as number);
+            return 0; // Maintain order if modes are equal
+        });
+    }
+
+  const {
+    data: scheduleByLearnerData,
+    isLoading: isLoadingScheduleByLearner,
+    error: errorLoadingScheduleByLearner,
+  } = useQuery({
+    queryKey: ["scheduleByLearner", learners?.map((l) => l.id) || []],
+    queryFn: async () => {
+      if (!Array.isArray(learners) || learners.length === 0) return [];
+      const currentTimestamp = new Date();
+      // use ISO date (yyyy-MM-dd) and HH:MM:SS time to match DB column formats
+      const dateTimeRef = currentTimestamp.toISOString().split("T")[0];
+      const hourTimeRef = currentTimestamp.toTimeString().split(" ")[0];
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("*, Lesson!inner(number)")
+        .lte("date", dateTimeRef)
+        .lt("start_time", hourTimeRef)
+        .eq("Lesson.number", maxNumLessonsOnHalfInstallment)
+        .in("learner_id", learners.map((learner) => learner.id));
+
+      if (error) throw error;
+      // console.log("Fetched scheduleByLearnerData:", data);
+      return data;
+    },
+    enabled: Array.isArray(learners) && learners.length > 0,
+  });
+
+  learners = sortLearnersByEnrollmentAndSchedule(learners);
+
+
+  // Append Schedule data to each learner item when a schedule exists in scheduleByLearnerData
+  if (Array.isArray(learners) && Array.isArray(scheduleByLearnerData)) {
+    // console.log(
+    //   "Appending schedules - input:",
+    //   { learnersCount: learners.length, schedulesCount: scheduleByLearnerData.length },
+    // );
+
+    const scheduleMap = new Map<string, any>();
+
+    for (const sch of scheduleByLearnerData) {
+      // console.log("Processing schedule input:", sch);
+      const lid = sch?.learner_id;
+      if (!lid) {
+        // console.log("Skipping schedule without learner_id:", sch);
+        continue;
+      }
+      // Store the schedule for the learner (if multiple exist, last one wins)
+      scheduleMap.set(lid, sch);
+      // console.log(`Mapped schedule for learner_id=${lid}:`, sch);
+    }
+
+    // console.log("Schedule map built. Keys:", Array.from(scheduleMap.keys()));
+
+    const learnersBefore = learners;
+    // console.log("Learners before attaching schedules (sample):", learnersBefore.slice?.(0, 5) ?? learnersBefore);
+
+    learners = learners.map((learner) => {
+      const attachedSchedule = scheduleMap.get(learner.id) ?? null;
+      // add only if not already present
+      const out = {
+          ...learner,
+          schedule: learner.schedule === undefined ? attachedSchedule : learner.schedule,
+      };
+      // console.log(`Learner processed id=${learner.id} - attachedSchedule:`, attachedSchedule);
+      return out;
+    });
+
+    // console.log("Learners after attaching schedules (sample):", learners.slice?.(0, 5) ?? learners);
+  } else {
+    // console.log("No learners or schedules to process", {
+    //   learners: Array.isArray(learners) ? `count=${learners.length}` : learners,
+    //   scheduleByLearnerData: Array.isArray(scheduleByLearnerData) ? `count=${scheduleByLearnerData.length}` : scheduleByLearnerData,
+    // });
+  }
+
+  // Helper to format "due since" for a given date
+  function getDateTimestamp(
+    dayTimestampOrSchedule: string | { date?: string; start_time?: string } | null | undefined,
+    hourTimestamp?: string | null,
+  ): number | null {
+    if (!dayTimestampOrSchedule) return null;
+
+    // Backwards-compatible: accept a schedule object { date, start_time }
+    let dayTimestamp: string | null | undefined = dayTimestampOrSchedule as any;
+    if (dayTimestampOrSchedule && typeof dayTimestampOrSchedule === "object") {
+      dayTimestamp = dayTimestampOrSchedule.date;
+      hourTimestamp = dayTimestampOrSchedule.start_time ?? hourTimestamp;
+    }
+
+    if (!dayTimestamp) return null;
+
+    // Split date parts (support dd-mm-yyyy, dd/mm/yyyy, yyyy-mm-dd)
+    const dayParts = dayTimestamp.split(/[-\/]/).map((p) => p.trim());
+    if (dayParts.length !== 3) return null;
+
+    let dd: number, mm: number, yyyy: number;
+    // If first part has length 4, assume yyyy-mm-dd, otherwise dd-mm-yyyy
+    if (dayParts[0].length === 4) {
+      yyyy = parseInt(dayParts[0], 10);
+      mm = parseInt(dayParts[1], 10);
+      dd = parseInt(dayParts[2], 10);
+    } else {
+      dd = parseInt(dayParts[0], 10);
+      mm = parseInt(dayParts[1], 10);
+      yyyy = parseInt(dayParts[2], 10);
+    }
+    if ([dd, mm, yyyy].some((n) => Number.isNaN(n))) return null;
+
+    // Parse hourTimestamp like hh-mm-ss or hh:mm:ss; default to 00:00:00
+    let hh = 0,
+      min = 0,
+      sec = 0;
+    if (hourTimestamp) {
+      const timeParts = hourTimestamp.split(/[:\-]/).map((p) => p.trim());
+      if (timeParts.length >= 1) {
+        const parsed = parseInt(timeParts[0], 10);
+        if (!Number.isNaN(parsed)) hh = parsed;
+      }
+      if (timeParts.length >= 2) {
+        const parsed = parseInt(timeParts[1], 10);
+        if (!Number.isNaN(parsed)) min = parsed;
+      }
+      if (timeParts.length >= 3) {
+        const parsed = parseInt(timeParts[2], 10);
+        if (!Number.isNaN(parsed)) sec = parsed;
+      }
+    }
+
+    // Construct a local Date: months are 0-indexed
+    const dueDate = new Date(yyyy, mm - 1, dd, hh, min, sec);
+    if (isNaN(dueDate.getTime())) return null;
+    return dueDate.getTime();
+  }
+
+  function formatDueSince(
+    dayTimestampOrSchedule: string | { date?: string; start_time?: string } | null | undefined,
+    hourTimestamp?: string | null,
+    pendingText = "Lesson Pending",
+  ): string {
+    const ts = getDateTimestamp(dayTimestampOrSchedule, hourTimestamp);
+    if (!ts) return null; // if invalid args , return null so that N/A can be shown
+
+    const dueDate = new Date(ts);
+    if (dueDate.getTime() < Date.now()) {
+      const formattedDistance = formatDistanceToNow(dueDate, { addSuffix: false });
+      return `due since ${formattedDistance}`;
+    }
+
+    return pendingText;
+  }
+
+  // Helper to get time in hours since the given date in past
+  // returns a number (number of hours) or null if invalid date
+  function getHoursSince(
+    dayTimestampOrSchedule: string | { date?: string; start_time?: string } | null | undefined,
+    hourTimestamp?: string | null,
+  ): number | null {
+    const ts = getDateTimestamp(dayTimestampOrSchedule, hourTimestamp);
+    if (ts === null) return null;
+
+    const diffMs = Date.now() - ts;
+    if (!isFinite(diffMs)) return null;
+
+    const hours = diffMs / (1000 * 60 * 60);
+    // If the timestamp is in the future, treat as 0 hours since
+    return Math.round(Math.max(0, hours) * 100) / 100; // rounded to 2 decimal places
+  }
   // Filter learners based on search query
   const filteredLearners = learners?.filter(
     (learner) =>
@@ -188,6 +460,28 @@ export default function CustomerInfo() {
                             <p className="text-sm">
                               <span className="font-medium">Email:</span>{" "}
                               {learner.email || "N/A"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm">
+                              <span className="font-medium">Installment mode</span>{" "}
+                              {learner.enrollment?.installment_mode || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">Total amount:</span>{" "}
+                              {learner.enrollment?.amount || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">2nd installment amount:</span>{" "}
+                              {learner.enrollment?.installment2_amount || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">Payment status:</span>{" "}
+                              {learner.enrollment?.payment_status || "N/A"}
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">Due time:</span>{" "}
+                              {formatDueSince(learner.schedule) || "N/A"}
                             </p>
                           </div>
                           <div className="text-right">

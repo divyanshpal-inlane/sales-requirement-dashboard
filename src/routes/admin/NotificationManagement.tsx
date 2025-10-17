@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -91,6 +92,9 @@ function LearnerNotificationCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schedulesList, setSchedulesList] = useState([]);
+  const [reschduleFinalTimeSetDialogOpen, setReschduleFinalTimeSetDialogOpen] = useState(false);
+  const [rescheduleFinalTime, setRescheduleFinalTime] = useState("");
+  
   const maxDaysWindowToFetch = 1;
   // Array of status of each sending event
   // Each state corresponsds to reminder type
@@ -297,7 +301,23 @@ function LearnerNotificationCard() {
     return Object.values(statusList).some((status) => status === value);
   }
   
+  // Dialog functionality
+  const handleRescheduleFinalTimeSave = () => {
+    console.log("Rechsdule window time set to  ", rescheduleFinalTime);
+    sendLearnerReminderRescheduleWindow(schedulesList)
+  };
+  const handleRescheduleFinalTimeClose = () => {
+    setReschduleFinalTimeSetDialogOpen(false);
+  }
   return (
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{
+        backgroundImage: 'url("/assets/bg_pattern.svg")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "cover",
+      }}
+    >
     <Card className="mt-6 transition-all hover:shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -340,7 +360,7 @@ function LearnerNotificationCard() {
           <Button
               variant="outline"
               size="sm"
-              onClick={() => sendLearnerReminderRescheduleWindow(schedulesList)}
+              onClick={() => setReschduleFinalTimeSetDialogOpen(true)}
               disabled={checkAtleastOneStatusToValue(sendingLearnerReschdWindowReminderStatuses, true)}
               className="whitespace-nowrap"
           >
@@ -441,5 +461,40 @@ function LearnerNotificationCard() {
         )}
       </CardContent>
     </Card>
+
+    // Reschedule window time dialog
+    
+    <Dialog
+      open={reschduleFinalTimeSetDialogOpen}
+      onOpenChange={setReschduleFinalTimeSetDialogOpen}
+    >
+      <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Enter Reschedule Final time</DialogTitle>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="app-number" className="text-right">
+            Final time
+          </Label>
+          <Input
+            id="app-number"
+            value={rescheduleFinalTime}
+            onChange={(e) => setRescheduleFinalTime(e.target.value)}
+            maxLength={32}
+            className="col-span-3"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button onClick={handleRescheduleFinalTimeClose} variant="secondary">
+          Close
+        </Button>
+        <Button onClick={handleRescheduleFinalTimeSave}>Save</Button>
+      </DialogFooter>
+    </DialogContent>
+      
+    </Dialog>
+    </div>
   );
 }
