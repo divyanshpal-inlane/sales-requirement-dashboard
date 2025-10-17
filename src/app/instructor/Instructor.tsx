@@ -1373,7 +1373,7 @@ function Instructor() {
               >
                 Month
               </Button>
-              <Button
+              {/* <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
@@ -1384,7 +1384,7 @@ function Instructor() {
                 className="text-xs"
               >
                 Today
-              </Button>
+              </Button> */}
             </div>
           </div>
 
