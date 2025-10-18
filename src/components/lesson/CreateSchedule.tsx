@@ -139,7 +139,7 @@ export async function getDrivingDistanceViaSDK(
     });
 
     await loader.load();
-
+    // console.log("SDK", originLat, originLng, destLat, destLng);
     const origin = new google.maps.LatLng(originLat, originLng);
     const destination = new google.maps.LatLng(destLat, destLng);
 
@@ -153,7 +153,6 @@ export async function getDrivingDistanceViaSDK(
           travelMode: google.maps.TravelMode.DRIVING,
         },
         (response, status) => {
-          // console.log("DistanceMatrix response, status:", response, status);
           if (
             status === "OK" &&
             response?.rows?.[0]?.elements?.[0]?.status === "OK"
@@ -342,20 +341,14 @@ export default function CreateScheduleWithInstructor({
 
           // Only fetch driving distance if straight-line distance is within a reasonable range
           // (e.g., 1.5x the instructor's radius) to save API calls
-          let drivingDistance: number | null = -1;
+          let drivingDistance: number | null = null;
           const maxRetryDistanceAPICallCount = 10;
           let retryDistanceAPICallCount = 0;
 
+          // console.log("lat, lng, instructor", learnerLat, learnerLng, instructor.latitude, instructor.longitude, instructor);
           while (!drivingDistance && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
             try {
-              console.log(
-                "Call distance API retry: ",
-                retryDistanceAPICallCount,
-                learnerLat,
-                learnerLng,
-                instructor.latitude,
-                instructor.longitude,
-              );
+              // console.log("Call distance API retry: ", retryDistanceAPICallCount)
               drivingDistance = await getDrivingDistanceViaSDK(
                 learnerLat,
                 learnerLng,
@@ -373,7 +366,7 @@ export default function CreateScheduleWithInstructor({
             }
           }
 
-          if (retryDistanceAPICallCount > maxRetryDistanceAPICallCount) {
+          if (!drivingDistance && (retryDistanceAPICallCount >= maxRetryDistanceAPICallCount)) {
             console.error(
               "Distance API failed after " +
                 maxRetryDistanceAPICallCount +
