@@ -343,6 +343,21 @@ export default function CustomerInfo() {
     return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
 
+
+  // rendeing helpers
+  const getDueAmount = (learner) => {
+    console.log("Calculating due amount for learner:", learner);
+    if (!learner || !learner.enrollement || !learner.enrollment.installment_mode
+    || !learner.enrollment.amount || !learner.enrollment.installment1_amount) {
+      return "N/A";
+    }
+    if (learner.enrollment.installment_mode != "first_half") {
+      return "0";
+    }
+    const dueAmount = Number(learner.enrollment.amount) - Number(learner.enrollment.installment1_amount);
+    return String(dueAmount);
+  }
+
   return (
     <div
       className="h-flex flex min-h-screen flex-col bg-white p-8"
@@ -472,16 +487,22 @@ export default function CustomerInfo() {
                               {learner.enrollment?.amount || "N/A"}
                             </p>
                             <p className="text-sm">
-                              <span className="font-medium">2nd installment amount:</span>{" "}
-                              {learner.enrollment?.installment2_amount || "N/A"}
+                              <span className="font-medium">Due amount:</span>{" "}
+                              {getDueAmount(learner)}
                             </p>
                             <p className="text-sm">
                               <span className="font-medium">Payment status:</span>{" "}
                               {learner.enrollment?.payment_status || "N/A"}
                             </p>
                             <p className="text-sm">
-                              <span className="font-medium">Due time:</span>{" "}
-                              {formatDueSince(learner.schedule) || "N/A"}
+                              <span className="font-medium">Due since:</span>{" "}
+                              {
+                                (
+                                  learner.schedule?.date && learner.schedule.end_time
+                                    ? `${learner.schedule.date} ${learner.schedule.end_time.split(':').slice(0, 2).join(':')}`
+                                    : ''
+                                ).trim() || 'N/A'
+                              }
                             </p>
                           </div>
                           <div className="text-right">
