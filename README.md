@@ -24,3 +24,4 @@ After the successfull installation of the packages: `pnpm run dev`
 4. Enable formatOnSave of vs code
 5. Open a .tsx file and check if the bottom right corners of vs code have Eslint and Prettier with a double tick.
 
+
