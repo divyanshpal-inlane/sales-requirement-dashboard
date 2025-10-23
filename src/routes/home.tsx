@@ -70,7 +70,7 @@ export default function Home() {
     error: LessonError,
   } = useUpcomingLesson();
   // console.log("Schedule Requests", scheduleRequests);
-  // console.log("LessonData", LessonData);
+  console.log("LessonData", LessonData);
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
@@ -368,9 +368,11 @@ export default function Home() {
                   onClick={async () =>
                     { console.log("Starting lesson", LessonData?.upcomingLesson?.number);
                       // await sleep(1000); // 1 second
-                      navigate(
-                      `/startLesson/${LessonData?.upcomingLesson?.number}`,
-                    ) }
+                      alert("Enter OTP to instructor " + LessonData?.upcomingSchedule?.otp);
+                      // navigate(
+                      // `/startLesson/${LessonData?.upcomingLesson?.number}`,
+                    // )
+                   }
                   }
                   className="w-full"
                   disabled={
