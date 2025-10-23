@@ -405,7 +405,7 @@ export default function InstructorsManagement() {
           end_time,
           isTentative,
           tentative_details,
-          learner:learner_id ( name )
+          learner:learner_id ( name, phone, pick_up_location, address_lat, address_lng)
         )
       `,
         { // This is the options object, placed outside the string
@@ -1573,7 +1573,7 @@ function WeeklyScheduleView({
   schedules,
   unavailability,
 }: {
-  schedules: Schedule[];
+  schedules: any[];
   unavailability: Unavailability[];
 }) {
   const [currentWeekStart, setCurrentWeekStart] = useState(
@@ -2419,7 +2419,30 @@ function WeeklyScheduleView({
                               </Button>
                             </div>
                             </>
-                            : `${schedule.learner?.name || "Booked"}`
+                            : `${schedule.learner?.name || "Booked"}` && (
+                                <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
+                                    <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                    <li>Cust Name: {schedule.learner.name || "N/A"}</li>
+                                    <li>Cust Phone: {schedule.learner.phone || "N/A"}</li>
+                                    <li className="w-full overflow-hidden text-wrap text-ellipsis">
+                                        Pickup location: {schedule.learner.pick_up_location || "N/A"}
+                                    </li>
+                                    <li>  
+                                        {schedule.learner?.address_lat && schedule.learner?.address_lng ? (
+                                            <a
+                                                href={`https://www.google.com/maps?q=${schedule.learner.address_lat},${schedule.learner.address_lng}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                                            >
+                                                Map link
+                                            </a>
+                                        ) : (
+                                            <span className="text-muted-foreground">Map N/A</span>
+                                        )}
+                                    </li>
+                                </ul>
+                            )
                           : unavailable
                             ? ""
                             : ""}
