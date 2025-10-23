@@ -174,8 +174,8 @@ function LearnerNotificationCard() {
         const { error } = await supabase.functions.invoke("send-message", {
         body: {
           message_type: "REMINDER_CUSTOMER_FOR_CLASS_FINAL",
-          learner_name: schedule.learner_name,
-          learner_phone: schedule.learner_phone,
+          learner_name: schedule.Learner.name,
+          learner_phone: schedule.Learner.phone,
           start_time: schedule.start_time,
           pickup_location: schedule.Learner.pick_up_location,
           instructor_name: schedule.Instructor.name,
@@ -201,6 +201,7 @@ function LearnerNotificationCard() {
       } finally {
         setSendingLearnerLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
       }
+      // break;
     }
   };
 
@@ -217,8 +218,8 @@ function LearnerNotificationCard() {
           const { error } = await supabase.functions.invoke("send-message", {
           body: {
             message_type: "REMINDER_LESSON_RESCHEDULE_WINDOW_TIME",
-            learner_name: schedule.learner_name,
-            learner_phone: schedule.learner_phone,
+            learner_name: schedule.Learner.name,
+            learner_phone: schedule.Learner.phone,
             final_time: "6PM",
           },
         });
@@ -240,6 +241,7 @@ function LearnerNotificationCard() {
       } finally {
         setSendingLearnerReschdWindowReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
       }
+      // break;
     }
   };
 
@@ -247,6 +249,31 @@ function LearnerNotificationCard() {
     if (!scheduleData) {
       alert("No schedules info");
       return;
+    }
+    // Build schedulePacket with keys field1..field10.
+    // If fewer than 10 schedules, remaining fields are "\n".
+    // If more than 10 schedules, fill first 10 and then throw an error.
+    const maxFields = 10;
+    const schedulePacket: Record<string, string> = {};
+    const count = Array.isArray(scheduleData) ? scheduleData.length : 0;
+
+    for (let i = 0; i < maxFields; i++) {
+      const sch = scheduleData[i];
+      if (sch) {
+        const startTime = sch.start_time ?? "";
+        const instructorName = sch.Instructor?.name ?? "";
+        schedulePacket[`field${i + 1}`] = `${startTime}\n${instructorName}\n`;
+      } else {
+        schedulePacket[`field${i + 1}`] = "NA";
+      }
+    }
+
+    const schedulesPacket = JSON.stringify(schedulePacket);
+    console.log("schedulePacket:", schedulePacket);
+
+    if (count > maxFields) {
+      console.error(`Too many schedules: ${count} > ${maxFields}. Only the first ${maxFields} were used.`);
+      throw new Error(`Cannot process more than ${maxFields} schedules`);
     }
     for (const schedule of scheduleData) {
       if (!schedule) continue;
@@ -261,16 +288,16 @@ function LearnerNotificationCard() {
               instructor_phone: schedule.Instructor?.phone ?? "",
 
               // map the rest of the instructor fields into arg1..arg10
-              arg1: schedule.Instructor?.field1 ?? "",
-              arg2: schedule.Instructor?.field2 ?? "",
-              arg3: schedule.Instructor?.field3 ?? "",
-              arg4: schedule.Instructor?.field4 ?? "",
-              arg5: schedule.Instructor?.field5 ?? "",
-              arg6: schedule.Instructor?.field6 ?? "",
-              arg7: schedule.Instructor?.field7 ?? "",
-              arg8: schedule.Instructor?.field8 ?? "",
-              arg9: schedule.Instructor?.field9 ?? "",
-              arg10: schedule.Instructor?.field10 ?? "",
+              arg1:  schedulePacket['field1'] ?? "\n",
+              arg2:  schedulePacket['field2'] ?? "\n",
+              arg3:  schedulePacket['field3'] ?? "\n",
+              arg4:  schedulePacket['field4'] ?? "\n",
+              arg5:  schedulePacket['field5'] ?? "\n",
+              arg6:  schedulePacket['field6'] ?? "\n",
+              arg7:  schedulePacket['field7'] ?? "\n",
+              arg8:  schedulePacket['field8'] ?? "\n",
+              arg9:  schedulePacket['field9'] ?? "\n",
+              arg10: schedulePacket['field10'] ?? "\n",
             },
           });
 
@@ -292,6 +319,7 @@ function LearnerNotificationCard() {
       } finally {
         setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
       }
+      // break;
     }
   };
 

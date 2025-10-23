@@ -218,6 +218,9 @@ export default function LearnerManagement() {
       // to render correct pages later
       dataToSend.LL_received = dataToSend.has_a_DL ? true : false;
 
+      // Close the dialog before sending to backend to disable multiple clicks
+      setIsCreateLearnerDialogOpen(false); // Close the create learner dialog
+
       // send to backend
       console.log("Sending data to edge function", dataToSend);
       const { data, error } = await supabase.functions.invoke(
@@ -241,7 +244,6 @@ export default function LearnerManagement() {
           description: "Learner and enrollment created successfully!",
         });
 
-        setIsCreateLearnerDialogOpen(false); // Close the create learner dialog
 
         // Open payment dialog if enrollment was created
         if (enrollmentId) {
@@ -272,6 +274,10 @@ export default function LearnerManagement() {
     installmentMode,
     enrollmentId,
   ) => {
+    // Close the payment dialog if it's open (for newly created learners)
+    if (isPaymentDialogOpen) {
+      setIsPaymentDialogOpen(false);
+    }
     try {
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
       console.log("Use edge function for email ", learner.email, learner.name, course.name, amount);
@@ -320,11 +326,6 @@ export default function LearnerManagement() {
         title: "Success",
         description: `Payment link sent to ${learner.name} successfully!`,
       });
-
-      // Close the payment dialog if it's open (for newly created learners)
-      if (isPaymentDialogOpen) {
-        setIsPaymentDialogOpen(false);
-      }
     } catch (err) {
       toast({
         title: "Error",
