@@ -294,15 +294,6 @@ console.log("Called send email");
       // auth requires phone , but only learner_id available 
       
       // remove from dependent tables
-      // remove from payment
-      const { error: paymentDeleteerror } = await supabase
-      .from('payment') 
-      .delete()
-      .eq('learner_id', learner_id);
-      
-      if (paymentDeleteerror) {
-        throw new Error('Failed to delete the payment record.');
-      }
       // remove from enrollment
       const { error: enrollmentDeleteerror } = await supabase
       .from('enrollment') 
@@ -312,8 +303,18 @@ console.log("Called send email");
       if (enrollmentDeleteerror) {
         throw new Error('Failed to delete the enrollment record.');
       }
-      
+      console.log("Deleted enrollment records for learner ", learner_id);
       // remove from learner
+      // remove from payment
+      const { error: paymentDeleteerror } = await supabase
+      .from('payment') 
+      .delete()
+      .eq('learner_id', learner_id);
+      
+      if (paymentDeleteerror) {
+        throw new Error('Failed to delete the payment record.');
+      }
+      console.log("Deleted payment records for learner ", learner_id);
       const { error: learnerDeleteError } = await supabase
         .from('Learner') 
         .delete()
@@ -322,6 +323,7 @@ console.log("Called send email");
       if (learnerDeleteError) {
         throw new Error('Failed to delete the learner record.');
       }
+      console.log("Deleted learner records for learner ", learner_id);
     },
     onSuccess: () => {
       toast ({
