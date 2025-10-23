@@ -120,6 +120,7 @@ function PaymentPage() {
               .order("created_at", { ascending: false })
               .limit(1);
 
+            // console.log("First installment payments:", firstPayments, paymentsError);
             if (!paymentsError && firstPayments && firstPayments.length > 0) {
               // If there's a completed first installment payment, this is a second installment
               isSecondInstallment = true;
@@ -131,6 +132,7 @@ function PaymentPage() {
           const coursePrice = roundPrice(course?.price || 0);
           const totalAmount = roundPrice(enrollment?.amount || coursePrice);
 
+          // console.log("course price and totalAmount:", coursePrice, totalAmount);
           // Use custom installment amounts if available, otherwise calculate
           let installment1Amount = roundPrice(totalAmount / 2);
           let installment2Amount = totalAmount - installment1Amount;
@@ -151,6 +153,7 @@ function PaymentPage() {
           }
 
           // Set the correct amount based on installment type
+          // console.log("isSecondInstallment and option:", isSecondInstallment, paymentOption, installment1Amount, installmentMode);
           const paymentAmount = isSecondInstallment
             ? installment2Amount
             : paymentOption === "full"
@@ -189,7 +192,10 @@ function PaymentPage() {
           // If it's a second installment, force the payment option
           if (isSecondInstallment) {
             setPaymentOption("installment");
-          } else if (installmentMode === "installment") {
+          } else if (
+            // possible values "full" | "installment" | "second_half" | "first_half"
+            installmentMode != "full" 
+          ) {
             // If enrollment was created with installment mode, default to that
             setPaymentOption("installment");
           }
