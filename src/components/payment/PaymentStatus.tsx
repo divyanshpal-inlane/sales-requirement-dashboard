@@ -17,7 +17,7 @@ function PaymentStatus() {
   useEffect(() => {
     // If no status is provided, redirect to home
     if (!status) {
-      navigate("/");
+      navigate(isLoggedIn ? "/" : "/login?active=signup");
     }
   }, [status, navigate]);
 
