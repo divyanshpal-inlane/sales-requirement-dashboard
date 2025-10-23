@@ -367,7 +367,7 @@ export default function Home() {
                 <Button
                   onClick={async () =>
                     { console.log("Starting lesson", LessonData?.upcomingLesson?.number);
-                      await sleep(1000); // 1 second
+                      // await sleep(1000); // 1 second
                       navigate(
                       `/startLesson/${LessonData?.upcomingLesson?.number}`,
                     ) }

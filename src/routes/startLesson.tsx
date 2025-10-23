@@ -9,27 +9,107 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLessonSchedule, useUpcomingLesson } from "@/queries/learner";
+import { useEffect, useRef } from "react";
 
 export default function StartLesson() {
-  const { lessonNumber } = useParams();
-  // invariant(lessonNumber, "lessonNumber is required");
-  const { data, isLoading, error } = useUpcomingLesson();
-  const queryClient = useQueryClient();
-  const scheduleData = queryClient.getQueryData([
-    "lessonSchedule",
-    data?.upcomingLesson?.id,
-  ]);
-  const { data: lessonSchedule } = useLessonSchedule({
-    lessonId: data?.upcomingLesson?.id,
-    refetchInterval:
-      scheduleData?.status && scheduleData.status.toUpperCase() === "BOOKED"
-        ? 10 * 1000
-        : undefined,
+  // debug refs to keep previous values
+  const prev = useRef<any>({
+    lessonNumber: undefined,
+    upcomingData: undefined,
+    scheduleData: undefined,
+    lessonSchedule: undefined,
+    isLoading: undefined,
+    error: undefined,
+    queryClient: undefined,
+    navigate: undefined,
   });
+
+  // 1) useParams
+  console.log("[step] about to call useParams - previous lessonNumber:", prev.current.lessonNumber);
+  const params = useParams();
+  const { lessonNumber } = params;
+  console.log("[step] after useParams - lessonNumber:", lessonNumber);
+  prev.current.lessonNumber = lessonNumber;
+
+  // 2) useUpcomingLesson (hook) - log before, track changes with useEffect
+  console.log("[step] about to call useUpcomingLesson - previous upcomingData:", prev.current.upcomingData);
+  const { data, isLoading, error } = useUpcomingLesson();
+  console.log("[step] just after calling useUpcomingLesson (sync) - immediate data/isLoading/error:", {
+    data,
+    isLoading,
+    error,
+  });
+
+  useEffect(() => {
+    console.log("[effect] useUpcomingLesson changed - previous:", prev.current.upcomingData, "current:", data);
+    prev.current.upcomingData = data;
+  }, [data]);
+
+  useEffect(() => {
+    console.log("[effect] isLoading/error changed - previous:", { prevLoading: prev.current.isLoading, prevError: prev.current.error }, "current:", { isLoading, error });
+    prev.current.isLoading = isLoading;
+    prev.current.error = error;
+  }, [isLoading, error]);
+
+  // 3) useQueryClient
+  console.log("[step] about to call useQueryClient - previous queryClient:", prev.current.queryClient);
+  const queryClient = useQueryClient();
+  console.log("[step] after useQueryClient - queryClient obtained:", !!queryClient);
+  prev.current.queryClient = queryClient;
+
+  // 4) compute scheduleData from cache
+  const upcomingLessonId = data?.upcomingLesson?.id;
+  console.log("[step] about to call queryClient.getQueryData - previous scheduleData:", prev.current.scheduleData, "next key lesson id:", upcomingLessonId);
+  const scheduleData = queryClient.getQueryData(["lessonSchedule", upcomingLessonId]);
+  console.log("[step] after getQueryData - scheduleData:", scheduleData);
+  prev.current.scheduleData = scheduleData;
+
+  // 5) compute refetchInterval (pure computation, but log prev/new)
+  const prevRefetch = prev.current.refetchInterval;
+  const refetchInterval =
+    scheduleData?.status && scheduleData.status.toUpperCase() === "BOOKED"
+      ? 10 * 1000
+      : undefined;
+  console.log("[step] computed refetchInterval - previous:", prevRefetch, "current:", refetchInterval);
+  prev.current.refetchInterval = refetchInterval;
+
+  // 6) useLessonSchedule (hook) - log before, track with useEffect
+  console.log("[step] about to call useLessonSchedule - previous lessonSchedule:", prev.current.lessonSchedule, "args:", {
+    lessonId: upcomingLessonId,
+    refetchInterval,
+  });
+  const { data: lessonSchedule } = useLessonSchedule({
+    lessonId: upcomingLessonId,
+    refetchInterval,
+  });
+  console.log("[step] just after calling useLessonSchedule (sync) - immediate lessonSchedule:", lessonSchedule);
+
+  useEffect(() => {
+    console.log("[effect] lessonSchedule changed - previous:", prev.current.lessonSchedule, "current:", lessonSchedule);
+    prev.current.lessonSchedule = lessonSchedule;
+  }, [lessonSchedule]);
+
+  // 7) useNavigate
+  console.log("[step] about to call useNavigate - previous navigate:", !!prev.current.navigate);
   const navigate = useNavigate();
-  
-  if (isLoading || !lessonNumber) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  console.log("[step] after useNavigate - navigate ready:", !!navigate);
+  prev.current.navigate = navigate;
+
+  // 8) final conditional/logging before returns
+  console.log("[step] about to evaluate loading/error/lessonNumber - values:", {
+    isLoading,
+    lessonNumber,
+    error: error?.message,
+  });
+
+  if (isLoading || !lessonNumber) {
+    console.log("[step] returning Loading... - reason:", { isLoading, lessonNumberMissing: !lessonNumber });
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    console.log("[step] returning Error... - error:", error);
+    return <div>Error: {error.message}</div>;
+  }
 
   return (
     <PurpleGradient>

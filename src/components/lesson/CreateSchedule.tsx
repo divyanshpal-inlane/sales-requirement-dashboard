@@ -2589,10 +2589,12 @@ console.log("Setting state to slot", slot);
       ) ?? [];
 
     // Get completed lessons to maintain their numbers
+    // Update: also consider lessons from past that are not in completed status
     const completedLessons = existingCourseSchedules.filter(
       (s) =>
-        new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) <
-        new Date().getTime(),
+        s.status === "completed"
+        // new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) <
+        // new Date().getTime(),
     );
 
     // Group selected slots by their slotGroupId
@@ -2711,6 +2713,7 @@ console.log("Setting state to slot", slot);
 
     // FIXED LOGIC: Assign lesson numbers sequentially based on chronological order
     // Create new schedule array with correctly assigned lesson numbers
+    // console.log("Chronologically sorted", chronologicallySortedUpcomingSlots)
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
         // For 9+1 courses, handle lesson 10 specially (keep this logic as is)
@@ -2740,6 +2743,7 @@ console.log("Setting state to slot", slot);
 
         // For all other cases, assign lesson numbers sequentially
         const lessonNumber = maxCompletedLessonNumber + index + 1;
+        // console.log("available lessons", availableLessons);
         const lesson = availableLessons.find((l) => l.number === lessonNumber);
 
         return {
@@ -2807,6 +2811,7 @@ console.log("Setting state to slot", slot);
     const schedulesToCancel = schedulesToChange || [];
 
     // Filter out only the schedules that need to be created/updated
+    // console.log("schedules with ids", schedulesWithIds);
     const schedulesToUpdate = schedulesWithIds.filter((schedule) => {
       // Include if it's a new slot
       if (schedule.isNew) return true;
@@ -2823,6 +2828,7 @@ console.log("Setting state to slot", slot);
     });
 
     // Create final schedules array
+    // console.log("finalscheudules from schedules to update", schedulesToUpdate);
     const finalSchedules = schedulesToUpdate
       .filter((schedule) => schedule.lessonId) // Only include schedules with valid lesson IDs
       .map((schedule) => {
@@ -2886,6 +2892,7 @@ console.log("Setting state to slot", slot);
 
       // Fetch all instructor details we'll need
       const instructorIds = new Set(finalSchedules.map((s) => s.instructorId));
+      // console.log("instructor ids ", instructorIds, finalSchedules);
       const { data: instructorsData, error: instructorsError } = await supabase
         .from("Instructor")
         .select("id_instructor, name, email, phone")
@@ -3094,7 +3101,7 @@ console.log("Setting state to slot", slot);
             ? instructorsData[0].email
             : "";
         if (!primaryInstructorEmail) {
-          console.error("Missing email for primary instructor");
+          console.error("Missing email for primary instructor", instructorsData);
           return;
         }
 

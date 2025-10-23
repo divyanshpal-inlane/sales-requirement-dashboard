@@ -1206,18 +1206,70 @@ export default function AdminSchedules() {
   };
 
   // Function to handle opening the "Reschedule" dialog
-  const handleOpenReschedule = (schedule: any) => {
+  const handleOpenReschedule = async (schedule: any) => {
     setSelectedSchedule(schedule);
-    setIsRescheduleModalOpen(true);
+    // setIsRescheduleModalOpen(true);
+
+
+    // different path - make reschedule request to use calender views nad checks
+    try {
+      // setIsLoading(true);
+      console.log("Rescheduling", schedule);
+      // Create empty payment record (from admin side)
+      const totalFee = 0;
+      const learnerId = schedule?.learner_id;
+      const { data: payment, error: paymentError } = await supabase
+        .from("payment")
+        .insert([
+          {
+            learner_id: learnerId,
+            amount: totalFee,
+            payment_type: "reschedule",
+            status: "completed",
+          },
+        ])
+        .select()
+        .single();
+
+      if (paymentError) throw paymentError;
+
+      // Create reschedule request
+      const { data: rescheduleRequest, error: rescheduleError } = await supabase
+        .from("reschedule_requests")
+        .insert({
+          amount: totalFee,
+          status: totalFee > 0 ? "pending_payment" : "pending",
+          learner_id: learnerId,
+          lesson_ids: [schedule.lesson_id],
+          payment_id: payment?.id,
+        })
+        .select()
+        .single();
+
+      if (rescheduleError) throw rescheduleError;
+
+      toast({
+        "title": "Reschedule requested",
+        "description": `Reschedule request has been added for schedule at ${schedule.date})} ${schedule.start_time}`,
+        "type": "destructive",
+      });
+      // If payment is required, initiate payment
+      // not required on admin side
+    } catch (error) {
+      console.error("Error creating reschedule request from Admin:", error);
+      alert("Failed to create reschedule request from Admin. Please try again.");
+    } finally {
+      // setIsLoading(false);
+    }
+    // if (isLoading) {
+    //   return (
+    //     <div className="flex h-full items-center justify-center">
+    //       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+    //     </div>
+    //   );
+    // }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    );
-  }
 
   return (
     <div
@@ -1855,16 +1907,16 @@ export default function AdminSchedules() {
                                   .from("Schedule")
                                   .select(
                                     `
-            id, 
-            date, 
-            start_time, 
-            end_time, 
-            instructor_id, 
-            lesson_id, 
-            course_id, 
-            learner_id
-          `,
-                                  )
+                                    id, 
+                                    date, 
+                                    start_time, 
+                                    end_time, 
+                                    instructor_id, 
+                                    lesson_id, 
+                                    course_id, 
+                                    learner_id
+                                  `,
+                                                          )
                                   .eq("learner_id", selectedSchedule.learner_id)
                                   .eq("course_id", selectedSchedule.course_id);
 
