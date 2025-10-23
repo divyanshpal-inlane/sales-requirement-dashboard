@@ -71,6 +71,7 @@ export default function RescheduleConfirmationSheet({
     try {
       setIsLoading(true);
 
+      // Same process added to admin side to handle emergency reschedules
       // Create payment record
       const { data: payment, error: paymentError } = await supabase
         .from("payment")
