@@ -2421,7 +2421,7 @@ function WeeklyScheduleView({
                             </>
                             : `${schedule.learner?.name || "Booked"}` && (
                                 <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
-                                    <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
+                                    <li><strong>Booked details</strong></li>
                                     <li>Cust Name: {schedule.learner.name || "N/A"}</li>
                                     <li>Cust Phone: {schedule.learner.phone || "N/A"}</li>
                                     <li className="w-full overflow-hidden text-wrap text-ellipsis">
