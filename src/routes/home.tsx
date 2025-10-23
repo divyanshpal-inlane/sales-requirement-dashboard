@@ -190,7 +190,8 @@ export default function Home() {
   // For half installment,  locked lesson can be started
   const enabledLessonForInstallmentStatus = (lessonNumber: number | null): boolean => {
     if (!lessonNumber) return false;
-    if (enrolledCourse?.payment_status === "completed") return true;
+    if (enrolledCourse?.payment_status === "completed" 
+      || enrolledCourse?.payment_status === "full_paid") return true;
     // Check that the lesson number is within unlocked + waivered range
     return (
       lessonNumber <= maxNumLessonsOnHalfInstallment + numWaiveredLessonUnlocked
