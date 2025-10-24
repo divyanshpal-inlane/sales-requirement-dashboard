@@ -6,10 +6,15 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
     description: "You will be good at Starting Stopping the Car",
     image_path: "/assets/Traffic+Parking+Flyover-Lesson-1.png",
     menu: {
+      // trivia: {
+      //   title: "car command center",
+      //   icon: "🤖",
+      //   color: "bg-[#00CE84]",
+      // },
       trivia: {
-        title: "car command center",
+        title: "You drove into a quiz",
         icon: "🤖",
-        color: "bg-[#00CE84]",
+        color: "bg-purple-400",
       },
       video: [
         {
@@ -673,13 +678,26 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
       },
     },
     content: {
-      remember: [],
+      remember: [
+        {
+          icon: "🏎",
+          text: "Drive at consistent speeds",
+        },
+        {
+          icon: "👨🏻‍💼",
+          text: "Every pro driver has good control of the car - drive slowly",
+        },
+        {
+          icon: "😊",
+          text: "Treat your car like your best buddy",
+        },
+      ],
       title: "You will have an absolutely fun time doing the challenges",
       points: [
         {
           icon: "government.svg",
-          header: "RTO Rehearsal:",
-          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+          header: "Mini challenges:",
+          desc: "Practice on manoeuvres and brush and brush up your driving skills",
         },
         {
           icon: "calm.svg",
