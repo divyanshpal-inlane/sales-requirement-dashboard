@@ -188,7 +188,7 @@ function LearnerNotificationCard() {
       
       toast({
         title: "Success",
-        description: `Lesson reminder sent to ${schedule.Learner.name} successfully!`,
+        description: `Lesson reminder sent to ${schedule.Learner.name} successfully`,
       });
 
       } catch (err) {
@@ -228,7 +228,7 @@ function LearnerNotificationCard() {
 
         toast({
           title: "Success",
-          description: `Lesson Reschedule window closing reminder sent to ${schedule.Learner.name} successfully!`,
+          description: `Lesson Reschedule window closing reminder sent to ${schedule.Learner.name} successfully`,
         });
 
       } catch (err) {
@@ -251,9 +251,9 @@ function LearnerNotificationCard() {
       return;
     }
     // Build schedulePacket with keys field1..field10.
-    // If fewer than 10 schedules, remaining fields are "\n".
-    // If more than 10 schedules, fill first 10 and then throw an error.
-    const maxFields = 10;
+    // If fewer than 9 schedules, remaining fields are "\n".
+    // If more than 9 schedules, fill first 10 and then throw an error.
+    const maxFields = 9;
     const schedulePacket: Record<string, string> = {};
     const count = Array.isArray(scheduleData) ? scheduleData.length : 0;
 
@@ -264,7 +264,7 @@ function LearnerNotificationCard() {
         const learnerName = sch.Learner?.name ?? "";
         const learnerPhone = sch.Learner?.phone ?? "";
         const pickupLocation = sch.Learner?.pick_up_location ?? "";
-        schedulePacket[`field${i + 1}`] = `${startTime}\n${learnerName}\n${learnerPhone}\n${pickupLocation}`;
+        schedulePacket[`field${i + 1}`] = `${startTime},${learnerName},${learnerPhone},${pickupLocation}`;
       } else {
         schedulePacket[`field${i + 1}`] = " ";
       }
@@ -275,7 +275,7 @@ function LearnerNotificationCard() {
 
     if (count > maxFields) {
       console.error(`Too many schedules: ${count} > ${maxFields}. Only the first ${maxFields} were used.`);
-      throw new Error(`Cannot process more than ${maxFields} schedules`);
+      // throw new Error(`Cannot process more than ${maxFields} schedules`);
     }
     for (const schedule of scheduleData) {
       if (!schedule) continue;
@@ -299,7 +299,7 @@ function LearnerNotificationCard() {
               arg7:  schedulePacket['field7'] ?? " ",
               arg8:  schedulePacket['field8'] ?? " ",
               arg9:  schedulePacket['field9'] ?? " ",
-              arg10: schedulePacket['field10'] ?? " ",
+              // arg10: schedulePacket['field10'] ?? " ",
             },
           });
 
@@ -308,7 +308,7 @@ function LearnerNotificationCard() {
 
         toast({
           title: "Success",
-          description: `Lesson reminder sent to ${schedule.Learner.name} successfully!`,
+          description: `Lesson reminder sent to ${schedule.Learner.name} successfully`,
         });
 
       } catch (err) {
