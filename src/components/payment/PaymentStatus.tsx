@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/auth-context";
+import { stat } from "fs";
 
 function PaymentStatus() {
   const navigate = useNavigate();
@@ -15,10 +16,19 @@ function PaymentStatus() {
   const isLoggedIn = !!loggedInUser;
 
   useEffect(() => {
-    // If no status is provided, redirect to home
+    // If no status is provided or not logged in, redirect to home
+    console.log("status, loggedIn=", status, isLoggedIn);
+
+    // handle only empty sucess , and wait for user to click button
     if (!status) {
+      // console.log(!status ? "status empty" : "no logged in");
+      // navigate("/login?active=signup");
       navigate(isLoggedIn ? "/" : "/login?active=signup");
-    }
+    } 
+    // else {
+      // logged in and success
+      // navigate("/");
+    // }
   }, [status, navigate]);
 
   // useEffect(() => {
@@ -28,6 +38,10 @@ function PaymentStatus() {
 
   const isSuccess = status === "completed";
 
+  const returnToHomePage = () => {
+    // console.log("logedin,user=", isLoggedIn, loggedInUser);
+    navigate(isLoggedIn ? "/home" : "/login?active=signup");
+  }
   return (
     <div className="container mx-auto max-w-md py-8">
       <Card>
@@ -76,9 +90,10 @@ function PaymentStatus() {
 
           <div className="flex flex-col gap-2">
             <Button
-              onClick={() =>
-                navigate(isLoggedIn ? "/home" : "/login?active=signup")
-              }
+              onClick={returnToHomePage} 
+              // {() =>
+              //   navigate(isLoggedIn ? "/home" : "/login?active=signup")
+              // }
               variant="default"
             >
               Return to Home Page

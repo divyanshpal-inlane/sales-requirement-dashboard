@@ -261,10 +261,12 @@ function LearnerNotificationCard() {
       const sch = scheduleData[i];
       if (sch) {
         const startTime = sch.start_time ?? "";
-        const instructorName = sch.Instructor?.name ?? "";
-        schedulePacket[`field${i + 1}`] = `${startTime}\n${instructorName}\n`;
+        const learnerName = sch.Learner?.name ?? "";
+        const learnerPhone = sch.Learner?.phone ?? "";
+        const pickupLocation = sch.Learner?.pick_up_location ?? "";
+        schedulePacket[`field${i + 1}`] = `${startTime}\n${learnerName}\n${learnerPhone}\n${pickupLocation}`;
       } else {
-        schedulePacket[`field${i + 1}`] = "NA";
+        schedulePacket[`field${i + 1}`] = " ";
       }
     }
 
@@ -288,16 +290,16 @@ function LearnerNotificationCard() {
               instructor_phone: schedule.Instructor?.phone ?? "",
 
               // map the rest of the instructor fields into arg1..arg10
-              arg1:  schedulePacket['field1'] ?? "\n",
-              arg2:  schedulePacket['field2'] ?? "\n",
-              arg3:  schedulePacket['field3'] ?? "\n",
-              arg4:  schedulePacket['field4'] ?? "\n",
-              arg5:  schedulePacket['field5'] ?? "\n",
-              arg6:  schedulePacket['field6'] ?? "\n",
-              arg7:  schedulePacket['field7'] ?? "\n",
-              arg8:  schedulePacket['field8'] ?? "\n",
-              arg9:  schedulePacket['field9'] ?? "\n",
-              arg10: schedulePacket['field10'] ?? "\n",
+              arg1:  schedulePacket['field1'] ?? " ",
+              arg2:  schedulePacket['field2'] ?? " ",
+              arg3:  schedulePacket['field3'] ?? " ",
+              arg4:  schedulePacket['field4'] ?? " ",
+              arg5:  schedulePacket['field5'] ?? " ",
+              arg6:  schedulePacket['field6'] ?? " ",
+              arg7:  schedulePacket['field7'] ?? " ",
+              arg8:  schedulePacket['field8'] ?? " ",
+              arg9:  schedulePacket['field9'] ?? " ",
+              arg10: schedulePacket['field10'] ?? " ",
             },
           });
 

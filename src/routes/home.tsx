@@ -37,6 +37,8 @@ import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
 import { ReminderFullPayment } from "./reminder_full_payment";
 import PreferenceSelector from "@/components/lesson/PreferenceSelector";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -69,6 +71,7 @@ export default function Home() {
     isLoading: LessonIsLoading,
     error: LessonError,
   } = useUpcomingLesson();
+  const [showLessonDialog, setShowLessonDialog] = useState(false);
   // console.log("Schedule Requests", scheduleRequests);
   console.log("LessonData", LessonData);
   const { data: lessonSchedule } = useLessonSchedule({
@@ -368,10 +371,11 @@ export default function Home() {
                   onClick={async () =>
                     { console.log("Starting lesson", LessonData?.upcomingLesson?.number);
                       // await sleep(1000); // 1 second
-                      alert("Enter OTP to instructor " + LessonData?.upcomingSchedule?.otp);
+                      // alert("Enter OTP to instructor " + LessonData?.upcomingSchedule?.otp);
                       // navigate(
                       // `/startLesson/${LessonData?.upcomingLesson?.number}`,
-                    // )
+                      // )
+                      setShowLessonDialog(true);
                    }
                   }
                   className="w-full"
@@ -491,6 +495,11 @@ export default function Home() {
           Your reschedule request is being processed.
           </p>
           )} */}
+
+        {showLessonDialog && (
+          renderStartLessonDialog()
+        )
+        }
       </div>
     </div>
     );
@@ -589,6 +598,43 @@ export default function Home() {
       {renderLesson1ScheduleState()}
       </div>
     )
+  }
+
+
+
+
+  // Start lesson details
+  const handleStartLessonDetailsClose = () => {
+    setShowLessonDialog(false);
+  }
+  const renderStartLessonDialog = () => {
+    return (
+          <Dialog
+            open={showLessonDialog}
+            onOpenChange={setShowLessonDialog}
+          >
+            <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Start Lesson</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <h2 className="text-left text-lg font-medium col-span-4">
+                  Lesson {LessonData?.upcomingLesson?.number} - {LessonData?.course?.name}
+                  <br />
+                  Lesson OTP: {LessonData?.upcomingSchedule?.otp}
+                </h2>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleStartLessonDetailsClose} variant="secondary">
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+            
+          </Dialog>
+    );
   }
   return (
     <div className="flex min-h-screen flex-col">
