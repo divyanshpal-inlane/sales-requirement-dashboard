@@ -6,8 +6,13 @@ export const TRAFFIC_FLYOVER_LESSON_CONTENT: LessonContent = {
     description: "You will start getting the hang of balancing the pedals",
     image_path: "/assets/Traffic+Flyover-Lesson-1.png",
     menu: {
+      // trivia: {
+      //   title: "car command center",
+      //   icon: "🤖",
+      //   color: "bg-purple-400",
+      // },
       trivia: {
-        title: "car command center",
+        title: "You drove into a quiz",
         icon: "🤖",
         color: "bg-purple-400",
       },

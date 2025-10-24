@@ -49,7 +49,7 @@ export const TRAFFIC_PARKING_LESSON_CONTENT: LessonContent = {
           text: "Treat your car like your best buddy",
         },
       ],
-      title: "You will be good at Starting & Stopping the Car",
+      title: "You will start getting the hang of balancing the pedals",
       points: [
         {
           icon: "forward.svg",

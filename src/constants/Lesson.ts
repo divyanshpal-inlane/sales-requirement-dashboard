@@ -67,13 +67,18 @@ export const LESSON_CONTENT: LessonContent = {
           icon: "👨🏻‍💼",
           text: "Every pro driver has good control of the car - drive slowly ",
         },
+        { icon: "🚗", text: "Keep it chill, under 20 km/h" },
+          {
+            icon: "🚧",
+            text: "Distance - give obstacles some personal space",
+          },
       ],
       title: "You will be good at Starting & Stopping the Car",
       points: [
         {
           icon: "gears.svg",
           header: "Car Intro:",
-          desc: "Dash, gears, controls",
+          desc: "Dashboard, gears, controls",
         },
         {
           icon: "seat.svg",
@@ -83,14 +88,14 @@ export const LESSON_CONTENT: LessonContent = {
         {
           icon: "ignition.svg",
           header: "Start Up:",
-          desc: "Clutch, neutral, start button",
+          desc: "Clutch, neutral, turn the key",
         },
         {
           icon: "pedals.svg",
           header: "Move Forward:",
           desc: "Balance clutch & accelerator",
         },
-        { icon: "brakes.svg", header: "Stop Smoothly:", desc: "Brake, clutch" },
+        { icon: "brakes.svg", header: "Stop Smoothly:", desc: "Press brake and then clutch for quick stops" },
       ],
       game: {
         type: "image",
@@ -245,11 +250,6 @@ export const LESSON_CONTENT: LessonContent = {
           icon: "gears.svg",
           header: "Gearbox Magic:",
           desc: "Nail the clutch and shift gears smoothly",
-        },
-        {
-          icon: "seat.svg",
-          header: "Get Comfy:",
-          desc: "Adjust seat, mirrors, steering",
         },
         {
           icon: "steering.svg",
@@ -643,7 +643,7 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "8": {
     id: "8",
-    description: "Evening driving",
+    description: "City driving",
     image_path: "/assets/lesson-pic-8.png",
     menu: {
       trivia: {
@@ -653,7 +653,7 @@ export const LESSON_CONTENT: LessonContent = {
       },
       video: [
         {
-          title: "Car command center",
+          title: "Headlights & High Beams",
           icon: "🔥",
           color: "bg-[#00CE84]",
           video_path:
@@ -676,19 +676,24 @@ export const LESSON_CONTENT: LessonContent = {
 
       points: [
         {
-          icon: "traffic-light.svg",
-          header: "Evening Traffic Tamer:",
-          desc: "Maintain speeds and distances to handle evening traffic with ease",
+          icon: "speedometer.svg",
+          header: "Speed Sense:",
+          desc: "Judge and keep the right speed and distance",
         },
         {
           icon: "fog-lamp.svg",
-          header: "Using indicator at night:",
+          header: "Using indicators:",
           desc: "Communicate well with others",
         },
         {
+          icon: "slope.svg",
+          header: "Slope Savvy:",
+          desc: "Low gear more power & control",
+        },
+        {
           icon: "parking.svg",
-          header: "Night-time Parking Pro:",
-          desc: "Learn to park in dim light",
+          header: "Parking Pro:",
+          desc: "Practice makes perfect",
         },
       ],
       game: {
@@ -799,7 +804,7 @@ export const LESSON_CONTENT: LessonContent = {
   },
   "10": {
     id: "10",
-    description: "Mini challenges -  Test Prep",
+    description: "Mini challenges",
     image_path: "/assets/lesson-pic-10.png",
     menu: {
       signature: {
@@ -827,8 +832,8 @@ export const LESSON_CONTENT: LessonContent = {
       points: [
         {
           icon: "government.svg",
-          header: "RTO Rehearsal:",
-          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+          header: "Mini challenges:",
+          desc: "Practice on manoeuvres and brush and brush up your driving skills",
         },
         {
           icon: "calm.svg",
