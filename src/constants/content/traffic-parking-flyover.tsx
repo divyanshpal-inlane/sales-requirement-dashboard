@@ -695,7 +695,7 @@ export const TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
       title: "You will have an absolutely fun time doing the challenges",
       points: [
         {
-          icon: "government.svg",
+          icon: "ignition.svg",
           header: "Mini challenges:",
           desc: "Practice on manoeuvres and brush and brush up your driving skills",
         },

@@ -404,7 +404,7 @@ export const PARKING_FLYOVER_LESSON_CONTENT: LessonContent = {
 
       points: [
         {
-          icon: "flyover.svg",
+          icon: "flyover-bridge.svg",
           header: "Flyover Challenge:",
           desc: "Handle traffic stops, quick acceleration and safe overtakes",
         },

@@ -151,9 +151,9 @@ export const SLOPES_LESSON_CONTENT: LessonContent = {
           desc: "Smooth steering on bends Anticipate curves",
         },
         {
-          icon: "government.svg",
-          header: "RTO Rehearsal:",
-          desc: "Mini challenges to get test ready Focus on lane driving & parking",
+          icon: "ignition.svg",
+          header: "Mini challenges:",
+          desc: "Practice on manoeuvres and brush and brush up your driving skills",
         },
         {
           icon: "calm.svg",
