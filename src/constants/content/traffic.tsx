@@ -374,7 +374,7 @@ export const TRAFFIC_LESSON_CONTENT: LessonContent = {
           text: "Treat your car like your best buddy",
         },
       ],
-      title: "You will have an absolutely fun time driving",
+      title: "You will start believing in your driving skills",
       points: [
         {
           icon: "speedometer.svg",

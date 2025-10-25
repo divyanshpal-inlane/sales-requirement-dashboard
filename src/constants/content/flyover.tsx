@@ -152,6 +152,11 @@ export const FLYOVER_LESSON_CONTENT: LessonContent = {
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
         },
       ],
+      signature: {
+          title: "autograph please",
+          icon: "✍️",
+          color: "bg-[#00CE84]",
+        },
     },
     content: {
       remember: [
@@ -185,11 +190,6 @@ export const FLYOVER_LESSON_CONTENT: LessonContent = {
           icon: "mirror.svg",
           header: "Mirror & Signal Check:",
           desc: "Check mirrors, blind spots, and traffic flow before moving",
-        },
-        {
-          icon: "vlc.svg",
-          header: "Park and Exit:",
-          desc: "Right gear & safely open doors",
         },
         {
           icon: "overtake.svg",

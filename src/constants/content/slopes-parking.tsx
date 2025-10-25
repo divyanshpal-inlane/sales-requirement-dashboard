@@ -329,6 +329,11 @@ export const SLOPES_PARKING_LESSON_CONTENT: LessonContent = {
             "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
       ],
+      signature: {
+        title: "autograph please",
+        icon: "✍️",
+        color: "bg-[#00CE84]",
+      },
     },
     content: {
       remember: [
@@ -359,7 +364,7 @@ export const SLOPES_PARKING_LESSON_CONTENT: LessonContent = {
           desc: "Learn clean exits and quick adjustments to tackle any parking spot",
         },
         {
-          icon: "government.svg",
+          icon: "ignition.svg",
           header: "Mini Challenges:",
           desc: "Practice all manoeuvres and brush up your driving skills",
         },
