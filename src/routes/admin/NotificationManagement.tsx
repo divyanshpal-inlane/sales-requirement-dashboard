@@ -260,11 +260,13 @@ function LearnerNotificationCard() {
     for (let i = 0; i < maxFields; i++) {
       const sch = scheduleData[i];
       if (sch) {
-        const startTime = sch.start_time ?? "";
-        const learnerName = sch.Learner?.name ?? "";
-        const learnerPhone = sch.Learner?.phone ?? "";
-        const pickupLocation = sch.Learner?.pick_up_location ?? "";
-        schedulePacket[`field${i + 1}`] = `${startTime},${learnerName},${learnerPhone},${pickupLocation}`;
+        const startTime = sch.start_time ?? "NA";
+        const date = sch.date ?? "NA";
+        const learnerName = sch.Learner?.name ?? "NA";
+        const learnerPhone = sch.Learner?.phone ?? "NA";
+        const pickupLocation = sch.Learner?.pick_up_location ?? "NA";
+        const lessonNumber = sch.Lesson?.number ?? "NA";
+        schedulePacket[`field${i + 1}`] = `${date} | ${startTime} | ${learnerName}'s ${lessonNumber}th lesson with Lane | ${learnerPhone} | ${pickupLocation}`;
       } else {
         schedulePacket[`field${i + 1}`] = " ";
       }
@@ -492,8 +494,6 @@ function LearnerNotificationCard() {
       </CardContent>
     </Card>
 
-    // Reschedule window time dialog
-    
     <Dialog
       open={reschduleFinalTimeSetDialogOpen}
       onOpenChange={setReschduleFinalTimeSetDialogOpen}

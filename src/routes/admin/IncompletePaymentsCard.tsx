@@ -287,7 +287,7 @@ console.log("Called send email");
 
     // UseMutation hook for the delete operation
   const deleteLearnerMutation = useMutation({
-    mutationFn: async (learner_id) => {
+    mutationFn: async ({learner_id, phone}) => {
       // remove from auth before regular tables
       // call edge function as auth cannot be accessed from frontend
 
@@ -324,6 +324,20 @@ console.log("Called send email");
         throw new Error('Failed to delete the learner record.');
       }
       console.log("Deleted learner records for learner ", learner_id);
+      
+      // Optional: remove from Admin, should not be required if learner does not get added
+      // to Admin after signup
+      if (phone) {
+        const { error: adminDeleteerror } = await supabase
+        .from('Admin') 
+        .delete()
+        .eq('phone', phone);
+        if (adminDeleteerror) {
+          throw new Error('Failed to delete the Admin record.');
+        }
+        console.log("Deleted Admin records for learner ", phone);
+      }
+      
     },
     onSuccess: () => {
       toast ({
@@ -346,10 +360,10 @@ console.log("Called send email");
     
   };
   
-  const handleDeleteLearnerConfirm = async (learner_id: string) => {
-    console.log("Removing learner", learner_id);
+  const handleDeleteLearnerConfirm = async (learner_id: string, phone: string) => {
+    console.log("Removing learner", learner_id, phone);
     
-    if (!learner_id) {
+    if (!learner_id || !phone) {
       console.error("Learner ID cannot be empty.");
       return;
     }
@@ -361,7 +375,7 @@ console.log("Called send email");
     console.log("Confirm", learner_id, deleteLearnerRequests[learner_id] );
     setDeleteLearnerProcessingList({...deleteLearnerProcessingList, [learner_id]: true});
     
-    await deleteLearnerMutation.mutate(learner_id);
+    await deleteLearnerMutation.mutate({learner_id, phone}); // Note that mutationFn only accepts single arg
 
     setDeleteLearnerProcessingList({...deleteLearnerProcessingList, [learner_id]: false});
     setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
@@ -495,7 +509,7 @@ console.log("Called send email");
                             variant="outline"
                             size="sm"
                             // onClick={() => setShowDeleteDialog(true); enrollment.learner_id)}
-                            onClick= {() => handleDeleteLearnerConfirm(enrollment.learner_id)}
+                            onClick= {() => handleDeleteLearnerConfirm(enrollment.learner_id, enrollment.Learner.phone)}
                             disabled={deleteLearnerProcessingList[enrollment.learner_id]}
                             className="whitespace-nowrap"
                           >
