@@ -494,8 +494,6 @@ function LearnerNotificationCard() {
       </CardContent>
     </Card>
 
-    // Reschedule window time dialog
-    
     <Dialog
       open={reschduleFinalTimeSetDialogOpen}
       onOpenChange={setReschduleFinalTimeSetDialogOpen}
