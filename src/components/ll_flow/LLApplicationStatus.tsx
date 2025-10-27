@@ -44,17 +44,6 @@ export function LLApplicationStatus({
             Start Learning Module
           </Button>
         </CardContent>
-        <p className="mb-2 mt-auto text-center text-base">
-          Shared LL details?{" "}
-          <a
-            href="https://forms.gle/4Qe8ttAhBYHE7PDq8"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
-          >
-            Submit now
-          </a>
-        </p>
       </Card>
       {/* <p className="mt-auto mb-2 text-base text-center">
         Shared LL details?{" "}
