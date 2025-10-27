@@ -347,8 +347,14 @@ export default function CustomerInfo() {
   // rendeing helpers
   const getDueAmount = (learner) => {
     console.log("Calculating due amount for learner:", learner);
-    if (!learner || !learner.enrollement || !learner.enrollment.installment_mode
-    || !learner.enrollment.amount || !learner.enrollment.installment1_amount) {
+    if (
+      !learner ||
+      learner.enrollment == null ||
+      learner.enrollment.installment_mode == null ||
+      learner.enrollment.amount == null ||
+      learner.enrollment.installment1_amount == null
+    ) {
+      console.log("Insufficient data to calculate due amount.", learner?.enrollement);
       return "N/A";
     }
     if (learner.enrollment.installment_mode != "first_half") {
