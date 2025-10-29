@@ -44,6 +44,7 @@ export interface LearnerInfo {
   prefers_two_hour_classes?: boolean;
   preferred_two_hour_days?: string;
   pick_up_location?: string; // Added pickup address field
+  DL_test_date: string | null;
   comments?: string; // Added comments field
 }
 
@@ -773,7 +774,14 @@ export const LearnerInfoDialog = ({
               {learner.phone && (
                 <LearnerLLDisplay learnerPhone={learner.phone} />
               )}
-              {/* New Comments Section */}
+              {/* Test date Section */}
+                <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+                <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
+                  Final Test Date
+                </h3>
+              {learner.DL_test_date || "N/A"}
+                </div>
+              {/* Comments Section */}
               <CommentsEditor
                 initialValue={comments}
                 onSave={saveCommentsToDb}

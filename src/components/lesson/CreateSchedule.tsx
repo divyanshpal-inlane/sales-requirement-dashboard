@@ -738,6 +738,7 @@ export default function CreateScheduleWithInstructor({
         prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
         preferred_two_hour_days: learnerData.two_hour_days,
         pick_up_location: learnerData.pick_up_location,
+        DL_test_date: learnerData.DL_test_date,
       };
 
       console.log("T5 Learner passed", learnerInfo);

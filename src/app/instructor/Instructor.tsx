@@ -1449,7 +1449,9 @@ function Instructor() {
           {/* Rest of your existing TabsContent components remain the same... */}
           <TabsContent value="schedule" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
-              {instructorData?.instructorScheduleDay.map((schedule, index) => {
+              {instructorData?.instructorScheduleDay.length === 0
+              ? <div className="text-center text-gray-500"> No schedules today </div>
+              : instructorData?.instructorScheduleDay.map((schedule, index) => {
                 const learnerLessonPair = instructorData?.learnerLessonDay.find(
                   (ll) => ll.lesson.id === schedule.lesson_id,
                 );
@@ -1549,11 +1551,14 @@ function Instructor() {
                           </div>
                           {isOngoing && (
                             <Button
-                              onClick={() =>
-                                handleFinishLesson(
-                                  schedule.id.toString(),
-                                  learner.id,
-                                )
+                              onClick={() => {
+                                  alert("Lesson to be ended by customer");
+
+                                }
+                                // handleFinishLesson(
+                                //   schedule.id.toString(),
+                                //   learner.id,
+                                // )
                               }
                               size="sm"
                               variant="secondary"

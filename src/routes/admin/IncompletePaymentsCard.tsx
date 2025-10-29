@@ -139,15 +139,25 @@ export function IncompletePaymentsCard() {
 
   // Helper function to determine payment status
   const getPaymentStatus = (enrollment) => {
-    if (enrollment.payment_id === null) {
+    // console.log("Determining payment status for enrollment:", enrollment);
+    if (
+      enrollment.payment_id === null ||
+      enrollment.payment === null ||
+      enrollment.payment.status === null ||
+      enrollment.payment.status.toLowerCase().includes("pending")
+    ) {
+      return "Payment pending";
+    } else if (enrollment.payment_status === null) {
       return "Payment pending";
     } else if (
       enrollment.payment &&
-      enrollment.payment.status !== "completed"
+      !["full_paid", "half_paid"].includes(enrollment.payment.status)
     ) {
       return "Payment failed";
     }
-    return enrollment.payment_status || "Unknown";
+
+    // the enrollment status only contains full_paid, half_paid, etc.
+    return enrollment.payment_status;
   };
 
   // Helper function to determine payable amount

@@ -436,9 +436,9 @@ const LearnerDetails = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
                         DL test Pass/Fail
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      {/* <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
                         DL Issued ?
-                      </th>
+                      </th> */}
                   </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -632,7 +632,7 @@ const LearnerDetails = () => {
                               )
                             }
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4">
+                        {/* <td className="whitespace-nowrap px-6 py-4">
                           <button
                             onClick={() => { handleProcessFinish(learner);
                                             // resetSelectedLearnerState();
@@ -642,7 +642,7 @@ const LearnerDetails = () => {
                           >
                             Yes (Click here)
                           </button>
-                        </td>
+                        </td> */}
                     </tr>
                     ))}
                   </tbody>
