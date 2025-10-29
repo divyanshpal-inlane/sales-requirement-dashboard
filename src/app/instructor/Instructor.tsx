@@ -1549,8 +1549,10 @@ function Instructor() {
                           </div>
                           {isOngoing && (
                             <Button
-                              onClick={() =>
-                                alert("Lesson to be ended by customer");
+                              onClick={() => {
+                                  alert("Lesson to be ended by customer");
+
+                                }
                                 // handleFinishLesson(
                                 //   schedule.id.toString(),
                                 //   learner.id,

@@ -455,6 +455,7 @@ export default function CustomerInfo() {
                             prefers_two_hour_classes:
                               learner.prefers_two_hour_classes,
                             preferred_two_hour_days: learner.two_hour_days,
+                            DL_test_date: learner.DL_test_date,
                         }
                       )}
                     >
