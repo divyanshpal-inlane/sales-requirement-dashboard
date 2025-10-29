@@ -369,13 +369,24 @@ export default function Home() {
               <TooltipTrigger asChild>
                 <Button
                   onClick={async () =>
-                    { console.log("Starting lesson", LessonData?.upcomingLesson?.number);
+                    { console.log("Start/end lesson", LessonData?.upcomingLesson?.number);
                       // await sleep(1000); // 1 second
                       // alert("Enter OTP to instructor " + LessonData?.upcomingSchedule?.otp);
                       // navigate(
                       // `/startLesson/${LessonData?.upcomingLesson?.number}`,
                       // )
-                      setShowLessonDialog(true);
+                      if (LessonData?.upcomingSchedule?.status?.toUpperCase() === "ONGOING") {
+                        // await endLesson();
+                        if (!learner) console.log("learner empty");
+                        else {
+                          handleFinishLesson(
+                            LessonData.upcomingSchedule?.id.toString(),
+                            learner.id,
+                          );
+                        }
+                      } else {
+                        setShowLessonDialog(true);
+                      }
                    }
                   }
                   className="w-full"
@@ -390,7 +401,7 @@ export default function Home() {
                   }
                   >
                   {lessonSchedule?.status?.toUpperCase() === "ONGOING"
-                    ? "Lesson Started"
+                    ? "End lesson"
                     : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                     ? "Lesson Completed"
                         : !enabledLessonForInstallmentStatus(
@@ -636,6 +647,77 @@ export default function Home() {
           </Dialog>
     );
   }
+
+  // End lesson
+  // const endLesson = async (schedule) => {
+  //   console.log("Ending lesson", LessonData?.upcomingLesson?.number);
+  //   if (!schedule) {
+  //     console.log("Schedule empty");
+  //     return;
+  //   }
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from("Schedule")
+  //       .update({ status: "COMPLETED" })
+  //       .eq("id", schedule?.id)
+  //       .select()
+  //       .single();
+  //     if (error) {
+  //       throw error;
+  //     }
+  //   } catch (err) {
+  //     console.error("Unexpected error ending lesson:", err);
+  //   } finally {
+  //     console.log("Lesson end process done");
+  //     // window.location.reload();
+  //   }
+  // };
+  const handleFinishLesson = async (scheduleId: string, learnerId: string) => {
+    try {
+      await updateScheduleStatus.mutateAsync({
+        scheduleId,
+        status: "completed",
+      });
+
+      const { data: learnerSchedules, error: schedulesError } = await supabase
+        .from("Schedule")
+        .select("id, status")
+        .eq("learner_id", learnerId);
+
+      if (schedulesError) {
+        console.error("Error fetching learner schedules:", schedulesError);
+        return;
+      }
+
+      const totalLessons = learnerSchedules.length;
+      const completedLessons = learnerSchedules.filter(
+        (schedule) => schedule.status === "completed",
+      ).length;
+
+      if (totalLessons > 0 && completedLessons === totalLessons) {
+        const { data, error } = await supabase.functions.invoke(
+          "send-message",
+          {
+            body: {
+              message_type: "WEBAPP_LESSONS_DONE_REVIEW_PLEASE",
+              learner_id: learnerId,
+            },
+          },
+        );
+
+        if (error) {
+          console.error("Error sending review request message:", error);
+          return;
+        }
+      }
+
+      queryClient.invalidateQueries(["instructorSchedule"]);
+    } catch (error) {
+      console.error("Failed to update lesson status:", error);
+    }
+  };
+
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
