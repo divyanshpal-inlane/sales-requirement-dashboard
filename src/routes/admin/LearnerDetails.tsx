@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { SelectValue } from "@radix-ui/react-select";
 import { Dialog } from "@radix-ui/react-dialog";
 import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // Animated Search Bar Component
 const AnimatedSearchBar = ({ value, onChange, placeholder }) => {
@@ -82,10 +83,16 @@ const LearnerDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpenTestDate, setDialogOpenTestDate] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isBookedTestDateDialogOpen, setIsBookedTestDateDialogOpen] = useState(false);
   const [bookedTest, setBookedTest] = useState("");
+  const [selectedLearner, setSelectedLearner] = useState<LearnerInfo | null>(
+    null,
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+
 
   // Query for past LL approved applications
   const {
@@ -199,6 +206,17 @@ const LearnerDetails = () => {
       },
     });
 
+  const handleLearnerSelect = (learner: LearnerInfo) => {
+    setSelectedLearner(learner);
+    setDialogOpen(true);
+  };
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  };
   const handleSaveBookedTestDate = (learnerId: string) => {
     // console.log("learnerId", learnerId);
 
@@ -449,11 +467,45 @@ const LearnerDetails = () => {
                           index % 2 === 0 ? "bg-white" : "bg-gray-25"
                         }`}
                       >
-                        <td className="whitespace-nowrap px-6 py-4">
+                        <div
+                        key={learner.id}
+                        className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
+                        onClick={() => handleLearnerSelect(
+                          learner={
+                              id: learner.id || "",
+                              name: learner.name || "",
+                              phone: learner.phone || "",
+                              email: learner.email || "",
+                              area: learner.area || "",
+                              pick_up_location: learner.pick_up_location,
+                              pincode: learner.pincode,
+                              signed_up: learner.signed_up,
+                              created_at: learner.created_at,
+                              address_lat: learner.address_lat,
+                              address_lng: learner.address_lng,
+                              preferred_start_date:
+                                learner.preferred_start_date,
+                              preferred_completion_days:
+                                learner.preferred_completion_days,
+                              prefers_two_hour_classes:
+                                learner.prefers_two_hour_classes,
+                              preferred_two_hour_days: learner.two_hour_days,
+                              DL_test_date: learner.DL_test_date,
+                          }
+                        )}
+                      >
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                              {getInitials(learner.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {learner.name}
+                      </div>
+                        {/* <td className="whitespace-nowrap px-6 py-4">
                           <div className="font-medium text-gray-900">
                             {learner.name}
                           </div>
-                        </td>
+                        </td> */}
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="text-gray-700">{learner.phone}</div>
                         </td>
@@ -652,6 +704,14 @@ const LearnerDetails = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {selectedLearner && (
+        <LearnerInfoDialog
+          learner={selectedLearner}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
     </div>
   );
 };

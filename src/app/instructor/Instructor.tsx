@@ -1038,7 +1038,7 @@ function Instructor() {
                         },
                       );
 
-                      // Check for Google Calendar events
+                      // Check for Combined Calendar events
                       const calendarEvent = calendarEvents.find((event) => {
                         if (!event.start?.dateTime) return false;
 
@@ -1236,13 +1236,26 @@ function Instructor() {
 
                 <div
                   className={`relative flex-1 p-2 ${
+                    // CONDITION 1: Unavailable AND no schedules or Google events (The initial check is fine, but can be simplified)
                     isUnavailable &&
                     timeSlotSchedules.length === 0 &&
                     timeSlotGoogleEvents.length === 0
                       ? "bg-gray-400"
+                      : timeSlotSchedules.length > 0
+                      ? timeSlotSchedules[0].status === "completed"
+                        ? "bg-green-200 text-green-800"
+                        : timeSlotSchedules[0].status === "ongoing"
+                        ? "bg-blue-200 text-blue-800"
+                        : "bg-primary text-white"
+                      : timeSlotGoogleEvents.length > 0
+                      ? "bg-orange-200 text-orange-800"
+                      : isUnavailable
+                      ? "bg-gray-400 text-red-800"
+                      : isEmpty
+                      ? "cursor-pointer hover:bg-blue-50"
                       : ""
                   }`}
-                >
+>
                   {/* Instructor Schedules */}
                   {timeSlotSchedules.map((schedule, idx) => {
                     const learnerInfo = instructorData?.learnerLesson.find(
@@ -1283,16 +1296,36 @@ function Instructor() {
                       </div>
                     );
                   })}
-
+                  {/* Calendar Events */}
+                  {
+                    timeSlotGoogleEvents.length > 0 && (
+                      <>
+                        <div className="text-center font-semibold">
+                          {timeSlotGoogleEvents[0]?.summary}
+                        </div>
+                        <div className="text-center">
+                          {format(
+                            new Date(timeSlotGoogleEvents[0]?.start?.dateTime),
+                            "HH:mm",
+                          )}{" "}
+                          -{" "}
+                          {format(
+                            new Date(timeSlotGoogleEvents[0]?.end?.dateTime),
+                            "HH:mm",
+                          )}
+                        </div>
+                      </>
+                    )
+                  }
                   {/* Empty slot indicator */}
-                  {isEmpty && (
+                  {isEmpty ? (
                     <div className="flex h-full items-center justify-center text-gray-400">
                       <div className="flex items-center gap-2">
                         <Plus className="h-4 w-4" />
                         <span className="text-sm">Click to add event</span>
                       </div>
                     </div>
-                  )}
+                  ): ""}
                 </div>
               </div>
             );
@@ -1590,6 +1623,10 @@ function Instructor() {
 
           <TabsContent value="lesson" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
+              { !instructorData && (
+                <div className="text-center text-gray-500"> No lessons scheduled </div>
+                )
+              }
               {instructorData?.learnerLesson
                 .sort((a, b) => {
                   const lessonNumberA = a.lesson?.number || 0;

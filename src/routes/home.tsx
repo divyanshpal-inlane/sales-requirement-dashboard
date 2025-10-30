@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import React, { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import LLFlow from "@/components/ll_flow";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
@@ -39,6 +40,7 @@ import { ReminderFullPayment } from "./reminder_full_payment";
 import PreferenceSelector from "@/components/lesson/PreferenceSelector";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useUpdateScheduleStatus } from "@/queries/instructor";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -82,11 +84,11 @@ export default function Home() {
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
   });
-  const { mutate: updateLearner } = useLearnerUpdate();
+  const updateScheduleStatus = useUpdateScheduleStatus();
+  const queryClient = useQueryClient();
   // Maximum number of lessons to unlock before full upgrade
   const maxNumLessonsOnHalfInstallment = 1;
   const numWaiveredLessonUnlocked = 1;
-
   // console.log('scheduledLessons', scheduledLessons);
   // Fetch all payments for the learner
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
