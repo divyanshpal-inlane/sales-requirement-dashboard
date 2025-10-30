@@ -1590,6 +1590,10 @@ function Instructor() {
 
           <TabsContent value="lesson" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
+              { !instructorData && (
+                <div className="text-center text-gray-500"> No lessons scheduled </div>
+                )
+              }
               {instructorData?.learnerLesson
                 .sort((a, b) => {
                   const lessonNumberA = a.lesson?.number || 0;
