@@ -1354,7 +1354,7 @@ export default function AdminSchedules() {
                               request.Learner?.prefers_two_hour_classes,
                             preferred_two_hour_days:
                               request.Learner?.two_hour_days,
-                            DL_test_date: learner.DL_test_date,
+                            DL_test_date: request.Learner?.DL_test_date,
                           }}
                           compact={true}
                           onClick={(learner) => {
@@ -1436,7 +1436,7 @@ export default function AdminSchedules() {
                               request.Learner?.prefers_two_hour_classes,
                             preferred_two_hour_days:
                               request?.Learner?.two_hour_days,
-                            DL_test_date: learner.DL_test_date,
+                            DL_test_date: request.Learner?.DL_test_date,
                           }}
                           compact={true}
                           onClick={(learner) => {
