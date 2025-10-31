@@ -370,7 +370,7 @@ export default function ScheduleDetails() {
             <Input
               id="input2"
               type="text"
-              placeholder="500001"
+              placeholder="Select Address to get pin code"
               value={pinCode}
               onChange={(e) => setPinCode(e.target.value)}
             />
