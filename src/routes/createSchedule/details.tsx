@@ -85,6 +85,7 @@ export default function ScheduleDetails() {
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const places = useMapsLibrary("places");
 
+  const [areaSearchEnable, setAreaSearchEnable] = useState<boolean>(false);
   // Initialize Autocomplete when the component mounts
   useEffect(() => {
     if (!inputRef.current || !places || autocompleteRef.current) return;
@@ -177,6 +178,18 @@ export default function ScheduleDetails() {
       return;
     }
 
+    // The user might add a random string instead of selecting an address
+    if (address && (!addressLat || !addressLng)) {
+      toast({
+        title: "Pickup location required",
+        description: "Please select a valid address or the nearest landmark from the search bar",
+        variant: "destructive",
+      });
+      setAddress("");
+      setPinCode("");
+      return;
+    }
+
     try {
       // If we have a new custom area, save it to Supabase first
       if (newCustomArea) {
@@ -266,7 +279,7 @@ export default function ScheduleDetails() {
         <div className="w-full space-y-4">
           <div className="flex w-full flex-col gap-1">
             <Label htmlFor="areaSelect">Select Area</Label>
-            <Popover>
+            <Popover open={areaSearchEnable} onOpenChange={setAreaSearchEnable}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -311,6 +324,7 @@ export default function ScheduleDetails() {
                           onClick={() => {
                             setArea(area.name);
                             setAreaSearchQuery("");
+                            setAreaSearchEnable(false);
                           }}
                         >
                           <span>{area.name}</span>
@@ -358,7 +372,7 @@ export default function ScheduleDetails() {
             <Input
               id="input2"
               type="text"
-              placeholder="500001"
+              placeholder="Select Address to get pin code"
               value={pinCode}
               onChange={(e) => setPinCode(e.target.value)}
             />
