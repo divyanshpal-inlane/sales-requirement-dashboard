@@ -177,6 +177,18 @@ export default function ScheduleDetails() {
       return;
     }
 
+    // The user might add a random string instead of selecting an address
+    if (address && (!addressLat || !addressLng)) {
+      toast({
+        title: "Pickup location required",
+        description: "Please select a valid address or the nearest landmark from the search bar",
+        variant: "destructive",
+      });
+      setAddress("");
+      setPinCode("");
+      return;
+    }
+
     try {
       // If we have a new custom area, save it to Supabase first
       if (newCustomArea) {
