@@ -85,6 +85,7 @@ export default function ScheduleDetails() {
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const places = useMapsLibrary("places");
 
+  const [areaSearchEnable, setAreaSearchEnable] = useState<boolean>(false);
   // Initialize Autocomplete when the component mounts
   useEffect(() => {
     if (!inputRef.current || !places || autocompleteRef.current) return;
@@ -278,7 +279,7 @@ export default function ScheduleDetails() {
         <div className="w-full space-y-4">
           <div className="flex w-full flex-col gap-1">
             <Label htmlFor="areaSelect">Select Area</Label>
-            <Popover>
+            <Popover open={areaSearchEnable} onOpenChange={setAreaSearchEnable}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -323,6 +324,7 @@ export default function ScheduleDetails() {
                           onClick={() => {
                             setArea(area.name);
                             setAreaSearchQuery("");
+                            setAreaSearchEnable(false);
                           }}
                         >
                           <span>{area.name}</span>
