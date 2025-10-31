@@ -222,7 +222,10 @@ export default function CreateScheduleWithInstructor({
         .eq("id", learnerId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching learner details", err);
+        throw error;
+      }
       return data;
     },
   });
@@ -314,10 +317,15 @@ export default function CreateScheduleWithInstructor({
     const calculateDistances = async () => {
       if (
         !instructors ||
-        !learnerDetails ||
+        !learnerDetails
+      ) {
+        return;
+      }
+      if (
         !learnerDetails.address_lat ||
         !learnerDetails.address_lng
       ) {
+        console.error("Cannot find distance: Location details of the learner not found");
         return;
       }
 
