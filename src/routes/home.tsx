@@ -41,6 +41,7 @@ import PreferenceSelector from "@/components/lesson/PreferenceSelector";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useUpdateScheduleStatus } from "@/queries/instructor";
+import { toast } from "sonner";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -675,11 +676,25 @@ export default function Home() {
   //   }
   // };
   const handleFinishLesson = async (scheduleId: string, learnerId: string) => {
+    // alert("Ending lesson");
+    // toast({
+    //     title: 'Ending lesson',
+    //     description: 'Wait for a few seconds as the lesson ends',
+    //     variant: 'success',
+    // });
     try {
       await updateScheduleStatus.mutateAsync({
         scheduleId,
         status: "completed",
+        started_at: "",
+        ended_at: `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`
       });
+      alert("Success");
+      // toast({
+      //     title: 'Lesson Completed',
+      //     description: 'Lesson completed at ' + new Date().toLocaleString(),
+      //     variant: 'success',
+      // });
 
       const { data: learnerSchedules, error: schedulesError } = await supabase
         .from("Schedule")

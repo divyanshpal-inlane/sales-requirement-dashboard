@@ -318,13 +318,23 @@ export const useUpdateScheduleStatus = () => {
     mutationFn: async ({
       scheduleId,
       status,
+      started_at,
+      ended_at,
     }: {
       scheduleId: string;
       status: string;
+      started_at: string;
+      ended_at: string;
     }) => {
+      // Assuming it's required to update status AND either started_at OR ended_at
+    const updatePayload = {
+        status,
+        ...(started_at && { started_at }), // Include started_at if it exists
+        ...(started_at ? { ended_at: null } : (ended_at && { ended_at })),     // Include ended_at if it exists
+    };
       const { data, error } = await supabase
         .from("Schedule")
-        .update({ status })
+        .update( updatePayload)
         .eq("id", scheduleId)
         .select()
         .single();
