@@ -1,5 +1,5 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { addDays, isAfter, isBefore, subDays } from "date-fns";
+import { addDays, formatDuration, intervalToDuration, isAfter, isBefore, set, subDays } from "date-fns";
 import {
   ArrowRight,
   BookOpen,
@@ -74,9 +74,11 @@ export default function Home() {
     isLoading: LessonIsLoading,
     error: LessonError,
   } = useUpcomingLesson();
-  const [showLessonDialog, setShowLessonDialog] = useState(false);
   // console.log("Schedule Requests", scheduleRequests);
-  console.log("LessonData", LessonData);
+  // console.log("LessonData", LessonData);
+  const [showLessonDialog, setShowLessonDialog] = useState(false);
+  const [showEndLessonDialog, setShowEndLessonDialog] = useState(false);
+const [isFinishingLesson, setIsFinishingLesson] = useState(false);
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
@@ -85,7 +87,7 @@ export default function Home() {
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
   });
-  const updateScheduleStatus = useUpdateScheduleStatus();
+  const {mutateAsync: updateScheduleStatusAsync, isPending: isUpdateScheduleLoading} = useUpdateScheduleStatus();
   const queryClient = useQueryClient();
   // Maximum number of lessons to unlock before full upgrade
   const maxNumLessonsOnHalfInstallment = 1;
@@ -379,15 +381,14 @@ export default function Home() {
                       // `/startLesson/${LessonData?.upcomingLesson?.number}`,
                       // )
                       if (LessonData?.upcomingSchedule?.status?.toUpperCase() === "ONGOING") {
+                        // end lesson
                         // await endLesson();
                         if (!learner) console.log("learner empty");
                         else {
-                          handleFinishLesson(
-                            LessonData.upcomingSchedule?.id.toString(),
-                            learner.id,
-                          );
+                          setShowEndLessonDialog(true);
                         }
-                      } else {
+                      } else if (LessonData?.upcomingSchedule?.status?.toUpperCase() === "BOOKED") {
+                        // Start lesson
                         setShowLessonDialog(true);
                       }
                    }
@@ -401,9 +402,11 @@ export default function Home() {
                       || !enabledLessonForInstallmentStatus(
                         LessonData?.upcomingLesson?.number,
                       )
+                      || isFinishingLesson
                   }
                   >
-                  {lessonSchedule?.status?.toUpperCase() === "ONGOING"
+                  { isFinishingLesson ? "Wait for end lesson" :
+                  lessonSchedule?.status?.toUpperCase() === "ONGOING"
                     ? "End lesson"
                     : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                     ? "Lesson Completed"
@@ -512,6 +515,11 @@ export default function Home() {
 
         {showLessonDialog && (
           renderStartLessonDialog()
+        )
+        }
+        {
+          showEndLessonDialog && (
+          renderEndLessonDialog()
         )
         }
       </div>
@@ -651,6 +659,87 @@ export default function Home() {
     );
   }
 
+  const handleEndLessonDetailsSave = async (scheduleId: string, learnerId: string) => {
+    // console.log("Ending lesson for scheduleId:", scheduleId, "learnerId:", learnerId);
+    await handleFinishLesson(scheduleId, learnerId);
+  }
+  const handleEndLessonDetailsClose = () => {
+    setShowEndLessonDialog(false);
+  }
+  const renderEndLessonDialog = () => {
+    return (
+          <Dialog
+            open={showEndLessonDialog}
+            onOpenChange={setShowEndLessonDialog}
+          >
+            <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>End Lesson</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <h2 className="text-left text-lg font-medium col-span-4">
+                  Lesson {LessonData?.upcomingLesson?.number} - {LessonData?.course?.name}
+                  <br />
+                  {/* Duration: {
+                    LessonData?.upcomingSchedule?.started_at 
+                      ? new Date(LessonData.upcomingSchedule.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+                      : 'N/A'
+                  } to {
+                    new Date(Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+                  } */}
+                {false && LessonData?.upcomingSchedule?.started_at && (() => {
+                    // Create a NEW Date object from the actual start time
+                    const actualStartTime = new Date(LessonData.upcomingSchedule.started_at);
+                    const actualEndTime = new Date(Date.now());
+                    
+                    // --- LIVE USAGE (Uncomment the lines below when not testing) ---
+                    const startTime = actualStartTime;
+                    const endTime = actualEndTime;
+
+                    const duration = intervalToDuration({
+                        start: startTime.getTime(),
+                        end: endTime.getTime()
+                    });
+                    
+                    if (!duration) return ('N/A');
+                    // Check if duration is null OR if all components are zero
+                    const isSecondsDuration = 
+                        duration && 
+                        ((!duration.hours) && (!duration.minutes));
+                    return isSecondsDuration
+                        ? ` (Less than 1 min)` 
+                        : ` (${formatDuration(duration, { format: ['hours', 'minutes'] })})`;
+                  })()}
+                  <br />
+                  Confirm end lesson?
+                  <br />
+                  {/* Lesson OTP: {LessonData?.upcomingSchedule?.otp} */}
+                </h2>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={async () => {
+                await handleEndLessonDetailsSave(
+                  LessonData.upcomingSchedule?.id.toString(),
+                  learner.id);
+                  setShowEndLessonDialog(false);
+                  toast.success("Lesson ended successfully");
+                }}
+               variant="secondary"
+               disabled={isFinishingLesson}>
+                { isFinishingLesson ? "Ending lesson..." : "Confirm" }
+              </Button>
+              <Button onClick={handleEndLessonDetailsClose} variant="secondary">
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+            
+          </Dialog>
+    );
+  }
+
   // End lesson
   // const endLesson = async (schedule) => {
   //   console.log("Ending lesson", LessonData?.upcomingLesson?.number);
@@ -676,25 +765,14 @@ export default function Home() {
   //   }
   // };
   const handleFinishLesson = async (scheduleId: string, learnerId: string) => {
-    // alert("Ending lesson");
-    // toast({
-    //     title: 'Ending lesson',
-    //     description: 'Wait for a few seconds as the lesson ends',
-    //     variant: 'success',
-    // });
+    setIsFinishingLesson(true);
     try {
-      await updateScheduleStatus.mutateAsync({
+      await updateScheduleStatusAsync({
         scheduleId,
         status: "completed",
         started_at: "",
         ended_at: `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`
       });
-      alert("Success");
-      // toast({
-      //     title: 'Lesson Completed',
-      //     description: 'Lesson completed at ' + new Date().toLocaleString(),
-      //     variant: 'success',
-      // });
 
       const { data: learnerSchedules, error: schedulesError } = await supabase
         .from("Schedule")
@@ -732,6 +810,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to update lesson status:", error);
     }
+    setIsFinishingLesson(false);
   };
 
 
