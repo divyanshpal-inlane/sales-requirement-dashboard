@@ -17,21 +17,21 @@ export const TRAFFIC_LESSON_CONTENT: LessonContent = {
           icon: "⏰",
           color: "bg-[#6257FF]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/2-1.mp4",
         },
         {
           title: "slay slopes like a pro",
           icon: "⏰",
           color: "bg-[#D9FF7A]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
         {
           title: "Turn Like a Champ!",
           icon: "↩️",
           color: "bg-[#00CE84]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-2.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/3-2.mp4",
         },
       ],
     },
@@ -118,14 +118,14 @@ export const TRAFFIC_LESSON_CONTENT: LessonContent = {
           icon: "🛑",
           color: "bg-[#6257FF]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/5.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/5.mp4",
         },
         {
           title: "clueless about gears",
           icon: "🤔",
           color: "bg-[#00CE84]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/3-1.mp4",
         },
       ],
     },
@@ -232,21 +232,21 @@ export const TRAFFIC_LESSON_CONTENT: LessonContent = {
           icon: "📷",
           color: "bg-yellow-500",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-1.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/7-1.mp4",
         },
         {
           title: "Crossroad control",
           icon: "🚦",
           color: "bg-orange-500",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/7-2.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/7-2.mp4",
         },
         {
           title: "signal, check, then move!",
           icon: "🛣️",
           color: "bg-[#D9FF7A]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/6.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/6.mp4",
         },
       ],
     },
@@ -352,14 +352,14 @@ export const TRAFFIC_LESSON_CONTENT: LessonContent = {
           icon: "👀",
           color: "bg-indigo-500",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/9.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/9.mp4",
         },
         {
           title: "view & light the night",
           icon: "🔥",
           color: "bg-indigo-500",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/8.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/8.mp4",
         },
       ],
     },

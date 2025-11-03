@@ -17,14 +17,14 @@ export const SLOPES_LESSON_CONTENT: LessonContent = {
           icon: "⏰",
           color: "bg-[#6257FF]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-1.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/2-1.mp4",
         },
         {
           title: "slay slopes like a pro",
           icon: "⏰",
           color: "bg-[#D9FF7A]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
       ],
     },
@@ -111,14 +111,14 @@ export const SLOPES_LESSON_CONTENT: LessonContent = {
           icon: "⚙️",
           color: "bg-[#D9FF7A]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/3-1.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/3-1.mp4",
         },
         {
           title: "slay slopes like a pro",
           icon: "⏰",
           color: "bg-[#D9FF7A]",
           video_path:
-            "https://inlane-lesson-videos.s3.ap-south-1.amazonaws.com/2-2.mp4",
+            "https://inlane-lesson-content.s3.ap-south-1.amazonaws.com/2-2.mp4",
         },
       ],
     },
