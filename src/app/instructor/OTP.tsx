@@ -83,6 +83,8 @@ const OTPVerification = () => {
         {
           scheduleId,
           status: "ongoing",
+          started_at: `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`,
+          ended_at: "",
         },
         {
           onSuccess: () => {

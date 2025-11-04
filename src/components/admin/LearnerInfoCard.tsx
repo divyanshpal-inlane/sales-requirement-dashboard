@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, formatDuration, intervalToDuration } from "date-fns";
 import {
   BookOpen,
   Calendar,
@@ -27,6 +27,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { TIME_SLOT_LABELS } from "@/types/schedule";
+import { Schedule } from "@/queries/learner";
 
 export interface LearnerInfo {
   id: string;
@@ -65,6 +66,8 @@ interface LearnerSchedule {
   instructor_name?: string;
   lesson_number?: number;
   course_name?: string;
+  started_at?: string;
+  ended_at?: string;
 }
 
 interface CourseInfo {
@@ -197,7 +200,9 @@ export const LearnerInfoDialog = ({
             instructor_id, 
             lesson_id, 
             course_id,
-            status
+            status,
+            started_at,
+            ended_at
           `,
           )
           .eq("learner_id", learner.id)
@@ -449,6 +454,49 @@ export const LearnerInfoDialog = ({
     {} as Record<number, string[]>,
   );
 
+
+const getScheduleDuration = (schedule: LearnerSchedule) => {
+    if (!schedule || !schedule.started_at || !schedule.ended_at) {
+      console.error(schedule, schedule?.started_at, schedule?.ended_at);
+      return "Duration N/A";
+    }
+    
+    // 1. Parse the timestamp strings into Date objects
+    const startTime = new Date(schedule.started_at);
+    const endTime = new Date(schedule.ended_at);
+
+    // 2. Calculate the duration between the two Date objects
+    const duration = intervalToDuration({
+        start: startTime,
+        end: endTime
+    });
+
+    // Handle cases where the duration is 0 or contains only seconds (less than a minute)
+    const isLessThanOneMinute = 
+        !duration.hours && 
+        !duration.minutes && 
+        duration.seconds > 0;
+
+    // Check for true zero duration (no time elapsed)
+    const isZeroDuration = 
+        !duration.hours && 
+        !duration.minutes && 
+        !duration.seconds;
+
+    if (isZeroDuration) {
+        return "0 min";
+    }
+
+    if (isLessThanOneMinute) {
+        return "< 1 min";
+    }
+
+    // 3. Format the duration to display only hours and minutes
+    // We use a custom format to ensure only hours and minutes are displayed.
+    return formatDuration(duration, { 
+        format: ['hours', 'minutes'] 
+    });
+}
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-4xl">
@@ -637,6 +685,25 @@ export const LearnerInfoDialog = ({
                                 Lesson {schedule.lesson_number} -{" "}
                               </h4>
                               {getStatusBadge(schedule.status || "booked")}
+                              {schedule.status === "completed" && (
+                                <span className="ml-2 text-sm text-gray-600">
+                                  [
+                                  {
+                                    schedule?.started_at 
+                                    ? format(new Date(schedule.started_at), "hh:mm")
+                                    : "N/A"
+                                  }
+                                  &nbsp; - &nbsp;
+                                  {
+                                    schedule?.ended_at 
+                                    ? format(new Date(schedule.ended_at), "hh:mm")
+                                    : "N/A"
+                                  } 
+                                  ]
+                                  &nbsp; - &nbsp;
+                                  [{getScheduleDuration(schedule)}] &nbsp;
+                                </span>
+                              )}
                             </div>
                             <p className="mt-1 text-sm">
                               <span className="font-medium">
