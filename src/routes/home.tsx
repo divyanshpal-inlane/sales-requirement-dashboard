@@ -929,7 +929,10 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                       </div>
                     ) : (
                       <div className="mt-24 text-center text-xl">
-                        Your LL was issued on {learner.LL_received_date}. 
+                        {learner?.LL_received_date 
+                          ? `Your LL was issued on ${learner.LL_received_date}.\n`
+                          : ""
+                    }
                         You can apply for the Driver licence test after 30 days
                         of LL date. 
                         {!learner.DL_test_date
