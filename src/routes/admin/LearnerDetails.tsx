@@ -310,7 +310,7 @@ const LearnerDetails = () => {
       onSuccess: async () => {
         toast({
           title: "Success",
-            description: "Test information updated.",
+            description: "Driving test information updated.",
         });
       },
     },
