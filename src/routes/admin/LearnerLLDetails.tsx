@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Badge, Search } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,6 +17,7 @@ import {
 } from "@/components/admin/LearnerInfoCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -423,10 +424,18 @@ const LearnerLLDetails = () => {
                       <div className="font-semibold text-gray-900">
                         {learner.name}
                       </div>
-                      {learner.address_change_required && (
-                        <div className="font-semibold text-red-400">
-                          Address change required
-                        </div>
+                      {!learner.is_LL_form_filled && (
+                        <Badge className="bg-orange-500 text-white text-xs">
+                          LLForm
+                        </Badge>
+                        // <div className="font-semibold text-xs text-orange-400">
+                        // Form not filled
+                        // </div>
+                      )}
+                      {!learner.address_change_required && (
+                        <Badge className="bg-red-800 text-white text-xs">
+                          Address change
+                        </Badge>
                       )}
                     </div>
                     <div className="mt-1 text-sm text-gray-600">
