@@ -701,9 +701,17 @@ const LearnerDetails = () => {
                                             // resetSelectedLearnerState();
                                            } 
                                     }
-                            className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            className={
+                                learner.has_postLL_done
+                                    ? "inline-flex items-center rounded-full bg-gray-400 px-3 py-1 text-sm font-medium text-white shadow cursor-not-allowed"
+                                    : "inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            }
+                                    disabled={learner.has_a_DL}
                           >
-                            Yes (Click here)
+                            {(learner?.has_a_DL && learner?.has_postLL_done )
+                            ? "Done"
+                            : "Yes (Click here)"
+                          }
                           </button>
                         </td>
                     </tr>
