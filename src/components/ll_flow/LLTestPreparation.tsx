@@ -170,7 +170,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               </li>
               <li>
                 <a
-                  href="https://drive.google.com/file/d/1fyF6GPko_hmazMHI6pBb-nvMu19BbvQE/view"
+                  href="https://drive.google.com/file/d/1xEe3DeV0utJhl5k4fxW_zYtSXImQkLBs/view"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="break-words text-blue-600 hover:underline"
