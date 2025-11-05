@@ -725,6 +725,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                   learner.id);
                   setShowEndLessonDialog(false);
                   toast.success("Lesson ended successfully");
+                  window.location.reload();
                 }}
                variant="secondary"
                disabled={isFinishingLesson}>
