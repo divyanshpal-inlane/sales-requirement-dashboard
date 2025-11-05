@@ -104,7 +104,7 @@ const LearnerDetails = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Learner")
-        .select("*")
+        .select("*, schedule_preferences!left(learner_id)")
         .eq("has_a_DL", false)
         .is("LL_result", true)
         .is("LL_application_approved", true)
@@ -310,7 +310,7 @@ const LearnerDetails = () => {
       onSuccess: async () => {
         toast({
           title: "Success",
-            description: "Test information updated.",
+            description: "Driving test information updated.",
         });
       },
     },
@@ -420,170 +420,195 @@ const LearnerDetails = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b bg-gray-50">
-                    <tr>
-
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        Name
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        Mobile
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        LL Application ID
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        LL licence number
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        Date of LL issued    
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        Start day of DL test (after 30 days from LL)
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        Booked Test date
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        10th lesson booking start (before 7 days of test)
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        10th lesson booked ?
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        DL test Pass/Fail
-                      </th>
-                      {/* <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                        DL Issued ?
-                      </th> */}
+              <table className="w-full">
+                <thead className="border-b bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      Name
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      Mobile
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      LL Application ID
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      LL licence number
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      Schedule Preferences given ?
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      Date of LL issued
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      Start day of DL test (after 30 days from LL)
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      Booked Test date
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      10th lesson booking start (before 7 days of test)
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      10th lesson booked ?
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                      DL test Pass/Fail
+                    </th>
                   </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {filteredPastApplications?.map((learner, index) => (
-                      <tr
-                        key={learner.id}
-                        className={`transition-colors duration-150 hover:bg-gray-50 ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-25"
-                        }`}
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {filteredPastApplications?.map((learner, index) => (
+                    <tr
+                      key={learner.id}
+                      className={`transition-colors duration-150 hover:bg-gray-50 ${
+                        index % 2 === 0 ? "bg-white" : "bg-gray-25"
+                      }`}
+                    >
+                      {/* 🛠️ FIX APPLIED HERE: The entire clickable section is now inside a <td> */}
+                      <td
+                        className="whitespace-nowrap px-6 py-4 cursor-pointer" 
+                        onClick={() => handleLearnerSelect({
+                          id: learner.id || "",
+                          name: learner.name || "",
+                          phone: learner.phone || "",
+                          email: learner.email || "",
+                          area: learner.area || "",
+                          pick_up_location: learner.pick_up_location,
+                          pincode: learner.pincode,
+                          signed_up: learner.signed_up,
+                          created_at: learner.created_at,
+                          address_lat: learner.address_lat,
+                          address_lng: learner.address_lng,
+                          preferred_start_date: learner.preferred_start_date,
+                          preferred_completion_days: learner.preferred_completion_days,
+                          prefers_two_hour_classes: learner.prefers_two_hour_classes,
+                          preferred_two_hour_days: learner.two_hour_days,
+                          DL_test_date: learner.DL_test_date,
+                        })}
                       >
-                        <div
-                        key={learner.id}
-                        className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
-                        onClick={() => handleLearnerSelect(
-                          learner={
-                              id: learner.id || "",
-                              name: learner.name || "",
-                              phone: learner.phone || "",
-                              email: learner.email || "",
-                              area: learner.area || "",
-                              pick_up_location: learner.pick_up_location,
-                              pincode: learner.pincode,
-                              signed_up: learner.signed_up,
-                              created_at: learner.created_at,
-                              address_lat: learner.address_lat,
-                              address_lng: learner.address_lng,
-                              preferred_start_date:
-                                learner.preferred_start_date,
-                              preferred_completion_days:
-                                learner.preferred_completion_days,
-                              prefers_two_hour_classes:
-                                learner.prefers_two_hour_classes,
-                              preferred_two_hour_days: learner.two_hour_days,
-                              DL_test_date: learner.DL_test_date,
-                          }
-                        )}
-                      >
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback className="bg-primary/10 text-primary">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className="bg-primary/10 text-primary">
                               {getInitials(learner.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        {learner.name}
-                      </div>
-                        {/* <td className="whitespace-nowrap px-6 py-4">
-                          <div className="font-medium text-gray-900">
-                            {learner.name}
-                          </div>
-                        </td> */}
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className="text-gray-700">{learner.phone}</div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                            {learner.LL_application_id || "N/A"}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            learner.LL_id ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {learner.LL_id || "N/A"}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {learner.LL_received_date || "N/A"}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {learner.LL_received_date
-                              ? format(addDays(new Date(learner.LL_received_date), 30), 'yyyy-MM-dd')
-                              : "N/A"
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="font-medium text-gray-900">{learner.name}</div>
+                        </div>
+                      </td>
+                      {/* End of Name/Avatar cell */}
+
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className="text-gray-700">{learner.phone}</div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                          {learner.LL_application_id || "N/A"}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          learner.LL_id ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {learner.LL_id || "N/A"}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        {
+                                                      <div
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+                            ${
+                              learner?.schedule_preferences?.length > 0
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
                             }
-                          </div>
-                        </td>
+                          `}
+                        >
+                          {learner?.schedule_preferences?.length > 0
+                            ? "Yes"
+                            : "No" }
+                        </div>
+                        }
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {learner.LL_received_date || "N/A"}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {learner.LL_received_date
+                            ? format(addDays(new Date(learner.LL_received_date), 30), 'yyyy-MM-dd')
+                            : "N/A"
+                          }
+                        </div>
+                      </td>
+                      
+                      {/* Schedule Preferences cell (fixed from your previous query) */}
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+                            ${
+                              learner?.schedule_preferences?.length > 0
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }
+                          `}
+                        >
+                          {learner?.schedule_preferences?.length > 0
+                            ? "Yes"
+                            : "No"
+                          }
+                        </div>
+                      </td>
 
-
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            learner.DL_test_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {learner.DL_test_date ? learner.DL_test_date : "N/A"}
-                          </div>
-                          <div className="mt-2">
-                            <button
-                              onClick={() => setIsBookedTestDateDialogOpen(true)}
-                              className="text-indigo-600 hover:text-indigo-900 text-sm font-medium focus:outline-none"
-                              title="Update Test Date"
-                            >
-                              {learner.DL_test_date ? "Change test date" : "Add test date"}
-                            </button>
-                          </div>
-
-                          <Dialog
-                            open={isBookedTestDateDialogOpen}
-                            onOpenChange={setIsBookedTestDateDialogOpen}
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          learner.DL_test_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {learner.DL_test_date ? learner.DL_test_date : "N/A"}
+                        </div>
+                        <div className="mt-2">
+                          <button
+                            onClick={() => setIsBookedTestDateDialogOpen(true)}
+                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium focus:outline-none"
+                            title="Update Test Date"
                           >
-                            <DialogContent className="sm:max-w-[425px]">
+                            {learner.DL_test_date ? "Change test date" : "Add test date"}
+                          </button>
+                        </div>
+                        {/* Dialog components remain valid here */}
+                        <Dialog
+                          open={isBookedTestDateDialogOpen}
+                          onOpenChange={setIsBookedTestDateDialogOpen}
+                        >
+                          <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
                               <DialogTitle>Enter Booked test date</DialogTitle>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                               <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label
-                                    htmlFor="app-booked_test"
-                                    className="text-right"
-                                  >
+                                <Label
+                                  htmlFor="app-booked_test"
+                                  className="text-right"
+                                >
                                   Test Date
                                 </Label>
-                              <Input
-                                id="booked_test-date"
-                                type="date"
-                                // value={formatDateForInput(tentativeScheduleCopy.date)}
-                                value={bookedTest|| ''}
-                                onChange={(e) => {
-                                  setBookedTest(e.target.value);
-                                }}
-                                disabled={updateLearnerPostLLMutation.isPending}
-                                className="col-span-3"
-
-                              />
+                                <Input
+                                  id="booked_test-date"
+                                  type="date"
+                                  value={bookedTest|| ''}
+                                  onChange={(e) => {
+                                    setBookedTest(e.target.value);
+                                  }}
+                                  disabled={updateLearnerPostLLMutation.isPending}
+                                  className="col-span-3"
+                                />
                               </div>
                             </div>
                             <DialogFooter>
@@ -593,112 +618,82 @@ const LearnerDetails = () => {
                               <Button onClick={() => handleSaveBookedTestDate(learner.id)}>Save</Button>
                             </DialogFooter>
                           </DialogContent>
-                            
-                          </Dialog>
+                        </Dialog>
+                      </td>
 
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          calculateLesson10Start(learner) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {calculateLesson10Start(learner) || "N/A" }
+                        </div>
 
-
-
-                            {/* {isBookedTestDateDialogOpen && (
-                            <BookedTestDateInputDialog
-                              learnerId={learner.id}
-                              currentTestDate={learner.DL_test_date}
-                              onClose={() => setIsBookedTestDateDialogOpen(false)}
-                              // onSave={handleSaveBookedTestDate}
-                            />
-                          )} */}
-                        </td>
-
-
-
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            calculateLesson10Start(learner) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"  
-                          }`}>
-                            {calculateLesson10Start(learner) || "N/A" }
-                          </div>
-
-                          {!isLesson10ButtonDisabled(learner) && (
-                            <button
-                            onClick={() => { handleLesson10Click(learner);
-                                           } 
-                                    }       
-                            className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"        
+                        {!isLesson10ButtonDisabled(learner) && (
+                          <button
+                          onClick={() => { handleLesson10Click(learner);}}
+                          className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                           >
                             Send notification
-                          </button>                            
-                          )}
-                        </td>
-
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            learner.has_lesson10_booked === true
-                              ? "bg-green-100 text-green-800"
-                              : learner.has_lesson10_booked === false
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {learner.has_lesson10_booked === true
-                              ? "Yes"
-                              : learner.has_lesson10_booked === false
-                              ? "No"
-                              : "N/A"
-                            }
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            learner.DL_result === true
-                              ? "bg-green-100 text-green-800"
-                              : learner.DL_result === false
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {learner.DL_result === true
-                              ? "PASS"
-                              : learner.DL_result === false
-                              ? "FAIL"
-                              : "N/A"
-                            }
-                          </div>
-                            {
-                              !learner.DL_result && (
-                                <button
-                                 onClick={() => { handleTestPass(learner, true);} }
-
-                                 className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                                >
-                                  Yes
-                                </button>
-                              )
-                            }
-                           {
-                              (!(learner.DL_result && learner.DL_result===false)) && (
-                                <button
-                                 onClick={() => { handleTestPass(learner, false);} }
-
-                                 className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                                >
-                                  No
-                                </button>
-                              )
-                            }
-                        </td>
-                        {/* <td className="whitespace-nowrap px-6 py-4">
-                          <button
-                            onClick={() => { handleProcessFinish(learner);
-                                            // resetSelectedLearnerState();
-                                           } 
-                                    }
-                            className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                          >
-                            Yes (Click here)
                           </button>
-                        </td> */}
+                        )}
+                      </td>
+
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          learner.has_lesson10_booked === true
+                            ? "bg-green-100 text-green-800"
+                            : learner.has_lesson10_booked === false
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {learner.has_lesson10_booked === true
+                            ? "Yes"
+                            : learner.has_lesson10_booked === false
+                            ? "No"
+                            : "N/A"
+                          }
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                          learner.DL_result === true
+                            ? "bg-green-100 text-green-800"
+                            : learner.DL_result === false
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {learner.DL_result === true
+                            ? "PASS"
+                            : learner.DL_result === false
+                            ? "FAIL"
+                            : "N/A"
+                          }
+                        </div>
+                          {
+                            !learner.DL_result && (
+                              <button
+                              onClick={() => { handleTestPass(learner, true);} }
+                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                              >
+                                Yes
+                              </button>
+                            )
+                          }
+                        {
+                            (!(learner.DL_result && learner.DL_result===false)) && (
+                              <button
+                              onClick={() => { handleTestPass(learner, false);} }
+                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                              >
+                                No
+                              </button>
+                            )
+                          }
+                      </td>
                     </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  ))}
+                </tbody>
+              </table>
               </div>
             )}
           </CardContent>
