@@ -459,69 +459,119 @@ export default function CustomerInfo() {
                         }
                       )}
                     >
-                      <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4">
                         <Avatar className="h-12 w-12">
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {getInitials(learner.name)}
-                          </AvatarFallback>
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                                {getInitials(learner.name)}
+                            </AvatarFallback>
                         </Avatar>
-                        <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-3">
-                          <div>
-                            <h3 className="text-lg font-medium">
-                              {learner.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {learner.area || "No area specified"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm">
-                              <span className="font-medium">Phone:</span>{" "}
-                              {learner.phone}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Email:</span>{" "}
-                              {learner.email || "N/A"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm">
-                              <span className="font-medium">Installment mode</span>{" "}
-                              {learner.enrollment?.installment_mode || "N/A"}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Total amount:</span>{" "}
-                              {learner.enrollment?.amount || "N/A"}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Due amount:</span>{" "}
-                              {getDueAmount(learner)}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Payment status:</span>{" "}
-                              {learner.enrollment?.payment_status || "N/A"}
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Due since:</span>{" "}
-                              {
-                                (
-                                  learner.schedule?.date && learner.schedule.end_time
-                                    ? `${learner.schedule.date} ${learner.schedule.end_time.split(':').slice(0, 2).join(':')}`
-                                    : ''
-                                ).trim() || 'N/A'
-                              }
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">
-                              Added{" "}
-                              {getTimeAgo(
-                                learner.created_at || learner.signed_up,
-                              )}
-                            </p>
-                          </div>
+                        <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-4">
+                            {/* Column 1: Learner Contact Info (Name, Email, Phone, Area) */}
+                            <div>
+                                <h3 className="text-lg font-medium">
+                                    {learner.name}
+                                </h3>
+                                <p className="text-sm">
+                                    <span className="font-medium">Email:</span>{" "}
+                                    {learner.email || "N/A"}
+                                </p>
+                                <p className="text-sm">
+                                    <span className="font-medium">Phone:</span>{" "}
+                                    {learner.phone}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {learner.area || "No area specified"}
+                                </p>
+                            </div>
+                            {/* Column 2: Currently Empty (Placeholder for the new column) */}
+                            <div> 
+
+
+                            </div>
+                            {/* Column 3: Payment/Enrollment Info (Installment, Total, Due, Status, Due Since) */}
+                            <div>
+                                <p className="text-sm">
+                                    <span className="font-medium">Installment mode</span>{" "}
+                                    {learner.enrollment?.installment_mode || "N/A"}
+                                </p>
+                                <p className="text-sm">
+                                    <span className="font-medium">Total amount:</span>{" "}
+                                    {learner.enrollment?.amount || "N/A"}
+                                </p>
+                                <p className="text-sm">
+                                    <span className="font-medium">Due amount:</span>{" "}
+                                    {getDueAmount(learner)}
+                                </p>
+                                <p className="text-sm">
+                                    <span className="font-medium">Payment status:</span>{" "}
+                                    {learner.enrollment?.payment_status || "N/A"}
+                                </p>
+                                <p className="text-sm">
+                                    <span className="font-medium">Due since:</span>{" "}
+                                    {
+                                        (
+                                            learner.schedule?.date && learner.schedule.end_time
+                                                ? `${learner.schedule.date} ${learner.schedule.end_time.split(':').slice(0, 2).join(':')}`
+                                                : ''
+                                        ).trim() || 'N/A'
+                                    }
+                                </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm">
+                                <p className="text-sm">
+                                    <span className="font-medium">LL form filled:</span>{" "}
+                                    {/* {learner.is_LL_form_filled? "Yes" : "No"} */}
+                                    {                       
+                                      <div
+                                          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+                                            ${
+                                              learner?.is_LL_form_filled
+                                                ? "bg-green-100 text-green-800"
+                                                : "bg-red-100 text-red-800"
+                                            }
+                                          `}
+                                        >
+                                        {learner?.is_LL_form_filled
+                                          ? "Yes"
+                                          : "No"
+                                        }
+                                      </div>
+                                  }
+                                </p>
+                                <p className="text-sm">
+                                  <span className="font-medium">Preference filled:</span>{" "}
+                                  {/* {learner.schedule_preferences?.length > 0 ? "Yes" : "No"} */}
+                                  {                       
+                                   <div
+                                      className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+                                        ${
+                                          learner?.schedule_preferences?.length > 0
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-red-100 text-red-800"
+                                        }
+                                      `}
+                                    >
+                                    {learner?.schedule_preferences?.length > 0
+                                      ? "Yes"
+                                      : "No"
+                                    }
+                                    </div>
+                                  }
+                                </p>
+                              </p>
+                            </div>
+                            {/* Column 4: Added Info (Time Ago) - This was the 3rd column before. */}
+                            <div className="text-right">
+                                <p className="text-sm text-muted-foreground">
+                                    Added{" "}
+                                    {getTimeAgo(
+                                        learner.created_at || learner.signed_up,
+                                    )}
+                                </p>
+                            </div>
                         </div>
-                      </div>
+                    </div>
                     </div>
                   ))}
                 </div>
