@@ -525,16 +525,21 @@ export default function CustomerInfo() {
                                     {                       
                                       <div
                                           className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
-                                            ${
+                                            ${ learner?.has_a_DL
+                                              ? "bg-gray-100 text-gray-800"
+                                              :
                                               learner?.is_LL_form_filled
                                                 ? "bg-green-100 text-green-800"
                                                 : "bg-red-100 text-red-800"
                                             }
                                           `}
                                         >
-                                        {learner?.is_LL_form_filled
-                                          ? "Yes"
-                                          : "No"
+                                        {
+                                          learner?.has_a_DL
+                                          ? "Not Applicable"
+                                          : learner?.is_LL_form_filled
+                                            ? "Yes"
+                                            : "No"
                                         }
                                       </div>
                                   }
