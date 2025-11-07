@@ -1473,7 +1473,7 @@ function Instructor() {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
+      <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
         <div className="flex-1 overflow-hidden p-6 pb-2">
           <TabsContent value="calendar" className="m-0 h-full overflow-y-auto">
             <EnhancedCalendarView />
