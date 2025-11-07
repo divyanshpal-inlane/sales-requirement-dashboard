@@ -358,7 +358,7 @@ export default function CreateScheduleWithInstructor({
           let retryDistanceAPICallCount = 0;
 
           // console.log("lat, lng, instructor", learnerLat, learnerLng, instructor.latitude, instructor.longitude, instructor);
-          while (!drivingDistance && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
+          while (!(drivingDistance === null) && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
             try {
               // console.log("Call distance API retry: ", retryDistanceAPICallCount)
               drivingDistance = await getDrivingDistanceViaSDK(
@@ -378,7 +378,7 @@ export default function CreateScheduleWithInstructor({
             }
           }
 
-          if (!drivingDistance && (retryDistanceAPICallCount >= maxRetryDistanceAPICallCount)) {
+          if (!(drivingDistance === null) && (retryDistanceAPICallCount >= maxRetryDistanceAPICallCount)) {
             console.error(
               "Distance API failed after " +
                 maxRetryDistanceAPICallCount +
