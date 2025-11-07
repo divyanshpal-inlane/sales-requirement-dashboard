@@ -1499,9 +1499,9 @@ function Instructor() {
                 return (
                   <Card key={index}>
                     <CardHeader>
-                      <CardTitle className="flex flex-wrap items-center justify-between gap-4">
-                        <div>Lesson {lesson?.number}</div>
-                        <div className="text-xs">
+                      <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
+                        <div className="text-base">Lesson {lesson?.number}</div>
+                        <div className="text-sm">
                           <div className="text-right text-base">
                             {new Date(schedule.date).toLocaleDateString()}
                           </div>
@@ -1511,14 +1511,14 @@ function Instructor() {
                           )}
                         </div>
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-base">
                         {lesson?.number &&
                           LESSON_CONTENT[lesson.number]?.content.title}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-1 text-xs">
-                        <div className="flex flex-row items-center gap-1">
+                      <div className="flex flex-col gap-2 text-base">
+                        <div className="flex flex-row items-center gap-2">
                           <p className="text-nowrap text-muted-foreground">
                             Pick-up Location :
                           </p>
@@ -1526,7 +1526,7 @@ function Instructor() {
                             href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                            className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
                           >
                             <span className="truncate">
                               {learner.pick_up_location}
@@ -1534,13 +1534,13 @@ function Instructor() {
                             <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                           </a>
                         </div>
-                        <div className="flex flex-row gap-1">
+                        <div className="flex flex-row gap-2">
                           <p className="text-muted-foreground">
                             Learner name :
                           </p>
                           <p>{learner.name}</p>
                         </div>
-                        <div className="flex flex-row items-center gap-1">
+                        <div className="flex flex-row items-center gap-2">
                           <p className="text-muted-foreground">
                             Contact Learner :{" "}
                           </p>
@@ -1556,13 +1556,13 @@ function Instructor() {
                           onClick={() => handleOpenLessonPlan(lesson, learner)}
                           size="sm"
                           variant="outline"
-                          className="mt-2 w-full text-xs"
+                          className="mt-2 w-full text-sm"
                         >
                           View Lesson Plan
                         </Button>
                       </div>
                       <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
-                        <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-xs">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
                           <p>
                             Lesson status : {schedule.status?.toUpperCase()}
                           </p>
@@ -1595,7 +1595,7 @@ function Instructor() {
                               }
                               size="sm"
                               variant="secondary"
-                              className="text-xs"
+                              className="text-sm"
                             >
                               Finish Lesson
                             </Button>
@@ -1607,7 +1607,7 @@ function Instructor() {
                                   navigate(`/otp/${learner.id}/${schedule.id}`);
                                 }}
                                 size="sm"
-                                className="text-xs"
+                                className="text-sm"
                               >
                                 Start
                               </Button>
@@ -1657,9 +1657,9 @@ function Instructor() {
                   return (
                     <Card key={index}>
                       <CardHeader>
-                        <CardTitle className="flex flex-wrap items-center justify-between gap-4">
-                          <div>Lesson {lesson?.number}</div>
-                          <div className="text-xs">
+                        <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
+                          <div className="text-base">Lesson {lesson?.number}</div>
+                          <div className="text-sm">
                             <div className="text-right text-base">
                               {lessonSchedule
                                 ? new Date(
@@ -1675,13 +1675,13 @@ function Instructor() {
                               : "No time scheduled"}
                           </div>
                         </CardTitle>
-                        <CardDescription>
-                          {lesson?.number &&
-                            LESSON_CONTENT[lesson.number]?.content.title}
-                        </CardDescription>
+                      <CardDescription className="text-base">
+                        {lesson?.number &&
+                          LESSON_CONTENT[lesson.number]?.content.title}
+                      </CardDescription>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-1 text-xs">
+                        <div className="flex flex-col gap-1 text-lg">
                           <div className="flex flex-row items-center gap-1">
                             <p className="text-nowrap text-muted-foreground">
                               Pick-up Location :
@@ -1690,7 +1690,7 @@ function Instructor() {
                               href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                              className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
                             >
                               <span className="truncate">
                                 {learner.pick_up_location}
