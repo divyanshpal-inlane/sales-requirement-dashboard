@@ -41,7 +41,8 @@ export default function CustomerInfo() {
           .select(`
             *, 
             payment!inner(created_at, updated_at, status),
-            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status)
+            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status),
+            schedule_preferences!left(learner_id)
           `)
           .order("created_at", { ascending: false });
       if (error) throw error;
@@ -525,16 +526,21 @@ export default function CustomerInfo() {
                                     {                       
                                       <div
                                           className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
-                                            ${
+                                            ${ learner?.has_a_DL
+                                              ? "bg-gray-100 text-gray-800"
+                                              :
                                               learner?.is_LL_form_filled
                                                 ? "bg-green-100 text-green-800"
                                                 : "bg-red-100 text-red-800"
                                             }
                                           `}
                                         >
-                                        {learner?.is_LL_form_filled
-                                          ? "Yes"
-                                          : "No"
+                                        {
+                                          learner?.has_a_DL
+                                          ? "Not Applicable"
+                                          : learner?.is_LL_form_filled
+                                            ? "Yes"
+                                            : "No"
                                         }
                                       </div>
                                   }

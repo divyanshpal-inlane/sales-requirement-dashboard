@@ -9,6 +9,7 @@ import {
   isBefore,
   isSameDay,
   set,
+  startOfDay,
   startOfWeek,
   subDays,
 } from "date-fns";
@@ -48,7 +49,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
-import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
+import { TIME_SLOTS, TimeSlot, SlotConfig } from "@/types/schedule";
 import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import LearnerScheduleSelector from "./schedule";
@@ -208,6 +209,9 @@ export default function CreateScheduleWithInstructor({
   const [showTentativeScheduleDialog, setShowTentativeScheduleDialog] = useState(false);
   const { toast } = useToast();
 
+  // Calender settings
+  // Note: these should match the TIME_SLOTS
+  // console.log("numSlotsPerDay, numMinutesPerSlot, numHoursPerDay", SlotConfig.numSlotsPerDay, SlotConfig.numMinutesPerSlot, SlotConfig.numHoursPerDay);
   // Fetch learner details to get pickup location coordinates
   const {
     data: learnerDetails,
@@ -354,7 +358,7 @@ export default function CreateScheduleWithInstructor({
           let retryDistanceAPICallCount = 0;
 
           // console.log("lat, lng, instructor", learnerLat, learnerLng, instructor.latitude, instructor.longitude, instructor);
-          while (!drivingDistance && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
+          while (!(drivingDistance === null) && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
             try {
               // console.log("Call distance API retry: ", retryDistanceAPICallCount)
               drivingDistance = await getDrivingDistanceViaSDK(
@@ -374,7 +378,7 @@ export default function CreateScheduleWithInstructor({
             }
           }
 
-          if (!drivingDistance && (retryDistanceAPICallCount >= maxRetryDistanceAPICallCount)) {
+          if (!(drivingDistance === null) && (retryDistanceAPICallCount >= maxRetryDistanceAPICallCount)) {
             console.error(
               "Distance API failed after " +
                 maxRetryDistanceAPICallCount +
@@ -1160,10 +1164,11 @@ export default function CreateScheduleWithInstructor({
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: 32 }).map((_, timeIndex) => {
-                    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
-                    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
-                    return (
+                  {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+                    const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
+                    const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+                      // console.log("Learner slot", hour, minute);
+                        return (
                       <tr key={timeIndex} className="h-10">
                         <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center text-base text-gray-700">
                           {format(new Date().setHours(hour, minute), "h:mm a")}
@@ -1536,6 +1541,11 @@ function CreateSchedule({
   >(defaultInstructorId);
   const { toast } = useToast();
 
+  // const numSlotsPerHour = 2;
+  // const numHoursPerDay = 18; // 5 AM to 11:59 PM in half-hour slots
+  // const numSlotsPerDay = Math.ceil(numSlotsPerHour * numHoursPerDay); 
+  
+
   // get Unvailability of default instructor
   const defaultInstructorUnavailability = useMemo ( () => {
     // showing instructorWithDistance
@@ -1793,14 +1803,19 @@ function CreateSchedule({
     const isToday = isSameDay(date, new Date());
     const currentTime = new Date();
 
-    for (let hour = 6; hour < 21; hour++) {
-      for (const minute of [0, 30]) {
+    for (let hour = SlotConfig.startHourOfDay; hour <= SlotConfig.endHourOfDay; hour++) {
+      for (const minute of [0, Math.ceil(60 / SlotConfig.numSlotsPerHour)]) {
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
         // console.log("hour and minute", hour, minute, schedulesToChange);
         // Check if the slot is in the past for today
-        const isInPast = isToday && timestamp < currentTime;
-
+        const isInPast =
+          timestamp < startOfDay(subDays(new Date(), 30));
+        // console.log("inPast", 
+        //   isInPast, 
+        //   timestamp, 
+        //   startOfDay(subDays(new Date(), 30)),
+        // );
         // Find which time slot this time belongs to
         const timeSlot = TIME_SLOTS.find((slot) => {
           const [start, end] = slot.split("-");
@@ -2564,7 +2579,7 @@ console.log("Setting state to slot", slot);
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
-    if (direction === "prev" && isBefore(addDays(startDate, -6), new Date())) {
+    if (direction === "prev" && isBefore(addDays(startDate, -6), addDays(new Date(), -30))) {
       return;
     }
     const newDate = addDays(startDate, direction === "next" ? 7 : -7);
@@ -3234,7 +3249,7 @@ console.log("Setting state to slot", slot);
     const hour = slot.timestamp.getHours();
     const minutes = slot.timestamp.getMinutes();
     const isToday = isSameDay(slot.timestamp, new Date());
-    const isInPast = isToday && slot.timestamp < new Date();
+    const isInPast = slot.timestamp < startOfDay(subDays(new Date(), 30));
     
     const checkSlotOverlap = (s: Schedule) => {
       const scheduleStartHour = parseInt(s.start_time.split(":")[0]);

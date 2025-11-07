@@ -210,17 +210,21 @@ function LearnerNotificationCard() {
       alert("No schedules info");
       return;
     }
+    if (!rescheduleFinalTime) {
+      toast.failure("No reschedule window time set");
+      return;
+    }
     for (const schedule of scheduleData) {
       if (!schedule) continue;
       setSendingLearnerReschdWindowReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
-      console.log("Sending Rescheudle reminder for schedule ", schedule);
+      // console.log("Sending Rescheudle reminder for schedule ", schedule, rescheduleFinalTime);
         try {
           const { error } = await supabase.functions.invoke("send-message", {
           body: {
             message_type: "REMINDER_LESSON_RESCHEDULE_WINDOW_TIME",
             learner_name: schedule.Learner.name,
             learner_phone: schedule.Learner.phone,
-            final_time: "6PM",
+            final_time: rescheduleFinalTime,
           },
         });
 
@@ -334,9 +338,12 @@ function LearnerNotificationCard() {
   }
   
   // Dialog functionality
-  const handleRescheduleFinalTimeSave = () => {
-    console.log("Rechsdule window time set to  ", rescheduleFinalTime);
-    sendLearnerReminderRescheduleWindow(schedulesList)
+  const handleRescheduleFinalTimeSave = async () => {
+    // console.log("Rechsdule window time set to  ", rescheduleFinalTime);
+    setReschduleFinalTimeSetDialogOpen(false);
+    await sendLearnerReminderRescheduleWindow(schedulesList);
+    setRescheduleFinalTime("");
+    // console.log("Rechsdule window time reset to  ", rescheduleFinalTime);
   };
   const handleRescheduleFinalTimeClose = () => {
     setReschduleFinalTimeSetDialogOpen(false);
@@ -520,7 +527,7 @@ function LearnerNotificationCard() {
         <Button onClick={handleRescheduleFinalTimeClose} variant="secondary">
           Close
         </Button>
-        <Button onClick={handleRescheduleFinalTimeSave}>Save</Button>
+        <Button onClick={async () => {await handleRescheduleFinalTimeSave() ;}}>Save</Button>
       </DialogFooter>
     </DialogContent>
       

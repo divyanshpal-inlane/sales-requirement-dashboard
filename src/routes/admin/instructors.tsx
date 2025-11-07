@@ -580,6 +580,15 @@ export default function InstructorsManagement() {
       return;
     }
 
+    if (!instructorData.latitude || !instructorData.longitude) {
+      toast({
+        title: "Error",
+        description: "Enter a valid address from the search bar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     mutation.mutate(instructorData);
   };
 

@@ -105,11 +105,12 @@ const LearnerDetails = () => {
       const { data, error } = await supabase
         .from("Learner")
         .select("*, schedule_preferences!left(learner_id)")
-        .eq("has_a_DL", false)
+        .in("has_postLL_done", [true, false])
         .is("LL_result", true)
         .is("LL_application_approved", true)
-        .is("LL_received", true);
-      if (error) throw error;
+        .is("LL_received", true)
+        .order("has_a_DL");
+        if (error) throw error;
       return data;
     },
   });
@@ -324,6 +325,7 @@ const LearnerDetails = () => {
       learnerId: learner.id,
       updates: {
         // TODO: set licenceid to argument appointmentId2,
+        has_postLL_done: true,
         has_a_DL: true,
         DL_received_date: new Date().toISOString(),
       },
@@ -456,6 +458,9 @@ const LearnerDetails = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
                       DL test Pass/Fail
                     </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        DL Issued ?
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -550,7 +555,7 @@ const LearnerDetails = () => {
                       </td>
                       
                       {/* Schedule Preferences cell (fixed from your previous query) */}
-                      <td className="whitespace-nowrap px-6 py-4">
+                      {/* <td className="whitespace-nowrap px-6 py-4">
                         <div
                           className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
                             ${
@@ -565,7 +570,7 @@ const LearnerDetails = () => {
                             : "No"
                           }
                         </div>
-                      </td>
+                      </td> */}
 
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
@@ -690,6 +695,25 @@ const LearnerDetails = () => {
                             )
                           }
                       </td>
+                       <td className="whitespace-nowrap px-6 py-4">
+                          <button
+                            onClick={() => { handleProcessFinish(learner);
+                                            // resetSelectedLearnerState();
+                                           } 
+                                    }
+                            className={
+                                learner.has_postLL_done
+                                    ? "inline-flex items-center rounded-full bg-gray-400 px-3 py-1 text-sm font-medium text-white shadow cursor-not-allowed"
+                                    : "inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            }
+                                    disabled={learner.has_a_DL}
+                          >
+                            {(learner?.has_a_DL && learner?.has_postLL_done )
+                            ? "Done"
+                            : "Yes (Click here)"
+                          }
+                          </button>
+                        </td>
                     </tr>
                   ))}
                 </tbody>
