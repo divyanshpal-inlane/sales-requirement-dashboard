@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, startOfDay, subDays } from "date-fns";
 import { ChevronRight, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -92,7 +92,8 @@ export default function Schedule() {
 
     // console.log("lessonsForDay", lessonsForDay);
     // console.log("Schedule requests", scheduleRequests);
-    const isPast = date < new Date().setHours(0, 0, 0, 0);
+    const isPast = date < startOfDay(subDays(new Date(), 30));
+    console.log("date < ", isPast, date, startOfDay(subDays(new Date(), 30)) );
     let dayColorClasses = "";
 
     if (isPast) {

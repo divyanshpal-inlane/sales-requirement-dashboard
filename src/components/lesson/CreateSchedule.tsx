@@ -9,6 +9,7 @@ import {
   isBefore,
   isSameDay,
   set,
+  startOfDay,
   startOfWeek,
   subDays,
 } from "date-fns";
@@ -1808,8 +1809,13 @@ function CreateSchedule({
         timestamp.setHours(hour, minute);
         // console.log("hour and minute", hour, minute, schedulesToChange);
         // Check if the slot is in the past for today
-        const isInPast = isToday && timestamp < currentTime;
-
+        const isInPast =
+          timestamp < startOfDay(subDays(new Date(), 30));
+        // console.log("inPast", 
+        //   isInPast, 
+        //   timestamp, 
+        //   startOfDay(subDays(new Date(), 30)),
+        // );
         // Find which time slot this time belongs to
         const timeSlot = TIME_SLOTS.find((slot) => {
           const [start, end] = slot.split("-");
@@ -3243,7 +3249,7 @@ console.log("Setting state to slot", slot);
     const hour = slot.timestamp.getHours();
     const minutes = slot.timestamp.getMinutes();
     const isToday = isSameDay(slot.timestamp, new Date());
-    const isInPast = isToday && slot.timestamp < new Date();
+    const isInPast = slot.timestamp < startOfDay(subDays(new Date(), 30));
     
     const checkSlotOverlap = (s: Schedule) => {
       const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
