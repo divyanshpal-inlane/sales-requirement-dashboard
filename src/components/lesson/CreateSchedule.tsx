@@ -2579,7 +2579,7 @@ console.log("Setting state to slot", slot);
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
-    if (direction === "prev" && isBefore(addDays(startDate, -6), new Date())) {
+    if (direction === "prev" && isBefore(addDays(startDate, -6), addDays(new Date(), -30))) {
       return;
     }
     const newDate = addDays(startDate, direction === "next" ? 7 : -7);
