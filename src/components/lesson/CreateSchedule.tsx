@@ -48,7 +48,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
-import { TIME_SLOTS, TimeSlot } from "@/types/schedule";
+import { TIME_SLOTS, TimeSlot, SlotConfig } from "@/types/schedule";
 import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import LearnerScheduleSelector from "./schedule";
@@ -208,6 +208,9 @@ export default function CreateScheduleWithInstructor({
   const [showTentativeScheduleDialog, setShowTentativeScheduleDialog] = useState(false);
   const { toast } = useToast();
 
+  // Calender settings
+  // Note: these should match the TIME_SLOTS
+  // console.log("numSlotsPerDay, numMinutesPerSlot, numHoursPerDay", SlotConfig.numSlotsPerDay, SlotConfig.numMinutesPerSlot, SlotConfig.numHoursPerDay);
   // Fetch learner details to get pickup location coordinates
   const {
     data: learnerDetails,
@@ -1160,10 +1163,11 @@ export default function CreateScheduleWithInstructor({
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: 32 }).map((_, timeIndex) => {
-                    const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
-                    const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
-                    return (
+                  {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+                    const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
+                    const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+                      // console.log("Learner slot", hour, minute);
+                        return (
                       <tr key={timeIndex} className="h-10">
                         <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center text-base text-gray-700">
                           {format(new Date().setHours(hour, minute), "h:mm a")}
@@ -1536,6 +1540,11 @@ function CreateSchedule({
   >(defaultInstructorId);
   const { toast } = useToast();
 
+  // const numSlotsPerHour = 2;
+  // const numHoursPerDay = 18; // 5 AM to 11:59 PM in half-hour slots
+  // const numSlotsPerDay = Math.ceil(numSlotsPerHour * numHoursPerDay); 
+  
+
   // get Unvailability of default instructor
   const defaultInstructorUnavailability = useMemo ( () => {
     // showing instructorWithDistance
@@ -1793,8 +1802,8 @@ function CreateSchedule({
     const isToday = isSameDay(date, new Date());
     const currentTime = new Date();
 
-    for (let hour = 6; hour < 21; hour++) {
-      for (const minute of [0, 30]) {
+    for (let hour = SlotConfig.startHourOfDay; hour <= SlotConfig.endHourOfDay; hour++) {
+      for (const minute of [0, Math.ceil(60 / SlotConfig.numSlotsPerHour)]) {
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
         // console.log("hour and minute", hour, minute, schedulesToChange);
