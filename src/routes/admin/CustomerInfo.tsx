@@ -41,7 +41,8 @@ export default function CustomerInfo() {
           .select(`
             *, 
             payment!inner(created_at, updated_at, status),
-            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status)
+            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status),
+            schedule_preferences!left(learner_id)
           `)
           .order("created_at", { ascending: false });
       if (error) throw error;
