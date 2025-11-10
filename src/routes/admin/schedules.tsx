@@ -398,7 +398,8 @@ export default function AdminSchedules() {
           instructor_id,
           lesson_id,
           course_id,
-          learner_id
+          learner_id,
+          status
         )
       `,
         )
@@ -1274,6 +1275,53 @@ export default function AdminSchedules() {
     // }
   };
 
+  const handleChangeLessonStatus = async (schedule: any) => {
+    setSelectedSchedule(schedule);
+    // setIsRescheduleModalOpen(true);
+
+
+    // different path - make reschedule request to use calender views nad checks
+    try {
+      // setIsLoading(true);
+      console.log("Marking lesson complete", schedule);
+      // Create empty payment record (from admin side)
+      const totalFee = 0;
+      const learnerId = schedule?.learner_id;
+
+      // Create reschedule request
+      const { data: updatedSchedule, error: updateScheduleError } = await supabase
+        .from("Schedule")
+        .update({
+          status: "completed",
+        })
+        .eq("id", schedule?.id);
+
+      if (updateScheduleError) throw updateScheduleError;
+
+      toast({
+        "title": "Lesson completed requested",
+        "description": `Lesson has been marked as completed for schedule at ${schedule.date})} ${schedule.start_time}`,
+        "type": "destructive",
+      });
+      // If payment is required, initiate payment
+      // not required on admin side
+    } catch (error) {
+      console.error("Error updating lesson from Admin:", error);
+      alert("Failed to update lesson from Admin. Please try again.");
+    } finally {
+      // setIsLoading(false);
+    }
+    // if (isLoading) {
+    //   return (
+    //     <div className="flex h-full items-center justify-center">
+    //       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+    //     </div>
+    //   );
+    // }
+  };
+
+    
+
   return (
     <div
       className="h-flex flex min-h-screen flex-col bg-white p-8"
@@ -1645,6 +1693,16 @@ export default function AdminSchedules() {
                                   )?.name
                                 }
                               </div>
+                              <div className="text-sm text-gray-500">
+                                Status:{" "}
+                                {
+                                  schedule
+                                  ? schedule.status
+                                    ? schedule.status
+                                    : "N/A"
+                                  : "N/A"
+                                }
+                              </div>
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -1668,6 +1726,15 @@ export default function AdminSchedules() {
                                   onClick={() => handleOpenReschedule(schedule)}
                                 >
                                   Reschedule
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleChangeLessonStatus(schedule)}
+                                  disabled={schedule.status === 'completed'}
+                                  >
+                                  {schedule.status === 'completed'
+                                    ? 'Mark Lesson as Completed (Lesson Completed)' 
+                                    : 'Mark Lesson as Completed'
+                                  }
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
