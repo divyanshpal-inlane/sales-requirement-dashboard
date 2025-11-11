@@ -79,6 +79,13 @@ export default function AdminHome() {
       link: "/admin/customer-info",
       color: "text-indigo-500",
     },
+    {
+      title: "Tentative Schedules Info",
+      description: "Search tentative schedules",
+      icon: Calendar,
+      link: "/admin/tentative-schedules-info",
+      color: "text-orange-500",
+    },
   ];
 
   return (
