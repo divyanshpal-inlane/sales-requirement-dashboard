@@ -118,6 +118,7 @@ export async function sendMultiEventCalendarInvite(
           event.pickupLocation,
           import.meta.env.VITE_SMTP_FROM,
           learnerEmail, // Main recipient
+          instructorEmail, // secondary recipient
           "team@inlane.in", // Add team's email as BCC here
           uid,
           event.isCancellation,
@@ -132,6 +133,7 @@ export async function sendMultiEventCalendarInvite(
           event.pickupLocation,
           import.meta.env.VITE_SMTP_FROM,
           instructorEmail,
+          learnerEmail, // Secondary recipient
           "team@inlane.in", // Add team's email as BCC here
           uid,
           event.isCancellation,
@@ -345,7 +347,8 @@ export function generateICSFile(
   description: string,
   location: string,
   organizerEmail: string,
-  attendeeEmail: string,
+  attendeeEmail1: string,
+  attendeeEmail2: string,
   bccEmail: string,
   uid?: string,
   isCancellation: boolean = false,
@@ -377,8 +380,11 @@ export function generateICSFile(
       `UID:${eventUid}`,
       `ORGANIZER;CN=InLane:mailto:${organizerEmail}`,
       // Main attendee
-      `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeEmail}:mailto:${attendeeEmail}`,
-      `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${bccEmail}:mailto:${bccEmail}`,
+      `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeEmail1}:mailto:${attendeeEmail1}`,
+      // Secondary attendee
+      `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeEmail2}:mailto:${attendeeEmail2}`,
+      // BCC not required on attendees list
+      // `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${bccEmail}:mailto:${bccEmail}`,
       `SUMMARY:${escapedSummary}`,
       `DESCRIPTION:${escapedDescription}`,
       `LOCATION:${escapedLocation}`,
