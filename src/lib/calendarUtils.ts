@@ -379,6 +379,7 @@ export function generateICSFile(
       `DTSTAMP:${now}`,
       `UID:${eventUid}`,
       `ORGANIZER;CN=InLane:mailto:${organizerEmail}`,
+      `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=CHAIR;PARTSTAT=ACCEPTED;CN=InLane:mailto:${organizerEmail}`,
       // Main attendee
       `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeEmail1}:mailto:${attendeeEmail1}`,
       // Secondary attendee
