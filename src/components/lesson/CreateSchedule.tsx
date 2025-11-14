@@ -3202,7 +3202,7 @@ console.log("Setting state to slot", slot);
                     .update({
                       has_lesson10_booked: true
                     })
-                    .eq("Learner", learnerData.id)
+                    .eq("id", learnerData.id)
                   }
                 }
               }
