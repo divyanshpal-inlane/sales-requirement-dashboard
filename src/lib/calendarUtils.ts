@@ -247,8 +247,9 @@ export async function sendMultiEventCalendarInvite(
         );
 
         // Send emails with multi-event calendar attachments
-        // Make sure to batch them in groups of 5 max
-        const batchSize = 5;
+        // Make sure to batch them in groups of 5 max, as there are problems with gcal
+        // The batches are already done on edge function, so not required here
+        const batchSize = 10;
 
         // Split the ICS arrays into batches of 5
         const learnerICSBatches = [];
@@ -275,8 +276,8 @@ export async function sendMultiEventCalendarInvite(
                 body: {
                   learnerEmail,
                   instructorEmail,
-                  learnerICSArray: learnerICSBatches[i],
-                  instructorICSArray: instructorICSBatches[i],
+                  learnerICSArray: newLearnerICS,
+                  instructorICSArray: newInstructorICS,
                   isMultiEvent: true,
                   events: eventBatches[i].map((e) => ({
                     lessonNumber: e.lessonNumber,
