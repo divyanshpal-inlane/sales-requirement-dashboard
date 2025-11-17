@@ -99,8 +99,8 @@ export async function sendMultiEventCalendarInvite(
       for (const event of instructorEvents) {
         // Create the correct lesson-specific subject and description
         const summary = event.isCancellation
-          ? `Driving Lesson ${event.lessonNumber} (CANCELLED)`
-          : `Driving Lesson ${event.lessonNumber}`;
+          ? `Driving Lesson ${event.lessonNumber} - ${learnerName} (CANCELLED)`
+          : `Driving Lesson ${event.lessonNumber} - ${learnerName}`;
 
         // Enhanced description with instructor details and app link
         const description = event.isCancellation
