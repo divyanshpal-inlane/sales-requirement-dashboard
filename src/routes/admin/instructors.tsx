@@ -804,29 +804,31 @@ export default function InstructorsManagement() {
               {/* Schedule Dialog */}
               {openScheduleDialogId === instructor.id_instructor && (
                 <Dialog open={true} onOpenChange={handleCloseScheduleDialog}>
-                  <DialogContent className="sm:max-w-[1200px]">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {instructor.name}'s Weekly Schedule
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4">
-                      <WeeklyScheduleView
-                        instructor_id={instructor.id_instructor}
-                        instructorName={instructor.name}
-                        // Pass schedules and unavailability to the schedule view
-                        schedules={instructor.schedules}
-                        unavailability={instructor.unavailability || []}
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={handleCloseScheduleDialog}
-                      >
-                        Close
-                      </Button>
-                    </DialogFooter>
+                  <DialogContent className="sm:max-w-[1200px] p-4">
+                      <DialogHeader className="p-0 mb-0">
+                          <DialogTitle className="text-base font-semibold p-0">
+                              {instructor.name}'s Weekly Schedule
+                          </DialogTitle>
+                      </DialogHeader>
+                      <div className="mt-1">
+                          <WeeklyScheduleView
+                              instructor_id={instructor.id_instructor}
+                              instructorName={instructor.name}
+                              // Pass schedules and unavailability to the schedule view
+                              schedules={instructor.schedules}
+                              unavailability={instructor.unavailability || []}
+                          />
+                      </div>
+                      <DialogFooter className="pt-2"> {/* Added slight padding to separate footer from content */}
+                          <Button
+                              variant="outline"
+                              // Optional: Reduce button size if the component supports it (e.g., size="sm")
+                              // size="sm" 
+                              onClick={handleCloseScheduleDialog}
+                          >
+                              Close
+                          </Button>
+                      </DialogFooter>
                   </DialogContent>
                 </Dialog>
               )}
@@ -2272,17 +2274,17 @@ function WeeklyScheduleView({
   return (
     <div>
       {/* Week Navigation */}
-      <div className="mb-4 flex items-center justify-between">
-        <Button variant="outline" onClick={() => handleWeekChange("prev")}>
-          Previous Week
-        </Button>
-        <h3 className="text-lg font-semibold">
-          {format(currentWeekStart, "MMM d")} -{" "}
-          {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
-        </h3>
-        <Button variant="outline" onClick={() => handleWeekChange("next")}>
-          Next Week
-        </Button>
+      <div className="mb-2 flex items-center justify-between">
+          <Button variant="outline" size="sm" className="text-sm" onClick={() => handleWeekChange("prev")}>
+              Previous Week
+          </Button>
+          <h3 className="text-sm font-semibold">
+              {format(currentWeekStart, "MMM d")} -{" "}
+              {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
+          </h3>
+          <Button variant="outline" size="sm" className="text-sm" onClick={() => handleWeekChange("next")}>
+              Next Week
+          </Button>
       </div>
 
       {/* Weekly Schedule Table */}
@@ -2291,20 +2293,21 @@ function WeeklyScheduleView({
         style={{ scrollbarWidth: "none" }}
       >
         <table className="w-full border-collapse border border-gray-200">
-          <thead className="sticky top-0 bg-white shadow-md z-10">
+        <thead className="sticky top-0 bg-white shadow-md z-10">
             <tr>
-              <th className="border border-gray-200 p-2 sticky left-0 z-20 bg-white">Time</th>
-              {Array.from({ length: 7 }).map((_, index) => {
-                const day = addDays(currentWeekStart, index);
-                return (
-                  <th key={index} className="border border-gray-200 p-2">
-                    {format(day, "EEE")}
-                    <div className="text-xs">{format(day, "MMM d")}</div>
-                  </th>
-                );
-              })}
+                <th className="border border-gray-200 px-1 py-0.5 text-sm sticky left-0 z-20 bg-white">Time</th>
+                {Array.from({ length: 7 }).map((_, index) => {
+                    const day = addDays(currentWeekStart, index);
+                    return (
+                        <th key={index} className="border border-gray-200 px-1 py-0.5 text-sm">
+                            {format(day, "EEE")}
+                            {/* Date text remains text-xs for further size reduction/hierarchy */}
+                            <div className="text-xs">{format(day, "MMM d")}</div>
+                        </th>
+                    );
+                })}
             </tr>
-          </thead>
+        </thead>
           <tbody className="overflow-y-auto">
             {Array.from({ length: 32 }).map((_, timeIndex) => {
               const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
@@ -2343,7 +2346,7 @@ function WeeklyScheduleView({
                     return (
                       <td
                         key={dayIndex}
-                        className={`border border-gray-200 p-2 text-center 
+                        className={`border border-gray-200 text-center 
                           ${dayIndex===0 ? "left-0 sticky" : ""}
                         ${
                           schedule
@@ -2381,65 +2384,35 @@ function WeeklyScheduleView({
                         {schedule
                           ? schedule.isTentative
                             ? 
-                              <>
-                              <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
-                                <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
-                                <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
-                                <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
-                                <li className="w-full overflow-hidden whitespace-nowrap text-ellipsis">
-                                  Description: {schedule.tentative_details?.description || "N/A"}
-                                </li>
-                                <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
-                                <li>  
-                                    {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
-                                        <a
-                                          href={`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
-                                        >
-                                          {/* {`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`} */}
-                                          Map link
-                                        </a>
-                                      ) : (
-                                        <span className="text-muted-foreground">Map N/A</span>
-                                      )}
-                                </li>
-                              </ul>
-                              <div className="mt-2">
-                              <Button
-                                variant="secondary"
-                                onClick={(e) => {
-                                    e.stopPropagation(); // Stop the click from bubbling
-                                    setIsTentativeCopyDialogOpen(true);
-                                    handleCopyTentative(schedule);
-                                }}
-                              >
-                                Copy
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Stop the click from bubbling
-                                  handleDeleteTentative(schedule.id);
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                            </>
-                            : `${schedule.learner?.name || "Booked"}` && (
-                                <ul className="text-left text-xs overflow-hidden whitespace-nowrap text-ellipsis">
-                                    <li><strong>Booked details</strong></li>
-                                    <li>Cust Name: {schedule.learner.name || "N/A"}</li>
-                                    <li>Cust Phone: {schedule.learner.phone || "N/A"}</li>
-                                    <li className="w-full overflow-hidden text-wrap text-ellipsis">
-                                        Pickup location: {schedule.learner.pick_up_location || "N/A"}
-                                    </li>
-                                    <li>  
-                                        {schedule.learner?.address_lat && schedule.learner?.address_lng ? (
+                            <>
+                                  <div 
+                                      // Reduced max-h-[10rem] to max-h-[6rem] (96px)
+                                      className="text-left text-xs overflow-y-auto max-h-[5rem] border border-gray-200 p-2 rounded-md"
+                                  >
+                                    <span className="font-semibold">
+                                        {schedule.tentative_details?.name || "Tentative"}
+                                    </span>
+                                    {' | '}
+                                    <span>
+                                        {schedule.tentative_details?.phone || "N/A"}
+                                    </span>
+                                    {' | '}
+                                    <span>
+                                        {schedule.tentative_details?.paid_info || "N/A"}
+                                    </span>
+                                    {' | '}
+                                    <span>
+                                        {schedule.tentative_details?.leadName || "N/A"}
+                                    </span>
+                                    {' | '}
+                                    <span className="whitespace-normal">
+                                        {schedule.tentative_details?.description || "N/A"}
+                                    </span>
+                                    {' | '}
+                                    <span>  
+                                        {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
                                             <a
-                                                href={`https://www.google.com/maps?q=${schedule.learner.address_lat},${schedule.learner.address_lng}`}
+                                                href={`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
@@ -2449,8 +2422,68 @@ function WeeklyScheduleView({
                                         ) : (
                                             <span className="text-muted-foreground">Map N/A</span>
                                         )}
-                                    </li>
-                                </ul>
+                                    </span>
+                                </div>
+
+                                {/* The buttons section remains unchanged */}
+                                <div className="mt-2 flex gap-1"> 
+                                    <Button
+                                        variant="secondary"
+                                        // Override default size with custom smaller padding and text size
+                                        className="px-2 py-1 h-auto text-xs" 
+                                        onClick={(e) => {
+                                            e.stopPropagation(); 
+                                            setIsTentativeCopyDialogOpen(true);
+                                            handleCopyTentative(schedule);
+                                        }}
+                                    >
+                                        Copy
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        // Override default size with custom smaller padding and text size
+                                        className="px-2 py-1 h-auto text-xs" 
+                                        onClick={(e) => {
+                                            e.stopPropagation(); 
+                                            handleDeleteTentative(schedule.id);
+                                        }}
+                                    >
+                                        Delete
+                                    </Button>
+                                </div>
+                            </>
+                            : `${schedule.learner?.name || "Booked"}` && (
+                            <div 
+                                // Apply styling for text size, scrolling, and a simulated max height (max-h-24 is roughly 6 lines in Tailwind)
+                                // If you need precisely 25 lines of text height, you might need a custom utility class, 
+                                // but max-h-96 or a fixed height is typically used for long lists.
+                                // I'll use h-[6.25rem] (100px) as a placeholder for a constrained height.
+                                className="text-left text-xs overflow-y-auto max-h-5rem border border-gray-200 p-2 rounded-md"
+                            >
+                                {/* <span className="font-semibold">Booked Details:</span> */}
+                                <span className="ml-1">
+                                    {schedule.learner.name || "N/A"}
+                                </span>
+                                {' | '}
+                                <span>
+                                    {schedule.learner.phone || "N/A"}
+                                </span>
+                                <span> 
+                                    {schedule.learner?.address_lat && schedule.learner?.address_lng ? (
+                                        <a
+                                            // Note: Fixed the Google Maps URL prefix in your original snippet
+                                            href={`https://maps.google.com/maps?q=${schedule.learner.address_lat},${schedule.learner.address_lng}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 truncate text-xs underline hover:text-blue-800"
+                                        >
+                                            Map link
+                                        </a>
+                                    ) : (
+                                        <span className="text-muted-foreground">Map N/A</span>
+                                    )}
+                                </span>
+                            </div>
                             )
                           : unavailable
                             ? ""
