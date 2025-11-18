@@ -1594,6 +1594,7 @@ function WeeklyScheduleView({
   const [isTentativeCopyDialogOpen, setIsTentativeCopyDialogOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
   const [instructorId, setInstructorId] = useState(instructor_id);
+  const [searchQuery, setSearchQuery] = useState("");
   const [tentativeSchedule, setTentativeSchedule] = useState<any>({
     id: "",
     date: "",
@@ -2245,31 +2246,61 @@ function WeeklyScheduleView({
   };
 
   const handleTimeChange = (e) => {
-  const { name, value, type, checked } = e.target;
-    console.log("", name, value, type, checked, "name", e.target.name);
-    setTentativeScheduleCopy((prev) => {
-      const updatedData = {
-        ...prev,
-        [name]: value,
-      };
+    const { name, value, type, checked } = e.target;
+      console.log("", name, value, type, checked, "name", e.target.name);
+      setTentativeScheduleCopy((prev) => {
+        const updatedData = {
+          ...prev,
+          [name]: value,
+        };
 
-    // Auto-calculate end_time when start_time changes
-    if (name === "tentative_copy_start_time") {
-        updatedData.end_time = calculateEndTime(value);
-        console.log(
-          "handleTimeChange: end_time calculated as ",
-          updatedData.end_time,
-        );
-    }
+      // Auto-calculate end_time when start_time changes
+      if (name === "tentative_copy_start_time") {
+          updatedData.end_time = calculateEndTime(value);
+          console.log(
+            "handleTimeChange: end_time calculated as ",
+            updatedData.end_time,
+          );
+      }
 
-    return updatedData;
-  });
-};
+      return updatedData;
+    });
+  };
 
   // for logging copy steps
   useEffect(() => {
     console.log("useEffect: Tentative schedule copy state set:", tentativeScheduleCopy);
   }, [tentativeScheduleCopy]);
+
+  const filteredSchedules = (searchQuery === "") ? schedules : schedules.filter((schedule) => {
+      
+      // console.log("Filtering schedule:", schedule, "with searchQuery:", searchQuery);
+      let nameMatch = false;
+      let phoneMatch = false;
+      if (!schedule?.isTentative) {
+        nameMatch = schedule?.learner?.name?.toLowerCase()
+                      .includes(searchQuery.toLowerCase());
+        phoneMatch = schedule?.learner?.phone?.toLowerCase()
+                      .includes(searchQuery.toLowerCase());
+        return nameMatch || phoneMatch;
+      } else {
+        const tentativeDetails = schedule.tentative_details || {};
+        // console.log("Filtering tentativeDetails:", tentativeDetails);
+        nameMatch = tentativeDetails?.name?.toLowerCase()
+                      .includes(searchQuery.toLowerCase())
+                    || tentativeDetails?.leadName?.toLowerCase()
+                      .includes(searchQuery.toLowerCase());
+        phoneMatch = tentativeDetails?.phone?.toLowerCase()
+                      .includes(searchQuery.toLowerCase());
+        let descriptionMatch = tentativeDetails?.description?.toLowerCase()
+                      .includes(searchQuery.toLowerCase());
+        return nameMatch || phoneMatch || descriptionMatch;
+      }
+      return false;
+  });
+
+  // console.log("Filtered schedules based on searchQuery:", filteredSchedules);
+
 
   return (
     <div>
@@ -2287,6 +2318,15 @@ function WeeklyScheduleView({
           </Button>
       </div>
 
+      {/* Weekly Schedule Search Bar */}
+      <div className="mb-4">
+        <Input
+          type="text"
+          placeholder="Search tentative schedules by name, sales lead, or phone"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
       {/* Weekly Schedule Table */}
       <div
         className="scrollbar-none h-[calc(100vh-50px)] max-h-96 overflow-x-auto overflow-y-auto p-4"
@@ -2321,7 +2361,7 @@ function WeeklyScheduleView({
                     const day = addDays(currentWeekStart, dayIndex);
 
                     // Find the schedule for the current day and time
-                    const schedule = schedules.find((s) => {
+                    const schedule = filteredSchedules.find((s) => {
                       const scheduleStart = new Date(
                         `${s.date}T${s.start_time}`,
                       );
