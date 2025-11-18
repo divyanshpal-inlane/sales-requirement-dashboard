@@ -99,8 +99,8 @@ export async function sendMultiEventCalendarInvite(
       for (const event of instructorEvents) {
         // Create the correct lesson-specific subject and description
         const summary = event.isCancellation
-          ? `Driving Lesson ${event.lessonNumber} (CANCELLED)`
-          : `Driving Lesson ${event.lessonNumber}`;
+          ? `Driving Lesson ${event.lessonNumber} - ${learnerName} (CANCELLED)`
+          : `Driving Lesson ${event.lessonNumber} - ${learnerName}`;
 
         // Enhanced description with instructor details and app link
         const description = event.isCancellation
@@ -247,8 +247,9 @@ export async function sendMultiEventCalendarInvite(
         );
 
         // Send emails with multi-event calendar attachments
-        // Make sure to batch them in groups of 5 max
-        const batchSize = 5;
+        // Make sure to batch them in groups of 5 max, as there are problems with gcal
+        // The batches are already done on edge function, so not required here
+        const batchSize = 10;
 
         // Split the ICS arrays into batches of 5
         const learnerICSBatches = [];
@@ -275,8 +276,8 @@ export async function sendMultiEventCalendarInvite(
                 body: {
                   learnerEmail,
                   instructorEmail,
-                  learnerICSArray: learnerICSBatches[i],
-                  instructorICSArray: instructorICSBatches[i],
+                  learnerICSArray: newLearnerICS,
+                  instructorICSArray: newInstructorICS,
                   isMultiEvent: true,
                   events: eventBatches[i].map((e) => ({
                     lessonNumber: e.lessonNumber,

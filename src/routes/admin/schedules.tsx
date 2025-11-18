@@ -1322,6 +1322,32 @@ export default function AdminSchedules() {
 
     
 
+  function isOldestIncompleteSchedule(schedules: any, schedule: any): import("react").ReactNode {
+    if (!schedules || !schedule) return false;
+    // check that the passed scheduleId matches the oldest schedule from schedules array
+    // by schedule.date and start_time
+    if (schedule.status === "completed") return false;
+
+    try {
+      const sorted = schedules;
+      // const sorted = [...schedules]
+      // .filter(Boolean)
+      // .sort((a, b) => {
+      //   const dateA = new Date(`${a.date}T${a.start_time}`);
+      //   const dateB = new Date(`${b.date}T${b.start_time}`);
+      //   return dateA.getTime() - dateB.getTime();
+      // });
+
+      const firstIncomplete = sorted.find((s) => s.status !== "completed");
+      // console.log("schedules, schedule, firstIncomplete ", schedules, schedule, firstIncomplete);
+      return firstIncomplete?.id === schedule.id;
+    } catch (e) {
+      // on any parsing/sorting error, be conservative and disallow marking
+      console.error("isOldestIncompleteSchedule error:", e);
+      return false;
+    }
+  }
+
   return (
     <div
       className="h-flex flex min-h-screen flex-col bg-white p-8"
@@ -1729,11 +1755,14 @@ export default function AdminSchedules() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleChangeLessonStatus(schedule)}
-                                  disabled={schedule.status === 'completed'}
+                                  disabled={schedule.status === 'completed' || 
+                                    !isOldestIncompleteSchedule(selectedRequest?.schedules, schedule)}
                                   >
                                   {schedule.status === 'completed'
-                                    ? 'Mark Lesson as Completed (Lesson Completed)' 
-                                    : 'Mark Lesson as Completed'
+                                    ?'Mark Lesson as Completed (Lesson Completed)' 
+                                    : isOldestIncompleteSchedule(selectedRequest?.schedules, schedule)
+                                    ? 'Mark Lesson as Completed'
+                                    : "Mark previous lessons complete"
                                   }
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
