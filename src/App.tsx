@@ -59,6 +59,7 @@ import LoadingAndRedirect from "@/routes/LoadingandRedirect";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
 import NotificationManagement from "./routes/admin/NotificationManagement";
+import TentativeSchedules2 from "./routes/admin/TentativeManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -241,6 +242,7 @@ export default function App() {
                 path="notification-management"
                 element={<NotificationManagement />}
               />
+              <Route path="tentative-schedules-info" element={<TentativeSchedules2 />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

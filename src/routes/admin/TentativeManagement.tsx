@@ -1,5 +1,5 @@
 import { Delete, Filter, RefreshCcw, Search, Send, UserPlus } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { addDays, formatDate, subDays } from "date-fns";
 import Schedule from "../schedule";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
 
 function TentativeSchedules() {
   const [learnerData, setLearnerData] = useState({
@@ -294,7 +295,7 @@ export default function TentativeScheduleInfo2() {
   let { data: tentativeSchedulesByLearners, isLoadingTentativeSchedulesByLearners} = useQuery({
     queryKey: ["learnersWithTentative"],
     queryFn: async () => {
-      const startDate = subDays(new Date(),7);
+      const startDate = subDays(new Date(),30);
       // const endDate = addDays(startDate, maxDaysWindowToFetch);
       // since number's required field we can group by phone number
       const { data, error } = await supabase
@@ -309,198 +310,98 @@ export default function TentativeScheduleInfo2() {
       return data ; //as LearnerInfo[];
     },
   });
-  // learners = getLatestRecords(learners);
-  // console.log("Single enrollemt retreived learners", learners);
-//   function getLatestRecords(learners) {
-//     if (!Array.isArray(learners) || learners.length === 0) {
-//         return [];
-//     }
 
-//     // Custom sorting logic for finding the "latest" record
-//     const getLatestRecord = (records) => {
-//         if (!records || records.length === 0) {
-//             return null;
-//         }
+  function groupSchedules(schedules) {
+    if (!schedules) return;
+    // Use a Map to maintain insertion order, which respects the original array's sort order (date)
+    const groupsMap = schedules.reduce((acc, schedule) => {
+      // Safely access the group key
+      const groupId = schedule?.tentative_details?.phone;
 
-//         // Sort function: Highest priority first (b - a for descending)
-//         const sortedRecords = [...records].sort((a, b) => {
-            
-//             // --- 1. Primary Sort: created_at (most recent first) ---
-//             const dateA = new Date(a.created_at).getTime();
-//             const dateB = new Date(b.created_at).getTime();
-//             if (dateB !== dateA) {
-//                 return dateB - dateA;
-//             }
+      if (!groupId) {
+        return acc;
+      }
 
-//             // --- 2. Tie-breaker 1: updated_at (most recent first) ---
-//             // If updated_at is null/undefined, it is treated as 0, which correctly sorts valid dates first.
-//             const updatedA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-//             const updatedB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-//             if (updatedB !== updatedA) {
-//                  return updatedB - updatedA;
-//             }
+      if (!acc.has(groupId)) {
+        // Initialize the group on first encounter
+        acc.set(groupId, {
+          groupId: groupId,
+          schedulesStartDate: schedule.date, // Captures the earliest date for implicit group sorting
+          schedulesStartTime: schedule.start_time, // Captures the earliest start_time for implicit group sorting
+          schedules: [],
+        });
+      }
 
-//             // --- 3. Tie-breaker 2: amount (largest first) ---
-//             // If amount is null/undefined/0, it is treated as 0.
-//             const amountA = a.amount || 0;
-//             const amountB = b.amount || 0;
-//             return amountB - amountA; // Descending order for amount
-//         });
+      // Add the current schedule to its respective group, maintaining chronological order
+      acc.get(groupId).schedules.push(schedule);
 
-//         // Return the single most recent record
-//         return sortedRecords[0];
-//     };
+      return acc;
+    }, new Map());
 
-//     // The function continues here to process the learners array
-//     return learners.map(learner => {
-//         // Find the most recent Enrollment
-//         const latestEnrollment = getLatestRecord(learner.enrollment);
-
-//         // Find the most recent Payment
-//         const latestPayment = getLatestRecord(learner.payment);
-
-//         // Return a new learner object with the arrays replaced by single objects
-//         return {
-//             ...learner,
-//             enrollment: latestEnrollment,
-//             payment: latestPayment,
-//         };
-//     });
-// }
-
-    // function sortLearnersByEnrollmentAndSchedule(learnersWithSingleRecords) {
-    //     return [...learnersWithSingleRecords].sort((a, b) => {
-    //         const modeA = a.enrollment?.installment_mode;
-    //         const modeB = b.enrollment?.installment_mode;
-
-    //         const isAFirstHalf = modeA === "first_half";
-    //         const isBFirstHalf = modeB === "first_half";
-
-    //         if (isAFirstHalf && !isBFirstHalf) {
-    //             return -1; // A comes before B (prioritized)
-    //         }
-    //         if (!isAFirstHalf && isBFirstHalf) {
-    //             return 1; // B comes before A (prioritized)
-    //         }
-            
-    //         // Second sorting based on schedule time using getHoursSince
-    //         // Prefer learners that have a schedule (with date or start_time).
-    //         const hasScheduleA = !!(a.schedule && (a.schedule.date || a.schedule.start_time));
-    //         const hasScheduleB = !!(b.schedule && (b.schedule.date || b.schedule.start_time));
-
-    //         if (hasScheduleA && !hasScheduleB) return -1;
-    //         if (!hasScheduleA && hasScheduleB) return 1;
-    //         if (!hasScheduleA && !hasScheduleB) return 0;
-
-    //         // Both have schedules — sort by hours since (higher hours => higher priority)
-    //         const hA = getHoursSince(a.schedule);
-    //         const hB = getHoursSince(b.schedule);
-
-    //         // If both hours are invalid, keep original order
-    //         if (hA === null && hB === null) return 0;
-    //         if (hA === null) return 1; // b has valid hours, a doesn't -> b first
-    //         if (hB === null) return -1; // a has valid hours, b doesn't -> a first
-
-    //         return (hB as number) - (hA as number);
-    //         return 0; // Maintain order if modes are equal
-    //     });
-    // }
-
-  // const {
-  //   data: scheduleByLearnerData,
-  //   isLoading: isLoadingScheduleByLearner,
-  //   error: errorLoadingScheduleByLearner,
-  // } = useQuery({
-  //   queryKey: ["scheduleByLearner", learners?.map((l) => l.id) || []],
-  //   queryFn: async () => {
-  //     if (!Array.isArray(learners) || learners.length === 0) return [];
-  //     const currentTimestamp = new Date();
-  //     // use ISO date (yyyy-MM-dd) and HH:MM:SS time to match DB column formats
-  //     const dateTimeRef = currentTimestamp.toISOString().split("T")[0];
-  //     const hourTimeRef = currentTimestamp.toTimeString().split(" ")[0];
-  //     const { data, error } = await supabase
-  //       .from("Schedule")
-  //       .select("*, Lesson!inner(number)")
-  //       .lte("date", dateTimeRef)
-  //       .lt("start_time", hourTimeRef)
-  //       .eq("Lesson.number", maxNumLessonsOnHalfInstallment)
-  //       .in("learner_id", learners.map((learner) => learner.id));
-
-  //     if (error) throw error;
-  //     // console.log("Fetched scheduleByLearnerData:", data);
-  //     return data;
-  //   },
-  //   enabled: Array.isArray(learners) && learners.length > 0,
-  // });
-
-  // learners = sortLearnersByEnrollmentAndSchedule(learners);
+    // Convert the Map values back into a chronologically ordered Array of groups
+    return Array.from(groupsMap.values());
+  }
 
 
-  // Append Schedule data to each learner item when a schedule exists in scheduleByLearnerData
-  // if (Array.isArray(learners) && Array.isArray(scheduleByLearnerData)) {
-  //   // console.log(
-  //   //   "Appending schedules - input:",
-  //   //   { learnersCount: learners.length, schedulesCount: scheduleByLearnerData.length },
-  //   // );
+  // Group the fetched tentative schedules
+  const schedulesGrouped = useMemo(() => {
+    if (!tentativeSchedulesByLearners) {
+      return [];
+    }
+    const groupedData = groupSchedules(tentativeSchedulesByLearners);
+    console.log("The grouped schedules are", groupedData);
+    return groupedData;
+  }, [tentativeSchedulesByLearners]);
 
-  //   const scheduleMap = new Map<string, any>();
 
-  //   for (const sch of scheduleByLearnerData) {
-  //     // console.log("Processing schedule input:", sch);
-  //     const lid = sch?.learner_id;
-  //     if (!lid) {
-  //       // console.log("Skipping schedule without learner_id:", sch);
-  //       continue;
-  //     }
-  //     // Store the schedule for the learner (if multiple exist, last one wins)
-  //     scheduleMap.set(lid, sch);
-  //     // console.log(`Mapped schedule for learner_id=${lid}:`, sch);
-  //   }
 
-  //   // console.log("Schedule map built. Keys:", Array.from(scheduleMap.keys()));
+  const filteredScheduleGroups = useMemo(() => {
+    // If the initial data isn't ready or the search query is empty, return the original data
+    if (!schedulesGrouped || searchQuery === "") {
+      return schedulesGrouped;
+    }
 
-  //   const learnersBefore = learners;
-  //   // console.log("Learners before attaching schedules (sample):", learnersBefore.slice?.(0, 5) ?? learnersBefore);
+    const lowerCaseQuery = searchQuery.toLowerCase();
 
-  //   learners = learners.map((learner) => {
-  //     const attachedSchedule = scheduleMap.get(learner.id) ?? null;
-  //     // add only if not already present
-  //     const out = {
-  //         ...learner,
-  //         schedule: learner.schedule === undefined ? attachedSchedule : learner.schedule,
-  //     };
-  //     // console.log(`Learner processed id=${learner.id} - attachedSchedule:`, attachedSchedule);
-  //     return out;
-  //   });
+    return schedulesGrouped.filter((group) => {
+      // 1. Check if the Group ID (groupId) matches the search query
+      const groupIdMatch = group.groupId.toLowerCase().includes(lowerCaseQuery);
 
-  //   // console.log("Learners after attaching schedules (sample):", learners.slice?.(0, 5) ?? learners);
-  // } else {
-  //   // console.log("No learners or schedules to process", {
-  //   //   learners: Array.isArray(learners) ? `count=${learners.length}` : learners,
-  //   //   scheduleByLearnerData: Array.isArray(scheduleByLearnerData) ? `count=${scheduleByLearnerData.length}` : scheduleByLearnerData,
-  //   // });
-  // }
+      // 2. Check if ANY schedule within the group matches the search query on common fields
+      // not working currently
+      const scheduleMatch = group.schedules.some((schedule) => {
+        const details = schedule.tentative_details;
+        console.log("Seraching", lowerCaseQuery, "on details", details);
+        // Check key fields inside the schedule object for a match
+        return (
+          details.pickup_location?.toLowerCase().includes(lowerCaseQuery) ||
+          details.leadName?.toLowerCase().includes(lowerCaseQuery) ||
+          // Assuming date or time might be searched (useful if formatted search is implemented)
+          schedule.date.includes(searchQuery) || 
+          schedule.start_time.includes(searchQuery)
+        );
+      });
+
+      // Return the group if EITHER the Group ID matches OR any schedule matches
+      return groupIdMatch || scheduleMatch;
+    });
+  }, [schedulesGrouped, searchQuery]);
+
+
+
   // Filter learners based on search query
-  const filteredLearners = tentativeSchedulesByLearners?.filter(
-    (schedule) =>
-      schedule.tentative_details.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      schedule.tentative_details.phone.includes(searchQuery) ||
-      schedule.tentative_details.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      schedule.tentative_details.area?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  // const filteredLearners = groupSchedules?.filter(
+  //   (schedule) =>
+  //     schedule.tentative_details.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //     schedule.tentative_details.phone.includes(searchQuery) ||
+  //     schedule.tentative_details.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //     schedule.tentative_details.area?.toLowerCase().includes(searchQuery.toLowerCase()),
+  // );
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
     
     setSelectedLearner(learner);
     setDialogOpen(true);
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
   };
 
   const getTimeAgo = (dateString?: string) => {
@@ -568,7 +469,7 @@ export default function TentativeScheduleInfo2() {
             </div>
             <Button
               variant="outline"
-              className="gap-2 transition-all duration-100 active:scale-[0.85] active:shadow-inner"
+              className="gap-2 transition-all duration-100 active:scale-[0.99] active:shadow-inner"
             >
               <Filter className="h-4 w-4" />
               Filter
@@ -583,7 +484,7 @@ export default function TentativeScheduleInfo2() {
                 <div>
                   <CardTitle>Customers</CardTitle>
                   <CardDescription>
-                    {filteredLearners?.length || 0} customers found
+                    {filteredScheduleGroups?.length || 0} customers found
                   </CardDescription>
                 </div>
               </div>
@@ -593,49 +494,95 @@ export default function TentativeScheduleInfo2() {
                 <div className="flex items-center justify-center p-8">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                 </div>
-              ) : filteredLearners?.length === 0 ? (
+              ) : filteredScheduleGroups?.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   No customers found matching your search
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4">
-                  {filteredLearners?.map((schedule) => (
+              <div className="grid grid-cols-1 gap-4">
+                {filteredScheduleGroups?.map((schedulesGroup) => {
+                  // 1. Safely access the first schedule and its details
+                  const firstSchedule = schedulesGroup.schedules?.[0];
+                  const details = firstSchedule?.tentative_details;
+                  
+                  // 2. Use the dedicated groupId property, defaulting to a safe string
+                  const groupId = schedulesGroup.groupId || 'Unknown Group ID';
+
+                  // Skip rendering if essential details are missing
+                  if (!details) return null; 
+
+                  return (
                     <div
-                      key={schedule.id}
+                      // Use the safe groupId property for the key
+                      key={groupId} 
                       className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
-                      onClick={() => handleTentativeShow(schedules)}
+                      onClick={() => handleTentativeShow(schedulesGroup.schedules)}
                     >
-                    <div className="flex items-start gap-4">
-                            {getInitials(schedule.tentative_details.name)}
+                      <div className="flex items-start gap-4">
+                        
+                        {/* Use groupId for getInitials */}
                         <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-4">
-                            {/* Column 1: Learner Contact Info (Name, Email, Phone, Area) */}
-                            <div>
-                                <h3 className="text-lg font-medium">
-                                    {schedule.tentative_details.name}
-                                </h3>
-                                <p className="text-sm">
-                                    <span className="font-medium">Email:</span>{" "}
-                                    {schedule.tentative_details.email || "N/A"}
+                          
+                          {/* Column 1: Learner Contact Info (Displaying the GroupId/Name) */}
+                          <div>
+                            <h3 className="text-lg font-medium">
+                              {groupId} 
+                            </h3>
+                            <p className="text-sm">
+                              {details.name || "N/A"} 
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">Email:</span>{" "}
+                              {details.email || "N/A"} 
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {details.pickup_location || "No area specified"}
+                            </p>
+                          </div>
+                          
+                          {/* Column 2: Schedules list and Start Date */}
+                          <div>
+                              <p className="text-sm font-semibold">
+                                  {schedulesGroup.schedules.length} Tentative Slot{schedulesGroup.schedules.length > 1 ? 's' : ''}
                               </p>
-                                <p className="text-sm">
-                                    <span className="font-medium">Phone:</span>{" "}
-                                    {schedule.tentative_details.phone}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    {schedule.tentative_details.area || "No area specified"}
-                                </p>
-                            </div>
-                            {/* Column 2: Currently Empty (Placeholder for the new column) */}
-                            <div> 
+                              <p className="text-sm text-muted-foreground">
+                                  Starting from: {schedulesGroup.schedulesStartDate} {schedulesGroup.schedulesStartTime.slice(0, 5)}
+                              </p>
+                              <p className="text-muted-foreground">
+                                Lead Name:{" "}
+                                {schedulesGroup.schedules[0].tentative_details.leadName || 'N/A'}
+                              </p>
+                          </div>
+                          
+                          <div className="md:col-span-2 space-y-2"> 
+                            <p className="text-sm font-semibold border-b pb-1">Tentative Slots</p>
+                            
+                            {schedulesGroup.schedules.map((schedule) => {
+                                // Format time to HH:MM 
+                                const displayTime = schedule.start_time.slice(0, 5); 
 
-
-                            </div>
-                            {/* Column 3: Payment/Enrollment Info (Installment, Total, Due, Status, Due Since) */}
+                                return (
+                                    <div key={schedule.id} className="text-xs bg-gray-100 p-2 rounded-md">
+                                        <p>
+                                            {/* Use the formatted time */}
+                                            <span className="font-medium">{schedule.date}</span> at {displayTime}
+                                        </p>
+                                        {/* <p className="text-muted-foreground">
+                                            Location: {schedule.tentative_details.pickup_location || 'Not set'}
+                                        </p> */}
+                                        <p className="text-muted-foreground">
+                                            Description: {schedule.tentative_details.description || 'N/A'}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                          </div>
                         </div>
+                      </div>
                     </div>
-                    </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
               )}
             </CardContent>
           </Card>
