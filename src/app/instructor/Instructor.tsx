@@ -1649,36 +1649,51 @@ function Instructor() {
 
                   return dateA.getTime() - dateB.getTime();
                 })
-                .map(({ learner, lesson }, index) => {
+                .map((item, index) => {
+                  if (!item) {
+                    console.warn(`Skipping null/undefined item at index ${index}.`);
+                    return null;
+                  }
+
+                  const { learner, lesson } = item;
+
+                  if (!lesson || !lesson.id) {
+                    console.warn(`Skipping item at index ${index}: lesson or lesson ID is missing.`);
+                    return null;
+                  }
+                  
                   const lessonSchedule = instructorData.instructorSchedule.find(
-                    (s) => s.lesson_id === lesson?.id,
+                    // Optional chaining is no longer strictly necessary but is safe.
+                    (s) => s.lesson_id === lesson.id, 
                   );
+
+                  // Existing check for lessonSchedule
+                  if (!lessonSchedule) {
+                    console.error(`Missing schedule for lesson ID: ${lesson.id}`);
+                    return null;
+                  }
 
                   return (
                     <Card key={index}>
                       <CardHeader>
                         <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
-                          <div className="text-base">Lesson {lesson?.number}</div>
+                          <div className="text-base">Lesson {lesson.number}</div>
                           <div className="text-sm">
                             <div className="text-right text-base">
-                              {lessonSchedule
-                                ? new Date(
-                                    lessonSchedule.date,
-                                  ).toLocaleDateString()
+                              {lessonSchedule.date
+                                ? new Date(lessonSchedule.date).toLocaleDateString()
                                 : "No date"}
                             </div>
-                            {lessonSchedule
-                              ? formatTimeRange(
-                                  lessonSchedule.start_time,
-                                  lessonSchedule.end_time,
-                                )
-                              : "No time scheduled"}
+                            {formatTimeRange(
+                                lessonSchedule.start_time,
+                                lessonSchedule.end_time,
+                              )}
                           </div>
                         </CardTitle>
-                      <CardDescription className="text-base">
-                        {lesson?.number &&
-                          LESSON_CONTENT[lesson.number]?.content.title}
-                      </CardDescription>
+                        <CardDescription className="text-base">
+                          {lesson.number &&
+                            LESSON_CONTENT[lesson.number]?.content.title}
+                        </CardDescription>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-4">
                         <div className="flex flex-col gap-1 text-lg">
@@ -1686,14 +1701,15 @@ function Instructor() {
                             <p className="text-nowrap text-muted-foreground">
                               Pick-up Location :
                             </p>
+                            {/* Added defensive access for learner properties like address_lat/lng */}
                             <a
-                              href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
+                              href={`https://www.google.com/maps?q=$$${learner?.address_lat},${learner?.address_lng}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
                             >
                               <span className="truncate">
-                                {learner.pick_up_location}
+                                {learner?.pick_up_location}
                               </span>
                               <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                             </a>
@@ -1702,21 +1718,21 @@ function Instructor() {
                             <p className="text-muted-foreground">
                               Learner name :
                             </p>
-                            <p>{learner.name}</p>
+                            <p>{learner?.name}</p>
                           </div>
                           <div className="flex flex-row items-center gap-1">
                             <p className="text-muted-foreground">
                               Contact Learner :{" "}
                             </p>
-                            <p>{learner.phone}</p>
+                            <p>{learner?.phone}</p>
                             <div className="ml-1">
-                              <a href={`tel:+91${learner.phone}`}>
+                              <a href={`tel:+91${learner?.phone}`}>
                                 <PhoneOutgoing size={14} />
                               </a>
                             </div>
                           </div>
 
-                          {lessonSchedule && lessonSchedule.status && (
+                          {lessonSchedule.status && (
                             <div className="mt-2 flex items-center gap-2">
                               <p className="text-muted-foreground">Status:</p>
                               <span
@@ -2095,7 +2111,8 @@ function Instructor() {
               {
                 instructorData?.learnerLesson.find(
                   (ll) =>
-                    ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id,
+                    ll?.lesson?.id && 
+                  (ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id),
                 )?.lesson.number
               }
             </DialogDescription>

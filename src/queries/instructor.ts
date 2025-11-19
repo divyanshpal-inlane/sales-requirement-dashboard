@@ -127,15 +127,17 @@ export const useInstructor = (phone: string) => {
       // Fetch learner and lesson data for each schedule (all schedules)
       const learnerLesson = await Promise.all(
         instructorSchedule.map(async (schedule) => {
-          const { learner, lesson } = await fetchLearnerAndLesson(
-            schedule.learner_id,
-            schedule.lesson_id,
-          );
-          return {
-            schedule,
-            learner,
-            lesson,
-          };
+          if (!schedule.isTentative) {
+            const { learner, lesson } = await fetchLearnerAndLesson(
+              schedule.learner_id,
+              schedule.lesson_id,
+            );
+            return {
+              schedule,
+              learner,
+              lesson,
+            };
+          }
         }),
       );
 
