@@ -11,7 +11,7 @@ import {
   useVerifyOtp,
 } from "@/queries/instructor";
 
-const SuccessAnimation = () => (
+const SuccessAnimation = (isVerifyStartLesson) => (
   <div className="flex flex-col items-center justify-center space-y-4">
     <div className="relative">
       <div className="absolute inset-0 animate-[ping_1s_ease-in-out_1] rounded-full bg-[#00CE84]/30" />
@@ -20,7 +20,10 @@ const SuccessAnimation = () => (
       </div>
     </div>
     <p className="text-center text-xl font-medium text-[#00CE84]">
-      Please start teaching...
+      {/* {isVerifyStartLesson ? 
+      "Please start teaching..." :
+      "Lesson ended successfully"} */}
+      Verification Successful
     </p>
   </div>
 );
@@ -44,7 +47,7 @@ const CountdownRedirect = ({ onComplete }: { onComplete: () => void }) => {
   );
 };
 
-const OTPVerification = () => {
+const OTPVerification = ({isVerifyStartLesson}: boolean) => {
   const { learnerId, scheduleId } = useParams();
   const [otp, setOTP] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
@@ -61,6 +64,7 @@ const OTPVerification = () => {
   } = useVerifyOtp({
     scheduleId,
     otp,
+    isVerifyStartLesson,
     enabled: otp.length === 6,
   });
 
@@ -77,14 +81,14 @@ const OTPVerification = () => {
     // console.log("otp set to ", finalOtp, otp);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (isVerifyStartLesson) => {
     if (verificationData?.isValid && scheduleId) {
       updateStatus(
         {
           scheduleId,
-          status: "ongoing",
-          started_at: `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`,
-          ended_at: "",
+          status: isVerifyStartLesson ? "ongoing" : "completed",
+          started_at: isVerifyStartLesson ? new Date().toISOString() : "",
+          ended_at: isVerifyStartLesson ? "" : new Date().toISOString(),
         },
         {
           onSuccess: () => {
@@ -131,7 +135,7 @@ const OTPVerification = () => {
           <div className="w-full max-w-md space-y-6 sm:space-y-8">
             {showSuccess ? (
               <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
-                <SuccessAnimation />
+                <SuccessAnimation isVerifyStartLesson />
                 <CountdownRedirect onComplete={() => navigate("/")} />
               </div>
             ) : (
@@ -181,7 +185,7 @@ const OTPVerification = () => {
                 <div className="space-y-6">
                   <div className="flex flex-col items-center space-y-4">
                     <p className="text-center text-sm text-gray-600 sm:text-base">
-                      Enter the 6-digit code to start teaching
+                      Enter the 6-digit code to {isVerifyStartLesson ? "start" : "end"} lesson
                     </p>
 
                     <div className="w-full max-w-xs sm:max-w-md">
@@ -207,13 +211,13 @@ const OTPVerification = () => {
 
                   <Button
                     className="w-full bg-[#00CE84] text-sm transition-all hover:scale-[1.02] hover:bg-[#04A76C] disabled:bg-gray-300 sm:text-base"
-                    onClick={handleSubmit}
+                    onClick={async () => {await handleSubmit(isVerifyStartLesson);}}
                     disabled={otp.length !== 6 || isLoadingVerification}
                   >
                     {isLoadingVerification ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
-                      "Verify & Start"
+                      isVerifyStartLesson ? "Verify & Start" : "Verify & End"
                     )}
                   </Button>
                 </div>

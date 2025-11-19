@@ -152,7 +152,7 @@ const ScheduleList = ({
                     schedule.status !== "completed" && (
                       <Button
                         onClick={() => {
-                          navigate(`/otp/${learner.id}/${schedule.id}`);
+                          navigate(`/otp/start/${learner.id}/${schedule.id}`);
                         }}
                         size="sm"
                         className="text-xs"
