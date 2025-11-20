@@ -16,6 +16,7 @@ interface UseVerifyOtpParams {
 interface ScheduleWithOtp {
   id: string;
   otp: string;
+  otp_end: string;
   // Add other schedule fields as needed
 }
 
@@ -276,8 +277,12 @@ export const useVerifyOtp = ({
       }
 
       const schedule = data as unknown as ScheduleWithOtp;
-      const isValid = ((schedule && isVerifyStartLesson) ? schedule.otp : schedule.otp_end) === otp;
-
+      let isValid = ((schedule && isVerifyStartLesson) ? schedule.otp : schedule.otp_end) === otp;
+      // Also handle end lesson otp null for lessons scheduled before the change
+      if (!isVerifyStartLesson && !schedule.otp_end) {
+        console.log("OTP end is null, allowing end lesson verification");
+        isValid = true;
+      }
       console.log("Returning verification data", {isValid, schedule});
       return {
         isValid,
