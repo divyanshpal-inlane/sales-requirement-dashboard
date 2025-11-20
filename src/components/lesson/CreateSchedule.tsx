@@ -2873,6 +2873,7 @@ console.log("Setting state to slot", slot);
           end_time: `${String(endHour).padStart(2, "0")}:${endMinutes}:00`,
           status: "booked",
           otp: generateRandomOTP(),
+          otp_end: generateRandomOTP(),
           calendar_uid: "", // Will be populated for new schedules only
         };
       });

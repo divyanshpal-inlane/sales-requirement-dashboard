@@ -104,11 +104,11 @@ const InstructorProfile = () => {
   };
 
   const handleCall = () => {
-    window.location.href = "tel:+919182031523";
+    window.location.href = "tel:+916360739863";
   };
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/919182031523", "_blank");
+    window.open("https://wa.me/916360739863", "_blank");
   };
 
   const handleEmail = () => {
@@ -240,7 +240,7 @@ const InstructorProfile = () => {
                 <Phone size={24} />
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">Call Us</span>
-                  <span className="text-base opacity-90">+91 9182031523</span>
+                  <span className="text-base opacity-90">+91 6360739863</span>
                 </div>
               </button>
 
