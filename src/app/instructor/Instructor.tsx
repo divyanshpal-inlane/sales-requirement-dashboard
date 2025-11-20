@@ -1588,8 +1588,8 @@ function Instructor() {
                           {isOngoing && (
                             <Button
                               onClick={() => {
-                                  alert("Lesson to be ended by customer");
-
+                                  // alert("Lesson to be ended by customer");
+                                  navigate(`/otp/end/${learner.id}/${schedule.id}`);
                                 }
                                 // handleFinishLesson(
                                 //   schedule.id.toString(),
@@ -1607,7 +1607,7 @@ function Instructor() {
                             schedule.status !== "completed" && (
                               <Button
                                 onClick={() => {
-                                  navigate(`/otp/${learner.id}/${schedule.id}`);
+                                  navigate(`/otp/start/${learner.id}/${schedule.id}`);
                                 }}
                                 size="sm"
                                 className="text-sm"

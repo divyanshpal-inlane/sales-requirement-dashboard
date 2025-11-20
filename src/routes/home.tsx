@@ -664,6 +664,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
     await handleFinishLesson(scheduleId, learnerId);
   }
   const handleEndLessonDetailsClose = () => {
+    console.log("schedule details ", LessonData?.upcomingSchedule);
     setShowEndLessonDialog(false);
   }
   const renderEndLessonDialog = () => {
@@ -712,7 +713,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                         : ` (${formatDuration(duration, { format: ['hours', 'minutes'] })})`;
                   })()}
                   <br />
-                  Confirm end lesson?
+                  Tell OTP {LessonData?.upcomingSchedule?.otp_end} to end lesson
                   <br />
                   {/* Lesson OTP: {LessonData?.upcomingSchedule?.otp} */}
                 </h2>

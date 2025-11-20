@@ -251,6 +251,7 @@ export const useUpdateInstructor = () => {
 export const useVerifyOtp = ({
   scheduleId,
   otp,
+  isVerifyStartLesson,
   enabled = true,
 }: UseVerifyOtpParams) => {
   return useQuery({
@@ -262,7 +263,7 @@ export const useVerifyOtp = ({
 
       const { data, error } = await supabase
         .from("Schedule")
-        .select("id, otp")
+        .select("id, otp, otp_end")
         .eq("id", scheduleId)
         .single();
 
@@ -275,7 +276,7 @@ export const useVerifyOtp = ({
       }
 
       const schedule = data as unknown as ScheduleWithOtp;
-      const isValid = schedule.otp === otp;
+      const isValid = ((schedule && isVerifyStartLesson) ? schedule.otp : schedule.otp_end) === otp;
 
       console.log("Returning verification data", {isValid, schedule});
       return {

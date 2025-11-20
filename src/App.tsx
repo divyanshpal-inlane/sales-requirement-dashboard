@@ -203,10 +203,18 @@ export default function App() {
               }
             />
             <Route
-              path="/otp/:learnerId/:scheduleId"
+              path="/otp/start/:learnerId/:scheduleId"
               element={
                 <ProtectedInstructorRoute>
-                  <OTP />
+                  <OTP isVerifyStartLesson={true} />
+                </ProtectedInstructorRoute>
+              }
+            />
+             <Route
+              path="/otp/end/:learnerId/:scheduleId"
+              element={
+                <ProtectedInstructorRoute>
+                  <OTP isVerifyStartLesson={false} />
                 </ProtectedInstructorRoute>
               }
             />
