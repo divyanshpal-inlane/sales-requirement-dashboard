@@ -395,10 +395,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                   }
                   className="w-full"
                   disabled={
-                    !isWithin30MinutesOfLesson(
-                      LessonData.upcomingSchedule.date,
-                      LessonData.upcomingSchedule.start_time,
-                    ) || lessonSchedule?.status?.toUpperCase() === "COMPLETED"
+                      lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                       || !enabledLessonForInstallmentStatus(
                         LessonData?.upcomingLesson?.number,
                       )
@@ -418,15 +415,6 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                   }
                 </Button>
               </TooltipTrigger>
-              {!isWithin30MinutesOfLesson(
-                LessonData?.upcomingSchedule?.date,
-                LessonData?.upcomingSchedule?.start_time,
-              ) &&
-                !lessonSchedule?.status && (
-                  <TooltipContent>
-                    <p>Available 30 mins before lesson</p>
-                  </TooltipContent>
-                )}
               {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
                 lessonSchedule?.status?.toUpperCase() === "COMPLETED") && (
                 <TooltipContent>
