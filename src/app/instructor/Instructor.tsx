@@ -879,7 +879,8 @@ function Instructor() {
           {/* Instructor Schedules */}
           {daySchedules.slice(0, 1).map((schedule, idx) => {
             const learnerInfo = instructorData?.learnerLesson.find(
-              (ll) => ll.lesson.id === schedule.lesson_id,
+              (ll) => (ll?.lesson?.id && 
+                (ll.lesson.id === schedule.lesson_id)),
             );
 
             return (
@@ -1066,7 +1067,8 @@ function Instructor() {
                       if (schedule) {
                         const learnerLesson =
                           instructorData?.learnerLesson.find(
-                            (ll) => ll.lesson.id === schedule.lesson_id,
+                          (ll) => (ll?.lesson?.id && 
+                              (ll.lesson.id === schedule.lesson_id)),
                           );
                         if (learnerLesson) {
                           learnerName = learnerLesson.learner.name;
@@ -1259,7 +1261,8 @@ function Instructor() {
                   {/* Instructor Schedules */}
                   {timeSlotSchedules.map((schedule, idx) => {
                     const learnerInfo = instructorData?.learnerLesson.find(
-                      (ll) => ll.lesson.id === schedule.lesson_id,
+                      (ll) => (ll?.lesson?.id && 
+                        (ll.lesson.id === schedule.lesson_id)),
                     );
 
                     const isScheduleStart =
