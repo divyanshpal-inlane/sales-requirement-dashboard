@@ -110,7 +110,7 @@ export default function Profile2() {
 
         {/* Chat with Support */}
         <a
-          href="https://wa.me/+919182031523?text=Hello%20I%20need%20support"
+          href="https://wa.me/+916360739863?text=Hello%20I%20need%20support"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center space-x-2"
