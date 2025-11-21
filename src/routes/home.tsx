@@ -1,5 +1,5 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { addDays, formatDuration, intervalToDuration, isAfter, isBefore, set, subDays } from "date-fns";
+import { addDays, formatDuration, intervalToDuration, isAfter, isBefore, max, set, subDays } from "date-fns";
 import {
   ArrowRight,
   BookOpen,
@@ -206,6 +206,14 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
       lessonNumber <= maxNumLessonsOnHalfInstallment + numWaiveredLessonUnlocked
     );
   }
+  const isWaiveredLesson = (lessonNumber: number | null | undefined) => {
+    if (!lessonNumber) return false;
+      return (
+        (lessonNumber > maxNumLessonsOnHalfInstallment) && 
+        (enabledLessonForInstallmentStatus(lessonNumber))
+      );
+  }
+    
 
   // Check if reschedule request is for the upcoming lesson
   const isRescheduleForUpcomingLesson =
@@ -362,6 +370,15 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
               >
                 Pay remaining amount
               </Button>
+            </AlertDescription>
+          </Alert>
+      )}
+      {
+        isWaiveredLesson(LessonData?.upcomingLesson?.number) && (
+          <Alert className="mb-4 border-primary bg-white">
+            <AlertDescription>
+              We're unlocking the current lesson, but make payment
+              before next lesson
             </AlertDescription>
           </Alert>
       )}
@@ -837,7 +854,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
         className="scrollbar-none flex h-[calc(100vh-50px)] flex-col overflow-y-auto p-4 pb-20"
         style={{ scrollbarWidth: "none" }}
       >
-        {!allLessonsCompleted ? (
+        {/* {!allLessonsCompleted ? (
           showPaymentCompletion ? (
           
           <div className="max-w-md text-center">
@@ -864,7 +881,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
           )
         ) : (
           <></>
-        )}
+        )} */}
 
         {/* Show course completion page if all lessons are completed */}
         {allLessonsCompleted ? (
