@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { addDays, format, subDays } from "date-fns";
 
 const getCurrentDate = () => {
-  const date = subDays(new Date(),1);
+  const date = subDays(new Date(),0);
   return date.toISOString().split("T")[0];
 };
 
