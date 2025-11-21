@@ -1,5 +1,5 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { addDays, formatDuration, intervalToDuration, isAfter, isBefore, set, subDays } from "date-fns";
+import { addDays, formatDuration, intervalToDuration, isAfter, isBefore, max, set, subDays } from "date-fns";
 import {
   ArrowRight,
   BookOpen,
@@ -42,6 +42,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Label } from "@/components/ui/label";
 import { useUpdateScheduleStatus } from "@/queries/instructor";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -205,6 +206,14 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
       lessonNumber <= maxNumLessonsOnHalfInstallment + numWaiveredLessonUnlocked
     );
   }
+  const isWaiveredLesson = (lessonNumber: number | null | undefined) => {
+    if (!lessonNumber) return false;
+      return (
+        (lessonNumber > maxNumLessonsOnHalfInstallment) && 
+        (enabledLessonForInstallmentStatus(lessonNumber))
+      );
+  }
+    
 
   // Check if reschedule request is for the upcoming lesson
   const isRescheduleForUpcomingLesson =
@@ -349,6 +358,30 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
             </div>
           )
         } */}
+        {enrolledCourse?.payment_status === "half_paid" && (
+          <Alert className="mb-4 border-primary bg-white">
+            <AlertDescription>
+              You have paid the first installment. Some lessons are locked
+              until you complete the payment.
+              <Button
+                variant="link"
+                className="h-auto p-0 text-primary"
+                onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+              >
+                Pay remaining amount
+              </Button>
+            </AlertDescription>
+          </Alert>
+      )}
+      {
+        isWaiveredLesson(LessonData?.upcomingLesson?.number) && (
+          <Alert className="mb-4 border-primary bg-white">
+            <AlertDescription>
+              We're unlocking the current lesson, but make payment
+              before next lesson
+            </AlertDescription>
+          </Alert>
+      )}
       {LessonData?.upcomingSchedule &&
         LessonData?.instructor &&
         LessonData?.upcomingLesson && (
@@ -395,10 +428,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                   }
                   className="w-full"
                   disabled={
-                    !isWithin30MinutesOfLesson(
-                      LessonData.upcomingSchedule.date,
-                      LessonData.upcomingSchedule.start_time,
-                    ) || lessonSchedule?.status?.toUpperCase() === "COMPLETED"
+                      lessonSchedule?.status?.toUpperCase() === "COMPLETED"
                       || !enabledLessonForInstallmentStatus(
                         LessonData?.upcomingLesson?.number,
                       )
@@ -418,15 +448,6 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                   }
                 </Button>
               </TooltipTrigger>
-              {!isWithin30MinutesOfLesson(
-                LessonData?.upcomingSchedule?.date,
-                LessonData?.upcomingSchedule?.start_time,
-              ) &&
-                !lessonSchedule?.status && (
-                  <TooltipContent>
-                    <p>Available 30 mins before lesson</p>
-                  </TooltipContent>
-                )}
               {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
                 lessonSchedule?.status?.toUpperCase() === "COMPLETED") && (
                 <TooltipContent>
@@ -833,7 +854,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
         className="scrollbar-none flex h-[calc(100vh-50px)] flex-col overflow-y-auto p-4 pb-20"
         style={{ scrollbarWidth: "none" }}
       >
-        {!allLessonsCompleted ? (
+        {/* {!allLessonsCompleted ? (
           showPaymentCompletion ? (
           
           <div className="max-w-md text-center">
@@ -860,7 +881,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
           )
         ) : (
           <></>
-        )}
+        )} */}
 
         {/* Show course completion page if all lessons are completed */}
         {allLessonsCompleted ? (
