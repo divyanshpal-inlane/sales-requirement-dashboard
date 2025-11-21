@@ -90,6 +90,7 @@ export function useUpcomingLesson() {
   const { phone } = useUser();
   const { data: learner } = useLearner();
 
+  // show lessons from the last completed lessons, regardless of date
   return useQuery({
     queryKey: ["schedule", "upcomingLesson", phone, learner?.id],
     queryFn: async () => {
@@ -120,7 +121,11 @@ export function useUpcomingLesson() {
           Courses (*)
         `,
         )
-        .eq("learner_id", learner.id);
+        .eq("learner_id", learner.id)
+        .neq("status", "completed")
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
+        // .limit(1);
 
       if (error) {
         throw new Error(`Supabase error: ${error.message}`);
@@ -136,24 +141,26 @@ export function useUpcomingLesson() {
       }
 
       // Filter and sort upcoming schedules
-      const validSchedules = data.filter((item) => {
-        if (!item.date) return false;
-        const itemDate = new Date(item.date);
+      const validSchedules = data;
+      // data.filter((item) => {
+      //   if (!item.date) return false;
+      //   const itemDate = new Date(item.date);
 
-        if (itemDate > currentDate) return true;
+      //   if (itemDate > currentDate) return true;
 
-        if (itemDate.toDateString() === currentDate.toDateString()) {
-          return item.end_time && item.end_time > currentTime;
-        }
+      //   if (itemDate.toDateString() === currentDate.toDateString()) {
+      //     return item.end_time && item.end_time > currentTime;
+      //   }
 
-        return false;
-      });
+      //   return false;
+      // });
 
-      const sortedSchedules = validSchedules.sort((a, b) => {
-        const dateTimeA = new Date(`${a.date}T${a.start_time}`);
-        const dateTimeB = new Date(`${b.date}T${b.start_time}`);
-        return dateTimeA.getTime() - dateTimeB.getTime();
-      });
+      const sortedSchedules = validSchedules;
+      // validSchedules.sort((a, b) => {
+      //   const dateTimeA = new Date(`${a.date}T${a.start_time}`);
+      //   const dateTimeB = new Date(`${b.date}T${b.start_time}`);
+      //   return dateTimeA.getTime() - dateTimeB.getTime();
+      // });
 
       if (sortedSchedules.length === 0) {
         return {
