@@ -42,6 +42,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Label } from "@/components/ui/label";
 import { useUpdateScheduleStatus } from "@/queries/instructor";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -349,6 +350,21 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
             </div>
           )
         } */}
+        {enrolledCourse?.payment_status === "half_paid" && (
+          <Alert className="mb-4 border-primary bg-white">
+            <AlertDescription>
+              You have paid the first installment. Some lessons are locked
+              until you complete the payment.
+              <Button
+                variant="link"
+                className="h-auto p-0 text-primary"
+                onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+              >
+                Pay remaining amount
+              </Button>
+            </AlertDescription>
+          </Alert>
+      )}
       {LessonData?.upcomingSchedule &&
         LessonData?.instructor &&
         LessonData?.upcomingLesson && (
