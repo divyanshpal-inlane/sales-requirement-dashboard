@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabaseClient";
+import { addDays, format, subDays } from "date-fns";
 
 const getCurrentDate = () => {
-  const date = new Date();
+  const date = subDays(new Date(),1);
   return date.toISOString().split("T")[0];
 };
 
@@ -156,6 +157,7 @@ export const useInstructor = (phone: string) => {
         }),
       );
 
+      console.log("T2_1 learnerLessonDay", learnerLessonDay);
       return {
         instructorInfo,
         instructorSchedule,
@@ -163,6 +165,85 @@ export const useInstructor = (phone: string) => {
         learnerLessonDay,
         learnerLesson,
         unavailability: instructorInfo.unavailability, // Added this to include all schedules' learner and lesson data
+      };
+    },
+  });
+};
+
+export const useInstructorScheduleData = (phone: string) => {
+  return useQuery({
+    queryKey: ["instructor", phone],
+    queryFn: async () => {
+      const maxInstrScheduleWindow = 7;
+      const startDate = subDays(new Date(), maxInstrScheduleWindow);
+      const endDate = addDays(new Date(), maxInstrScheduleWindow);
+      const currentDate = getCurrentDate();
+
+      const startDateStr = format(startDate, 'yyyy-MM-dd');
+      const endDateStr = format(endDate, 'yyyy-MM-dd');
+
+      // Fetch instructor info, with schedules
+      const { data: instructorSchedules, error: instructorError } = await supabase
+        .from("Schedule")
+        .select("*, Learner!inner(*), Instructor!inner(name, phone, email), Lesson!inner(*)")
+        .eq("Instructor.phone", phone)
+        .gte("date", startDateStr)
+        .lte("date", endDateStr)
+        .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+      if (instructorError) {
+        console.error(instructorError);
+        throw new Error("Failed to fetch instructor info");
+      }
+      if (!instructorSchedules) throw new Error("Instructor not found");
+
+      // console.log("schedule data from", startDate, " to ", endDate, instructorSchedules);
+      
+      // Filter schedules for the current date
+      const instructorScheduleDay = instructorSchedules.filter(
+        (schedule) => schedule.date === currentDate,
+      );
+
+      // Fetch learner and lesson data for each schedule (all schedules)
+      const learnerLesson = await Promise.all(
+        instructorSchedules.map(async (scheduleData) => {
+          if (!scheduleData.isTentative) {
+            return {
+              learner: scheduleData.Learner,
+              lesson: scheduleData.Lesson
+            };
+          }
+          return null; // Ensure the map always returns something
+        }),
+      ).then(results => results.filter(item => item !== null)); // Filter out nulls
+
+      // Fetch learner and lesson data for current day schedules
+      const learnerLessonDay = await Promise.all(
+        instructorScheduleDay.map(async (scheduleData) => {
+          if (!scheduleData.isTentative) {
+            return {
+              learner: scheduleData.Learner,
+              lesson: scheduleData.Lesson
+            };
+          }
+          return null; // Ensure the map always returns something
+        }),
+      ).then(results => results.filter(item => item !== null)); // Filter out nulls
+
+      console.log("T2_1 learnerLessonDay", learnerLessonDay);
+      
+      // --- FIX APPLIED HERE ---
+      const instructorData = instructorSchedules?.[0]?.Instructor;
+
+      return {
+        // You must assign the expression to a key
+        instructor: instructorData,
+        instructorSchedules,
+        instructorScheduleDay,
+        learnerLessonDay,
+        learnerLesson,
+        unavailability: instructorData?.unavailability,
       };
     },
   });

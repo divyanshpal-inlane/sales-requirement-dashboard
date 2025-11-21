@@ -61,7 +61,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
-import { useInstructor, useUpdateScheduleStatus } from "@/queries/instructor";
+import { useInstructor, useInstructorScheduleData, useUpdateScheduleStatus } from "@/queries/instructor";
 
 const locales = {
   "en-US": enUS,
@@ -241,7 +241,7 @@ function Instructor() {
     data: instructorData,
     isLoading: instructorLoading,
     error: instructorError,
-  } = useInstructor(phone ?? "");
+  } = useInstructorScheduleData(phone ?? "");
   const updateScheduleStatus = useUpdateScheduleStatus();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -295,6 +295,11 @@ function Instructor() {
       })
       .filter(Boolean);
   };
+  useEffect(() => {
+    if (!instructorLoading)
+      console.log("T2 CalendarDay Instructor Data:", instructorData);
+    // console.log("Day Schedules:", daySchedules);
+  }, [instructorData, instructorLoading]);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
@@ -1488,6 +1493,8 @@ function Instructor() {
               {instructorData?.instructorScheduleDay.length === 0
               ? <div className="text-center text-gray-500"> No schedules today </div>
               : instructorData?.instructorScheduleDay.map((schedule, index) => {
+                // to be fixed
+                // for every schedule
                 const learnerLessonPair = instructorData?.learnerLessonDay.find(
                   (ll) => ll.lesson.id === schedule.lesson_id,
                 );
@@ -1631,27 +1638,6 @@ function Instructor() {
                 )
               }
               {instructorData?.learnerLesson
-                .sort((a, b) => {
-                  const lessonNumberA = a.lesson?.number || 0;
-                  const lessonNumberB = b.lesson?.number || 0;
-
-                  if (lessonNumberA !== lessonNumberB) {
-                    return lessonNumberA - lessonNumberB;
-                  }
-
-                  const dateA = new Date(
-                    instructorData.instructorSchedule.find(
-                      (s) => s.lesson_id === a.lesson?.id,
-                    )?.date || 0,
-                  );
-                  const dateB = new Date(
-                    instructorData.instructorSchedule.find(
-                      (s) => s.lesson_id === b.lesson?.id,
-                    )?.date || 0,
-                  );
-
-                  return dateA.getTime() - dateB.getTime();
-                })
                 .map((item, index) => {
                   if (!item) {
                     console.warn(`Skipping null/undefined item at index ${index}.`);
@@ -1665,9 +1651,8 @@ function Instructor() {
                     return null;
                   }
                   
-                  const lessonSchedule = instructorData.instructorSchedule.find(
-                    // Optional chaining is no longer strictly necessary but is safe.
-                    (s) => s.lesson_id === lesson.id, 
+                  const lessonSchedule = instructorData.instructorSchedules.find(
+                  (s) => s.lesson_id === lesson.id,
                   );
 
                   // Existing check for lessonSchedule
