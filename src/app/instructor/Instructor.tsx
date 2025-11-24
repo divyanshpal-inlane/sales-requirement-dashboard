@@ -1290,6 +1290,7 @@ function Instructor() {
                           e.stopPropagation();
                           handleScheduleClick(schedule, learnerInfo?.learner);
                         }}
+
                       >
                         <div className="font-medium">
                           {learnerInfo?.learner.name}
@@ -1645,6 +1646,8 @@ function Instructor() {
                   }
 
                   const { learner, lesson } = item;
+                  const isOngoing = item.status === "ongoing";
+
 
                   if (!lesson || !lesson.id) {
                     console.warn(`Skipping item at index ${index}: lesson or lesson ID is missing.`);
@@ -1736,6 +1739,59 @@ function Instructor() {
                               </span>
                             </div>
                           )}
+                      <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
+                          <p>
+                            Lesson status : {lessonSchedule.status?.toUpperCase()}
+                          </p>
+                          <div className="flex flex-row items-center gap-24">
+                            {isOngoing ? (
+                              <div className="relative flex items-center justify-center">
+                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
+                              </div>
+                            ) : null}
+                            {lessonSchedule.status === "completed" ? (
+                              <div className="flex items-center justify-center">
+                                <CircleCheckBig
+                                  className="rounded-full bg-green-500 text-white"
+                                  size={18}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                          {isOngoing && (
+                            <Button
+                              onClick={() => {
+                                  // alert("Lesson to be ended by customer");
+                                  navigate(`/otp/end/${learner.id}/${schedule.id}`);
+                                }
+                                // handleFinishLesson(
+                                //   schedule.id.toString(),
+                                //   learner.id,
+                                // )
+                              }
+                              size="sm"
+                              variant="secondary"
+                              className="text-sm"
+                            >
+                              Finish Lesson
+                            </Button>
+                          )}
+                          {lessonSchedule.status !== "ongoing" &&
+                            lessonSchedule.status !== "completed" && (
+                              <Button
+                                onClick={() => {
+                                  navigate(`/otp/start/${learner.id}/${schedule.id}`);
+                                }}
+                                size="sm"
+                                className="text-sm"
+                              >
+                                Start
+                              </Button>
+                            )}
+                        </div>
+                      </Card>
                         </div>
                       </CardContent>
                     </Card>
