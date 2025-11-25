@@ -348,148 +348,272 @@ export default function LessonReview() {
   );
 }
 
-// export default function LessonReview() {
-//   // Assuming all hooks (useState, etc.) are imported.
-  
-//   const [rating, setRating] = useState(4);
-//   const [hover, setHover] = useState(null);
-//   const [selectedButtons, setSelectedButtons] = useState([]);
-//   const [feedbackText, setFeedbackText] = useState(""); 
 
-//   const buttons = [
-//     { id: 1, color: "#00CE84", text: "Better Lesson" },
-//     { id: 2, color: "#B28FFF", text: "More Guidance" },
-//     { id: 3, color: "#6257FF", text: "Car Condition" },
-//     { id: 4, color: "#00FF91", text: "Safety" },
-//     { id: 5, color: "#FFC229", text: "Lesson Duration" },
-//     { id: 6, color: "#6BECFF", text: "Others" },
-//   ];
+/**
+ * Helper function to generate 5-star rating HTML using safe entities and inline styles for email compatibility.
+ * @param {string|number} rating - The rating value (0-5).
+ * @param {string} starColor - The color for active (filled) stars.
+ * @returns {string} HTML string of styled stars.
+ */
+const generateStars = (rating, starColor) => {
+    let stars = '';
+    const fullStar = '&#9733;'; // ★
+    // Note: The inactive star color (#ccc) is a neutral gray necessary for contrast and readability.
+    const INACTIVE_STAR_COLOR = '#ccc'; 
+    const numericRating = parseInt(rating) || 0;
 
-//   const handleRatingMessage = () => {
-//     if (rating !== null) {
-//       if (rating < 3) return "Not Good";
-//       if (rating === 3) return "Decent";
-//       if (rating > 3) return "Excellent";
-//     }
-//     return "";
-//   };
+    for (let i = 1; i <= 5; i++) {
+        // Use inline color styling for reliability in email clients
+        const color = (i <= numericRating) ? starColor : INACTIVE_STAR_COLOR;
+        stars += `<span style="color:${color};font-size:16px;line-height:1;">${fullStar}</span>`;
+    }
+    return stars;
+};
 
-//   const handleButtonClick = (buttonId) => {
-//     setSelectedButtons(prevSelected => {
-//       if (prevSelected.includes(buttonId)) {
-//         return prevSelected.filter(id => id !== buttonId);
-//       }
-//       return [...prevSelected, buttonId];
-//     });
-//   };
+/**
+ * Generates the complete, self-contained HTML document string for the Course Feedback email report.
+ * This HTML is designed for maximum compatibility with email clients, using tables for layout 
+ * and inline styles, and avoiding external scripts or complex CSS.
+ *
+ * @param {object} feedbackData - The structured feedback data.
+ * @param {string} customerName - The full name of the customer.
+ * @returns {string} The complete HTML document string, ready to be passed to an email service.
+ */
+export const generateFeedbackReportHtml = (feedbackData, customerName) => {
+    // Moved color constants into the function for modularity and reusability
+    const PRIMARY_COLOR = '#00CE84'; // Main accent color
+    const STAR_COLOR = '#6257FF';    // Star rating color (Active/Filled)
+    // Light tint of the primary color for backgrounds/highlights
+    const LIGHT_ACCENT_BG = 'rgba(0, 206, 132, 0.08)'; // Light tint of PRIMARY_COLOR (00CE84)
 
-//   const handleFeedbackChange = (e) => {
-//     const newText = e.target.value;
+    // ----------------------------------------------------------------------
+    // 1. Map Core Questionnaire Data
+    // ----------------------------------------------------------------------
+    const { performance, carBuyingIntent, lessonRating, improvedAreas, textFeedback, timestamp, courseName } = feedbackData;
+
+    const clutchBrakeRating = performance?.clutchBrakeRating || '0';
+    const distanceMatchRating = performance?.distanceMatchRating || '0';
+    const parkingRating = performance?.parkingRating || '0';
+    const planningToBuy = carBuyingIntent?.planningToBuy || 'No';
+
+    const carType = carBuyingIntent?.carType || 'N/A';
+    const carCondition = carBuyingIntent?.carCondition || 'N/A';
+    const buyTimeframe = carBuyingIntent?.buyTimeframe || 'N/A';
     
-//     if (newText.length > MAX_CHAR_LIMIT) {
-//       alert(`Character limit of ${MAX_CHAR_LIMIT} exceeded!`);
-//       setFeedbackText(newText.substring(0, MAX_CHAR_LIMIT));
-//     } else {
-//       setFeedbackText(newText);
-//     }
-//   };
+    const courseNameValue = courseName || 'N/A';
 
-//   const handleSubmit = () => {
-//     const finalFeedback = {
-//       rating: rating,
-//       improvedAreas: selectedButtons,
-//       textFeedback: feedbackText,
-//       timestamp: new Date().toISOString(),
-//     };
+    // ----------------------------------------------------------------------
+    // 2. Prepare Secondary Data
+    // ----------------------------------------------------------------------
+    const generatedTimestamp = new Date(timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    // Improved Areas List (using basic HTML list structure for email)
+    const improvedAreasList = (improvedAreas && improvedAreas.length > 0)
+        ? `<ul style="margin: 0; padding-left: 20px; color: #374151;">` +
+          improvedAreas.map(area => `<li>${area}</li>`).join('') +
+          `</ul>`
+        : `<p style="margin: 0; color: #9ca3af; font-style: italic;">No specific areas for improvement were highlighted.</p>`;
+
+    // Conditional details block for car buying intent
+    const intentDetailsBlock = planningToBuy === 'Yes'
+        ? `
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 10px; border-left: 2px solid ${PRIMARY_COLOR}; padding-left: 10px;">
+                <tr>
+                    <td style="padding: 10px 0;">
+                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #4b5563;">Targeting Details:</h3>
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                            <tr>
+                                <td width="33.3%" style="padding-right: 10px; padding-bottom: 10px;">
+                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">Type of Car:</p>
+                                    <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 700;">${carType}</p>
+                                </td>
+                                <td width="33.3%" style="padding-right: 10px; padding-bottom: 10px;">
+                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">New or Used Car:</p>
+                                    <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 700;">${carCondition}</p>
+                                </td>
+                                <td width="33.3%" style="padding-bottom: 10px;">
+                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">Planned Purchase Timeline:</p>
+                                    <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 700;">${buyTimeframe}</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        `
+        : `
+            <div style="margin-top: 10px; border-left: 2px solid #d1d5db; padding-left: 10px; padding-top: 5px; padding-bottom: 5px;">
+                <p style="margin: 0; color: #9ca3af; font-style: italic; font-size: 14px;">You are not currently planning to buy a car.</p>
+            </div>
+        `;
+
+    // ----------------------------------------------------------------------
+    // 3. Section Containers (Reordered for UX: Skill -> Feedback -> Intent)
+    // ----------------------------------------------------------------------
+
+    // Section 1: Performance Rating
+    const performanceSection = `
+        <div style="border-left: 4px solid ${PRIMARY_COLOR}; padding-left: 1rem; margin-bottom: 25px;">
+            <h2 style="margin: 0 0 15px; font-size: 20px; font-weight: 700; color: #374151;">1. Skill Assessment Ratings (0-5)</h2>
+            <div style="padding: 0; margin: 0;">
+                
+                ${[
+                    { label: 'Controlling & Clutch-Brake Handling', rating: clutchBrakeRating },
+                    { label: 'Distance Matching Ability (between vehicles)', rating: distanceMatchRating },
+                    { label: 'Parking Skill', rating: parkingRating }
+                ].map(item => `
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 10px; background-color: #ffffff; border: 1px solid #f3f4f6; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                        <tr>
+                            <td style="padding: 12px; font-size: 14px; color: #374151; font-weight: 500;">
+                                ${item.label}
+                            </td>
+                            <td style="padding: 12px; text-align: right; white-space: nowrap;">
+                                ${generateStars(item.rating, STAR_COLOR)}
+                                <span style="margin-left: 8px; font-weight: 700; font-size: 16px; color: ${PRIMARY_COLOR};">(${item.rating}/5)</span>
+                            </td>
+                        </tr>
+                    </table>
+                `).join('')}
+
+            </div>
+        </div>
+    `;
     
-//     console.log('✅ Final Feedback Submitted:', finalFeedback);
-//   };
-
-//   return (
-//     <PurpleGradient>
-//       <div className="flex h-full w-full flex-col overflow-y-auto p-6">
-//         <div className="relative mb-6 shrink-0 overflow-hidden rounded-3xl bg-white shadow-lg">
-//           {/* Stars card */}
-//           <div className="flex flex-col items-center justify-center rounded-lg p-6">
-//             <h1 className="mb-4 text-2xl font-bold">Rate Us</h1>
-//             <div className="mb-4 flex space-x-2">
-//               {[1, 2, 3, 4, 5].map((star) => (
-//                 <button
-//                   key={star}
-//                   type="button"
-//                   onClick={() => setRating(star)}
-//                   onMouseEnter={() => setHover(star)}
-//                   onMouseLeave={() => setHover(null)}
-//                   className={`text-3xl ${
-//                     (hover || rating) >= star
-//                       ? "text-yellow-500"
-//                       : "text-gray-400"
-//                   }`}
-//                 >
-//                   ★
-//                 </button>
-//               ))}
-//             </div>
-//             <div className="text-lg font-semibold">
-//               {rating !== null ? handleRatingMessage() : "Select a rating"}
-//             </div>
-//             {rating && (
-//               <div className="mt-4 text-sm text-gray-600">
-//                 You rated us {rating} out of 5 stars!
-//               </div>
-//             )}
-//           </div>
-          
-//           {/* What could be improved? */}
-//           <div className="mt-10">
-//             <h2 className="text-center font-semibold">
-//               What could be improved?
-//             </h2>
-//             <div className="grid grid-cols-3 grid-rows-2 gap-4 p-6">
-//               {buttons.map((button) => (
-//                 <button
-//                   key={button.id}
-//                   onClick={() => handleButtonClick(button.id)}
-//                   style={{
-//                     borderColor: button.color,
-//                     backgroundColor:
-//                       selectedButtons.includes(button.id) ? button.color : "#ffffff",
-//                     color: selectedButtons.includes(button.id) ? "#ffffff" : "#000000",
-//                   }}
-//                   className="rounded-sm border-2 px-1.5 py-0.5 text-xs transition-colors duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-700"
-//                 >
-//                   {button.text}
-//                 </button>
-//               ))}
-//             </div>
-//           </div>
-          
-//           {/* Feedback Card */}
-//           <div className="mt-6 rounded-lg bg-white p-6">
-//             <div className="mb-4 flex flex-row items-center justify-center gap-1.5 text-2xl font-bold">
-//               <p>Feedback</p>
-//             </div>
+    // Section 2: Core Additional Feedback
+    const feedbackSection = `
+        <div style="border-left: 4px solid ${PRIMARY_COLOR}; padding-left: 1rem; margin-bottom: 25px;">
+            <h2 style="margin: 0 0 15px; font-size: 20px; font-weight: 700; color: #374151;">2. Core Additional Feedback</h2>
             
-//             <textarea
-//               value={feedbackText}
-//               onChange={handleFeedbackChange}
-//               maxLength={MAX_CHAR_LIMIT} 
-//               className="h-32 w-full rounded-lg border border-gray-300 p-4"
-//               placeholder="Enter your feedback here..."
-//             />
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                    <td valign="top" class="col-left" style="width: 50%; padding-right: 15px;">
+                        <h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 600; color: #374151;">Open-Ended Comments</h3>
+                        <div style="padding: 15px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+                            <p style="margin: 0; color: #1f2937; white-space: pre-wrap; font-size: 14px;">${textFeedback || 'No additional comments provided.'}</p>
+                        </div>
+                    </td>
+                    <td valign="top" class="col-right" style="width: 50%; padding-left: 15px;">
+                        <h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 600; color: #374151;">Suggested Areas for Improvement</h3>
+                        <div style="padding: 15px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+                            ${improvedAreasList}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    `;
+    
+    // Section 3: Car Buying Intent
+    const intentSection = `
+        <div style="border-left: 4px solid ${PRIMARY_COLOR}; padding-left: 1rem; margin-bottom: 25px;">
+            <h2 style="margin: 0 0 15px; font-size: 20px; font-weight: 700; color: #374151;">3. Car Buying Intent Analysis</h2>
             
-//             <p className={`text-right text-sm mt-1 ${
-//                 feedbackText.length >= MAX_CHAR_LIMIT ? "text-red-500 font-bold" : "text-gray-500"
-//             }`}>
-//               {feedbackText.length} / {MAX_CHAR_LIMIT} characters
-//             </p>
-//           </div>
-//         </div>
+            <div style="padding: 15px; border-radius: 8px; border: 1px solid ${PRIMARY_COLOR}; background-color: ${LIGHT_ACCENT_BG};">
+                
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;">
+                    <tr>
+                        <td style="padding-bottom: 5px;">
+                            <p style="margin: 0; font-weight: 600; color: #374151; font-size: 14px;">Are you planning to buy a car?</p>
+                        </td>
+                        <td style="padding-bottom: 5px; text-align: right; white-space: nowrap;">
+                            <p style="margin: 0; font-weight: 800; font-size: 18px; color: ${PRIMARY_COLOR};">${planningToBuy}</p>
+                        </td>
+                    </tr>
+                </table>
+                
+                ${intentDetailsBlock}
 
-//         <Button onClick={handleSubmit} className="w-full shrink-0 mb-6" variant={"purple"}>
-//           Submit
-//         </Button>
-//       </div>
-//     </PurpleGradient>
-//   );
-// }
+            </div>
+        </div>
+    `;
+
+    // ----------------------------------------------------------------------
+    // 4. Main Report Container HTML String (Full Document)
+    // ----------------------------------------------------------------------
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Course Feedback Report</title>
+            <style>
+                /* Universal Reset and Fonts for Email Clients */
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Inter', Helvetica, Arial, sans-serif;
+                    -webkit-text-size-adjust: 100%;
+                    -ms-text-size-adjust: 100%;
+                    background-color: #f7f7f7;
+                }
+                table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+                a { text-decoration: none; }
+                p { margin: 0; }
+                .ReadMsgBody { width: 100%; }
+                .ExternalClass { width: 100%; }
+                /* Responsive Styling for Mobile */
+                @media only screen and (max-width: 600px) {
+                    .main-content { width: 100% !important; }
+                    .col-left, .col-right { width: 100% !important; display: block !important; padding-right: 0 !important; padding-left: 0 !important; margin-bottom: 15px; }
+                }
+            </style>
+        </head>
+        <body style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 20px;">
+            <center>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                        <td style="padding: 0 0 20px 0; text-align: center;">
+                            <!-- Main Report Card Container -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="main-content" style="background-color: #ffffff; border-radius: 12px; border-top: 8px solid ${PRIMARY_COLOR}; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+                                <tr>
+                                    <td style="padding: 32px 32px 24px 32px;">
+                                        
+                                        <!-- Header -->
+                                        <h1 style="margin: 0 0 5px; font-size: 28px; font-weight: 800; color: #1f2937;">Course Feedback</h1>
+                                        <div style="border-bottom: 1px solid #e5eeeb; padding-bottom: 15px; margin-bottom: 25px;"></div>
+
+                                        <!-- Service & Customer Details -->
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 30px; background-color: #f9fafb; border-radius: 8px; padding: 15px;">
+                                            <tr>
+                                                <td width="25%" style="padding-right: 15px;">
+                                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">Customer Name:</p>
+                                                    <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: 800;">${customerName}</p>
+                                                </td>
+                                                <td width="25%" style="padding-right: 15px;">
+                                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">Course Name:</p>
+                                                    <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: 800;">${courseNameValue}</p>
+                                                </td>
+                                                <td width="25%" style="padding-right: 15px;">
+                                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">Overall Rating:</p>
+                                                    <p style="margin: 0; font-size: 16px; color: ${PRIMARY_COLOR}; font-weight: 700;">${lessonRating}/5</p>
+                                                </td>
+                                                <td width="25%">
+                                                    <p style="margin: 0; font-size: 12px; color: #4b5563; font-weight: 500;">Date Submitted:</p>
+                                                    <p style="margin: 0; font-size: 14px; color: #1f2937; font-weight: 700;">${generatedTimestamp}</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <!-- Report Sections (In new order) -->
+                                        ${performanceSection}
+                                        ${feedbackSection}
+                                        ${intentSection}
+
+                                        <!-- Footer -->
+                                        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; text-align: center;">
+                                            <p style="margin: 0 0 5px; font-size: 12px; color: #6b7280;">Report Generated: ${generatedTimestamp}.</p>
+                                            <p style="margin: 0; font-size: 14px; color: ${PRIMARY_COLOR}; font-weight: 600;">Thank you for choosing our service.</p>
+                                        </div>
+
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </center>
+        </body>
+        </html>
+    `;
+};

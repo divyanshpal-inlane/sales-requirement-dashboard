@@ -1734,7 +1734,8 @@ function CreateSchedule({
         .select(
           "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
         )
-        .eq("learner_id", learnerId);
+        .eq("learner_id", learnerId)
+        .neq("status", "completed");
 
       if (error) throw error;
       return data;
@@ -1764,6 +1765,12 @@ function CreateSchedule({
             minLessonNumber,
       );
 
+      console.log(
+        "The other schedules that are affected from the reschedule out of ",
+        existingLearnerSchedules,
+        " are ",
+        laterScheduleOfLearnerToChange,
+      );
       if (!existingSchedules)
         return [toChange, laterScheduleOfLearnerToChange, []];
 
@@ -2824,7 +2831,7 @@ console.log("Setting state to slot", slot);
 
         if (numberChanged || timingChanged) {
           console.log(
-            `Lesson ${lessonId} has changes: number change=${numberChanged}, timing change=${timingChanged}`,
+            `Lesson ${lessonId} at ${data.schedule.date} ${data.schedule.start_time} has changes: number change=${numberChanged}, timing change=${timingChanged}`,
           );
           lessonIdsWithChanges.push(lessonId);
         }
@@ -2979,6 +2986,9 @@ console.log("Setting state to slot", slot);
             ? `${learnerData.address_lat},${learnerData.address_lng}`
             : "To be confirmed");
 
+        console.log(
+          `Cancelling lesson ${scheduleToCancel.lesson_id}, lesson number ${lessonData?.number || scheduleToCancel.lesson_number}`,
+        );
         cancellationEvents.push({
           startTime: startDate,
           endTime: endDate,

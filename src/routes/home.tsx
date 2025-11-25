@@ -836,7 +836,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
     setIsFinishingLesson(false);
   };
 
-
+  // navigate("/lesson-review");
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
