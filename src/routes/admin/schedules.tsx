@@ -406,7 +406,9 @@ export default function AdminSchedules() {
         .in(
           "id",
           enrollmentData.map((e) => e.learner_id),
-        );
+        )
+        .order("created_at", { ascending: false });
+
 
       if (learnersError) throw learnersError;
 

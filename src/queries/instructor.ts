@@ -174,8 +174,8 @@ export const useInstructorScheduleData = (phone: string) => {
   return useQuery({
     queryKey: ["instructor", phone],
     queryFn: async () => {
-      const maxInstrScheduleWindow = 7;
-      const startDate = subDays(new Date(), maxInstrScheduleWindow);
+      const maxInstrScheduleWindow = 15;
+      const startDate = subDays(new Date(), 2);
       const endDate = addDays(new Date(), maxInstrScheduleWindow);
       const currentDate = getCurrentDate();
 
@@ -198,7 +198,7 @@ export const useInstructorScheduleData = (phone: string) => {
       }
       if (!instructorSchedules) throw new Error("Instructor not found");
 
-      // console.log("schedule data from", startDate, " to ", endDate, instructorSchedules);
+      console.log("schedule data from", startDate, " to ", endDate, instructorSchedules);
       
       // Filter schedules for the current date
       const instructorScheduleDay = instructorSchedules.filter(

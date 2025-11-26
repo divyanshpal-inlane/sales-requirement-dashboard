@@ -4,6 +4,7 @@ import MapWithRoute from "@/components/mapWithRoute";
 
 import {
   addDays,
+  addMinutes,
   endOfWeek,
   format,
   isBefore,
@@ -1734,7 +1735,8 @@ function CreateSchedule({
         .select(
           "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
         )
-        .eq("learner_id", learnerId);
+        .eq("learner_id", learnerId)
+        .neq("status", "completed");
 
       if (error) throw error;
       return data;
@@ -1764,6 +1766,12 @@ function CreateSchedule({
             minLessonNumber,
       );
 
+      console.log(
+        "The other schedules that are affected from the reschedule out of ",
+        existingLearnerSchedules,
+        " are ",
+        laterScheduleOfLearnerToChange,
+      );
       if (!existingSchedules)
         return [toChange, laterScheduleOfLearnerToChange, []];
 
@@ -1783,6 +1791,7 @@ function CreateSchedule({
         (s) => s.learner_id !== learnerId,
       );
 
+      
       return [toChange, laterScheduleOfLearnerToChange, others];
     }, [
       existingSchedules,
@@ -2209,15 +2218,15 @@ function CreateSchedule({
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>
-              Select Instructor for{" "}
-              {date && slot
-                ? `${format(date, "MMM d, yyyy")} at ${format(slot.timestamp, "h:mm a")}`
-                : ""}
-            </DialogTitle>
-          </DialogHeader>
+      <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden">
+        <DialogHeader>
+        <DialogTitle>
+          Select Instructor for{" "}
+          {date && slot
+          ? `${format(date, "MMM d, yyyy")} at ${format(slot.timestamp, "h:mm a")}`
+          : ""}
+        </DialogTitle>
+        </DialogHeader>
 
           {/* NEW: Filters and Search Controls */}
           <div className="space-y-4 border-b pb-4">
@@ -2435,6 +2444,21 @@ function CreateSchedule({
       </Dialog>
     );
   };
+  // Check if the numSlots can be selected without overlapping end of the day
+  const checkOverlapEndOfDay = (hour: number, minute: number, numSlots: number) => {
+    // Calculate total minutes to add based on number of slots
+    const minutesToAdd = numSlots * SlotConfig.numMinutesPerSlot;
+
+    // Compute absolute minutes from midnight for start and end
+    const startTotalMinutes = hour * 60 + minute;
+    const endTotalMinutes = startTotalMinutes + minutesToAdd;
+
+    // Convert end time to total minutes for comparison
+    const maxAllowedMinutes = SlotConfig.endHourOfDay * 60;
+
+    // If end time exceeds the configured end time -> overlap
+    return endTotalMinutes > maxAllowedMinutes;
+  };
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
     if (!selectedInstructorId) {
       alert("Select Instructor");
@@ -2497,14 +2521,11 @@ function CreateSchedule({
       alert("Cannot select more slots than required.");
       return;
     }
-    if (hour === 20 && minute === 30) {
-      alert(
-        "Cannot select this time slot. Lessons require a full hour, and this is only a half-hour slot.",
-      );
+    if (checkOverlapEndOfDay(hour, minute, 2)) {
+      alert("Cannot select this time slot. Lessons exceeds end of day limit");
       return;
     }
-console.log("Setting state to slot", slot);
-    // NEW: Open instructor selection dialog instead of direct selection
+    // console.log("Setting state to slot", { hour, minute, numSlots: 2 });
     setSelectedSlot(slot);
     setSelectedDate(date);
     setSelectionDialogOpen(true);
@@ -2824,7 +2845,7 @@ console.log("Setting state to slot", slot);
 
         if (numberChanged || timingChanged) {
           console.log(
-            `Lesson ${lessonId} has changes: number change=${numberChanged}, timing change=${timingChanged}`,
+            `Lesson ${lessonId} at ${data.schedule.date} ${data.schedule.start_time} has changes: number change=${numberChanged}, timing change=${timingChanged}`,
           );
           lessonIdsWithChanges.push(lessonId);
         }
@@ -2979,6 +3000,9 @@ console.log("Setting state to slot", slot);
             ? `${learnerData.address_lat},${learnerData.address_lng}`
             : "To be confirmed");
 
+        console.log(
+          `Cancelling lesson ${scheduleToCancel.lesson_id}, lesson number ${lessonData?.number || scheduleToCancel.lesson_number}`,
+        );
         cancellationEvents.push({
           startTime: startDate,
           endTime: endDate,
