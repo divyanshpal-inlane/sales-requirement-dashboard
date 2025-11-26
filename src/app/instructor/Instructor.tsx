@@ -853,7 +853,7 @@ function Instructor() {
     const isCurrentMonth = isSameMonth(date, currentDate);
 
     const daySchedules =
-      instructorData?.instructorSchedule.filter((schedule) =>
+      instructorData?.instructorSchedules.filter((schedule) =>
         isSameDay(new Date(schedule.date), date),
       ) || [];
 
@@ -1024,7 +1024,7 @@ function Instructor() {
                       const day = addDays(currentWeekStart, dayIndex);
 
                       // Check for instructor schedules
-                      const schedule = instructorData?.instructorSchedule.find(
+                      const schedule = instructorData?.instructorSchedules.find(
                         (s) => {
                           const scheduleDate = new Date(s.date);
                           const scheduleStart = new Date(
@@ -1174,7 +1174,7 @@ function Instructor() {
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
     const daySchedules =
-      instructorData?.instructorSchedule.filter((schedule) =>
+      instructorData?.instructorSchedules.filter((schedule) =>
         isSameDay(new Date(schedule.date), currentDate),
       ) || [];
 

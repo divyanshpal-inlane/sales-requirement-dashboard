@@ -198,7 +198,7 @@ export const useInstructorScheduleData = (phone: string) => {
       }
       if (!instructorSchedules) throw new Error("Instructor not found");
 
-      // console.log("schedule data from", startDate, " to ", endDate, instructorSchedules);
+      console.log("schedule data from", startDate, " to ", endDate, instructorSchedules);
       
       // Filter schedules for the current date
       const instructorScheduleDay = instructorSchedules.filter(
