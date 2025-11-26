@@ -3531,7 +3531,11 @@ function CreateSchedule({
           hours
         </div>
         <Button
-          onClick={handleCreateSchedule}
+          onClick={async () => {
+            await handleCreateSchedule();
+            window.location.reload();
+          }
+          }
           disabled={
             selectedSlots.length / 2 !== request.lesson_ids.length ||
             isSendingInvites
