@@ -433,7 +433,7 @@ const LearnerLLDetails = () => {
                         // Form not filled
                         // </div>
                       )}
-                      {!learner.address_change_required && (
+                      {learner.address_change_required && (
                         <Badge className="bg-red-800 text-white text-xs">
                           Address change
                         </Badge>
