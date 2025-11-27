@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Filter, Search, X } from "lucide-react";
+import { ArrowLeft, Filter, Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -182,8 +182,8 @@ export default function CustomerInfo() {
   // Append Schedule data to each learner item when a schedule exists in scheduleByLearnerData
   if (Array.isArray(learners) && Array.isArray(scheduleByLearnerData)) {
     // console.log(
-    //   "Appending schedules - input:",
-    //   { learnersCount: learners.length, schedulesCount: scheduleByLearnerData.length },
+    // 	"Appending schedules - input:",
+    // 	{ learnersCount: learners.length, schedulesCount: scheduleByLearnerData.length },
     // );
 
     const scheduleMap = new Map<string, any>();
@@ -219,8 +219,8 @@ export default function CustomerInfo() {
     // console.log("Learners after attaching schedules (sample):", learners.slice?.(0, 5) ?? learners);
   } else {
     // console.log("No learners or schedules to process", {
-    //   learners: Array.isArray(learners) ? `count=${learners.length}` : learners,
-    //   scheduleByLearnerData: Array.isArray(scheduleByLearnerData) ? `count=${scheduleByLearnerData.length}` : scheduleByLearnerData,
+    // 	learners: Array.isArray(learners) ? `count=${learners.length}` : learners,
+    // 	scheduleByLearnerData: Array.isArray(scheduleByLearnerData) ? `count=${scheduleByLearnerData.length}` : scheduleByLearnerData,
     // });
   }
 
@@ -347,7 +347,7 @@ export default function CustomerInfo() {
 
   // rendeing helpers
   const getDueAmount = (learner) => {
-    console.log("Calculating due amount for learner:", learner);
+    // console.log("Calculating due amount for learner:", learner);
     if (
       !learner ||
       learner.enrollment == null ||
@@ -460,96 +460,97 @@ export default function CustomerInfo() {
                         }
                       )}
                     >
-                    <div className="flex items-start gap-4">
-                        <Avatar className="h-12 w-12">
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                                {getInitials(learner.name)}
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-4">
-                            {/* Column 1: Learner Contact Info (Name, Email, Phone, Area) */}
-                            <div>
-                                <h3 className="text-lg font-medium">
-                                    {learner.name}
-                                </h3>
-                                <p className="text-sm">
-                                    <span className="font-medium">Email:</span>{" "}
-                                    {learner.email || "N/A"}
-                                </p>
-                                <p className="text-sm">
-                                    <span className="font-medium">Phone:</span>{" "}
-                                    {learner.phone}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    {learner.area || "No area specified"}
-                                </p>
-                            </div>
-                            {/* Column 2: Currently Empty (Placeholder for the new column) */}
-                            <div> 
+                      <div className="flex items-start gap-4">
+                          <Avatar className="h-12 w-12">
+                              <AvatarFallback className="bg-primary/10 text-primary">
+                                  {getInitials(learner.name)}
+                              </AvatarFallback>
+                          </Avatar>
+                          <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-4">
+                              {/* Column 1: Learner Contact Info (Name, Email, Phone, Area) */}
+                              <div>
+                                  <h3 className="text-lg font-medium">
+                                      {learner.name}
+                                  </h3>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Email:</span>{" "}
+                                      {learner.email || "N/A"}
+                                  </p>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Phone:</span>{" "}
+                                      {learner.phone}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                      {learner.area || "No area specified"}
+                                  </p>
+                              </div>
+                              {/* Column 2: Currently Empty */}
+                              <div> 
 
 
-                            </div>
-                            {/* Column 3: Payment/Enrollment Info (Installment, Total, Due, Status, Due Since) */}
-                            <div>
-                                <p className="text-sm">
-                                    <span className="font-medium">Installment mode</span>{" "}
-                                    {learner.enrollment?.installment_mode || "N/A"}
-                                </p>
-                                <p className="text-sm">
-                                    <span className="font-medium">Total amount:</span>{" "}
-                                    {learner.enrollment?.amount || "N/A"}
-                                </p>
-                                <p className="text-sm">
-                                    <span className="font-medium">Due amount:</span>{" "}
-                                    {getDueAmount(learner)}
-                                </p>
-                                <p className="text-sm">
-                                    <span className="font-medium">Payment status:</span>{" "}
-                                    {learner.enrollment?.payment_status || "N/A"}
-                                </p>
-                                <p className="text-sm">
-                                    <span className="font-medium">Due since:</span>{" "}
-                                    {
-                                        (
-                                            learner.schedule?.date && learner.schedule.end_time
-                                                ? `${learner.schedule.date} ${learner.schedule.end_time.split(':').slice(0, 2).join(':')}`
-                                                : ''
-                                        ).trim() || 'N/A'
-                                    }
-                                </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm">
-                                <p className="text-sm">
-                                    <span className="font-medium">LL form filled:</span>{" "}
-                                    {/* {learner.is_LL_form_filled? "Yes" : "No"} */}
-                                    {                       
-                                      <div
-                                          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
-                                            ${ learner?.has_a_DL
-                                              ? "bg-gray-100 text-gray-800"
-                                              :
-                                              learner?.is_LL_form_filled
-                                                ? "bg-green-100 text-green-800"
-                                                : "bg-red-100 text-red-800"
-                                            }
-                                          `}
-                                        >
-                                        {
-                                          learner?.has_a_DL
-                                          ? "Not Applicable"
-                                          : learner?.is_LL_form_filled
-                                            ? "Yes"
-                                            : "No"
+                              </div>
+                              {/* Column 3: Payment/Enrollment Info (Installment, Total, Due, Status, Due Since) */}
+                              <div>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Installment mode</span>{" "}
+                                      {learner.enrollment?.installment_mode || "N/A"}
+                                  </p>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Total amount:</span>{" "}
+                                      {learner.enrollment?.amount || "N/A"}
+                                  </p>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Due amount:</span>{" "}
+                                      {getDueAmount(learner)}
+                                  </p>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Payment status:</span>{" "}
+                                      {learner.enrollment?.payment_status || "N/A"}
+                                  </p>
+                                  <p className="text-sm">
+                                      <span className="font-medium">Due since:</span>{" "}
+                                      {
+                                          (
+                                              learner.schedule?.date && learner.schedule.end_time
+                                                  ? `${learner.schedule.date} ${learner.schedule.end_time.split(':').slice(0, 2).join(':')}`
+                                                  : ''
+                                          ).trim() || 'N/A'
+                                      }
+                                  </p>
+                              </div>
+                              {/* Column 4: Status and Time Ago (FIXED HERE) */}
+                              <div className="text-right">
+                                <div className="text-sm">
+                                  <span className="font-medium">LL form filled:</span>{" "}
+                                  {/* {learner.is_LL_form_filled? "Yes" : "No"} */}
+                                  {                       
+                                    <div
+                                      className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+                                        ${ learner?.has_a_DL
+                                          ? "bg-gray-100 text-gray-800"
+                                          :
+                                          learner?.is_LL_form_filled
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-red-100 text-red-800"
                                         }
-                                      </div>
+                                      `}
+                                    >
+                                      {
+                                        learner?.has_a_DL
+                                        ? "Not Applicable"
+                                        : learner?.is_LL_form_filled
+                                          ? "Yes"
+                                          : "No"
+                                      }
+                                    </div>
                                   }
-                                </p>
-                                <p className="text-sm">
+                                </div>
+                                
+                                <div className="text-sm">
                                   <span className="font-medium">Preference filled:</span>{" "}
                                   {/* {learner.schedule_preferences?.length > 0 ? "Yes" : "No"} */}
-                                  {                       
-                                   <div
+                                  {                       
+                                    <div
                                       className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
                                         ${
                                           learner?.schedule_preferences?.length > 0
@@ -558,26 +559,23 @@ export default function CustomerInfo() {
                                         }
                                       `}
                                     >
-                                    {learner?.schedule_preferences?.length > 0
-                                      ? "Yes"
-                                      : "No"
-                                    }
+                                      {learner?.schedule_preferences?.length > 0
+                                        ? "Yes"
+                                        : "No"
+                                      }
                                     </div>
                                   }
-                                </p>
-                              </p>
-                            </div>
-                            {/* Column 4: Added Info (Time Ago) - This was the 3rd column before. */}
-                            <div className="text-right">
+                                </div>
+                                
                                 <p className="text-sm text-muted-foreground">
-                                    Added{" "}
-                                    {getTimeAgo(
-                                        learner.created_at || learner.signed_up,
-                                    )}
+                                  Added{" "}
+                                  {getTimeAgo(
+                                      learner.created_at || learner.signed_up,
+                                  )}
                                 </p>
-                            </div>
-                        </div>
-                    </div>
+                              </div>
+                          </div>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -531,28 +531,28 @@ export default function AdminSchedules() {
       // // ---------------------------------------------------------------
 
       // // First, prepare cancellation event for the specific lesson being rescheduled
-      // const cancellationEvents = [];
+      const cancellationEvents = [];
 
-      // // Create start and end date objects for the current schedule
-      // const startDate = new Date(currentSchedule.date);
-      // const [startHour, startMinute] = currentSchedule.start_time
-      //   .split(":")
-      //   .map(Number);
-      // startDate.setHours(startHour, startMinute, 0);
+      // Create start and end date objects for the current schedule
+      const startDate = new Date(currentSchedule.date);
+      const [startHour, startMinute] = currentSchedule.start_time
+        .split(":")
+        .map(Number);
+      startDate.setHours(startHour, startMinute, 0);
 
-      // const endDate = new Date(currentSchedule.date);
-      // const [endHour, endMinute] = currentSchedule.end_time
-      //   .split(":")
-      //   .map(Number);
-      // endDate.setHours(endHour, endMinute, 0);
+      const endDate = new Date(currentSchedule.date);
+      const [endHour, endMinute] = currentSchedule.end_time
+        .split(":")
+        .map(Number);
+      endDate.setHours(endHour, endMinute, 0);
 
-      // // Get instructor details for this lesson
-      // const instructorId = currentSchedule.instructor_id;
-      // const instructorDetails = instructorsMap.get(instructorId) || {
-      //   name: "Unknown Instructor",
-      //   phone: "Contact InLane for details",
-      //   email: "",
-      // };
+      // Get instructor details for this lesson
+      const instructorId = currentSchedule.instructor_id;
+      const instructorDetails = instructorsMap.get(instructorId) || {
+        name: "Unknown Instructor",
+        phone: "Contact InLane for details",
+        email: "",
+      };
 
       // Determine pickup location
       const pickupLocation =
@@ -562,27 +562,27 @@ export default function AdminSchedules() {
           ? `${currentSchedule.Learner.address_lat},${currentSchedule.Learner.address_lng}`
           : "To be confirmed");
 
-      // // Get lesson number
-      // const lessonData = courseLessons.find(
-      //   (l) => l.id === currentSchedule.lesson_id,
-      // );
-      // const lessonNumber = lessonData?.number || 0;
+      // Get lesson number
+      const lessonData = courseLessons.find(
+        (l) => l.id === currentSchedule.lesson_id,
+      );
+      const lessonNumber = lessonData?.number || 0;
 
       // // IMPORTANT FIX: Always add cancellation event for the current schedule regardless of calendar_uid
       // // This ensures the old event is properly cancelled
-      // cancellationEvents.push({
-      //   startTime: startDate,
-      //   endTime: endDate,
-      //   lessonNumber: lessonNumber,
-      //   pickupLocation: pickupLocation,
-      //   uid: currentSchedule.calendar_uid || `temp-${Date.now()}-${scheduleId}`,
-      //   sequence: (currentSchedule.calendar_sequence || 0) + 1,
-      //   isCancellation: true,
-      //   instructorId: instructorId,
-      //   instructorName: instructorDetails.name,
-      //   instructorPhone: instructorDetails.phone,
-      //   instructorEmail: instructorDetails.email,
-      // });
+      cancellationEvents.push({
+        startTime: startDate,
+        endTime: endDate,
+        lessonNumber: lessonNumber,
+        pickupLocation: pickupLocation,
+        uid: currentSchedule.calendar_uid || `temp-${Date.now()}-${scheduleId}`,
+        sequence: (currentSchedule.calendar_sequence || 0) + 1,
+        isCancellation: true,
+        instructorId: instructorId,
+        instructorName: instructorDetails.name,
+        instructorPhone: instructorDetails.phone,
+        instructorEmail: instructorDetails.email,
+      });
 
       // STEP 2: UPDATE THE DATABASE
       // ---------------------------
