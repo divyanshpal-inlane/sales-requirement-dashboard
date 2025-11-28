@@ -6,6 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { useMutation } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function IncompletePaymentsCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
@@ -14,6 +18,14 @@ export function IncompletePaymentsCard() {
   const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
   const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState({});
   const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] = useState({});
+  const [updatingPaidInfo, setUpdatingPaidInfo] = useState({});
+  const [addingPaidInfo, setAddingPaidInfo] = useState({});
+  const [paidInfoDialogOpen, setPaidInfoDialogOpen] = useState(false);
+  const [paidInfoDialogData, setPaidInfoDialogData] = useState(null);
+  const [manualAmount, setManualAmount] = useState<number>(0);
+  const [manualInstallment1 , setManualInstallment1] = useState<number | null>(null);
+  const [manualInstallment2 , setManualInstallment2] = useState<number | null>(null);
+  // const installmentType = manualInstallment1 && manualInstallment2 ? "full"
   const { toast } = useToast();
 
   const fetchIncompletePayments = async () => {
@@ -282,6 +294,91 @@ console.log("Called send email");
       setSendingPaymentLink((prev) => ({ ...prev, [enrollment.id]: false }));
     }
   };
+
+  const updatePaidInfo = async (enrollment) => {
+    setUpdatingPaidInfo((prev) => ({ ...prev, [enrollment.id]: true }));
+    
+    setPaidInfoDialogData(enrollment);
+    setManualAmount(0);
+    setPaidInfoDialogOpen(true);
+  };
+
+  const handleUpdatePaidInfoClose = () => {
+    setUpdatingPaidInfo((prev) => ({ ...prev, [paidInfoDialogData.id]: false }));
+    setPaidInfoDialogOpen(false);
+    setPaidInfoDialogData(null);
+    setManualAmount(0);
+  };
+
+  const handleUpdatePaidInfoSave = async () => {
+    // The steps should be same as process-payment
+    // learner and entollment are added, 
+    // payment to be added and entollment to be updated
+    if (!paidInfoDialogData) {
+      toast({
+        title: "Error",
+        description: "No enrollment data available",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+          console.log(`Saving amount for learner: ${paidInfoDialogData?.Learner?.name}`);
+          // Make payment record
+          const { data: paymentRecord, error: dbError } = await supabaseClient.from("payment").insert([
+            {
+              learner_id: paidInfoDialogData?.Learner.id,
+              amount: manualAmount,
+              email: paidInfoDialogData?.Learner?.email,
+              phone: paidInfoDialogData?.Learner?.phone,
+              payment_type: "course",
+              status: "completed",
+              name: paidInfoDialogData?.Learner?.name,
+              installment_type: manualInstallmentType,
+              installment1_amount: installment1Amount,
+              installment2_amount: installment2Amount
+            }
+          ]).select().single();
+
+          updateEnrollmentMutation.mutate(
+            {
+              enrollmentId: paidInfoDialogData.id,
+              updates: {
+                amount: true,
+                payment_id: paymentRecord.id,
+                status: "active",
+                installment_mode: installmentType || existingEnrollment.installment_mode,
+                installment1_amount: installment1Amount || existingEnrollment.installment1_amount,
+                installment2_amount: installment2Amount || existingEnrollment.installment2_amount
+              },
+            },
+            {
+              onSuccess: async () => {
+                await supabase.functions.invoke("send-message", {
+                  body: {
+                    message_type: "LL_APPLICATION_UPDATE",
+                    learner_id: learnerId,
+                  },
+                });
+                // Todo: send different email for LL received
+                // await sendAdminEmail(
+                //   "Schedule DL Test Date - LL Approved",
+                //   `Learner's License has been approved for ${learnerId} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
+                // );
+      
+                toast({
+                  title: "Success",
+                  description: "LL approval updated and notifications sent.",
+                });
+                // TODO: reset
+                // setLearnerId("");
+              },
+            },
+          );
+    } catch(error) {
+//
+    }
+  }
 
   // Delete button 
   // Defined at top, here for ref
@@ -574,6 +671,23 @@ console.log("Called send email");
                           </Button>
                           )
                         }
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updatePaidInfo(enrollment)}
+                          disabled={updatingPaidInfo[enrollment.id]}
+                          className="whitespace-nowrap"
+                        >
+                          {updatingPaidInfo[enrollment.id] ? (
+                            <RefreshCcw
+                              size={14}
+                              className="mr-1 animate-spin"
+                            />
+                          ) : (
+                            <Send size={14} className="mr-1" />
+                          )}
+                          Add paid info
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -581,7 +695,72 @@ console.log("Called send email");
             </table>
           </div>
         )}
+    {/* Dialog for updating paid info */}
+    <Dialog
+      open={paidInfoDialogOpen}
+      onOpenChange={setPaidInfoDialogOpen}
+    >
+<Dialog
+      open={paidInfoDialogOpen}
+      onOpenChange={setPaidInfoDialogOpen}
+    >
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Enter Paid Installments</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="installment1-paid"
+              // The checkbox is checked if manualInstallment1 is truthy (contains the amount)
+              checked={!!manualInstallment1} 
+              onChange={(e) => {
+                const checked = e.target.checked;
+                // If checked is true, set the amount; otherwise set to null.
+                setManualInstallment1(checked ? paidInfoDialogData?.installment1_amount : null);
+              }}
+            />
+            {/* Using the provided 'Label' component */}
+            <Label htmlFor="installment1-paid">
+              Installment 1 (Amount: {paidInfoDialogData?.installment1_amount ?? 0})
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="installment2-paid"
+              // FIX: Disable this checkbox if manualInstallment1 is not yet set (null/0/false)
+              disabled={!manualInstallment1} 
+              // The checkbox is checked if manualInstallment2 is truthy (contains the amount)
+              checked={!!manualInstallment2} 
+              onChange={(e) => {
+                const checked = e.target.checked;
+                // If checked is true, set the amount; otherwise set to null.
+                setManualInstallment2(checked ? paidInfoDialogData?.installment2_amount : null);
+              }}
+            />
+            {/* Using the provided 'Label' component */}
+            <Label 
+              htmlFor="installment2-paid"
+              // Optional: Add a class to visually indicate disabled state on the label (e.g., lower opacity)
+              className={!manualInstallment1 ? "opacity-50" : ""}
+            >
+              Installment 2 (Amount: {paidInfoDialogData?.installment2_amount ?? 0})
+            </Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleUpdatePaidInfoClose} variant="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleUpdatePaidInfoSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </Dialog>
       </CardContent>
     </Card>
+
   );
 }

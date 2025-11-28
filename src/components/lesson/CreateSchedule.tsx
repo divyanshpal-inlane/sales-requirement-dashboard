@@ -2895,7 +2895,7 @@ function CreateSchedule({
           status: "booked",
           otp: generateRandomOTP(),
           otp_end: generateRandomOTP(),
-          calendar_uid: "", // Will be populated for new schedules only
+          calendar_uid: "", // Will be populated for schedules only
         };
       });
 
