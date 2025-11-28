@@ -1493,19 +1493,24 @@ function Instructor() {
             <div className="flex flex-col gap-2 pb-4">
               {instructorData?.instructorScheduleDay.length === 0
               ? <div className="text-center text-gray-500"> No schedules today </div>
-              : instructorData?.instructorScheduleDay.map((schedule, index) => {
+              : instructorData?.instructorScheduleDay.map((scheduleData, index) => {
                 // to be fixed
                 // for every schedule
-                const learnerLessonPair = instructorData?.learnerLessonDay.find(
-                  (ll) => ll.lesson.id === schedule.lesson_id,
-                );
+                // const learnerLessonPair = 
+                
+                
+                
+                
+                // ?.learnerLessonDay.find(
+                //   (ll) => ll.lesson.id === schedule.lesson_id,
+                // );
 
-                if (!learnerLessonPair) {
-                  return null;
-                }
+                // if (!learnerLessonPair) {
+                //   return null;
+                // }
 
-                const { learner, lesson } = learnerLessonPair;
-                const isOngoing = schedule.status === "ongoing";
+                const { Learner: learner, Lesson: lesson } = scheduleData;
+                const isOngoing = scheduleData.status === "ongoing";
 
                 return (
                   <Card key={index}>
@@ -1514,11 +1519,11 @@ function Instructor() {
                         <div className="text-base">Lesson {lesson?.number}</div>
                         <div className="text-sm">
                           <div className="text-right text-base">
-                            {new Date(schedule.date).toLocaleDateString()}
+                            {new Date(scheduleData.date).toLocaleDateString()}
                           </div>
                           {formatTimeRange(
-                            schedule.start_time,
-                            schedule.end_time,
+                            scheduleData.start_time,
+                            scheduleData.end_time,
                           )}
                         </div>
                       </CardTitle>
@@ -1575,7 +1580,7 @@ function Instructor() {
                       <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
                         <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
                           <p>
-                            Lesson status : {schedule.status?.toUpperCase()}
+                            Lesson status : {scheduleData.status?.toUpperCase()}
                           </p>
                           <div className="flex flex-row items-center gap-24">
                             {isOngoing ? (
@@ -1584,7 +1589,7 @@ function Instructor() {
                                 <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
                               </div>
                             ) : null}
-                            {schedule.status === "completed" ? (
+                            {scheduleData.status === "completed" ? (
                               <div className="flex items-center justify-center">
                                 <CircleCheckBig
                                   className="rounded-full bg-green-500 text-white"
@@ -1597,7 +1602,7 @@ function Instructor() {
                             <Button
                               onClick={() => {
                                   // alert("Lesson to be ended by customer");
-                                  navigate(`/otp/end/${learner.id}/${schedule.id}`);
+                                  navigate(`/otp/end/${learner.id}/${scheduleData.id}`);
                                 }
                                 // handleFinishLesson(
                                 //   schedule.id.toString(),
@@ -1611,11 +1616,11 @@ function Instructor() {
                               Finish Lesson
                             </Button>
                           )}
-                          {schedule.status !== "ongoing" &&
-                            schedule.status !== "completed" && (
+                          {scheduleData.status !== "ongoing" &&
+                            scheduleData.status !== "completed" && (
                               <Button
                                 onClick={() => {
-                                  navigate(`/otp/start/${learner.id}/${schedule.id}`);
+                                  navigate(`/otp/start/${learner.id}/${scheduleData.id}`);
                                 }}
                                 size="sm"
                                 className="text-sm"
@@ -1638,14 +1643,14 @@ function Instructor() {
                 <div className="text-center text-gray-500"> No lessons scheduled </div>
                 )
               }
-              {instructorData?.learnerLesson
+              {instructorData?.instructorSchedules
                 .map((item, index) => {
                   if (!item) {
                     console.warn(`Skipping null/undefined item at index ${index}.`);
                     return null;
                   }
 
-                  const { learner, lesson } = item;
+                  const { Learner: learner, Lesson: lesson } = item;
                   const isOngoing = item.status === "ongoing";
 
 
@@ -1654,9 +1659,7 @@ function Instructor() {
                     return null;
                   }
                   
-                  const lessonSchedule = instructorData.instructorSchedules.find(
-                  (s) => s.lesson_id === lesson.id,
-                  );
+                  const lessonSchedule = item;
 
                   // Existing check for lessonSchedule
                   if (!lessonSchedule) {
