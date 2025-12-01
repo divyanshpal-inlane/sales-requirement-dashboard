@@ -1539,7 +1539,7 @@ function Instructor() {
                             Pick-up Location :
                           </p>
                           <a
-                            href={`https://www.google.com/maps?q=${learner.address_lat},${learner.address_lng}`}
+                            href={`https://www.google.com/maps?q=${learner?.address_lat},${learner?.address_lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
@@ -1785,7 +1785,7 @@ function Instructor() {
                             lessonSchedule.status !== "completed" && (
                               <Button
                                 onClick={() => {
-                                  navigate(`/otp/start/${learner.id}/${schedule.id}`);
+                                  navigate(`/otp/start/${learner.id}/${lessonSchedule.id}`);
                                 }}
                                 size="sm"
                                 className="text-sm"
