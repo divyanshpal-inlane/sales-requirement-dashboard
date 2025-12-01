@@ -401,7 +401,11 @@ export default function AdminSchedules() {
           lesson_id,
           course_id,
           learner_id,
-          status
+          status,
+          Lesson!inner(
+            id,
+            number
+          )
         )
       `,
         )
@@ -919,7 +923,7 @@ export default function AdminSchedules() {
 
       // Refetch the active learners to reflect the changes in the UI
       await refetchActiveLearners();
-
+      window.location.reload();
       return true;
     } catch (error) {
       console.error("Error updating schedule:", error);
@@ -1714,7 +1718,7 @@ export default function AdminSchedules() {
                           >
                             <div>
                               <div className="font-medium">
-                                {schedule.date} - {schedule.start_time} to{" "}
+                                Lesson {schedule.Lesson.number} - {schedule.date} - {schedule.start_time} to{" "}
                                 {schedule.end_time}
                               </div>
                               <div className="text-sm text-gray-500">
