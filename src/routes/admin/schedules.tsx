@@ -401,7 +401,11 @@ export default function AdminSchedules() {
           lesson_id,
           course_id,
           learner_id,
-          status
+          status,
+          Lesson!inner(
+            id,
+            number
+          )
         )
       `,
         )
@@ -1714,7 +1718,7 @@ export default function AdminSchedules() {
                           >
                             <div>
                               <div className="font-medium">
-                                {schedule.date} - {schedule.start_time} to{" "}
+                                Lesson {schedule.Lesson.number} - {schedule.date} - {schedule.start_time} to{" "}
                                 {schedule.end_time}
                               </div>
                               <div className="text-sm text-gray-500">
