@@ -64,6 +64,8 @@ const InstructorProfile = () => {
     }
   }, [instructorData]);
 
+  const CUST_SUPPORT_PHONE = import.meta.env.VITE_CUST_SUPPORT_PHONE;
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -104,11 +106,11 @@ const InstructorProfile = () => {
   };
 
   const handleCall = () => {
-    window.location.href = "tel:+916360739863";
+    window.location.href = "tel:+91" + CUST_SUPPORT_PHONE;
   };
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/916360739863", "_blank");
+    window.open("https://wa.me/" + CUST_SUPPORT_PHONE, "_blank");
   };
 
   const handleEmail = () => {
@@ -240,7 +242,7 @@ const InstructorProfile = () => {
                 <Phone size={24} />
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">Call Us</span>
-                  <span className="text-base opacity-90">+91 6360739863</span>
+                  <span className="text-base opacity-90">+91 {CUST_SUPPORT_PHONE}</span>
                 </div>
               </button>
 
