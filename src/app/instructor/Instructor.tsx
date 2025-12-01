@@ -1620,7 +1620,7 @@ function Instructor() {
                             scheduleData.status !== "completed" && (
                               <Button
                                 onClick={() => {
-                                  navigate(`/otp/start/${learner.id}/${scheduleData.id}`);
+                                  navigate(`/otp/start/${learner?.id}/${scheduleData?.id}`);
                                 }}
                                 size="sm"
                                 className="text-sm"
@@ -1767,7 +1767,7 @@ function Instructor() {
                             <Button
                               onClick={() => {
                                   // alert("Lesson to be ended by customer");
-                                  navigate(`/otp/end/${learner.id}/${schedule.id}`);
+                                  navigate(`/otp/end/${learner?.id}/${lessonSchedule.id}`);
                                 }
                                 // handleFinishLesson(
                                 //   schedule.id.toString(),
