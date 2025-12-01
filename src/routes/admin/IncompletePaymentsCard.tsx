@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ export function IncompletePaymentsCard() {
   const [manualInstallment2 , setManualInstallment2] = useState<number | null>(null);
   // const installmentType = manualInstallment1 && manualInstallment2 ? "full"
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
 
   const fetchIncompletePayments = async () => {
     setLoading(true);
@@ -90,6 +92,7 @@ export function IncompletePaymentsCard() {
         (e) => e.installment_mode === "second_half",
       );
 
+      
       // Get the first_half payment dates for learners with second_half installments
       if (secondHalfEnrollments.length > 0) {
         const learnerIds = secondHalfEnrollments.map((e) => e.learner_id);
@@ -295,90 +298,143 @@ console.log("Called send email");
     }
   };
 
-  const updatePaidInfo = async (enrollment) => {
-    setUpdatingPaidInfo((prev) => ({ ...prev, [enrollment.id]: true }));
+  // const updatePaidInfo = async () => {
+  //   if (!paidInfoDialogData) {
+  //     console.log("No enrollment data available");
+  //     return;
+  //   }
+  //   setUpdatingPaidInfo((prev) => ({ ...prev, [paidInfoDialogData.id]: true }));
     
-    setPaidInfoDialogData(enrollment);
-    setManualAmount(0);
-    setPaidInfoDialogOpen(true);
-  };
+  //   setManualAmount(0);
+  //   setPaidInfoDialogOpen(true);
+  // };
 
   const handleUpdatePaidInfoClose = () => {
-    setUpdatingPaidInfo((prev) => ({ ...prev, [paidInfoDialogData.id]: false }));
-    setPaidInfoDialogOpen(false);
-    setPaidInfoDialogData(null);
-    setManualAmount(0);
-  };
-
-  const handleUpdatePaidInfoSave = async () => {
-    // The steps should be same as process-payment
-    // learner and entollment are added, 
-    // payment to be added and entollment to be updated
     if (!paidInfoDialogData) {
-      toast({
-        title: "Error",
-        description: "No enrollment data available",
-        variant: "destructive",
-      });
+      console.log("No enrollment data available");
       return;
     }
-    try {
-          console.log(`Saving amount for learner: ${paidInfoDialogData?.Learner?.name}`);
-          // Make payment record
-          const { data: paymentRecord, error: dbError } = await supabaseClient.from("payment").insert([
-            {
-              learner_id: paidInfoDialogData?.Learner.id,
-              amount: manualAmount,
-              email: paidInfoDialogData?.Learner?.email,
-              phone: paidInfoDialogData?.Learner?.phone,
-              payment_type: "course",
-              status: "completed",
-              name: paidInfoDialogData?.Learner?.name,
-              installment_type: manualInstallmentType,
-              installment1_amount: installment1Amount,
-              installment2_amount: installment2Amount
-            }
-          ]).select().single();
+    console.log("Closing paid info dialog for enrollment:", paidInfoDialogData);
+    setUpdatingPaidInfo((prev) => ({ ...prev, [paidInfoDialogData?.id]: false }));
+    setPaidInfoDialogOpen(false);
+    // setPaidInfoDialogData(null);
+    // setManualAmount(0);
+    console.log("updatingPaidInfo" , updatingPaidInfo);
+  };
 
-          updateEnrollmentMutation.mutate(
-            {
-              enrollmentId: paidInfoDialogData.id,
-              updates: {
-                amount: true,
-                payment_id: paymentRecord.id,
-                status: "active",
-                installment_mode: installmentType || existingEnrollment.installment_mode,
-                installment1_amount: installment1Amount || existingEnrollment.installment1_amount,
-                installment2_amount: installment2Amount || existingEnrollment.installment2_amount
-              },
+  const useUpdateEnrollmentMutation = useMutation({
+        mutationFn: async ({ 
+          enrollmentId, 
+          updates 
+        }: {
+          enrollmentId: string;
+          updates: Partial<any>;
+        }) => {
+            const { data, error } = await supabase
+                .from('enrollment')
+                .update(updates)
+                .eq('id', enrollmentId)
+            if (error) throw error;
+            console.log("Updated installment info");
+        },
+        
+        // Invalidate relevant queries upon successful completion
+        onSuccess: (data, variables) => {
+            // Invalidate the specific enrollment query to force a fresh fetch
+            queryClient.invalidateQueries({ queryKey: ['enrollment', variables.enrollmentId] });
+            
+            // Invalidate the generic list of enrollments if necessary
+            queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+
+            // Note: The original send-message and toast logic is triggered 
+            // via the onSuccess callback passed when calling .mutate() 
+            // in the component's handleUpdatePaidInfoSave function.
+        },
+        
+        onError: (error) => {
+            // Optional: Log or handle global mutation errors here
+            console.error("Mutation failed:", error);
+        }
+    });
+  const handleUpdatePaidInfoSave = async () => {
+      // The steps should be same as process-payment
+      // learner and enrollment are added, 
+      // payment to be added and enrollment to be updated
+      if (!paidInfoDialogData) {
+        toast({
+          title: "Error",
+          description: "No enrollment data available",
+          variant: "destructive",
+        });
+        return;
+      }
+      try {
+        console.log(`Saving amount for learner: ${paidInfoDialogData?.Learner?.name}`);
+
+        // 1. Make payment record
+        const { data: paymentRecord, error: dbError } = await supabase.from("payment").insert([
+          {
+            learner_id: paidInfoDialogData?.Learner?.id,
+            amount: manualAmount,
+            email: paidInfoDialogData?.Learner?.email,
+            phone: paidInfoDialogData?.Learner?.phone,
+            payment_type: "course",
+            status: "completed",
+            name: paidInfoDialogData?.Learner?.name,
+            installment_type: paidInfoDialogData?.installment_type,
+            installment1_amount: paidInfoDialogData?.installment1_amount,
+            installment2_amount: paidInfoDialogData?.installment2_amount
+          }
+        ]).select().single();
+
+        if (dbError) throw new Error("Failed to record payment.");
+        
+        // 2. Update Enrollment status using the mutation asynchronously
+        // Note: We use mutateAsync to block and wait for completion.
+        await useUpdateEnrollmentMutation.mutateAsync(
+          {
+            enrollmentId: paidInfoDialogData.id,
+            updates: {
+              amount: manualAmount,
+              payment_id: paymentRecord.id,
+              status: "active",
+              installment_mode: paidInfoDialogData?.installmentType,
+              installment1_amount: paidInfoDialogData?.installment1Amount,
+              installment2_amount: paidInfoDialogData?.installment2Amount
             },
-            {
-              onSuccess: async () => {
-                await supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "LL_APPLICATION_UPDATE",
-                    learner_id: learnerId,
-                  },
-                });
-                // Todo: send different email for LL received
-                // await sendAdminEmail(
-                //   "Schedule DL Test Date - LL Approved",
-                //   `Learner's License has been approved for ${learnerId} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
-                // );
-      
-                toast({
-                  title: "Success",
-                  description: "LL approval updated and notifications sent.",
-                });
-                // TODO: reset
-                // setLearnerId("");
-              },
-            },
-          );
-    } catch(error) {
-//
+          }
+        );
+        
+        // 3. Send message
+        await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: "LL_APPLICATION_UPDATE",
+            learner_id: paidInfoDialogData?.Learner?.id,
+          },
+        });
+
+        // Todo: send different email for LL received
+        // await sendAdminEmail(...)
+    
+        // 4. Show success toast
+        toast({
+          title: "Success",
+          description: "Enrollment updated and notifications sent.",
+        });
+
+        // 5. Close dialog/reset state
+        // handleUpdatePaidInfoClose(); 
+        // setLearnerId("");
+        
+      } catch(error) {
+        console.error("Payment and Enrollment Save Error:", error);
+        toast({
+          title: "Error Saving Data",
+          description: error.message || "An unexpected error occurred during the save process.",
+          variant: "destructive",
+        });
+      }
     }
-  }
 
   // Delete button 
   // Defined at top, here for ref
@@ -671,14 +727,20 @@ console.log("Called send email");
                           </Button>
                           )
                         }
+
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => updatePaidInfo(enrollment)}
-                          disabled={updatingPaidInfo[enrollment.id]}
+                          onClick={() => {
+                            setPaidInfoDialogData(enrollment);
+                            setPaidInfoDialogOpen(true);
+                          }
+                        }
+                          disabled={updatingPaidInfo[enrollment?.id]}
                           className="whitespace-nowrap"
                         >
-                          {updatingPaidInfo[enrollment.id] ? (
+                          { 
+                          updatingPaidInfo[enrollment?.id] ? (
                             <RefreshCcw
                               size={14}
                               className="mr-1 animate-spin"
@@ -695,12 +757,7 @@ console.log("Called send email");
             </table>
           </div>
         )}
-    {/* Dialog for updating paid info */}
     <Dialog
-      open={paidInfoDialogOpen}
-      onOpenChange={setPaidInfoDialogOpen}
-    >
-<Dialog
       open={paidInfoDialogOpen}
       onOpenChange={setPaidInfoDialogOpen}
     >
@@ -758,9 +815,9 @@ console.log("Called send email");
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    </Dialog>
       </CardContent>
     </Card>
 
   );
 }
+
