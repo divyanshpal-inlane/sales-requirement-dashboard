@@ -853,7 +853,7 @@ function Instructor() {
     const isCurrentMonth = isSameMonth(date, currentDate);
 
     const daySchedules =
-      instructorData?.instructorSchedules.filter((schedule) =>
+      instructorData?.instructorSchedules?.filter((schedule) =>
         isSameDay(new Date(schedule.date), date),
       ) || [];
 
@@ -1024,7 +1024,7 @@ function Instructor() {
                       const day = addDays(currentWeekStart, dayIndex);
 
                       // Check for instructor schedules
-                      const schedule = instructorData?.instructorSchedules.find(
+                      const schedule = instructorData?.instructorSchedules?.find(
                         (s) => {
                           const scheduleDate = new Date(s.date);
                           const scheduleStart = new Date(
@@ -1174,7 +1174,7 @@ function Instructor() {
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
     const daySchedules =
-      instructorData?.instructorSchedules.filter((schedule) =>
+      instructorData?.instructorSchedules?.filter((schedule) =>
         isSameDay(new Date(schedule.date), currentDate),
       ) || [];
 
@@ -1545,7 +1545,7 @@ function Instructor() {
                             className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
                           >
                             <span className="truncate">
-                              {learner.pick_up_location}
+                              {learner?.pick_up_location}
                             </span>
                             <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                           </a>
@@ -1554,15 +1554,15 @@ function Instructor() {
                           <p className="text-muted-foreground">
                             Learner name :
                           </p>
-                          <p>{learner.name}</p>
+                          <p>{learner?.name}</p>
                         </div>
                         <div className="flex flex-row items-center gap-2">
                           <p className="text-muted-foreground">
                             Contact Learner :{" "}
                           </p>
-                          <p>{learner.phone}</p>
+                          <p>{learner?.phone}</p>
                           <div className="ml-1">
-                            <a href={`tel:+91${learner.phone}`}>
+                            <a href={`tel:+91${learner?.phone}`}>
                               <PhoneOutgoing size={14} />
                             </a>
                           </div>
@@ -1639,12 +1639,11 @@ function Instructor() {
 
           <TabsContent value="lesson" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
-              { !instructorData && (
+              { (!instructorData || !(instructorData.instructorSchedules)) && (
                 <div className="text-center text-gray-500"> No lessons scheduled </div>
                 )
               }
-              {instructorData?.instructorSchedules
-                .map((item, index) => {
+              {instructorData?.instructorSchedules?.map((item, index) => {
                   if (!item) {
                     console.warn(`Skipping null/undefined item at index ${index}.`);
                     return null;
