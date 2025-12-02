@@ -126,6 +126,13 @@ export default function AdminSchedules() {
       // Create schedules
       // In the createScheduleMutation function:
 
+      for (const schedule of schedules) {
+        if (!schedule?.otp || !schedule.otp_end) {
+          console.error("No otp for schedule:", schedule);
+        } else {
+          console.log("Auth of lesson are generated", schedule.otp, schedule.otp_end);
+        }
+      }
       // Create schedules
       const { error, data: createdSchedules } = await supabase
         .from("Schedule")
@@ -146,6 +153,7 @@ export default function AdminSchedules() {
               end_time: endTime,
               enabled: true,
               otp: schedule.otp,
+              otp_end: schedule.otp_end,
               calendar_uid: schedule.calendar_uid || "", // Include the calendar_uid
               calendar_sequence: schedule.calendar_sequence || 0, // Include the calendar_sequence
             };
