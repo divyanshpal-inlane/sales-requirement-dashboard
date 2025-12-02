@@ -4,18 +4,18 @@ import { useState } from "react";
 import PurpleGradient from "@/components/layout/purple";
 import { Button } from "@/components/ui/button";
 
-export default function LessonReview() {
+export default function CourseFeedback({enrollmentData}) {
   const [rating, setRating] = useState<number | null>(4);
   const [hover, setHover] = useState<number | null>(null);
   const [selectedButton, setSelectedButton] = useState<number | null>(null);
 
-  const buttons = [
-    { id: 1, color: "#00CE84", text: "Better Lesson" },
-    { id: 2, color: "#B28FFF", text: "More Guidance" },
-    { id: 3, color: "#6257FF", text: "Car Condition" },
-    { id: 4, color: "#00FF91", text: "Safety" },
-    { id: 5, color: "#FFC229", text: "Lesson Duration" },
-    { id: 6, color: "#6BECFF", text: "Others" },
+  const colors = [
+    { id: 1, color: "#00CE84" },
+    { id: 2, color: "#B28FFF" },
+    { id: 3, color: "#6257FF" },
+    { id: 4, color: "#00FF91" },
+    { id: 5, color: "#FFC229" },
+    { id: 6, color: "#6BECFF" },
   ];
 
   const handleRatingMessage = () => {
@@ -66,23 +66,6 @@ export default function LessonReview() {
             <h2 className="text-center font-semibold">
               What could be improved?
             </h2>
-            <div className="grid grid-cols-3 grid-rows-2 gap-4 p-6">
-              {buttons.map((button) => (
-                <button
-                  key={button.id}
-                  onClick={() => setSelectedButton(button.id)}
-                  style={{
-                    borderColor: button.color,
-                    backgroundColor:
-                      selectedButton === button.id ? button.color : "#ffffff",
-                    color: selectedButton === button.id ? "#ffffff" : "#000000",
-                  }}
-                  className="rounded-sm border-2 px-1.5 py-0.5 text-xs transition-colors duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-700"
-                >
-                  {button.text}
-                </button>
-              ))}
-            </div>
           </div>
           {/* Feedback Card */}
           <div className="mt-6 rounded-lg bg-white p-6">
