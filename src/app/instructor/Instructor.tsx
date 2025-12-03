@@ -62,6 +62,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
 import { useInstructor, useInstructorScheduleData, useUpdateScheduleStatus } from "@/queries/instructor";
+import Schedule from "@/routes/schedule";
+import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
 
 const locales = {
   "en-US": enUS,
@@ -301,6 +303,8 @@ function Instructor() {
     // console.log("Day Schedules:", daySchedules);
   }, [instructorData, instructorLoading]);
 
+  // Feddback data
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [calendarEvents, setCalendarEvents] = useState([]);
@@ -1763,22 +1767,42 @@ function Instructor() {
                             ) : null}
                           </div>
                           {isOngoing && (
-                            <Button
-                              onClick={() => {
-                                  // alert("Lesson to be ended by customer");
-                                  navigate(`/otp/end/${learner.id}/${schedule.id}`);
+                            <div>
+                              <Button
+                                onClick={() => {
+                                    // alert("Lesson to be ended by customer");
+                                      // if (
+                                      //   () => {return true; // checkLastLessonOfCourse
+                                      //   }
+                                      // ) {
+                                        console.log("Last lesson of course", lesson.number);
+                                        setShowFeedbackDialog(true);
+                                      // } else {
+                                        // console.log("Not last lesson of course, no feedback needed");
+                                      // }
+                                      // navigate(`/otp/end/${learner.id}/${item.id}`);
+                                      // handleFinishLesson(
+                                        //   schedule.id.toString(),
+                                        //   learner.id,
+                                        // )
+                                      }
                                 }
-                                // handleFinishLesson(
-                                //   schedule.id.toString(),
-                                //   learner.id,
-                                // )
-                              }
-                              size="sm"
-                              variant="secondary"
-                              className="text-sm"
-                            >
-                              Finish Lesson
-                            </Button>
+                                size="sm"
+                                variant="secondary"
+                                className="text-sm"
+                              >
+                                Finish Lesson
+                              </Button>
+
+                              {/* trigger feedback component */}
+                              <CourseFeedbackPage
+                                learnerId={learner?.id || ""}
+                                courseId={lesson?.course_id || ""}
+                                enrollmentId={item?.enrollment_id || ""}
+                                open={showFeedbackDialog}
+                                onOpenChange={setShowFeedbackDialog}
+                              />;
+                            </div>
                           )}
                           {lessonSchedule.status !== "ongoing" &&
                             lessonSchedule.status !== "completed" && (
