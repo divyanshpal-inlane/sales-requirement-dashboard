@@ -1768,11 +1768,11 @@ function Instructor() {
                                       //   }
                                       // ) {
                                         console.log("Last lesson of course", lesson.number);
-                                        setShowFeedbackDialog(true);
+                                        // setShowFeedbackDialog(true);
                                       // } else {
                                         // console.log("Not last lesson of course, no feedback needed");
                                       // }
-                                      // navigate(`/otp/end/${learner.id}/${item.id}`);
+                                      navigate(`/otp/end/${learner.id}/${item.id}`);
                                       // handleFinishLesson(
                                         //   schedule.id.toString(),
                                         //   learner.id,
