@@ -2335,206 +2335,272 @@ return (
         // ------------------------------------
       />
     </div>
-    <div
-      className="scrollbar-none h-[calc(100vh-50px)] max-h-96 overflow-x-auto overflow-y-auto p-4"
-      style={{ scrollbarWidth: "none" }}
-    >
-      <table className="w-full border-collapse border border-gray-200">
-        <thead className="sticky top-0 bg-white shadow-md z-10">
-          <tr>
-            <th className="border border-gray-200 px-0.5 py-0.5 text-xs sticky left-0 z-20 bg-white w-14">Time</th>
-            {Array.from({ length: numDaysPerView }).map((_, index) => {
-              const day = addDays(currentWeekStart, index);
+<div
+  className="scrollbar-none h-[calc(100vh-50px)] max-h-96 overflow-x-auto overflow-y-auto p-4"
+  style={{ scrollbarWidth: "none" }}
+>
+  <table className="w-full border-collapse border border-gray-200">
+    <thead className="sticky top-0 bg-white shadow-md z-10">
+      <tr>
+        <th className="border border-gray-200 px-0.5 py-0.5 text-xs sticky left-0 z-20 bg-white w-14">
+          Time
+        </th>
+        {Array.from({ length: numDaysPerView }).map((_, index) => {
+          const day = addDays(currentWeekStart, index);
+          return (
+            <th
+              key={index}
+              className="border border-gray-200 px-0.5 py-0.5 text-xs"
+            >
+              {format(day, "EE")}{" "}
+              <div className="text-[0.6rem] font-normal">
+                {format(day, "MMM d")}
+              </div>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+    <tbody className="overflow-y-auto">
+      {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+        const hour =
+          Math.floor(timeIndex / SlotConfig.numSlotsPerHour) +
+          SlotConfig.startHourOfDay;
+        const minute =
+          (SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour)) % 60;
+        return (
+          <tr key={timeIndex}>
+            {/* Time Label - Reduced Text Size from 'text-xs' to 'text-[0.6rem]' and reduced padding */}
+            <td className="border border-gray-200 p-0.5 text-center text-[0.6rem] whitespace-nowrap w-14 sticky left-0 z-10 bg-white">
+              {format(new Date().setHours(hour, minute), "h:mm a")}
+            </td>
+
+            {Array.from({ length: numDaysPerView }).map((_, dayIndex) => {
+              const day = addDays(currentWeekStart, dayIndex);
+
+              const schedule = filteredSchedules.find((s) => {
+                const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                const currentTime = new Date(day);
+                currentTime.setHours(hour, minute);
+                return (
+                  isSameDay(scheduleStart, day) &&
+                  currentTime >= scheduleStart &&
+                  currentTime < scheduleEnd
+                );
+              });
+              const unavailable = isTimeSlotUnavailable(day, hour, minute);
+
+              let isOverdueOngoing = false;
+          
+          if (schedule && schedule.status != "completed") {
+            // 1. Get the Schedule End Time as a Date Object (includes the correct day)
+            const scheduleEndTime = new Date(day);
+            const [endHour, endMinute] = schedule.end_time.split(':').map(Number);
+            scheduleEndTime.setHours(endHour, endMinute, 0, 0);
+
+            // 2. Define the real current time (Assuming 'nowTime' variable is available)
+            // If 'nowTime' is NOT available globally, define it here:
+            const realCurrentTime = new Date(); 
+
+            // 3. Check for the condition: Ongoing AND End time has passed the real current time
+            isOverdueOngoing = scheduleEndTime.getTime() <= realCurrentTime.getTime();
+          }
+
               return (
-                <th key={index} className="border border-gray-200 px-0.5 py-0.5 text-xs">
-                  {format(day, "EE")} {
-                  /* Further reduction: "EEE" (Mon) to "EE" (Mo) if possible/desired */}
-                  <div className="text-[0.6rem] font-normal">{format(day, "MMM d")}</div>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody className="overflow-y-auto">
-          {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-            const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
-            const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
-            return (
-              <tr key={timeIndex}>
-                {/* Time Label - Reduced Text Size from 'text-xs' to 'text-[0.6rem]' and reduced padding */}
-                <td className="border border-gray-200 p-0.5 text-center text-[0.6rem] whitespace-nowrap w-14 sticky left-0 z-10 bg-white">
-                  {format(new Date().setHours(hour, minute), "h:mm a")}
-                </td>
+                <td
+                  key={dayIndex}
+                  // Reduced TD size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
+                  className={`border border-gray-200 p-0 align-top w-[1.5rem] h-[1.5rem] 
+                    ${dayIndex === 0 ? "left-0 sticky z-10" : ""}
+                  `}
+                >
+                  <div
+                    // Reduced inner div size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
+                    className={`
+                      w-[1.5rem] h-[1.5rem] relative group flex flex-col justify-between items-center
+                      ${
+                        schedule
+                          ? schedule.isTentative
+                            ? "bg-orange-300 text-black"
+                            : isOverdueOngoing
+                              ? "bg-yellow-200 text-black"
+                              : "bg-green-500 text-white" // Default confirmed color
+                          : unavailable
+                            ? "bg-gray-300 text-red-800"
+                            : ""
+                      } ${schedule ? "cursor-pointer" : ""}
+                    `}
+                    onClick={() => {
+                      setIsTentativeDialogOpen(false);
+                      if (schedule && !schedule.isTentative) {
+                        handleOccupiedSlotClick(schedule);
+                      } else if (!schedule && unavailable) {
+                        toast({
+                          title: "Error",
+                          description: "Not available instructor",
+                          variant: "destructive",
+                        });
+                      } else if (schedule && schedule.isTentative) {
+                        handleTentativeSlotClick(schedule, day, hour, minute);
+                      }
+                    }}
+                  >
+                    {/* Primary Slot Indicator (Top/Center) - Reduced Text Size from 'text-[0.6rem]' to 'text-[0.5rem]' */}
+                    <div className="flex-grow w-full flex items-center justify-center p-0 overflow-hidden">
+                      <span className="text-[0.5rem] font-bold select-none leading-none">
+                        {schedule
+                          ? isOverdueOngoing
+                            ? "!" // Use an indicator for overdue
+                            : schedule.isTentative
+                              ? "T"
+                              : schedule.learner?.name?.charAt(0) || "B"
+                          : unavailable
+                            ? "X"
+                            : ""}
+                      </span>
+                    </div>
 
-                {Array.from({ length: numDaysPerView }).map((_, dayIndex) => {
-                  const day = addDays(currentWeekStart, dayIndex);
-
-                  const schedule = filteredSchedules.find((s) => {
-                    const scheduleStart = new Date(`${s.date}T${s.start_time}`);
-                    const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
-                    const currentTime = new Date(day);
-                    currentTime.setHours(hour, minute);
-                    return isSameDay(scheduleStart, day) && currentTime >= scheduleStart && currentTime < scheduleEnd;
-                  });
-                  const unavailable = isTimeSlotUnavailable(day, hour, minute);
-
-                  return (
-                    <td
-                      key={dayIndex}
-                      // Reduced TD size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
-                      className={`border border-gray-200 p-0 align-top w-[1.5rem] h-[1.5rem] 
-                        ${dayIndex === 0 ? "left-0 sticky z-10" : ""}
-                      `}
-                    >
+                    {/* Action Buttons (Bottom - Only for Tentative Slots) */}
+                    {schedule && schedule.isTentative && (
                       <div
-                        // Reduced inner div size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
-                        className={`
-                          w-[1.5rem] h-[1.5rem] relative group flex flex-col justify-between items-center
-                          ${
-                            schedule
-                              ? schedule.isTentative
-                                ? "bg-orange-300 text-black"
-                                : "bg-green-500 text-white"
-                              : unavailable
-                              ? "bg-gray-300 text-red-800"
-                              : ""
-                          } ${schedule ? "cursor-pointer" : ""}
-                        `}
-                        onClick={() => {
-                          /* Keep your original click logic here (handles slot interaction) */
-                          setIsTentativeDialogOpen(false);
-                          if (schedule && !schedule.isTentative) {
-                            handleOccupiedSlotClick(schedule);
-                          } else if (!schedule && unavailable) {
-                            toast({ title: "Error", description: "Not available instructor", variant: "destructive" });
-                          } else if (schedule && schedule.isTentative) {
-                            handleTentativeSlotClick(schedule, day, hour, minute);
-                          }
-                        }}
+                        className="flex justify-around w-full items-center mb-[0.5px] p-[1px]" // Reduced margin/padding
+                        onClick={(e) => e.stopPropagation()} // Crucial: Stop click from triggering cell action
                       >
-                        {/* --- 1. VISIBLE CONTENT AREA (Fixed 1.5rem x 1.5rem) --- */}
+                        {/* Copy Button - Reduced size from h-[0.7rem] w-[0.7rem] to h-[0.6rem] w-[0.6rem] */}
+                        <Button
+                          variant="secondary"
+                          className="p-0 h-[0.6rem] w-[0.6rem]"
+                          onClick={() => {
+                            setIsTentativeCopyDialogOpen(true);
+                            handleCopyTentative(schedule);
+                          }}
+                        >
+                          {/* Icon size reduced from h-[0.5rem] w-[0.5rem] to h-[0.4rem] w-[0.4rem] */}
+                          <Copy className="h-[0.4rem] w-[0.4rem]" />
+                        </Button>
 
-                        {/* Primary Slot Indicator (Top/Center) - Reduced Text Size from 'text-[0.6rem]' to 'text-[0.5rem]' */}
-                        <div className="flex-grow w-full flex items-center justify-center p-0 overflow-hidden">
-                          <span className="text-[0.5rem] font-bold select-none leading-none">
-                            {schedule
-                              ? (schedule.isTentative ? "T" : (schedule.learner?.name?.charAt(0) || "B"))
-                              : unavailable ? "X" : ""
-                            }
-                          </span>
-                        </div>
+                        {/* Delete Button - Reduced size from h-[0.7rem] w-[0.7rem] to h-[0.6rem] w-[0.6rem] */}
+                        <Button
+                          variant="destructive"
+                          className="p-0 h-[0.6rem] w-[0.6rem]"
+                          onClick={() => {
+                            handleDeleteTentative(schedule.id);
+                          }}
+                        >
+                          {/* Icon size reduced from h-[0.5rem] w-[0.5rem] to h-[0.4rem] w-[0.4rem] */}
+                          <Trash2 className="h-[0.4rem] w-[0.4rem]" />
+                        </Button>
+                      </div>
+                    )}
 
-                        {/* Action Buttons (Bottom - Only for Tentative Slots) */}
-                        {schedule && schedule.isTentative && (
-                          <div
-                            className="flex justify-around w-full items-center mb-[0.5px] p-[1px]" // Reduced margin/padding
-                            onClick={(e) => e.stopPropagation()} // Crucial: Stop click from triggering cell action
-                          >
-                            {/* Copy Button - Reduced size from h-[0.7rem] w-[0.7rem] to h-[0.6rem] w-[0.6rem] */}
-                            <Button
-                              variant="secondary"
-                              className="p-0 h-[0.6rem] w-[0.6rem]"
-                              onClick={() => {
-                                setIsTentativeCopyDialogOpen(true);
-                                handleCopyTentative(schedule);
-                              }}
-                            >
-                              {/* Icon size reduced from h-[0.5rem] w-[0.5rem] to h-[0.4rem] w-[0.4rem] */}
-                              <Copy className="h-[0.4rem] w-[0.4rem]" />
-                            </Button>
+                    {/* --- 2. THE HOVER TOOLTIP (Full Info - Unchanged) --- */}
+                    {schedule && (
+                      <div className="absolute hidden group-hover:block z-50 top-0 left-full ml-1 w-64 bg-white border border-gray-300 shadow-xl rounded-md p-3 text-left text-black">
+                        {/* NOTE: Removed buttons from this section as they are now in the main view */}
 
-                            {/* Delete Button - Reduced size from h-[0.7rem] w-[0.7rem] to h-[0.6rem] w-[0.6rem] */}
-                            <Button
-                              variant="destructive"
-                              className="p-0 h-[0.6rem] w-[0.6rem]"
-                              onClick={() => {
-                                handleDeleteTentative(schedule.id);
-                              }}
-                            >
-                              {/* Icon size reduced from h-[0.5rem] w-[0.5rem] to h-[0.4rem] w-[0.4rem] */}
-                              <Trash2 className="h-[0.4rem] w-[0.4rem]" />
-                            </Button>
-                          </div>
-                        )}
+                        {schedule.isTentative ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="font-bold text-xs border-b pb-1 mb-1">
+                              Tentative Booking
+                            </div>
+                            <div className="text-xs">
+                              <span className="font-semibold">Name:</span>{" "}
+                              {schedule.tentative_details?.name || "N/A"}
+                            </div>
+                            <div className="text-xs">
+                              <span className="font-semibold">Phone:</span>{" "}
+                              {schedule.tentative_details?.phone || "N/A"}
+                            </div>
+                            <div className="text-xs">
+                              <span className="font-semibold">Desc:</span>{" "}
+                              {schedule.tentative_details?.description || "N/A"}
+                            </div>
 
-
-                        {/* --- 2. THE HOVER TOOLTIP (Full Info - Unchanged) --- */}
-                        {schedule && (
-                          <div className="absolute hidden group-hover:block z-50 top-0 left-full ml-1 w-64 bg-white border border-gray-300 shadow-xl rounded-md p-3 text-left text-black">
-
-                            {/* NOTE: Removed buttons from this section as they are now in the main view */}
-
-                            {schedule.isTentative ? (
-                              <div className="flex flex-col gap-1">
-                                <div className="font-bold text-xs border-b pb-1 mb-1">Tentative Booking</div>
-                                <div className="text-xs"><span className="font-semibold">Name:</span> {schedule.tentative_details?.name || "N/A"}</div>
-                                <div className="text-xs"><span className="font-semibold">Phone:</span> {schedule.tentative_details?.phone || "N/A"}</div>
-                                <div className="text-xs"><span className="font-semibold">Desc:</span> {schedule.tentative_details?.description || "N/A"}</div>
-
-                                {/* Map Link */}
-                                {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
-                                  <a
-                                    href={`http://googleusercontent.com/maps.google.com/3${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 underline mt-1 block"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    Open in Maps
-                                  </a>
-                                ) : <span className="text-xs text-gray-400">No Map Data</span>}
-
-                              </div>
+                            {/* Map Link */}
+                            {schedule.tentative_details?.latitude &&
+                            schedule.tentative_details?.longitude ? (
+                              <a
+                                href={`http://googleusercontent.com/maps.google.com/3${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 underline mt-1 block"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Open in Maps
+                              </a>
                             ) : (
-                              /* Occupied/Learner Details Hover View */
-                              <div className="flex flex-col gap-1">
-                                <div className="font-bold text-xs border-b pb-1 mb-1 text-green-700">Confirmed Booking</div>
-                                <div className="text-xs"><span className="font-semibold">Learner:</span> {schedule.learner?.name || "N/A"}</div>
-                                <div className="text-xs"><span className="font-semibold">Phone:</span> {schedule.learner?.phone || "N/A"}</div>
+                              <span className="text-xs text-gray-400">
+                                No Map Data
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          /* Occupied/Learner Details Hover View */
+                          <div className="flex flex-col gap-1">
+                            <div className="font-bold text-xs border-b pb-1 mb-1 text-green-700">
+                              Confirmed Booking
+                            </div>
+                            <div className="text-xs">
+                              <span className="font-semibold">Learner:</span>{" "}
+                              {schedule.learner?.name || "N/A"}
+                            </div>
+                            <div className="text-xs">
+                              <span className="font-semibold">Phone:</span>{" "}
+                              {schedule.learner?.phone || "N/A"}
+                            </div>
 
-                                {/* Map Link */}
-                                {schedule.learner?.address_lat && schedule.learner?.address_lng ? (
-                                  <a
-                                    href={`http://googleusercontent.com/maps.google.com/3${schedule.learner.address_lat},${schedule.learner.address_lng}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 underline mt-1 block"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    Open in Maps
-                                  </a>
-                                ) : <span className="text-xs text-gray-400">No Map Data</span>}
-                              </div>
+                            {/* Map Link */}
+                            {schedule.learner?.address_lat &&
+                            schedule.learner?.address_lng ? (
+                              <a
+                                href={`http://googleusercontent.com/maps.google.com/3${schedule.learner.address_lat},${schedule.learner.address_lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 underline mt-1 block"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Open in Maps
+                              </a>
+                            ) : (
+                              <span className="text-xs text-gray-400">
+                                No Map Data
+                              </span>
                             )}
                           </div>
                         )}
                       </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                    )}
+                  </div>
+                </td>
+              );
+            })}
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
 
-    {/* Legend - Reduced Text Size from 'text-sm' to 'text-xs' */}
-    <div className="mt-4 flex items-center justify-end space-x-4">
-      <div className="flex items-center">
-        <div className="mr-2 h-4 w-4 bg-primary"></div>
-        <span className="text-xs">Booked</span>
-      </div>
-      <div className="flex items-center">
-        <div className="mr-2 h-4 w-4 bg-orange-300"></div>
-        <span className="text-xs">Tentative</span>
-      </div>
-      <div className="flex items-center">
-        <div className="mr-2 h-4 w-4 bg-gray-400"></div>
-        <span className="text-xs">Unavailable</span>
-      </div>
-    </div>
-
+{/* Legend - Reduced Text Size from 'text-sm' to 'text-xs' */}
+<div className="mt-4 flex items-center justify-end space-x-4">
+  <div className="flex items-center">
+    <div className="mr-2 h-4 w-4 bg-green-500"></div>
+    <span className="text-xs">Booked (Confirmed)</span>
+  </div>
+  <div className="flex items-center">
+    <div className="mr-2 h-4 w-4 bg-yellow-200"></div>
+    <span className="text-xs">Not completed on Schedule</span>
+  </div>
+  <div className="flex items-center">
+    <div className="mr-2 h-4 w-4 bg-orange-300"></div>
+    <span className="text-xs">Tentative</span>
+  </div>
+  <div className="flex items-center">
+    <div className="mr-2 h-4 w-4 bg-gray-300"></div>
+    <span className="text-xs">Unavailable</span>
+  </div>
+</div>
 
     {/* Add/Edit Tentative Schedule Dialog - No size changes requested, keeping original code for context */}
     <Dialog
