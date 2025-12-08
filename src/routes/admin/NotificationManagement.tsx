@@ -268,7 +268,9 @@ function LearnerNotificationCard() {
         const date = sch.date ?? "NA";
         const learnerName = sch.Learner?.name ?? "NA";
         const learnerPhone = sch.Learner?.phone ?? "NA";
-        const pickupLocation = sch.Learner?.pick_up_location ?? "NA";
+        const pickupLocation = (sch.Learner?.address_lat && sch.Learner?.address_lng)
+        ? `https://maps.google.com/maps?q=${sch.Learner?.address_lat},${sch.Learner?.address_lng}`
+        : "NA";
         const lessonNumber = sch.Lesson?.number ?? "NA";
         schedulePacket[`field${i + 1}`] = `${date} | ${startTime} | ${learnerName}'s ${lessonNumber}th lesson with Lane | ${learnerPhone} | ${pickupLocation}`;
       } else {
