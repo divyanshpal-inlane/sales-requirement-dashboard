@@ -31,6 +31,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { Schedule } from "./schedules";
 import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo"
+import { SlotConfig } from "@/types/schedule";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -2349,9 +2350,9 @@ function WeeklyScheduleView({
             </tr>
         </thead>
           <tbody className="overflow-y-auto">
-            {Array.from({ length: 32 }).map((_, timeIndex) => {
-              const hour = Math.floor(timeIndex / 2) + 6; // Start from 6 AM
-              const minute = timeIndex % 2 === 0 ? 0 : 30; // Alternate between 0 and 30 minutes
+            {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+              const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
+              const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
               return (
                 <tr key={timeIndex}>
                   <td className="border border-gray-200 p-2 text-center">

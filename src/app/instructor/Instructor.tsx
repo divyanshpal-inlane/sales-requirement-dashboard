@@ -64,6 +64,7 @@ import { supabase, useUser } from "@/context/auth-context";
 import { useInstructor, useInstructorScheduleData, useUpdateScheduleStatus } from "@/queries/instructor";
 import Schedule from "@/routes/schedule";
 import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
+import { SlotConfig } from "@/types/schedule";
 
 const locales = {
   "en-US": enUS,
@@ -475,7 +476,7 @@ function Instructor() {
   };
 
   // Handle empty cell click for event creation
-  const handleEmptyCellClick = (date: Date, hour: number) => {
+  const handleEmptyCellClick = (date: Date, hour: number, minute?: number) => {
     const startDate = new Date(date);
     startDate.setHours(hour, 0, 0, 0);
     const endDate = new Date(startDate);
@@ -887,10 +888,6 @@ function Instructor() {
         <div className="space-y-1">
           {/* Instructor Schedules */}
           {daySchedules.slice(0, 1).map((schedule, idx) => {
-            const learnerInfo = instructorData?.learnerLesson.find(
-              (ll) => (ll?.lesson?.id && 
-                (ll.lesson.id === schedule.lesson_id)),
-            );
 
             return (
               <div
@@ -904,14 +901,14 @@ function Instructor() {
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleScheduleClick(schedule, learnerInfo?.learner);
+                  handleScheduleClick(schedule, schedule?.Learner);
                 }}
               >
                 {format(
                   new Date(`${schedule.date}T${schedule.start_time}`),
                   "HH:mm",
                 )}{" "}
-                {learnerInfo?.learner.name}
+                {schedule?.Learner?.name}
               </div>
             );
           })}
@@ -1014,9 +1011,10 @@ function Instructor() {
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: 16 }).map((_, timeIndex) => {
-                const hour = timeIndex + 6;
-                const minute = 0;
+          {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+            const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
+            const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+                   
                 return (
                   <tr key={timeIndex} className="h-12">
                     <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
@@ -1071,24 +1069,14 @@ function Instructor() {
                         minute,
                       );
 
-                      let learnerName = "";
-                      let learnerInfo = null;
-                      if (schedule) {
-                        const learnerLesson =
-                          instructorData?.learnerLesson.find(
-                          (ll) => (ll?.lesson?.id && 
-                              (ll.lesson.id === schedule.lesson_id)),
-                          );
-                        if (learnerLesson) {
-                          learnerName = learnerLesson.learner.name;
-                          learnerInfo = learnerLesson.learner;
-                        }
-                      }
+                      const learnerName = schedule?.Learner?.name ?? "";
+                      const learnerInfo = schedule?.Learner;
 
                       const isScheduleStart =
                         schedule &&
-                        parseInt(schedule.start_time.split(":")[0]) === hour &&
-                        parseInt(schedule.start_time.split(":")[1]) === minute;
+                        parseInt(schedule.start_time.split(":")[0]) === hour;
+                        // &&
+                        // parseInt(schedule.start_time.split(":")[1]) === minute;
 
                       const isGoogleEventStart =
                         calendarEvent &&
@@ -1178,9 +1166,7 @@ function Instructor() {
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
     const daySchedules =
-      instructorData?.instructorSchedules?.filter((schedule) =>
-        isSameDay(new Date(schedule.date), currentDate),
-      ) || [];
+      instructorData?.instructorScheduleDay || [];
 
     const dayCalendarEvents = calendarEvents.filter((event) => {
       if (!event.start?.dateTime) return false;
@@ -1191,10 +1177,14 @@ function Instructor() {
     return (
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto">
-          {Array.from({ length: 16 }).map((_, timeIndex) => {
-            const hour = timeIndex + 6;
-            const minute = 0;
+          {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+            const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
+            const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+                      
+            // const hour = timeIndex + SlotConfig.startHourOfDay;
+            // const minute = 0;
 
+            console.log("Filterng day schedules for time slot:", hour, daySchedules);
             const timeSlotSchedules = daySchedules.filter((schedule) => {
               const scheduleStart = new Date(
                 `${schedule.date}T${schedule.start_time}`,
@@ -1203,19 +1193,23 @@ function Instructor() {
                 `${schedule.date}T${schedule.end_time}`,
               );
               const currentTime = new Date(currentDate);
-              currentTime.setHours(hour, minute);
-
-              return currentTime >= scheduleStart && currentTime < scheduleEnd;
+              currentTime.setHours(hour, minute, 0, 0);
+              scheduleStart.setHours(scheduleStart.getHours(), scheduleStart.getMinutes(), 0,0);
+              if (hour === 9) console.log("T2_1", {scheduleStart, currentTime}, schedule.start_time);
+              return currentTime.getTime() === scheduleStart.getTime();
             });
+            // console.log("Day schedules", daySchedules);
+            // console.log("timeSlotSchedules", timeSlotSchedules);
 
-            const timeSlotGoogleEvents = dayCalendarEvents.filter((event) => {
-              const eventStart = new Date(event.start.dateTime);
-              const eventEnd = new Date(event.end.dateTime);
-              const currentTime = new Date(currentDate);
-              currentTime.setHours(hour, minute);
+            const timeSlotGoogleEvents = null;
+            // dayCalendarEvents.filter((event) => {
+            //   const eventStart = new Date(event.start.dateTime);
+            //   const eventEnd = new Date(event.end.dateTime);
+            //   const currentTime = new Date(currentDate);
+            //   currentTime.setHours(hour, minute);
 
-              return currentTime >= eventStart && currentTime < eventEnd;
-            });
+            //   return currentTime >= eventStart && currentTime < eventEnd;
+            // });
 
             const isUnavailable = isTimeUnavailable(
               instructorData?.unavailability,
@@ -1225,8 +1219,8 @@ function Instructor() {
             );
 
             const isEmpty =
-              timeSlotSchedules.length === 0 &&
-              timeSlotGoogleEvents.length === 0 &&
+              !(timeSlotSchedules?.length) &&
+              !(timeSlotGoogleEvents?.length) &&
               !isUnavailable;
 
             return (
@@ -1237,20 +1231,20 @@ function Instructor() {
                 }`}
                 onClick={() => {
                   if (isEmpty) {
-                    handleEmptyCellClick(currentDate, hour);
+                    handleEmptyCellClick(currentDate, hour, minute);
                   }
                 }}
               >
                 <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
-                  {format(new Date().setHours(hour, 0), "HH:mm")}
+                  {format(new Date().setHours(hour, minute), "HH:mm")}
                 </div>
 
                 <div
                   className={`relative flex-1 p-2 ${
                     // CONDITION 1: Unavailable AND no schedules or Google events (The initial check is fine, but can be simplified)
                     isUnavailable &&
-                    timeSlotSchedules.length === 0 &&
-                    timeSlotGoogleEvents.length === 0
+                    !(timeSlotSchedules?.length) &&
+                    !(timeSlotGoogleEvents?.length)
                       ? "bg-gray-400"
                       : timeSlotSchedules.length > 0
                       ? timeSlotSchedules[0].status === "completed"
@@ -1258,7 +1252,7 @@ function Instructor() {
                         : timeSlotSchedules[0].status === "ongoing"
                         ? "bg-blue-200 text-blue-800"
                         : "bg-primary text-white"
-                      : timeSlotGoogleEvents.length > 0
+                      : timeSlotGoogleEvents?.length > 0
                       ? "bg-orange-200 text-orange-800"
                       : isUnavailable
                       ? "bg-gray-400 text-red-800"
@@ -1269,17 +1263,15 @@ function Instructor() {
 >
                   {/* Instructor Schedules */}
                   {timeSlotSchedules.map((schedule, idx) => {
-                    const learnerInfo = instructorData?.learnerLesson.find(
-                      (ll) => (ll?.lesson?.id && 
-                        (ll.lesson.id === schedule.lesson_id)),
-                    );
 
                     const isScheduleStart =
-                      parseInt(schedule.start_time.split(":")[0]) === hour &&
-                      parseInt(schedule.start_time.split(":")[1]) === minute;
+                      parseInt(schedule.start_time.split(":")[0]) === hour;
+                      // remove minute check for 30-min starting schedules
+                      //&&
+                      //parseInt(schedule.start_time.split(":")[1]) === minute;
 
                     if (!isScheduleStart) return null;
-
+                    console.log("schedule:", schedule, "matches time hour", hour, timeSlotSchedules);
                     return (
                       <div
                         key={`schedule-${idx}`}
@@ -1292,26 +1284,26 @@ function Instructor() {
                         } `}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleScheduleClick(schedule, learnerInfo?.learner);
+                          handleScheduleClick(schedule, schedule?.Learner);
                         }}
 
                       >
                         <div className="font-medium">
-                          {learnerInfo?.learner.name}
+                          {schedule?.Learner?.name || "N/A"}
                         </div>
                         <div className="text-xs">
-                          {schedule.start_time.substring(0, 5)} -{" "}
-                          {schedule.end_time.substring(0, 5)}
+                          {schedule?.start_time.substring(0, 5)} -{" "}
+                          {schedule?.end_time.substring(0, 5)}
                         </div>
                         <div className="text-xs capitalize">
-                          Status: {schedule.status}
+                          Status: {schedule?.status}
                         </div>
                       </div>
                     );
                   })}
                   {/* Calendar Events */}
                   {
-                    timeSlotGoogleEvents.length > 0 && (
+                    timeSlotGoogleEvents?.length > 0 && (
                       <>
                         <div className="text-center font-semibold">
                           {timeSlotGoogleEvents[0]?.summary}
@@ -1624,7 +1616,7 @@ function Instructor() {
                             scheduleData.status !== "completed" && (
                               <Button
                                 onClick={() => {
-                                  navigate(`/otp/start/${learner.id}/${scheduleData.id}`);
+                                  navigate(`/otp/start/${learner?.id}/${scheduleData?.id}`);
                                 }}
                                 size="sm"
                                 className="text-sm"
@@ -2178,13 +2170,7 @@ function Instructor() {
             </DialogTitle>
             <DialogDescription>
               {scheduleDetailDialog.learner?.name} - Lesson{" "}
-              {
-                instructorData?.learnerLesson.find(
-                  (ll) =>
-                    ll?.lesson?.id && 
-                  (ll.lesson.id === scheduleDetailDialog.schedule?.lesson_id),
-                )?.lesson.number
-              }
+              {scheduleDetailDialog.schedule?.Lesson?.number} 
             </DialogDescription>
           </DialogHeader>
           {scheduleDetailDialog.schedule && (
