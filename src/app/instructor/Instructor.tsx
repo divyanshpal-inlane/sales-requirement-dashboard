@@ -62,6 +62,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
 import { useInstructor, useInstructorScheduleData, useUpdateScheduleStatus } from "@/queries/instructor";
+import Schedule from "@/routes/schedule";
+import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
 import { SlotConfig } from "@/types/schedule";
 
 const locales = {
@@ -302,6 +304,8 @@ function Instructor() {
     // console.log("Day Schedules:", daySchedules);
   }, [instructorData, instructorLoading]);
 
+  // Feddback data
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [calendarEvents, setCalendarEvents] = useState([]);
@@ -854,7 +858,7 @@ function Instructor() {
     const isCurrentMonth = isSameMonth(date, currentDate);
 
     const daySchedules =
-      instructorData?.instructorSchedules.filter((schedule) =>
+      instructorData?.instructorSchedules?.filter((schedule) =>
         isSameDay(new Date(schedule.date), date),
       ) || [];
 
@@ -1022,7 +1026,7 @@ function Instructor() {
                       const day = addDays(currentWeekStart, dayIndex);
 
                       // Check for instructor schedules
-                      const schedule = instructorData?.instructorSchedules.find(
+                      const schedule = instructorData?.instructorSchedules?.find(
                         (s) => {
                           const scheduleDate = new Date(s.date);
                           const scheduleStart = new Date(
@@ -1537,7 +1541,7 @@ function Instructor() {
                             className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
                           >
                             <span className="truncate">
-                              {learner.pick_up_location}
+                              {learner?.pick_up_location}
                             </span>
                             <ExternalLinkIcon className="h-4 w-4 shrink-0" />
                           </a>
@@ -1546,15 +1550,15 @@ function Instructor() {
                           <p className="text-muted-foreground">
                             Learner name :
                           </p>
-                          <p>{learner.name}</p>
+                          <p>{learner?.name}</p>
                         </div>
                         <div className="flex flex-row items-center gap-2">
                           <p className="text-muted-foreground">
                             Contact Learner :{" "}
                           </p>
-                          <p>{learner.phone}</p>
+                          <p>{learner?.phone}</p>
                           <div className="ml-1">
-                            <a href={`tel:+91${learner.phone}`}>
+                            <a href={`tel:+91${learner?.phone}`}>
                               <PhoneOutgoing size={14} />
                             </a>
                           </div>
@@ -1631,12 +1635,11 @@ function Instructor() {
 
           <TabsContent value="lesson" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
-              { !instructorData && (
+              { (!instructorData || !(instructorData.instructorSchedules)) && (
                 <div className="text-center text-gray-500"> No lessons scheduled </div>
                 )
               }
-              {instructorData?.instructorSchedules
-                .map((item, index) => {
+              {instructorData?.instructorSchedules?.map((item, index) => {
                   if (!item) {
                     console.warn(`Skipping null/undefined item at index ${index}.`);
                     return null;
@@ -1756,22 +1759,42 @@ function Instructor() {
                             ) : null}
                           </div>
                           {isOngoing && (
-                            <Button
-                              onClick={() => {
-                                  // alert("Lesson to be ended by customer");
-                                  navigate(`/otp/end/${learner?.id}/${lessonSchedule.id}`);
+                            <div>
+                              <Button
+                                onClick={() => {
+                                    // alert("Lesson to be ended by customer");
+                                      // if (
+                                      //   () => {return true; // checkLastLessonOfCourse
+                                      //   }
+                                      // ) {
+                                        console.log("Last lesson of course", lesson.number);
+                                        setShowFeedbackDialog(true);
+                                      // } else {
+                                        // console.log("Not last lesson of course, no feedback needed");
+                                      // }
+                                      // navigate(`/otp/end/${learner.id}/${item.id}`);
+                                      // handleFinishLesson(
+                                        //   schedule.id.toString(),
+                                        //   learner.id,
+                                        // )
+                                      }
                                 }
-                                // handleFinishLesson(
-                                //   schedule.id.toString(),
-                                //   learner.id,
-                                // )
-                              }
-                              size="sm"
-                              variant="secondary"
-                              className="text-sm"
-                            >
-                              Finish Lesson
-                            </Button>
+                                size="sm"
+                                variant="secondary"
+                                className="text-sm"
+                              >
+                                Finish Lesson
+                              </Button>
+
+                              {/* trigger feedback component */}
+                              <CourseFeedbackPage
+                                learnerId={learner?.id || ""}
+                                courseId={lesson?.course_id || ""}
+                                enrollmentId={item?.enrollment_id || ""}
+                                open={showFeedbackDialog}
+                                onOpenChange={setShowFeedbackDialog}
+                              />;
+                            </div>
                           )}
                           {lessonSchedule.status !== "ongoing" &&
                             lessonSchedule.status !== "completed" && (
