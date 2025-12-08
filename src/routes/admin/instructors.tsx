@@ -1635,6 +1635,7 @@ function WeeklyScheduleView({
       longitude: "",
     },
   });
+  const numDaysPerView = 15;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1793,7 +1794,7 @@ function WeeklyScheduleView({
   });
   const handleWeekChange = (direction: "prev" | "next") => {
     setCurrentWeekStart((prev) =>
-      direction === "next" ? addDays(prev, 7) : addDays(prev, -7),
+      direction === "next" ? addDays(prev, numDaysPerView) : addDays(prev, -numDaysPerView),
     );
   };
 
@@ -2337,7 +2338,7 @@ function WeeklyScheduleView({
         <thead className="sticky top-0 bg-white shadow-md z-10">
             <tr>
                 <th className="border border-gray-200 px-1 py-0.5 text-sm sticky left-0 z-20 bg-white">Time</th>
-                {Array.from({ length: 7 }).map((_, index) => {
+                {Array.from({ length: numDaysPerView }).map((_, index) => {
                     const day = addDays(currentWeekStart, index);
                     return (
                         <th key={index} className="border border-gray-200 px-1 py-0.5 text-sm">
@@ -2358,7 +2359,7 @@ function WeeklyScheduleView({
                   <td className="border border-gray-200 p-2 text-center">
                     {format(new Date().setHours(hour, minute), "h:mm a")}
                   </td>
-                  {Array.from({ length: 7 }).map((_, dayIndex) => {
+                  {Array.from({ length: numDaysPerView }).map((_, dayIndex) => {
                     const day = addDays(currentWeekStart, dayIndex);
 
                     // Find the schedule for the current day and time
