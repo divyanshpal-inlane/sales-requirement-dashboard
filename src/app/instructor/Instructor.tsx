@@ -1166,13 +1166,14 @@ function Instructor() {
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
     const daySchedules =
-      instructorData?.instructorScheduleDay || [];
-
-    const dayCalendarEvents = calendarEvents.filter((event) => {
-      if (!event.start?.dateTime) return false;
-      const eventStart = new Date(event.start.dateTime);
-      return isSameDay(eventStart, currentDate);
-    });
+      instructorData?.instructorSchedules.filter(
+          (schedule) => isSameDay(new Date(schedule?.date), currentDate),
+        ) || [];
+    // const dayCalendarEvents = calendarEvents.filter((event) => {
+    //   if (!event.start?.dateTime) return false;
+    //   const eventStart = new Date(event.start.dateTime);
+    //   return isSameDay(eventStart, currentDate);
+    // });
 
     return (
       <div className="flex h-full flex-col">
@@ -1181,9 +1182,6 @@ function Instructor() {
             const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
             const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
                       
-            // const hour = timeIndex + SlotConfig.startHourOfDay;
-            // const minute = 0;
-
             console.log("Filterng day schedules for time slot:", hour, daySchedules);
             const timeSlotSchedules = daySchedules.filter((schedule) => {
               const scheduleStart = new Date(
@@ -1195,7 +1193,6 @@ function Instructor() {
               const currentTime = new Date(currentDate);
               currentTime.setHours(hour, minute, 0, 0);
               scheduleStart.setHours(scheduleStart.getHours(), scheduleStart.getMinutes(), 0,0);
-              if (hour === 9) console.log("T2_1", {scheduleStart, currentTime}, schedule.start_time);
               return currentTime.getTime() === scheduleStart.getTime();
             });
             // console.log("Day schedules", daySchedules);
