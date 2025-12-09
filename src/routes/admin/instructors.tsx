@@ -2521,7 +2521,7 @@ return (
                             {schedule.tentative_details?.latitude &&
                             schedule.tentative_details?.longitude ? (
                               <a
-                                href={`http://googleusercontent.com/maps.google.com/3${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
+                                href={`http://maps.google.com?lat=${schedule.tentative_details.latitude},lng=${schedule.tentative_details.longitude}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs text-blue-600 underline mt-1 block"
@@ -2554,7 +2554,8 @@ return (
                             {schedule.learner?.address_lat &&
                             schedule.learner?.address_lng ? (
                               <a
-                                href={`http://googleusercontent.com/maps.google.com/3${schedule.learner.address_lat},${schedule.learner.address_lng}`}
+                                href={`http://maps.google.com?lat=${schedule.learner.address_lat},lng=${schedule.learner.address_lat}`}
+
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs text-blue-600 underline mt-1 block"
