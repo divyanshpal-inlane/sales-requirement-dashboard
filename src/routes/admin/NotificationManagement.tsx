@@ -125,7 +125,7 @@ function LearnerNotificationCard() {
         .select(
           `
           *,
-          Learner(name, phone, pick_up_location), 
+          Learner(name, phone, pick_up_location, address_lat, address_lng),
           Instructor(name, phone),
           Courses(name, duration), 
           Lesson(description)`,
