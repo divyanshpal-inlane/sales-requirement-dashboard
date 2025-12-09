@@ -254,83 +254,111 @@ function LearnerNotificationCard() {
       alert("No schedules info");
       return;
     }
-    // Build schedulePacket with keys field1..field10.
-    // If fewer than 9 schedules, remaining fields are "\n".
-    // If more than 9 schedules, fill first 10 and then throw an error.
+    
+    // The max number of schedules to include in one bulk message (field1 to field9)
     const maxFields = 9;
-    const schedulePacket: Record<string, string> = {};
     const count = Array.isArray(scheduleData) ? scheduleData.length : 0;
+    
+    // --- Start Batch Processing ---
 
-    for (let i = 0; i < maxFields; i++) {
-      const sch = scheduleData[i];
-      if (sch) {
-        const startTime = sch.start_time ?? "NA";
-        const date = sch.date ?? "NA";
-        const learnerName = sch.Learner?.name ?? "NA";
-        const learnerPhone = sch.Learner?.phone ?? "NA";
-        const pickupLocation = (sch.Learner?.address_lat && sch.Learner?.address_lng)
-        ? `https://maps.google.com/maps?q=${sch.Learner?.address_lat},${sch.Learner?.address_lng}`
-        : "NA";
-        const lessonNumber = sch.Lesson?.number ?? "NA";
-        schedulePacket[`field${i + 1}`] = `${date} | ${startTime} | ${learnerName}'s ${lessonNumber}th lesson with Lane | ${learnerPhone} | ${pickupLocation}`;
-      } else {
-        schedulePacket[`field${i + 1}`] = " ";
+    // Iterate through the scheduleData in batches of size maxFields
+    for (let batchStart = 0; batchStart < count; batchStart += maxFields) {
+      const batchSchedules = scheduleData.slice(batchStart, batchStart + maxFields);
+      
+      const schedulePacket: Record<string, string> = {};
+
+      // 1. Build schedulePacket for the current batch
+      for (let i = 0; i < maxFields; i++) {
+        const sch = batchSchedules[i]; // Use the schedule from the current batch
+        
+        if (sch) {
+          // Construct the detailed schedule string for this field
+          const startTime = sch.start_time ?? "NA";
+          const date = sch.date ?? "NA";
+          const learnerName = sch.Learner?.name ?? "NA";
+          const learnerPhone = sch.Learner?.phone ?? "NA";
+          const pickupLocation = (sch.Learner?.address_lat && sch.Learner?.address_lng)
+            ? `https://maps.google.com/maps?q=${sch.Learner?.address_lat},${sch.Learner?.address_lng}`
+            : "NA";
+          const lessonNumber = sch.Lesson?.number ?? "NA";
+          
+          schedulePacket[`field${i + 1}`] = 
+            `${date} | ${startTime} | ${learnerName}'s ${lessonNumber}th lesson with Lane | ${learnerPhone} | ${pickupLocation}`;
+            
+          // Reset status for all schedules in the current batch before trying to send
+          // Assuming setSendingInstrLessonReminderStatuses is meant to track 
+          // the sending status of each individual schedule ID, we only do this 
+          // for schedules actually included in the batch.
+          setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [sch.id]: false }));
+        } else {
+          // Fill remaining fields in the packet with a space/empty line
+          schedulePacket[`field${i + 1}`] = " ";
+        }
       }
-    }
+      
+      // Check if the current batch is empty (shouldn't happen if batchStart < count)
+      if (Object.keys(schedulePacket).length === 0) continue; 
+      
+      const schedulesPacket = JSON.stringify(schedulePacket);
+      console.log(`schedulePacket for batch starting at index ${batchStart}:`, schedulePacket);
 
-    const schedulesPacket = JSON.stringify(schedulePacket);
-    console.log("schedulePacket:", schedulePacket);
+      // Send the bulk message for the current batch
+      // We assume all schedules in a batch are for the SAME Instructor
+      // and use the Instructor details from the first schedule in the batch.
+      const firstScheduleInBatch = batchSchedules[0];
 
-    if (count > maxFields) {
-      console.error(`Too many schedules: ${count} > ${maxFields}. Only the first ${maxFields} were used.`);
-      // throw new Error(`Cannot process more than ${maxFields} schedules`);
-    }
-    for (const schedule of scheduleData) {
-      if (!schedule) continue;
-      setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
-      console.log("Sending Instructor reminder for schedule ", schedule);
-        try {
+      if (!firstScheduleInBatch || !firstScheduleInBatch.Instructor) {
+          console.error(`Missing instructor data for batch starting at index ${batchStart}. Skipping batch.`);
+          continue;
+      }
+      
+      console.log(`Sending Instructor reminder for batch (schedules ${batchStart + 1} to ${batchStart + batchSchedules.length})`);
+
+      try {
           const { error } = await supabase.functions.invoke("send-message", {
             body: {
               message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_FINAL",
-              // pull required data from schedule.Instructor
-              instructor_name: schedule.Instructor?.name ?? "",
-              instructor_phone: schedule.Instructor?.phone ?? "",
+              // Pull required data from the Instructor of the first schedule in the batch
+              instructor_name: firstScheduleInBatch.Instructor?.name ?? "",
+              instructor_phone: firstScheduleInBatch.Instructor?.phone ?? "",
 
-              // map the rest of the instructor fields into arg1..arg10
-              arg1:  schedulePacket['field1'] ?? " ",
-              arg2:  schedulePacket['field2'] ?? " ",
-              arg3:  schedulePacket['field3'] ?? " ",
-              arg4:  schedulePacket['field4'] ?? " ",
-              arg5:  schedulePacket['field5'] ?? " ",
-              arg6:  schedulePacket['field6'] ?? " ",
-              arg7:  schedulePacket['field7'] ?? " ",
-              arg8:  schedulePacket['field8'] ?? " ",
-              arg9:  schedulePacket['field9'] ?? " ",
-              // arg10: schedulePacket['field10'] ?? " ",
+              // Map the schedule fields from the current schedulePacket
+              arg1: schedulePacket['field1'] ?? " ",
+              arg2: schedulePacket['field2'] ?? " ",
+              arg3: schedulePacket['field3'] ?? " ",
+              arg4: schedulePacket['field4'] ?? " ",
+              arg5: schedulePacket['field5'] ?? " ",
+              arg6: schedulePacket['field6'] ?? " ",
+              arg7: schedulePacket['field7'] ?? " ",
+              arg8: schedulePacket['field8'] ?? " ",
+              arg9: schedulePacket['field9'] ?? " ",
+              // arg10 is not used as maxFields is 9
             },
           });
 
+          if (error) throw error;
+          
+          // Success Toast for the whole batch
+          const learnersInBatch = batchSchedules.map(sch => sch?.Learner?.name).filter(name => name);
+          toast({
+            title: "Success",
+            description: `Lesson reminder sent to instructor for ${learnersInBatch.length} schedules.`,
+          });
 
-        if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: `Lesson reminder sent to ${schedule.Learner.name} successfully`,
-        });
-
-      } catch (err) {
-        console.error("Error sending lesson reminder to instructor:", err);
-        toast({
-          title: "Error",
-          description:  "Failed to send lesson reminder to instructor",
-          variant: "destructive",
-        });
-      } finally {
-        setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
-      }
-      // break;
-    }
+        } catch (err) {
+          console.error("Error sending lesson reminder to instructor for batch:", err);
+          toast({
+            title: "Error",
+            description: "Failed to send lesson reminder to instructor for a batch",
+            variant: "destructive",
+          });
+        } finally {
+          // Update statuses for all schedules in the current batch
+          batchSchedules.filter(sch => sch).forEach(sch => {
+              setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [sch.id]: false }));
+          });
+        }
+    } // --- End Batch Processing ---
   };
 
   const checkAtleastOneStatusToValue = (statusList, value) => {
