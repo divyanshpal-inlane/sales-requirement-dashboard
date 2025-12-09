@@ -931,7 +931,7 @@ export default function AdminSchedules() {
 
       // Refetch the active learners to reflect the changes in the UI
       await refetchActiveLearners();
-      // window.location.reload();
+      window.location.reload();
       return true;
     } catch (error) {
       console.error("Error updating schedule:", error);
