@@ -56,10 +56,10 @@ const useEnrollmentIdQuery = (learnerId, courseId, enabled) => {
       
       const { data, error } = await supabase
         .from('enrollment')
-        .select('id')
+        .select('id, Learner!inner(name), Courses!inner(name)')
         .eq('learner_id', learnerId)
         .eq('course_id', courseId)
-        .single(); // Expecting only one enrollment record
+        .single();
 
       if (error) {
         throw new Error('Could not find enrollment record.');
@@ -68,23 +68,23 @@ const useEnrollmentIdQuery = (learnerId, courseId, enabled) => {
       if (!data || !data.id) {
           throw new Error('Enrollment record found but ID is missing.');
       }
-      
-      // Returns the enrollment ID, which will be passed to the mutation hook
-      return data.id; 
+    //   console.log("Fetched enrollment data:", data);
+      return data;
     },
     // Only fetch if the dialog is open and IDs are provided
     enabled: enabled && !!learnerId && !!courseId, 
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 1, // Retry fetching only once
+    staleTime: 0 * 60 * 1000, // 5 minutes
+    retry: 5, // Retry fetching only once
   });
 };
 
 
 export default function CourseFeedbackPage({
-  learnerId, // New Prop
-  courseId,  // New Prop
+  learnerId,
+  courseId, 
   open,
   onOpenChange,
+  onSuccess,
 }) {
   // --- STATE DEFINITIONS (Must be run unconditionally) ---
   const [rating, setRating] = useState(0); 
@@ -106,25 +106,25 @@ export default function CourseFeedbackPage({
   const [formIsValid, setFormIsValid] = useState(false); 
 
   // Fetch the enrollment ID
-  const { data: enrollmentId, isLoading: isEnrollmentLoading, isError: isEnrollmentError, error: enrollmentError } = useEnrollmentIdQuery(learnerId, courseId, open);
+  const { data: enrollmentData, isLoading: isEnrollmentLoading, isError: isEnrollmentError, error: enrollmentError } = useEnrollmentIdQuery(learnerId, courseId, open);
 
   const { toast } = useToast();
-
+console.log("Enrollment data", enrollmentData);
   // Local Mutation Hook Definition (uses the fetched enrollmentId)
-  const useSaveFeedbackMutation = (id) => {
+  const useSaveFeedbackMutation = (enrollmentData) => {
     const queryClient = useQueryClient();
     
     return useMutation({
       mutationFn: async ({ feedbackJson }) => {
         // Validation check for ID before mutation
-        if (!id) {
+        if (!enrollmentData?.id) {
             throw new Error("Enrollment ID not available for mutation.");
         }
         
         const { data, error } = await supabase
           .from('enrollment') 
           .update({ course_feedback: feedbackJson }) 
-          .eq('id', id) // Use the fetched ID
+          .eq('id', enrollmentData?.id) // Use the fetched ID
           .select(); 
 
         if (error) {
@@ -136,28 +136,27 @@ export default function CourseFeedbackPage({
       onSuccess: (data, variables) => {
         // Invalidate the query using the fetched enrollmentId
         queryClient.invalidateQueries({
-          queryKey: ['enrollmentUpdateFeedback', id] 
+          queryKey: ['enrollmentUpdateFeedback', enrollmentData?.id] 
         });
         toast({
-            title: "Success! 🎉",
-            description: 'Feedback submitted successfully! Thank you.',
-            variant: "success", // Assuming this is a recognized variant
+            title: "Success",
+            description: 'Feedback sent successfully.',
+            variant: "success",
         });
       },
       
       onError: (error) => {
-        toast.error(`Submission failed: ${error.message || 'Please try again.'}`);
         toast({
-            title: "Submission Failed 🛑",
-            description: error.message || 'Please try again.',
-            variant: "destructive", // Common variant for error messages
+            title: "Failure",
+            description: 'Feedback failed.',
+            variant: "destructive", 
         });
       },
     });
   };
 
   // 3. Get the mutation context
-  const feedbackMutation = useSaveFeedbackMutation(enrollmentId);
+  const feedbackMutation = useSaveFeedbackMutation(enrollmentData);
   
   // --- HELPER DATA AND LOGIC ---
   const carTypeOptions = ['Hatchback', 'Sedan', 'SUV'];
@@ -196,13 +195,14 @@ export default function CourseFeedbackPage({
     }
   };
 
-  const handleSaveFeedback = async () => {
+const handleSaveFeedback = async () => {
     // Check form validity AND enrollment ID existence
-    if (!formIsValid || !enrollmentId) {
+    if (!formIsValid || !enrollmentData) {
         return;
     }
     
-    const finalFeedback = {
+    // Prepare Feedback Data
+    const finalFeedback: any = { 
       lessonRating: rating,
       performance: {
         clutchBrakeRating,
@@ -216,24 +216,74 @@ export default function CourseFeedbackPage({
         buyTimeframe: planningToBuy === 'Yes' ? buyTimeframe : null,
       },
       textFeedback: feedbackText,
-      timestamp: new Date().toISOString(),
+      // Ensure courseName and timestamp are included for Edge Function validation
+      timestamp: new Date().getTime(), 
+      courseName: enrollmentData?.Courses?.name || "N/A", 
     };
     
+    // Prepare Payload for Edge Function
+    const edgeFunctionPayload = {
+        customerName: enrollmentData?.Learner?.name || "N/A",
+        feedbackData: finalFeedback,
+    };
 
+    console.log("Updating final feedback with", finalFeedback, enrollmentData?.Learner?.name );
     try {
+        // Backend Update
         await feedbackMutation.mutateAsync({ 
           feedbackJson: finalFeedback 
         });
+
+        toast({
+            title: "Feedback Saved Successfully",
+            description: "Feedback has been recorded.",
+            variant: "success",
+        });
+
+        // Edge Function Call
+        console.log("Database updated successfully. Invoking Edge Function to send report...");
         
-        // Close the dialog shortly after successful mutation (allowing toast to appear)
-        setTimeout(() => {
-             onOpenChange(false); 
-        }, 500);
+        // Use the Supabase client to invoke the Edge Function
+        // The client automatically handles passing the Authorization header (JWT)
+        const { data, error } = await supabase.functions.invoke("send-course-feedback-email", {
+            method: 'POST',
+            body: edgeFunctionPayload,
+        });
+
+        if (error || (data && data.success === false)) {
+            // Check for both invocation error and Edge Function internal failure response
+            console.error("Notification invocation failed (email not sent). Details:", error || data.details);
+
+            // Failure Toast for Email Report
+            toast({
+                title: "Email Generation Warning",
+                description: "The course feedback could not be sent. Data saved successfully.",
+                variant: "warning", // Use 'warning' or a distinct style
+            });
+        } else {
+            // Success Toast for Email feedback
+            console.log("Edge Function succeeded. Report sent.", data);
+            toast({
+                title: "Feedback Sent",
+                description: "The course feedback report has been successfully sent.",
+                variant: "success",
+            });
+        }
+        
+        if (onSuccess) {
+            await onSuccess(); // calling comp handles closing and navigation here
+        }
+        // Close the dialog shortly after successful actions
+        // setTimeout(() => {
+        //     onOpenChange(false); 
+        // }, 500);
 
     } catch (error) {
+        // This catch block handles errors from feedbackMutation.mutateAsync or supabase.functions.invoke
+        console.error("Action failed (Mutation or Function Invocation):", error);
         // Error handling is managed by the hook and toast.
     }
-  };
+};
 
 
   // --- 4. CONDITIONAL RENDER (Loading/Error) ---
@@ -247,7 +297,7 @@ export default function CourseFeedbackPage({
         );
     }
     
-    if (isEnrollmentError || !enrollmentId) {
+    if (isEnrollmentError || !enrollmentData) {
         return (
             <div className="p-10 text-center text-red-600">
                 Error: Could not retrieve enrollment ID. Feedback cannot be submitted.
@@ -416,8 +466,8 @@ export default function CourseFeedbackPage({
             <div className="flex justify-center p-6 pt-0">
                 <Button 
                     onClick={handleSaveFeedback} 
-                    disabled={!formIsValid || feedbackMutation.isPending || isEnrollmentLoading || isEnrollmentError || !enrollmentId}
-                    className={`w-full ${(!formIsValid || feedbackMutation.isPending || isEnrollmentLoading || isEnrollmentError || !enrollmentId) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={!formIsValid || feedbackMutation.isPending || isEnrollmentLoading || isEnrollmentError || !enrollmentData}
+                    className={`w-full ${(!formIsValid || feedbackMutation.isPending || isEnrollmentLoading || isEnrollmentError || !enrollmentData) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     variant={"purple"}
                 >
                     {feedbackMutation.isPending ? 'Saving...' : (formIsValid ? 'Submit' : 'Submit (Complete Ratings)')}
@@ -444,105 +494,3 @@ export default function CourseFeedbackPage({
     </Dialog>
   );
 }
-
-
-
-
-
-
-
-
-  // onOpenChange(false);
-  // return <></>
-//   const [rating, setRating] = useState<number | null>(4);
-//   const [hover, setHover] = useState<number | null>(null);
-//   const [selectedButton, setSelectedButton] = useState<number | null>(null);
-
-//   const colors = [
-//     { id: 1, color: "#00CE84" },
-//     { id: 2, color: "#B28FFF" },
-//     { id: 3, color: "#6257FF" },
-//     { id: 4, color: "#00FF91" },
-//     { id: 5, color: "#FFC229" },
-//     { id: 6, color: "#6BECFF" },
-//   ];
-
-//   const handleRatingMessage = () => {
-//     if (rating !== null) {
-//       if (rating < 3) return "Not Good";
-//       if (rating === 3) return "Decent";
-//       if (rating > 3) return "Excellent";
-//     }
-//     return "";
-//   };
-
-//   if (!enrollmentId) {
-//     return (<div> Data not available</div>);
-//   }
-
-//   const handleSaveFeedback = async () => {
-
-//   }
-
-// return (
-//     <Dialog open={open} onOpenChange={onOpenChange}>
-//       <DialogContent>
-//         <div className="flex flex-col p-6">
-//           <div className="relative mb-6 overflow-hidden rounded-3xl bg-white shadow-lg">
-//             {/* Stars card */}
-//             <div className="flex flex-col items-center justify-center rounded-lg p-6">
-//               <h1 className="mb-4 text-2xl font-bold">Rate Us</h1>
-//               <div className="mb-4 flex space-x-2">
-//                 {[1, 2, 3, 4, 5].map((star) => (
-//                   <button
-//                     key={star}
-//                     type="button"
-//                     onClick={() => setRating(star)}
-//                     onMouseEnter={() => setHover(star)}
-//                     onMouseLeave={() => setHover(null)}
-//                     className={`text-3xl ${
-//                       (hover || rating) >= star
-//                         ? "text-yellow-500"
-//                         : "text-gray-400"
-//                     }`}
-//                   >
-//                     ★
-//                   </button>
-//                 ))}
-//               </div>
-//               <div className="text-lg font-semibold">
-//                 {rating !== null ? handleRatingMessage() : "Select a rating"}
-//               </div>
-//               {rating && (
-//                 <div className="mt-4 text-sm text-gray-600">
-//                   You rated us {rating} out of 5 stars!
-//                 </div>
-//               )}
-//             </div>
-//             {/* What could be improved? */}
-//             <div className="mt-10">
-//               <h2 className="text-center font-semibold">
-//                 What could be improved?
-//               </h2>
-//             </div>
-//             {/* Feedback Card */}
-//             <div className="mt-6 rounded-lg bg-white p-6">
-//               <div className="mb-4 flex flex-row items-center justify-center gap-1.5 text-2xl font-bold">
-//                 <MessageSquarePlus size={21} />
-//                 <p>Feedback</p>
-//               </div>
-//               <textarea
-//                 className="h-32 w-full rounded-lg border border-gray-300 p-4"
-//                 placeholder="Enter your feedback here..."
-//               />
-//             </div>
-//           </div>
-
-//           <Button className="w-full" variant={"purple"} onClick={handleSaveFeedback}>
-//             Submit
-//           </Button>
-//         </div>
-//       </DialogContent>
-//     </Dialog>
-//   );
-// }

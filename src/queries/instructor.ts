@@ -185,7 +185,7 @@ export const useInstructorScheduleData = (phone: string) => {
       // Fetch instructor info, with schedules
       const { data: instructorSchedules, error: instructorError } = await supabase
         .from("Schedule")
-        .select("*, Learner!inner(*), Instructor!inner(name, phone, email), Lesson!inner(*)")
+        .select("*, Learner!inner(*), Instructor!inner(name, phone, email), Lesson!inner(*), Courses!inner(total_lessons)")
         .eq("Instructor.phone", phone)
         .gte("date", startDateStr)
         .lte("date", endDateStr)
