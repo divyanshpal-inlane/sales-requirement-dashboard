@@ -1478,7 +1478,10 @@ function Instructor() {
   if (instructorLoading) return <div>Loading...</div>;
   if (instructorError)
     return <div>An error occurred: {instructorError.message}</div>;
-
+  
+  const handleLessonEndNavigation = async (learnerId: string, itemId: string) => {
+    navigate(`/otp/end/${learnerId}/${itemId}`);
+  };
   return (
     <div className="flex h-full w-full flex-col">
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
@@ -1766,21 +1769,18 @@ function Instructor() {
                               <Button
                                 onClick={() => {
                                     // alert("Lesson to be ended by customer");
-                                      // if (
-                                      //   () => {return true; // checkLastLessonOfCourse
-                                      //   }
-                                      // ) {
-                                        console.log("Last lesson of course", lesson.number);
-                                        // setShowFeedbackDialog(true);
-                                      // } else {
-                                        // console.log("Not last lesson of course, no feedback needed");
-                                      // }
+                                    if (lesson?.number == lessonSchedule?.Courses?.total_lessons) {
+                                      console.log("Last lesson of course", lesson?.number, lessonSchedule?.Courses?.total_lessons);
+                                      setShowFeedbackDialog(true);
+                                    } else {
+                                      console.log("Not last lesson of course, no feedback needed", lesson?.number, lessonSchedule?.Courses?.total_lessons);
                                       navigate(`/otp/end/${learner.id}/${item.id}`);
-                                      // handleFinishLesson(
-                                        //   schedule.id.toString(),
-                                        //   learner.id,
-                                        // )
-                                      }
+                                    }
+                                    // handleFinishLesson(
+                                    //     schedule.id.toString(),
+                                    //     learner.id,
+                                    //   )
+                                  }
                                 }
                                 size="sm"
                                 variant="secondary"
@@ -1796,6 +1796,11 @@ function Instructor() {
                                 enrollmentId={item?.enrollment_id || ""}
                                 open={showFeedbackDialog}
                                 onOpenChange={setShowFeedbackDialog}
+                                onSuccess={async () => {
+                                    console.log("Feedback updated, success navigation");
+                                    setShowFeedbackDialog(false); 
+                                    await handleLessonEndNavigation(learner?.id, item?.id.toString());
+                                }}
                               />;
                             </div>
                           )}
