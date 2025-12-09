@@ -2431,7 +2431,31 @@ return (
                             : ""
                       } ${schedule ? "cursor-pointer" : ""}
                     `}
-                    onClick={() => {
+                          onClick={() => {
+                                setIsTentativeDialogOpen(false);
+                                if (schedule && !schedule.isTentative) {
+                                  handleOccupiedSlotClick(schedule);
+                                } else {
+                                  if (unavailable) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Not available instructor",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  // if (schedule) setScheduleHelper(schedule);
+                                  if (schedule && schedule.isTentative) {
+                                    // handleViewTentativeSlotClick();
+                                    console.log("Setting tentative schedule", schedule);
+                                    console.log("Now tentative schedule", tentativeSchedule);
+                                  }
+                                  handleTentativeSlotClick(schedule, day, hour, minute);
+                                }
+                              } }
+                              >
+
+                    {/* onClick={() => {
                       setIsTentativeDialogOpen(false);
                       if (schedule && !schedule.isTentative) {
                         handleOccupiedSlotClick(schedule);
@@ -2445,7 +2469,7 @@ return (
                         handleTentativeSlotClick(schedule, day, hour, minute);
                       }
                     }}
-                  >
+                  > */}
                     {/* Primary Slot Indicator (Top/Center) - Reduced Text Size from 'text-[0.6rem]' to 'text-[0.5rem]' */}
                     <div className="flex-grow w-full flex items-center justify-center p-0 overflow-hidden">
                       <span className="text-[0.5rem] font-bold select-none leading-none">
