@@ -1183,18 +1183,24 @@ function Instructor() {
             const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
                       
             console.log("Filterng day schedules for time slot:", hour, daySchedules);
-            const timeSlotSchedules = daySchedules.filter((schedule) => {
-              const scheduleStart = new Date(
-                `${schedule.date}T${schedule.start_time}`,
-              );
-              const scheduleEnd = new Date(
-                `${schedule.date}T${schedule.end_time}`,
-              );
-              const currentTime = new Date(currentDate);
-              currentTime.setHours(hour, minute, 0, 0);
-              scheduleStart.setHours(scheduleStart.getHours(), scheduleStart.getMinutes(), 0,0);
-              return currentTime.getTime() === scheduleStart.getTime();
-            });
+            const timeSlotSchedules = daySchedules.filter(
+              (s) => {
+                        const scheduleDate = new Date(s.date);
+                        const scheduleStart = new Date(
+                          `${s.date}T${s.start_time}`,
+                        );
+                        const scheduleEnd = new Date(
+                          `${s.date}T${s.end_time}`,
+                        );
+                        const currentTime = new Date(currentDate);
+                        currentTime.setHours(hour, minute);
+
+                        return (
+                          isSameDay(scheduleDate, currentDate) &&
+                          currentTime >= scheduleStart &&
+                          currentTime < scheduleEnd
+                        );
+              });
             // console.log("Day schedules", daySchedules);
             // console.log("timeSlotSchedules", timeSlotSchedules);
 
