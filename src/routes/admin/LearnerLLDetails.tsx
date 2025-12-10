@@ -438,6 +438,11 @@ const LearnerLLDetails = () => {
                           Address change
                         </Badge>
                       )}
+                    {learner.has_two_wheeler_license && (
+                      <Badge className="bg-blue-500 text-white text-xs">
+                        2-wheeler
+                      </Badge>
+                    )}
                     </div>
                     <div className="mt-1 text-sm text-gray-600">
                       📱 {learner.phone}

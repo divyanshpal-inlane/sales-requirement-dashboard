@@ -38,6 +38,7 @@ export default function LearnerManagement() {
     unlockedLessons: [],
     has_a_DL: false,
     address_change_required: false,
+    has_two_wheeler_license: false,
   });
 
   const [createdLearnerId, setCreatedLearnerId] = useState(null);
@@ -98,29 +99,48 @@ export default function LearnerManagement() {
   ];
 
   const handleInputChange = (e) => {
+    // Destructure properties from the event target
     const { name, value, type, checked } = e.target;
 
-    setLearnerData((prev) => {
-      const updatedData = {
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      };
+    // If the changed field is one of the license checkboxes, handle mutual exclusion
+    if (name === "has_a_DL") {
+      setLearnerData(prevData => ({
+        ...prevData,
+        [name]: checked,
+        has_two_wheeler_license: checked ? false : prevData.has_two_wheeler_license,
+      }));
+    } else if (name === "has_two_wheeler_license") {
+      setLearnerData(prevData => ({
+        ...prevData,
+        [name]: checked,
+        has_a_DL: checked ? false : prevData.has_a_DL,
+      }));
+    } else {
+      setLearnerData((prev) => {
+        const updatedData = {
+          ...prev,
+          [name]: type === "checkbox" ? checked : value,
+        };
 
-      // Auto-calculate installment2Amount when amount or installment1Amount changes
-      if (name === "amount" || name === "installment1Amount") {
-        const amount = name === "amount" ? Number(value) : Number(prev.amount);
-        const installment1Amount =
-          name === "installment1Amount"
-            ? Number(value)
-            : Number(prev.installment1Amount);
+        if (name === "amount" || name === "installment1Amount") {
+          
+          const amount = name === "amount" 
+            ? Number(value) 
+            : Number(prev.amount);
+            
+          const installment1Amount =
+            name === "installment1Amount"
+              ? Number(value)
+              : Number(prev.installment1Amount);
 
-        if (updatedData.installmentType === "installment") {
-          updatedData.installment2Amount = amount - installment1Amount;
+          if (updatedData.installmentType === "installment") {
+            updatedData.installment2Amount = amount - installment1Amount;
+          }
         }
-      }
 
-      return updatedData;
-    });
+        return updatedData;
+      });
+    }
   };
 
   const handleCourseChange = (courseId) => {
@@ -540,8 +560,18 @@ export default function LearnerManagement() {
                     name="has_a_DL"
                     checked={learnerData.has_a_DL}
                     onChange={handleInputChange}
+                    />
+                  <Label htmlFor="has_a_DL">Has a 4-wheeler license</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="has_two_wheeler_license"
+                    name="has_two_wheeler_license"
+                    checked={learnerData.has_two_wheeler_license}
+                    onChange={handleInputChange}
                   />
-                  <Label htmlFor="has_a_DL">Has a Driving License</Label>
+                  <Label htmlFor="has_a_DL">Has a 2-wheeler license, not 4-wheeler</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <input
