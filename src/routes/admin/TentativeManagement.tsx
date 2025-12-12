@@ -559,20 +559,25 @@ export default function TentativeScheduleInfo2() {
                             
                             {schedulesGroup.schedules.map((schedule) => {
                                 // Format time to HH:MM 
-                                const displayTime = schedule.start_time.slice(0, 5); 
+                                const displayStartTime = schedule.start_time.slice(0, 5); 
+                                const displayEndTime = schedule.end_time.slice(0, 5); 
 
                                 return (
                                     <div key={schedule.id} className="text-xs bg-gray-100 p-2 rounded-md">
                                         <p>
                                             {/* Use the formatted time */}
-                                            <span className="font-medium">{schedule.date}</span> at {displayTime}
+                                            <span className="font-medium">{schedule.tentative_details.description || 'N/A'} {schedule.date}</span> from
+                                            &nbsp;
+                                            {displayStartTime} &nbsp;
+                                              to &nbsp;
+                                              {displayEndTime}
                                         </p>
                                         {/* <p className="text-muted-foreground">
                                             Location: {schedule.tentative_details.pickup_location || 'Not set'}
                                         </p> */}
-                                        <p className="text-muted-foreground">
+                                        {/* <p className="text-muted-foreground">
                                             Description: {schedule.tentative_details.description || 'N/A'}
-                                        </p>
+                                        </p> */}
                                     </div>
                                 );
                             })}
