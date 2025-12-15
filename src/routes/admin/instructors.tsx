@@ -32,6 +32,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Schedule } from "./schedules";
 import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo"
 import { SlotConfig } from "@/types/schedule";
+import { describe } from "node:test";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -3117,7 +3118,16 @@ return (
               <Input
                 id="tentative_copy_details-description"
                 value={tentativeScheduleCopy.tentative_details.description}
-                disabled={true}
+                disabled={false}
+                onChange={ (e) => {
+                setTentativeScheduleCopy((prev) => ({
+                  ...prev,
+                  tentative_details: {
+                    ...tentativeScheduleCopy.tentative_details,
+                    description: e.target.value,
+                  },
+                }));
+              }}
                 className="col-span-3"
                 required
               />
