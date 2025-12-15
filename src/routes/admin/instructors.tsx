@@ -2548,9 +2548,8 @@ return (
                   }}
                 >
                   <div
-                    // Reduced inner div size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
                     className={`
-                      w-[1.5rem] h-[1.5rem] relative group flex flex-col justify-between items-center
+                      w-full h-full relative group flex flex-col justify-between items-center
                       ${
                         schedule
                           ? schedule.isTentative
