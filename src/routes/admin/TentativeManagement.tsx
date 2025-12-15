@@ -25,7 +25,7 @@ import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { addDays, formatDate, subDays } from "date-fns";
+import { addDays, format, formatDate, parse, subDays } from "date-fns";
 import Schedule from "../schedule";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -558,20 +558,42 @@ export default function TentativeScheduleInfo2() {
                             <p className="text-sm font-semibold border-b pb-1">Tentative Slots</p>
                             
                             {schedulesGroup.schedules.map((schedule) => {
-                                // Format time to HH:MM 
-                                const displayStartTime = schedule.start_time.slice(0, 5); 
-                                const displayEndTime = schedule.end_time.slice(0, 5); 
+                                const startTimeDate = parse(
+                                    schedule.start_time.slice(0, 5), // Directly use the sliced 'HH:mm' string
+                                    'HH:mm', 
+                                    new Date() // Base date for parsing the time
+                                );
+                                const displayStartTime = format(startTimeDate, 'h:mm a'); // e.g., "2:30 PM"
 
+                                // 2. Convert End Time (24h string -> 12h formatted string)
+                                const endTimeDate = parse(
+                                    schedule.end_time.slice(0, 5), // Directly use the sliced 'HH:mm' string
+                                    'HH:mm', 
+                                    new Date()
+                                );
+                                const displayEndTime = format(endTimeDate, 'h:mm a'); // e.g., "3:45 PM"
+
+                                const displayDate = format(schedule.date, 'dd MMM yyyy');
                                 return (
+
                                     <div key={schedule.id} className="text-xs bg-gray-100 p-2 rounded-md">
-                                        <p>
-                                            {/* Use the formatted time */}
-                                            <span className="font-medium">{schedule.tentative_details.description || 'N/A'} {schedule.date}</span> from
-                                            &nbsp;
-                                            {displayStartTime} &nbsp;
-                                              to &nbsp;
-                                              {displayEndTime}
-                                        </p>
+                                      <p>
+                                        {/* The schedule description and date are now broken into parts to match the new template */}
+                                        <span className="font-medium">
+                                          {schedule.tentative_details.description || 'N/A'}
+                                        </span>
+                                        
+                                        {/* 2. Time Range: "from <start> PM to <end> PM" (Assuming your displayStartTime/EndTime already includes the AM/PM suffix) */}
+                                        {/* NOTE: If your 'displayStartTime' already includes 'AM/PM', you would remove the hardcoded 'PM' below. */}
+                                        &nbsp; from &nbsp;
+                                        {displayStartTime} &nbsp; 
+                                        to &nbsp;
+                                        {displayEndTime}
+                                        
+                                        {/* 3. Date: "on DD <month 3 char> Year" */}
+                                        &nbsp; on &nbsp;
+                                        {displayDate}
+                                      </p>
                                         {/* <p className="text-muted-foreground">
                                             Location: {schedule.tentative_details.pickup_location || 'Not set'}
                                         </p> */}
