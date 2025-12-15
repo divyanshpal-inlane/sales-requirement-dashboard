@@ -1635,9 +1635,27 @@ function WeeklyScheduleView({
       longitude: "",
     },
   });
-  const numDaysPerView = 15;
+  const MIN_DAYS = 1;
+  const MAX_DAYS = 30; 
+  // SET DEFAULT ZOOM TO 7 DAYS
+  const [numDaysPerView, setNumDaysPerView] = useState(MIN_DAYS);
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Helper to change the number of days displayed (Zoom)
+  const handleZoom = (direction: '+' | '-') => {
+    setNumDaysPerView(prevNumDays => {
+        if (direction === '+') {
+            // Zoom out (more days), capped at MAX_DAYS (30)
+            return Math.min(MAX_DAYS, prevNumDays + 1);
+        } else if (direction === '-') {
+            // Zoom in (fewer days), capped at MIN_DAYS (7)
+            return Math.max(MIN_DAYS, prevNumDays - 1);
+        }
+        return prevNumDays;
+    });
+  };
 
   // console.log("Initial state of tentative schedule and isTentativeDialogOpen", tentativeSchedule, isTentativeDialogOpen);
   const setScheduleHelper = (schedule) => {
@@ -2308,33 +2326,77 @@ function WeeklyScheduleView({
 // Assuming Tailwind CSS classes are available.
 
 return (
-  <div>
-    <div className="mb-2 flex items-center justify-between">
-      {/* Reduced Button Size and text size from 'text-sm' to 'text-xs' */}
-      <Button variant="outline" size="xs" className="text-xs px-2 py-1 h-auto" onClick={() => handleWeekChange("prev")}>
-        Previous
-      </Button>
-      {/* Reduced Date Text Size from 'text-sm' to 'text-xs' */}
-      <h3 className="text-xs font-semibold">
-        {format(currentWeekStart, "MMM d")} -{" "}
-        {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
-      </h3>
-      {/* Reduced Button Size and text size from 'text-sm' to 'text-xs' */}
-      <Button variant="outline" size="xs" className="text-xs px-2 py-1 h-auto" onClick={() => handleWeekChange("next")}>
-        Next
-      </Button>
-    </div>
+  <div className="flex flex-col">
+    <div className="mb-4 flex items-center justify-between">
+      {/* LEFT SIDE: Navigation, Date Range, and Zoom Controls */}
+        <div className="flex items-center space-x-2">
+          {/* Navigation */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setCurrentWeekStart(addDays(currentWeekStart, -numDaysPerView))
+            }
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setCurrentWeekStart(addDays(currentWeekStart, numDaysPerView))
+            }
+          >
+            Next
+          </Button>
+          
+          {/* Date Range */}
+          <span className="text-sm font-medium whitespace-nowrap">
+            {format(currentWeekStart, "MMM dd")} -{" "}
+            {format(
+              addDays(currentWeekStart, numDaysPerView - 1),
+              "MMM dd, yyyy",
+            )}
+          </span>
+          
+          {/* Separator */}
+          <div className="w-px h-6 bg-gray-300 mx-1"></div>
 
-    <div className="mb-4">
-      <Input
-        type="text"
-        placeholder="Search tentative schedules by name, sales lead, or phone"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="h-8 text-sm px-3 py-1"
-        // ------------------------------------
-      />
-    </div>
+          {/* Zoom Controls: '-' <numDays> '+' */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleZoom('-')} 
+            disabled={numDaysPerView === MIN_DAYS}
+            className="p-1 h-7 w-7" // Smaller button size
+          >
+            -
+          </Button>
+          <span className="text-sm font-medium whitespace-nowrap">
+            {numDaysPerView} days
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleZoom('+')} 
+            disabled={numDaysPerView === MAX_DAYS}
+            className="p-1 h-7 w-7" // Smaller button size
+          >
+            +
+          </Button>
+        </div>
+
+        {/* RIGHT SIDE: Search Input */}
+        <Input
+          type="search"
+          placeholder="Search by name, sales lead, or description"
+          value={searchQuery}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+          className="h-8 w-64 px-3 py-1 text-sm"
+        />
+      </div>
+
+
 <div
   className="scrollbar-none h-[calc(100vh-50px)] max-h-96 overflow-x-auto overflow-y-auto p-4"
   style={{ scrollbarWidth: "none" }}
