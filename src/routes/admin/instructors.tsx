@@ -820,16 +820,17 @@ export default function InstructorsManagement() {
                               unavailability={instructor.unavailability || []}
                           />
                       </div>
-                    <DialogFooter className="pt-0 p-0 mt-2 flex justify-end"> {/* Reduced vertical padding (p-0, pt-0) and kept small top margin (mt-2) */}
-                      <Button
+                    {/* <DialogFooter className="pt-0 p-0 mt-2 flex justify-end">  */}
+                      {/* Reduced vertical padding (p-0, pt-0) and kept small top margin (mt-2) */}
+                      {/* <Button
                         variant="outline"
                         size="xs" 
                         className="h-6 px-2 py-0 text-xs" // Explicitly set height, horizontal padding, zero vertical padding, and smallest text size
                         onClick={handleCloseScheduleDialog}
                       >
                         Close
-                      </Button>
-                    </DialogFooter>
+                      </Button> */}
+                    {/* </DialogFooter> */}
                   </DialogContent>
                 </Dialog>
               )}
