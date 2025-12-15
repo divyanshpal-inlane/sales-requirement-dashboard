@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
 import { ArrowLeft, Check, ChevronsUpDown, Copy, PlusCircle, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Schedule } from "./schedules";
 import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo"
 import { SlotConfig } from "@/types/schedule";
+import { describe } from "node:test";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -113,7 +114,7 @@ const initialInstructorData: InstructorData = {
 
 // Google Maps Autocomplete Component
 // Update the AddressAutocomplete component
-const AddressAutocomplete = ({
+const AddressAutocomplete = memo(({
   value,
   onChange,
 }: {
@@ -246,7 +247,7 @@ const AddressAutocomplete = ({
       )}
     </div>
   );
-};
+});
 
 export default function InstructorsManagement() {
   const navigate = useNavigate();
@@ -392,35 +393,63 @@ export default function InstructorsManagement() {
   // });
 
   const { data: instructors, isLoading } = useQuery({
-  queryKey: ["instructors"],
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("Instructor")
-      .select(
-        `
-        *,
-        schedules:Schedule (
-          id,
-          date,
-          start_time,
-          end_time,
-          isTentative,
-          tentative_details,
-          learner:learner_id ( name, phone, pick_up_location, address_lat, address_lng)
+    queryKey: ["instructors"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select(
+          `
+          *,
+          schedules:Schedule (
+            id,
+            date,
+            start_time,
+            end_time,
+            isTentative,
+            tentative_details,
+            learner:learner_id ( name, phone, pick_up_location, address_lat, address_lng),
+            lesson:lesson_id (number)
+          )
+        `,
+          { // This is the options object, placed outside the string
+            count: "exact",
+            head: false,
+            foreignTableJoins: "schedules(left)",
+          }
         )
-      `,
-        { // This is the options object, placed outside the string
-          count: "exact",
-          head: false,
-          foreignTableJoins: "schedules(left)",
-        }
-      )
-      .order("name");
+        .order("name");
 
-    if (error) throw error;
-    return data as (InstructorFromDB & { schedules: Schedule[] })[];
-  },
-});
+      if (error) throw error;
+      return data as (InstructorFromDB & { schedules: Schedule[] })[];
+    },
+  });
+
+  // Memoized to avoid re-rendering full calender when filling calender events input fields 
+  const memoizedInstructors = useMemo(() => instructors, [instructors]);
+
+
+  // Fixes mutation refresh lag
+  // Define a stable function to update the schedule cache
+  const updateScheduleCache = useCallback((instructorId: string, updatedSchedule: Schedule) => {
+    queryClient.setQueryData(['instructors'], (oldInstructors: (InstructorFromDB & { schedules: Schedule[] })[] | undefined) => {
+        if (!oldInstructors) return oldInstructors;
+
+        return oldInstructors.map(instructor => {
+            if (instructor.id_instructor !== instructorId) {
+                return instructor;
+            }
+
+            // Update the schedules array for the matching instructor: replace or add
+            const newSchedules = instructor.schedules.some(sch => sch.id === updatedSchedule.id)
+                ? instructor.schedules.map(sch => 
+                      sch.id === updatedSchedule.id ? updatedSchedule : sch
+                  )
+                : [...instructor.schedules, updatedSchedule]; // Add if new
+
+            return { ...instructor, schedules: newSchedules };
+        });
+    });
+  }, [queryClient]);
 
   // Add or update an instructor
   const mutation = useMutation({
@@ -693,11 +722,13 @@ export default function InstructorsManagement() {
 
       {isLoading ? (
         <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent">
+            <ChevronsUpDown> </ChevronsUpDown>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {instructors?.map((instructor) => (
+          {memoizedInstructors?.map((instructor) => (
             <Card
               key={instructor.id_instructor}
               className="flex h-full flex-col overflow-hidden rounded-lg shadow-lg"
@@ -820,16 +851,17 @@ export default function InstructorsManagement() {
                               unavailability={instructor.unavailability || []}
                           />
                       </div>
-                    <DialogFooter className="pt-0 p-0 mt-2 flex justify-end"> {/* Reduced vertical padding (p-0, pt-0) and kept small top margin (mt-2) */}
-                      <Button
+                    {/* <DialogFooter className="pt-0 p-0 mt-2 flex justify-end">  */}
+                      {/* Reduced vertical padding (p-0, pt-0) and kept small top margin (mt-2) */}
+                      {/* <Button
                         variant="outline"
                         size="xs" 
                         className="h-6 px-2 py-0 text-xs" // Explicitly set height, horizontal padding, zero vertical padding, and smallest text size
                         onClick={handleCloseScheduleDialog}
                       >
                         Close
-                      </Button>
-                    </DialogFooter>
+                      </Button> */}
+                    {/* </DialogFooter> */}
                   </DialogContent>
                 </Dialog>
               )}
@@ -945,6 +977,8 @@ export default function InstructorsManagement() {
                 </Label>
                 <div className="col-span-3">
                   <AddressAutocomplete
+                    // Add static key to avoid re-rendering from top level DOM
+                    key="tentative-schedule-address"
                     value={instructorData.address}
                     onChange={handleAddressChange}
                   />
@@ -1663,6 +1697,12 @@ function WeeklyScheduleView({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // 2. For the Edit Tentative Schedule Dialog
+  const memoizedTentativeAddressValue = useMemo(
+    () => tentativeSchedule.tentative_details.pickup_location,
+    [tentativeSchedule.tentative_details.pickup_location],
+  );
+
   // Helper to change the number of days displayed (Zoom)
   const handleZoom = (direction: '+' | '-') => {
     setNumDaysPerView(prevNumDays => {
@@ -1966,21 +2006,22 @@ function WeeklyScheduleView({
   const handleAddressChangeTentative = useCallback(
     (address: string, lat: number | null, lng: number | null) => {
       console.log("Address changed:", address, lat, lng); // Add this for debugging
-      setTentativeSchedule({
-        ...tentativeSchedule,
+      // Use the functional update form of setTentativeSchedule
+      setTentativeSchedule((prevSchedule) => ({
+        ...prevSchedule,
         tentative_details: {
-          ...tentativeSchedule.tentative_details,
+          ...prevSchedule.tentative_details, // Use prevSchedule here
           pickup_location: address,
           latitude: lat,
           longitude: lng,
         },
-      });
+      }));
       // if (!lat || !lng) {console.log("Either lat or lng was null", lat, lng);
       // console.log('%c[] -> tentativeSchedule : ', 'color: #50952e', tentativeSchedule.tentative_details);
       // }
 
     },
-    [tentativeSchedule], // No dependencies to avoid recreating this function
+    [], // No dependencies to avoid recreating this function
   );
 
   // Helper function to check if a time slot is unavailable
@@ -2648,7 +2689,7 @@ return (
                                   <>
                                     {/* Line 1: Name */}
                                     <div className="select-none text-[0.6rem] font-medium truncate w-full text-white">
-                                      {schedule.learner?.name || "Booked"}
+                                     {schedule.learner?.name || "Booked"} ({schedule?.lesson?.number })
                                     </div>
                                     
                                     {/* Line 2: Status and Map Link (Status removed if very zoomed out) */}
@@ -2966,9 +3007,9 @@ return (
               Address
             </Label>
             <div className="col-span-3">
-              <AddressAutocomplete
-                value={tentativeSchedule.tentative_details.pickup_location}
-                onChange={handleAddressChangeTentative}
+              <TentativeAddressInput
+                memoizedTentativeAddressValue={memoizedTentativeAddressValue}
+                handleAddressChangeTentative={handleAddressChangeTentative}
               />
             </div>
           </div>
@@ -3116,7 +3157,16 @@ return (
               <Input
                 id="tentative_copy_details-description"
                 value={tentativeScheduleCopy.tentative_details.description}
-                disabled={true}
+                disabled={false}
+                onChange={ (e) => {
+                setTentativeScheduleCopy((prev) => ({
+                  ...prev,
+                  tentative_details: {
+                    ...tentativeScheduleCopy.tentative_details,
+                    description: e.target.value,
+                  },
+                }));
+              }}
                 className="col-span-3"
                 required
               />
@@ -3239,3 +3289,16 @@ return (
   </div>
 );
 }
+
+const TentativeAddressInput = memo(({ 
+  memoizedTentativeAddressValue, 
+  handleAddressChangeTentative 
+}) => {
+  console.log("TentativeAddressInput start");
+  return (
+    <AddressAutocomplete
+      value={memoizedTentativeAddressValue}
+      onChange={handleAddressChangeTentative}
+    />
+  );
+});
