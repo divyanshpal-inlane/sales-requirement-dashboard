@@ -407,7 +407,8 @@ export default function InstructorsManagement() {
             end_time,
             isTentative,
             tentative_details,
-            learner:learner_id ( name, phone, pick_up_location, address_lat, address_lng)
+            learner:learner_id ( name, phone, pick_up_location, address_lat, address_lng),
+            lesson:lesson_id (number)
           )
         `,
           { // This is the options object, placed outside the string
@@ -2688,7 +2689,7 @@ return (
                                   <>
                                     {/* Line 1: Name */}
                                     <div className="select-none text-[0.6rem] font-medium truncate w-full text-white">
-                                      {schedule.learner?.name || "Booked"}
+                                     {schedule.learner?.name || "Booked"} ({schedule?.lesson?.number })
                                     </div>
                                     
                                     {/* Line 2: Status and Map Link (Status removed if very zoomed out) */}
