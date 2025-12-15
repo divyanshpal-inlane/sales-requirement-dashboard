@@ -25,7 +25,7 @@ import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { addDays, formatDate } from "date-fns";
+import { addDays, format, formatDate, parse } from "date-fns";
 import Schedule from "../schedule";
 
 export default function NotificationManagement() {
@@ -166,6 +166,15 @@ function LearnerNotificationCard() {
       if (!schedule) continue;
       console.log("Sending reminder of schedule:", schedule);
       setSendingLearnerLessonReminderStatuses((prev) => ({ ...prev, [schedule.id]: false }));
+      
+      const displayStartTime = schedule.start_time 
+                                ? format(
+                                    parse(schedule.start_time.slice(0, 5), 'HH:mm', new Date()), // Parse 'HH:mm'
+                                    'h:mm a' // Format to 12-hour time with AM/PM (e.g., "2:30 PM")
+                                  )
+                                : 'NA';
+      console.log("displayStartTime=", displayStartTime);
+      
       try {
         // Query params
         // const dateString = formatDate(schedule.date);
@@ -176,7 +185,7 @@ function LearnerNotificationCard() {
           message_type: "REMINDER_CUSTOMER_FOR_CLASS_FINAL",
           learner_name: schedule.Learner.name,
           learner_phone: schedule.Learner.phone,
-          start_time: schedule.start_time,
+          start_time: displayStartTime,
           pickup_location: schedule.Learner.pick_up_location,
           instructor_name: schedule.Instructor.name,
           instructor_phone: schedule.Instructor.phone,
@@ -254,9 +263,9 @@ function LearnerNotificationCard() {
       alert("No schedules info");
       return;
     }
-    
+    console.log("All schedules to be sent", scheduleData);
     // The max number of schedules to include in one bulk message (field1 to field9)
-    const maxFields = 9;
+    const maxFields = 8;
     const count = Array.isArray(scheduleData) ? scheduleData.length : 0;
     
     // --- Start Batch Processing ---
@@ -273,8 +282,15 @@ function LearnerNotificationCard() {
         
         if (sch) {
           // Construct the detailed schedule string for this field
-          const startTime = sch.start_time ?? "NA";
-          const date = sch.date ?? "NA";
+          const startTime = sch.start_time 
+                              ? format(
+                                  parse(sch.start_time.slice(0, 5), 'HH:mm', new Date()), // Parse the 'HH:mm' part of the string
+                                  'h:mm a' // Format to 12-hour time with AM/PM (e.g., "2:30 PM")
+                                )
+                              : startTime;
+          const date = sch.date 
+                  ? format(sch.date, 'dd MMM, yyyy') // Transformation: '2025-12-15' -> '15 Dec, 2025'
+                  : date;
           const learnerName = sch.Learner?.name ?? "NA";
           const learnerPhone = sch.Learner?.phone ?? "NA";
           const pickupLocation = (sch.Learner?.address_lat && sch.Learner?.address_lng)
@@ -331,7 +347,7 @@ function LearnerNotificationCard() {
               arg6: schedulePacket['field6'] ?? " ",
               arg7: schedulePacket['field7'] ?? " ",
               arg8: schedulePacket['field8'] ?? " ",
-              arg9: schedulePacket['field9'] ?? " ",
+              // arg9: schedulePacket['field9'] ?? " ",
               // arg10 is not used as maxFields is 9
             },
           });
