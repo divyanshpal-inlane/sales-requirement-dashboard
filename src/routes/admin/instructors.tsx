@@ -1635,9 +1635,47 @@ function WeeklyScheduleView({
       longitude: "",
     },
   });
-  const numDaysPerView = 15;
+  const MIN_DAYS = 1;
+  const DEFAULT_DAYS = 7;
+  const MAX_DAYS = 30; 
+  const [numDaysPerView, setNumDaysPerView] = useState(DEFAULT_DAYS);
+  const isZoomedOut = numDaysPerView > 14;
+  const isVeryZoomedOut = numDaysPerView > 21;
+
+  // State for Hover Highlighting
+  const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
+  const [hoveredTimeIndex, setHoveredTimeIndex] = useState<number | null>(null);
+  const TIME_FORMAT = "HH:mm";
+  const DATE_FORMAT = "yyyy-MM-dd";
+  const WEEKDAY_NAMES = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+
+  const columnWidthPercentage = 100 / numDaysPerView;
+
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Helper to change the number of days displayed (Zoom)
+  const handleZoom = (direction: '+' | '-') => {
+    setNumDaysPerView(prevNumDays => {
+        if (direction === '+') {
+            // Zoom out (more days), capped at MAX_DAYS (30)
+            return Math.min(MAX_DAYS, prevNumDays + 1);
+        } else if (direction === '-') {
+            // Zoom in (fewer days), capped at MIN_DAYS (7)
+            return Math.max(MIN_DAYS, prevNumDays - 1);
+        }
+        return prevNumDays;
+    });
+  };
 
   // console.log("Initial state of tentative schedule and isTentativeDialogOpen", tentativeSchedule, isTentativeDialogOpen);
   const setScheduleHelper = (schedule) => {
@@ -1660,27 +1698,27 @@ function WeeklyScheduleView({
     });
   };
 
+  const initialTentativeSchedule = {
+        id: "",
+        date: "",
+        start_time: "",
+        end_time: "",
+        enabled: true,
+        isTentative: true,
+        learner_id: "",
+        instructor_id: instructorId,
+        tentative_details: {
+          name: "",
+          phone: "",
+          paid_info: "",
+          pickup_location: "",
+          description: "",
+          address: "",
+          latitude: "",
+          longitude: "",
+        },
+  }
   const resetTentativeForm = () => {
-    const initialTentativeSchedule = {
-          id: "",
-          date: "",
-          start_time: "",
-          end_time: "",
-          enabled: true,
-          isTentative: true,
-          learner_id: "",
-          instructor_id: instructorId,
-          tentative_details: {
-            name: "",
-            phone: "",
-            paid_info: "",
-            pickup_location: "",
-            description: "",
-            address: "",
-            latitude: "",
-            longitude: "",
-          },
-    }
     setTentativeSchedule(initialTentativeSchedule);
   };
 
@@ -2308,58 +2346,106 @@ function WeeklyScheduleView({
 // Assuming Tailwind CSS classes are available.
 
 return (
-  <div>
-    <div className="mb-2 flex items-center justify-between">
-      {/* Reduced Button Size and text size from 'text-sm' to 'text-xs' */}
-      <Button variant="outline" size="xs" className="text-xs px-2 py-1 h-auto" onClick={() => handleWeekChange("prev")}>
-        Previous
-      </Button>
-      {/* Reduced Date Text Size from 'text-sm' to 'text-xs' */}
-      <h3 className="text-xs font-semibold">
-        {format(currentWeekStart, "MMM d")} -{" "}
-        {format(endOfWeek(currentWeekStart), "MMM d, yyyy")}
-      </h3>
-      {/* Reduced Button Size and text size from 'text-sm' to 'text-xs' */}
-      <Button variant="outline" size="xs" className="text-xs px-2 py-1 h-auto" onClick={() => handleWeekChange("next")}>
-        Next
-      </Button>
-    </div>
+  <div className="flex flex-col">
+    <div className="mb-4 flex items-center justify-between">
+      {/* LEFT SIDE: Navigation, Date Range, and Zoom Controls */}
+        <div className="flex items-center space-x-2">
+          {/* Navigation */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setCurrentWeekStart(addDays(currentWeekStart, -numDaysPerView))
+            }
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setCurrentWeekStart(addDays(currentWeekStart, numDaysPerView))
+            }
+          >
+            Next
+          </Button>
+          
+          {/* Date Range */}
+          <span className="text-sm font-medium whitespace-nowrap">
+            {format(currentWeekStart, "MMM dd")} -{" "}
+            {format(
+              addDays(currentWeekStart, numDaysPerView - 1),
+              "MMM dd, yyyy",
+            )}
+          </span>
+          
+          {/* Separator */}
+          <div className="w-px h-6 bg-gray-300 mx-1"></div>
 
-    <div className="mb-4">
-      <Input
-        type="text"
-        placeholder="Search tentative schedules by name, sales lead, or phone"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="h-8 text-sm px-3 py-1"
-        // ------------------------------------
-      />
-    </div>
+          {/* Zoom Controls: '-' <numDays> '+' */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleZoom('-')} 
+            disabled={numDaysPerView === MIN_DAYS}
+            className="p-1 h-7 w-7" // Smaller button size
+          >
+            -
+          </Button>
+          <span className="text-sm font-medium whitespace-nowrap">
+            {numDaysPerView} days
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleZoom('+')} 
+            disabled={numDaysPerView === MAX_DAYS}
+            className="p-1 h-7 w-7" // Smaller button size
+          >
+            +
+          </Button>
+        </div>
+
+        {/* RIGHT SIDE: Search Input */}
+        <Input
+          type="search"
+          placeholder="Search by name, sales lead, or description"
+          value={searchQuery}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+          className="h-8 w-64 px-3 py-1 text-sm"
+        />
+      </div>
+
+
 <div
   className="scrollbar-none h-[calc(100vh-50px)] max-h-96 overflow-x-auto overflow-y-auto p-4"
   style={{ scrollbarWidth: "none" }}
 >
   <table className="w-full border-collapse border border-gray-200">
     <thead className="sticky top-0 bg-white shadow-md z-10">
-      <tr>
-        <th className="border border-gray-200 px-0.5 py-0.5 text-xs sticky left-0 z-20 bg-white w-14">
-          Time
-        </th>
-        {Array.from({ length: numDaysPerView }).map((_, index) => {
-          const day = addDays(currentWeekStart, index);
-          return (
-            <th
-              key={index}
-              className="border border-gray-200 px-0.5 py-0.5 text-xs"
-            >
-              {format(day, "EE")}{" "}
-              <div className="text-[0.6rem] font-normal">
-                {format(day, "MMM d")}
-              </div>
-            </th>
-          );
-        })}
-      </tr>
+<tr>
+              {/* Fixed width for Time column */}
+              <th className="sticky left-0 z-20 w-14 border border-gray-200 bg-white p-0.5 py-0.5 text-xs">
+                Time
+              </th>
+              {Array.from({ length: numDaysPerView }).map((_, index) => {
+                const day = addDays(currentWeekStart, index);
+                const isToday = isSameDay(day, new Date());
+                // Dynamic width for day columns
+                return (
+                  <th
+                    key={index}
+                    className={`border border-gray-200 p-0.5 py-0.5 text-xs ${isToday ? "bg-blue-100 font-bold" : ""} ${index === hoveredDayIndex ? 'bg-gray-800 text-white' : ''}`}
+                    style={{ width: `${columnWidthPercentage}%` }} // Dynamic width
+                  >
+                    {format(day, "EE")}{" "}
+                    <div className="text-[0.6rem] font-normal">
+                      {format(day, "MMM d")}
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
     </thead>
     <tbody className="overflow-y-auto">
       {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
@@ -2370,9 +2456,18 @@ return (
           (SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour)) % 60;
         return (
           <tr key={timeIndex}>
-            {/* Time Label - Reduced Text Size from 'text-xs' to 'text-[0.6rem]' and reduced padding */}
-            <td className="border border-gray-200 p-0.5 text-center text-[0.6rem] whitespace-nowrap w-14 sticky left-0 z-10 bg-white">
-              {format(new Date().setHours(hour, minute), "h:mm a")}
+            {/* Time Label - Fixed width */}
+<td
+              className={`sticky left-0 z-10 flex h-full w-14 items-center 
+              justify-center select-none border border-gray-200 bg-white p-0 
+              text-[0.6rem] ${timeIndex === hoveredTimeIndex 
+                ? 'bg-gray-800 text-white font-bold' 
+                : ''}`}
+            >
+              {format(
+                new Date(0, 0, 0, hour, minute),
+                TIME_FORMAT,
+              )}
             </td>
 
             {Array.from({ length: numDaysPerView }).map((_, dayIndex) => {
@@ -2407,18 +2502,54 @@ return (
             isOverdueOngoing = scheduleEndTime.getTime() <= realCurrentTime.getTime();
           }
 
+          // Determine base styling for the <td> wrapper
+                      const tdClasses = `
+                          border border-gray-200 p-0
+                          ${isSameDay(day, new Date()) ? "bg-blue-50" : ""}
+                      `;
+
+                      // Determine full styling for the inner <div>
+                      let divClasses = `h-full w-full flex flex-col items-start justify-center relative p-1 text-xs overflow-hidden`;
+
+                      if (schedule) {
+                          divClasses += ` cursor-pointer`;
+                          if (schedule.isTentative) {
+                              // Tentative Schedule (Orange)
+                              if (isOverdueOngoing) {
+                                  divClasses += ` bg-orange-200 text-black`; // Overdue tentative
+                              } else {
+                                  divClasses += ` bg-orange-500 text-white`; // Normal tentative
+                              }
+                          } else {
+                              // Confirmed Schedule (Green)
+                              divClasses += ` bg-green-500 text-white`;
+                          }
+                      } else if (unavailable) {
+                          // Unavailable Slot (Darker Slate Gray)
+                          divClasses += ` bg-slate-700 text-white cursor-not-allowed`;
+                      } else {
+                          // Empty Slot (Hover effect)
+                          divClasses += ` hover:bg-gray-100 cursor-pointer`;
+                      }
+
               return (
                 <td
                   key={dayIndex}
-                  // Reduced TD size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
-                  className={`border border-gray-200 p-0 align-top w-[1.5rem] h-[1.5rem] 
-                    ${dayIndex === 0 ? "left-0 sticky z-10" : ""}
-                  `}
+                  className={tdClasses}
+                  style={{ width: `${columnWidthPercentage}%`, height: '40px' }} // Dynamic width and Fixed slot size
+                  // Mouse Event Handlers for Highlighting
+                  onMouseEnter={() => {
+                    setHoveredDayIndex(dayIndex);
+                    setHoveredTimeIndex(timeIndex);
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredDayIndex(null);
+                    setHoveredTimeIndex(null);
+                  }}
                 >
                   <div
-                    // Reduced inner div size from w-[2rem] h-[2rem] to w-[1.5rem] h-[1.5rem]
                     className={`
-                      w-[1.5rem] h-[1.5rem] relative group flex flex-col justify-between items-center
+                      w-full h-full relative group flex flex-col justify-between items-center
                       ${
                         schedule
                           ? schedule.isTentative
@@ -2431,29 +2562,29 @@ return (
                             : ""
                       } ${schedule ? "cursor-pointer" : ""}
                     `}
-                          onClick={() => {
-                                setIsTentativeDialogOpen(false);
-                                if (schedule && !schedule.isTentative) {
-                                  handleOccupiedSlotClick(schedule);
-                                } else {
-                                  if (unavailable) {
-                                    toast({
-                                      title: "Error",
-                                      description: "Not available instructor",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  // if (schedule) setScheduleHelper(schedule);
-                                  if (schedule && schedule.isTentative) {
-                                    // handleViewTentativeSlotClick();
-                                    console.log("Setting tentative schedule", schedule);
-                                    console.log("Now tentative schedule", tentativeSchedule);
-                                  }
-                                  handleTentativeSlotClick(schedule, day, hour, minute);
-                                }
-                              } }
-                              >
+                    onClick={() => {
+                          setIsTentativeDialogOpen(false);
+                          if (schedule && !schedule.isTentative) {
+                            handleOccupiedSlotClick(schedule);
+                          } else {
+                            if (unavailable) {
+                              toast({
+                                title: "Error",
+                                description: "Not available instructor",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            // if (schedule) setScheduleHelper(schedule);
+                            if (schedule && schedule.isTentative) {
+                              // handleViewTentativeSlotClick();
+                              console.log("Setting tentative schedule", schedule);
+                              console.log("Now tentative schedule", tentativeSchedule);
+                            }
+                            handleTentativeSlotClick(schedule, day, hour, minute);
+                          }
+                        } }
+                        >
 
                     {/* onClick={() => {
                       setIsTentativeDialogOpen(false);
@@ -2470,53 +2601,130 @@ return (
                       }
                     }}
                   > */}
-                    {/* Primary Slot Indicator (Top/Center) - Reduced Text Size from 'text-[0.6rem]' to 'text-[0.5rem]' */}
-                    <div className="flex-grow w-full flex items-center justify-center p-0 overflow-hidden">
-                      <span className="text-[0.5rem] font-bold select-none leading-none">
-                        {schedule
-                          ? isOverdueOngoing
-                            ? "!" // Use an indicator for overdue
-                            : schedule.isTentative
-                              ? "T"
-                              : schedule.learner?.name?.charAt(0) || "B"
-                          : unavailable
-                            ? "X"
-                            : ""}
-                      </span>
-                    </div>
+                            {/* Primary Slot Content (Always Visible) */}
+                            {schedule ? (
+                              <div className="flex w-full flex-col flex-grow items-start justify-center overflow-hidden leading-tight">
+                                {schedule.isTentative ? (
+                                  // Tentative Details - Conditional Display Logic
+                                  <>
+                                    {/* Line 1: Name */}
+                                    <div className={`select-none text-[0.6rem] font-medium truncate w-full ${isOverdueOngoing ? 'text-black' : 'text-white'}`}>
+                                      {schedule.tentative_details?.name || "Tentative"}
+                                    </div>
+                                    
+                                    {/* Line 2: Description (Only if not too zoomed out) */}
+                                    {!isZoomedOut && (
+                                        <div className={`select-none text-[0.5rem] font-normal truncate w-full ${isOverdueOngoing ? 'text-black' : 'text-white'}`}>
+                                            {schedule.tentative_details?.description || "No Description"} 
+                                        </div>
+                                    )}
 
-                    {/* Action Buttons (Bottom - Only for Tentative Slots) */}
-                    {schedule && schedule.isTentative && (
-                      <div
-                        className="flex justify-around w-full items-center mb-[0.5px] p-[1px]" // Reduced margin/padding
-                        onClick={(e) => e.stopPropagation()} // Crucial: Stop click from triggering cell action
-                      >
-                        {/* Copy Button - Reduced size from h-[0.7rem] w-[0.7rem] to h-[0.6rem] w-[0.6rem] */}
-                        <Button
-                          variant="secondary"
-                          className="p-0 h-[0.6rem] w-[0.6rem]"
-                          onClick={() => {
-                            setIsTentativeCopyDialogOpen(true);
-                            handleCopyTentative(schedule);
-                          }}
-                        >
-                          {/* Icon size reduced from h-[0.5rem] w-[0.5rem] to h-[0.4rem] w-[0.4rem] */}
-                          <Copy className="h-[0.4rem] w-[0.4rem]" />
-                        </Button>
+                                    {/* Line 3: Paid Info and Map Link (Paid Info removed if very zoomed out) */}
+                                    <div className={`select-none text-[0.5rem] font-normal truncate w-full ${isOverdueOngoing ? 'text-black' : 'text-white'} flex items-center justify-between`}>
+                                      {!isVeryZoomedOut && (
+                                          <span>{schedule.tentative_details?.paid_info || "Unpaid"}</span>
+                                      )}
+                                      
+                                      {/* Map Link/N/A */}
+                                      <span className={`text-[0.5rem] font-normal ${isOverdueOngoing ? 'text-black' : 'text-white'} ml-auto`}>
+                                        {(schedule.tentative_details?.latitude && schedule.tentative_details?.longitude) ? (
+                                          <a 
+                                            href={`https://maps.google.com/?q=$$${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className={`hover:text-blue-200 ${isOverdueOngoing ? 'text-black' : 'text-white'} underline`}
+                                            onClick={(e) => e.stopPropagation()} 
+                                          >
+                                            Map
+                                          </a>
+                                        ) : (
+                                          "N/A"
+                                        )}
+                                      </span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  // Confirmed Details - Conditional Display Logic
+                                  <>
+                                    {/* Line 1: Name */}
+                                    <div className="select-none text-[0.6rem] font-medium truncate w-full text-white">
+                                      {schedule.learner?.name || "Booked"}
+                                    </div>
+                                    
+                                    {/* Line 2: Status and Map Link (Status removed if very zoomed out) */}
+                                    <div className="select-none text-[0.5rem] font-normal truncate w-full text-white flex items-center justify-between">
+                                      {!isVeryZoomedOut && (
+                                          <span>{schedule.status || "Booked"}</span>
+                                      )}
 
-                        {/* Delete Button - Reduced size from h-[0.7rem] w-[0.7rem] to h-[0.6rem] w-[0.6rem] */}
-                        <Button
-                          variant="destructive"
-                          className="p-0 h-[0.6rem] w-[0.6rem]"
-                          onClick={() => {
-                            handleDeleteTentative(schedule.id);
-                          }}
-                        >
-                          {/* Icon size reduced from h-[0.5rem] w-[0.5rem] to h-[0.4rem] w-[0.4rem] */}
-                          <Trash2 className="h-[0.4rem] w-[0.4rem]" />
-                        </Button>
-                      </div>
-                    )}
+                                      {/* Map Link/N/A */}
+                                      <span className="text-[0.5rem] font-normal text-white ml-auto">
+                                        {(schedule.learner?.address_lat && schedule.learner?.address_lng) ? (
+                                          <a 
+                                            href={`https://maps.google.com/?q=$$${schedule.learner.address_lat},${schedule.learner.address_lng}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-white hover:text-blue-200 underline"
+                                            onClick={(e) => e.stopPropagation()} 
+                                          >
+                                            Map
+                                          </a>
+                                        ) : (
+                                          "N/A"
+                                        )}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ) : unavailable ? (
+                              // Unavailable Slot - Show prominent X
+                              <div className="flex items-center justify-center h-full w-full">
+                                <X size={12} className="select-none" />
+                              </div>
+                            ) : (
+                              // Empty Slot
+                              <div className="flex items-center justify-center h-full w-full">
+                                {/* Keep empty */}
+                              </div>
+                            )}
+
+                            {/* Action Buttons (Bottom - Only for Tentative Slots) - Removed if very zoomed out to save space */}
+                            {schedule && schedule.isTentative && !isVeryZoomedOut && (
+                              <div className="mt-1 flex w-full items-center justify-around">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  // Change button text/icon color to white for visibility on orange-500
+                                  className={`h-3 p-0 text-[0.5rem] ${isOverdueOngoing ? 'text-black' : 'text-white'} hover:bg-orange-200/50`}
+                                  title="Copy"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    setTentativeScheduleCopy({
+                                      ...initialTentativeSchedule,
+                                      ...schedule,
+                                      tentative_details:
+                                        schedule.tentative_details,
+                                    });
+                                    setIsTentativeCopyDialogOpen(true);
+                                  }}
+                                >
+                                  <Copy size={8} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-3 p-0 text-[0.5rem] ${isOverdueOngoing ? 'text-black' : 'text-red-300'} hover:bg-orange-200/50`} // Use a lighter red for contrast on orange-500
+                                  title="Delete"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    handleDeleteTentative(schedule.id);
+                                  }}
+                                >
+                                  <Trash2 size={8} />
+                                </Button>
+                              </div>
+                            )}
 
                     {/* --- 2. THE HOVER TOOLTIP (Full Info - Unchanged) --- */}
                     {schedule && (
