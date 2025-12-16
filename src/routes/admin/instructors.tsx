@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
-import { ArrowLeft, Check, ChevronsUpDown, Copy, PlusCircle, Trash2, X } from "lucide-react";
+import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO } from "date-fns";
+import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -3302,3 +3302,294 @@ const TentativeAddressInput = memo(({
     />
   );
 });
+
+export const AddTentativeSchedule = () => {
+    const navigate = useNavigate();
+    const { instructorId, date, startTime } = useParams();
+
+    // 1. Initial State Helpers
+    const defaultDate = date || format(new Date(), "yyyy-MM-dd");
+    const defaultStart = startTime || "09:00";
+    const defaultEnd = startTime 
+        ? format(addHours(parseISO(`${defaultDate}T${defaultStart}`), 1), "HH:mm") 
+        : "10:00";
+
+    const [isAddingBulk, setIsAddingBulk] = useState(false);
+    const [bulkType, setBulkType] = useState("single");
+    const [repeatCount, setRepeatCount] = useState(1);
+
+    const [newSlotTimes, setNewSlotTimes] = useState({
+        start: defaultStart,
+        end: defaultEnd
+    });
+
+    const [slots, setSlots] = useState([{
+        date: defaultDate,
+        start_time: defaultStart,
+        end_time: defaultEnd,
+    }]);
+
+    const [tentativeDetails, setTentativeDetails] = useState({
+        name: "",
+        phone: "",
+        paid_info: "Unpaid",
+        pickup_location: "",
+        description: "",
+        leadName: "",
+        address: "",
+        lat: null as number | null,
+        lng: null as number | null,
+    });
+
+    // 2. Handlers
+    const handleAddressSelect = useCallback((address: string, lat: number | null, lng: number | null) => {
+        setTentativeDetails(prev => ({
+            ...prev,
+            address,
+            pickup_location: address,
+            lat,
+            lng
+        }));
+    }, []);
+
+    const AddTentativeApplyRepeat = () => {
+        const lastSlot = slots[slots.length - 1];
+        const lastDateObj = parseISO(lastSlot.date);
+        let newSlots = [...slots];
+
+        if (bulkType === "single") {
+            newSlots.push({
+                date: lastSlot.date,
+                start_time: newSlotTimes.start,
+                end_time: newSlotTimes.end
+            });
+        } else {
+            for (let i = 1; i <= repeatCount; i++) {
+                if (bulkType === "daily") {
+                    newSlots.push({
+                        date: format(addDays(lastDateObj, i), "yyyy-MM-dd"),
+                        start_time: newSlotTimes.start,
+                        end_time: newSlotTimes.end
+                    });
+                } else if (bulkType === "hourly") {
+                    const baseStart = parseISO(`${lastSlot.date}T${newSlotTimes.start}`);
+                    const baseEnd = parseISO(`${lastSlot.date}T${newSlotTimes.end}`);
+                    newSlots.push({
+                        date: lastSlot.date,
+                        start_time: format(addHours(baseStart, i), "HH:mm"),
+                        end_time: format(addHours(baseEnd, i), "HH:mm")
+                    });
+                }
+            }
+        }
+        setSlots(newSlots);
+        setIsAddingBulk(false);
+    };
+
+    const sortedSlots = useMemo(() => {
+        return [...slots].sort((a, b) => {
+            return new Date(`${a.date}T${a.start_time}`).getTime() - new Date(`${b.date}T${b.start_time}`).getTime();
+        });
+    }, [slots]);
+
+    const AddTentativeScheduleMutation = useMutation({
+        mutationFn: async () => {
+            const schedulesToInsert = sortedSlots.map(slot => ({
+                date: slot.date,
+                start_time: slot.start_time,
+                end_time: slot.end_time,
+                enabled: true,
+                isTentative: true,
+                instructor_id: instructorId,
+                tentative_details: tentativeDetails
+            }));
+
+            const { data, error } = await supabase.from("Schedule").insert(schedulesToInsert);
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => navigate(-1),
+        onError: (err) => console.error("❌ Submission Error:", err)
+    });
+
+    return (
+        <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+                <h1 className="text-2xl font-bold text-foreground">Add Tentative Bookings</h1>
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>✕</Button>
+            </div>
+
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Client Name*</Label>
+                        <Input 
+                            value={tentativeDetails.name || ""} 
+                            onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Phone Number*</Label>
+                        <Input 
+                            value={tentativeDetails.phone || ""} 
+                            onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Lead Name</Label>
+                        <Input 
+                            value={tentativeDetails.leadName || ""} 
+                            onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Payment Status</Label>
+                        <Select 
+                            value={tentativeDetails.paid_info} 
+                            onValueChange={(v) => setTentativeDetails({...tentativeDetails, paid_info: v})}
+                        >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Unpaid">Unpaid</SelectItem>
+                                <SelectItem value="Half paid">Half paid</SelectItem>
+                                <SelectItem value="Full paid">Full paid</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                        <Label>Address Lookup</Label>
+                        {/* Corrected call to match your memo declaration */}
+                        <AddressAutocomplete 
+                            value={tentativeDetails.address}
+                            onChange={handleAddressSelect}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Description / Notes</Label>
+                        <Input 
+                            value={tentativeDetails.description || ""} 
+                            onChange={(e) => setTentativeDetails({...tentativeDetails, description: e.target.value})} 
+                        />
+                    </div>
+                </div>
+
+                {/* --- PREVIEW SECTION --- */}
+                <div className="pt-6 border-t border-dashed">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-sm font-bold">Scheduled Slots Preview</Label>
+                            <div className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-bold">
+                                {slots.length}
+                            </div>
+                        </div>
+                        <Button 
+                            type="button"
+                            onClick={() => setIsAddingBulk(true)}
+                            className="bg-primary text-primary-foreground flex gap-2 h-9"
+                        >
+                            <Plus className="h-4 w-4" /> Add More Slots
+                        </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[250px] overflow-y-auto p-1">
+                        {sortedSlots.map((slot, idx) => (
+                            <div key={idx} className="relative group p-3 rounded-lg border border-primary/20 bg-primary/5 flex flex-col hover:border-primary/40 transition-colors">
+                                <div className="flex items-center text-xs font-bold text-primary mb-1">
+                                    <CalendarIcon className="h-3 w-3 mr-1.5" />
+                                    {format(parseISO(slot.date), "MMM do, yyyy")}
+                                </div>
+                                <div className="flex items-center text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3 mr-1.5" />
+                                    {slot.start_time} - {slot.end_time}
+                                </div>
+                                {slots.length > 1 && (
+                                    <Button 
+                                        variant="outline"
+                                        size="icon"
+                                        type="button"
+                                        onClick={() => setSlots(slots.filter((_, i) => i !== idx))}
+                                        className="absolute -top-2 -right-2 h-6 w-6 bg-background text-destructive shadow-sm border rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 border-t">
+                    <Button variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
+                    <Button 
+                        onClick={() => AddTentativeScheduleMutation.mutate()}
+                        disabled={AddTentativeScheduleMutation.isPending}
+                        className="px-8"
+                    >
+                        {AddTentativeScheduleMutation.isPending ? "Saving..." : `Save All Bookings`}
+                    </Button>
+                </div>
+            </div>
+
+            {/* --- ADD SLOTS DIALOG --- */}
+            <Dialog open={isAddingBulk} onOpenChange={setIsAddingBulk}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add New Slots</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Action</Label>
+                            <Select value={bulkType} onValueChange={setBulkType}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="single">Add Single Event</SelectItem>
+                                    <SelectItem value="daily">Repeat Daily (Consecutive Days)</SelectItem>
+                                    <SelectItem value="hourly">Repeat Hourly (Consecutive Hours)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Start Time</Label>
+                                <Input 
+                                    type="time" 
+                                    value={newSlotTimes.start || ""} 
+                                    onChange={(e) => setNewSlotTimes({...newSlotTimes, start: e.target.value})}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>End Time</Label>
+                                <Input 
+                                    type="time" 
+                                    value={newSlotTimes.end || ""} 
+                                    onChange={(e) => setNewSlotTimes({...newSlotTimes, end: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        {bulkType !== "single" && (
+                            <div className="space-y-2">
+                                <Label>Number of extra slots</Label>
+                                <Input 
+                                    type="number" 
+                                    value={repeatCount} 
+                                    onChange={(e) => setRepeatCount(parseInt(e.target.value) || 1)}
+                                    min="1" max="15"
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button className="w-full" onClick={AddTentativeApplyRepeat}>
+                            Confirm Addition
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+};
