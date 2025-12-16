@@ -3,6 +3,7 @@ import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWee
 import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2629,7 +2630,7 @@ return (
                             // Ensure 'instructorId'
                             navigate(`/admin/tentative-add/${instructorId}/${dateParam}/${timeParam}`);
                             
-                            // can be ketp enabled when navigation fails
+                            // can be enabled when navigation fails
                             // handleTentativeSlotClick(schedule, day, hour, minute);
                           }
                         } }
@@ -3313,6 +3314,7 @@ const TentativeAddressInput = memo(({
 
 export const AddTentativeSchedule = () => {
     const navigate = useNavigate();
+    const { toast } = useToast();
     const { instructorId, date, startTime } = useParams();
 
     // 1. Initial State Helpers
@@ -3325,7 +3327,9 @@ export const AddTentativeSchedule = () => {
     const [isAddingBulk, setIsAddingBulk] = useState(false);
     const [bulkType, setBulkType] = useState("single");
     const [repeatCount, setRepeatCount] = useState(1);
+    const [addLessonNumber, setAddLessonNumber] = useState(false);
 
+    const [newSlotDate, setNewSlotDate] = useState(defaultDate);
     const [newSlotTimes, setNewSlotTimes] = useState({
         start: defaultStart,
         end: defaultEnd
@@ -3349,7 +3353,32 @@ export const AddTentativeSchedule = () => {
         lng: null as number | null,
     });
 
-    // 2. Handlers
+    // 2. Time Logic Handlers
+    const handleStartTimeChange = (newStart: string) => {
+        try {
+            const dummyDate = "2024-01-01";
+            const startParsed = parseISO(`${dummyDate}T${newStart}`);
+            // Automatically set end time to start + 1 hour
+            const updatedEnd = format(addHours(startParsed, 1), "HH:mm");
+            
+            setNewSlotTimes({
+                start: newStart,
+                end: updatedEnd
+            });
+        } catch (e) {
+            setNewSlotTimes(prev => ({ ...prev, start: newStart }));
+        }
+    };
+
+    const handleEndTimeChange = (newEnd: string) => {
+        // If end time is manually set before start time, snap it to start time
+        if (newEnd < newSlotTimes.start) {
+            setNewSlotTimes(prev => ({ ...prev, end: prev.start }));
+        } else {
+            setNewSlotTimes(prev => ({ ...prev, end: newEnd }));
+        }
+    };
+
     const handleAddressSelect = useCallback((address: string, lat: number | null, lng: number | null) => {
         setTentativeDetails(prev => ({
             ...prev,
@@ -3361,29 +3390,45 @@ export const AddTentativeSchedule = () => {
     }, []);
 
     const AddTentativeApplyRepeat = () => {
-        const lastSlot = slots[slots.length - 1];
-        const lastDateObj = parseISO(lastSlot.date);
+         if (newSlotTimes.start === newSlotTimes.end) {
+             toast({
+                 title: "Invalid Duration",
+                 description: "Start and End time cannot be the same. Please provide at least a 1-minute duration.",
+                 variant: "destructive"
+             });
+             return;
+         }
+        if (newSlotTimes.start > newSlotTimes.end) {
+            toast({
+                title: "Invalid Time",
+                description: "End time cannot be before start time.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        const baseDateObj = parseISO(newSlotDate);
         let newSlots = [...slots];
 
         if (bulkType === "single") {
             newSlots.push({
-                date: lastSlot.date,
+                date: newSlotDate,
                 start_time: newSlotTimes.start,
                 end_time: newSlotTimes.end
             });
         } else {
-            for (let i = 1; i <= repeatCount; i++) {
+            for (let i = 0; i < repeatCount; i++) {
                 if (bulkType === "daily") {
                     newSlots.push({
-                        date: format(addDays(lastDateObj, i), "yyyy-MM-dd"),
+                        date: format(addDays(baseDateObj, i), "yyyy-MM-dd"),
                         start_time: newSlotTimes.start,
                         end_time: newSlotTimes.end
                     });
                 } else if (bulkType === "hourly") {
-                    const baseStart = parseISO(`${lastSlot.date}T${newSlotTimes.start}`);
-                    const baseEnd = parseISO(`${lastSlot.date}T${newSlotTimes.end}`);
+                    const baseStart = parseISO(`${newSlotDate}T${newSlotTimes.start}`);
+                    const baseEnd = parseISO(`${newSlotDate}T${newSlotTimes.end}`);
                     newSlots.push({
-                        date: lastSlot.date,
+                        date: newSlotDate,
                         start_time: format(addHours(baseStart, i), "HH:mm"),
                         end_time: format(addHours(baseEnd, i), "HH:mm")
                     });
@@ -3398,18 +3443,23 @@ export const AddTentativeSchedule = () => {
         return [...slots].sort((a, b) => {
             return new Date(`${a.date}T${a.start_time}`).getTime() - new Date(`${b.date}T${b.start_time}`).getTime();
         });
-    }, [slots]);
+    }, [slots, addLessonNumber, tentativeDetails.description]);
 
     const AddTentativeScheduleMutation = useMutation({
         mutationFn: async () => {
-            const schedulesToInsert = sortedSlots.map(slot => ({
+            const schedulesToInsert = sortedSlots.map((slot, index) => ({
                 date: slot.date,
                 start_time: slot.start_time,
                 end_time: slot.end_time,
                 enabled: true,
                 isTentative: true,
                 instructor_id: instructorId,
-                tentative_details: tentativeDetails
+                tentative_details: {
+                    ...tentativeDetails,
+                    description: addLessonNumber 
+                        ? `${tentativeDetails.description} Lesson ${index + 1}`
+                        : tentativeDetails.description
+                }
             }));
 
             const { data, error } = await supabase.from("Schedule").insert(schedulesToInsert);
@@ -3417,12 +3467,12 @@ export const AddTentativeSchedule = () => {
             return data;
         },
         onSuccess: () => {
-          toast({
-            title: "Tentative schedules",
-            description: "Added " + sortedSlots.length + " schedules",
-            variant: "success",
-          });
-          navigate(-1)
+            toast({
+                title: "Tentative schedules",
+                description: `Added ${sortedSlots.length} schedules successfully`,
+                variant: "success",
+            });
+            navigate('/admin/instructors');
         },
         onError: (err) => console.error("❌ Submission Error:", err)
     });
@@ -3430,14 +3480,14 @@ export const AddTentativeSchedule = () => {
     return (
         <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <h1 className="text-2xl font-bold text-foreground">Add Tentative Bookings</h1>
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>✕</Button>
+                <h1 className="text-2xl font-bold text-foreground">Add Tentative Schedules</h1>
+                <Button variant="ghost" size="icon" type="button" onClick={() => navigate('/admin/instructors')}>✕</Button>
             </div>
 
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label>Client Name*</Label>
+                        <Label>Name*</Label>
                         <Input 
                             value={tentativeDetails.name || ""} 
                             onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} 
@@ -3451,7 +3501,7 @@ export const AddTentativeSchedule = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>Lead Name</Label>
+                        <Label>Sales lead name</Label>
                         <Input 
                             value={tentativeDetails.leadName || ""} 
                             onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} 
@@ -3475,8 +3525,7 @@ export const AddTentativeSchedule = () => {
 
                 <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                        <Label>Address Lookup</Label>
-                        {/* Corrected call to match your memo declaration */}
+                        <Label>Pickup location</Label>
                         <AddressAutocomplete 
                             value={tentativeDetails.address}
                             onChange={handleAddressSelect}
@@ -3489,9 +3538,19 @@ export const AddTentativeSchedule = () => {
                             onChange={(e) => setTentativeDetails({...tentativeDetails, description: e.target.value})} 
                         />
                     </div>
+                    
+                    <div className="flex items-center space-x-2 pt-1">
+                        <Checkbox 
+                            id="lesson-number" 
+                            checked={addLessonNumber} 
+                            onCheckedChange={(checked) => setAddLessonNumber(!!checked)}
+                        />
+                        <Label htmlFor="lesson-number" className="text-sm font-medium leading-none cursor-pointer">
+                            Add Lesson number
+                        </Label>
+                    </div>
                 </div>
 
-                {/* --- PREVIEW SECTION --- */}
                 <div className="pt-6 border-t border-dashed">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -3505,21 +3564,28 @@ export const AddTentativeSchedule = () => {
                             onClick={() => setIsAddingBulk(true)}
                             className="bg-primary text-primary-foreground flex gap-2 h-9"
                         >
-                            <Plus className="h-4 w-4" /> Add More Slots
+                            <Plus className="h-4 w-4" /> Add schedules
                         </Button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[250px] overflow-y-auto p-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto p-1">
                         {sortedSlots.map((slot, idx) => (
                             <div key={idx} className="relative group p-3 rounded-lg border border-primary/20 bg-primary/5 flex flex-col hover:border-primary/40 transition-colors">
                                 <div className="flex items-center text-xs font-bold text-primary mb-1">
                                     <CalendarIcon className="h-3 w-3 mr-1.5" />
                                     {format(parseISO(slot.date), "MMM do, yyyy")}
                                 </div>
-                                <div className="flex items-center text-xs text-muted-foreground">
+                                <div className="flex items-center text-xs text-muted-foreground mb-2">
                                     <Clock className="h-3 w-3 mr-1.5" />
                                     {slot.start_time} - {slot.end_time}
                                 </div>
+                                
+                                {(tentativeDetails.description || addLessonNumber) && (
+                                    <div className="text-[10px] text-muted-foreground bg-background/50 p-1.5 rounded border border-border/50 italic">
+                                        {tentativeDetails.description} {addLessonNumber ? `Lesson ${idx + 1}` : ""}
+                                    </div>
+                                )}
+
                                 {slots.length > 1 && (
                                     <Button 
                                         variant="outline"
@@ -3537,22 +3603,21 @@ export const AddTentativeSchedule = () => {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-6 border-t">
-                    <Button variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
+                    <Button variant="ghost" type="button" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
                     <Button 
                         onClick={() => AddTentativeScheduleMutation.mutate()}
                         disabled={AddTentativeScheduleMutation.isPending}
                         className="px-8"
                     >
-                        {AddTentativeScheduleMutation.isPending ? "Saving..." : `Save All Bookings`}
+                        {AddTentativeScheduleMutation.isPending ? "Adding..." : `Confirm Tentative Schedules`}
                     </Button>
                 </div>
             </div>
 
-            {/* --- ADD SLOTS DIALOG --- */}
             <Dialog open={isAddingBulk} onOpenChange={setIsAddingBulk}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add New Slots</DialogTitle>
+                        <DialogTitle>Add Tentative Schedules</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
@@ -3560,11 +3625,20 @@ export const AddTentativeSchedule = () => {
                             <Select value={bulkType} onValueChange={setBulkType}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="single">Add Single Event</SelectItem>
-                                    <SelectItem value="daily">Repeat Daily (Consecutive Days)</SelectItem>
-                                    <SelectItem value="hourly">Repeat Hourly (Consecutive Hours)</SelectItem>
+                                    <SelectItem value="single">Add Single Schedule</SelectItem>
+                                    <SelectItem value="daily">Bulk Add Daily (Consecutive Days)</SelectItem>
+                                    <SelectItem value="hourly">Bulk Add Hourly (Consecutive Hours)</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>{bulkType === "single" ? "Date" : "Start Date"}</Label>
+                            <Input 
+                                type="date"
+                                value={newSlotDate}
+                                onChange={(e) => setNewSlotDate(e.target.value)}
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -3572,23 +3646,24 @@ export const AddTentativeSchedule = () => {
                                 <Label>Start Time</Label>
                                 <Input 
                                     type="time" 
-                                    value={newSlotTimes.start || ""} 
-                                    onChange={(e) => setNewSlotTimes({...newSlotTimes, start: e.target.value})}
+                                    value={newSlotTimes.start} 
+                                    onChange={(e) => handleStartTimeChange(e.target.value)}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label>End Time</Label>
                                 <Input 
                                     type="time" 
-                                    value={newSlotTimes.end || ""} 
-                                    onChange={(e) => setNewSlotTimes({...newSlotTimes, end: e.target.value})}
+                                    value={newSlotTimes.end} 
+                                    min={newSlotTimes.start}
+                                    onChange={(e) => handleEndTimeChange(e.target.value)}
                                 />
                             </div>
                         </div>
 
                         {bulkType !== "single" && (
                             <div className="space-y-2">
-                                <Label>Number of extra slots</Label>
+                                <Label>Number of copies</Label>
                                 <Input 
                                     type="number" 
                                     value={repeatCount} 
@@ -3599,8 +3674,8 @@ export const AddTentativeSchedule = () => {
                         )}
                     </div>
                     <DialogFooter>
-                        <Button className="w-full" onClick={AddTentativeApplyRepeat}>
-                            Confirm Addition
+                        <Button type="button" className="w-full" onClick={AddTentativeApplyRepeat}>
+                            Confirm Schedules
                         </Button>
                     </DialogFooter>
                 </DialogContent>
