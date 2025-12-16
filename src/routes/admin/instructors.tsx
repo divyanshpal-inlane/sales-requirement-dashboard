@@ -2629,7 +2629,7 @@ return (
                             // Ensure 'instructorId'
                             navigate(`/admin/tentative-add/${instructorId}/${dateParam}/${timeParam}`);
                             
-                            // can be ketp enabled when navigation fails
+                            // can be enabled when navigation fails
                             // handleTentativeSlotClick(schedule, day, hour, minute);
                           }
                         } }
@@ -3313,6 +3313,8 @@ const TentativeAddressInput = memo(({
 
 export const AddTentativeSchedule = () => {
     const navigate = useNavigate();
+    const { toast } = useToast();
+
     const { instructorId, date, startTime } = useParams();
 
     // 1. Initial State Helpers
@@ -3419,10 +3421,10 @@ export const AddTentativeSchedule = () => {
         onSuccess: () => {
           toast({
             title: "Tentative schedules",
-            description: "Added " + sortedSlots.length + " schedules",
+            description: "Added " + sortedSlots.length + " schedule" + ((sortedSlots.length > 1) ? "s" : ""),
             variant: "success",
           });
-          navigate(-1)
+          navigate('/admin/instructors');
         },
         onError: (err) => console.error("❌ Submission Error:", err)
     });
@@ -3430,14 +3432,14 @@ export const AddTentativeSchedule = () => {
     return (
         <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <h1 className="text-2xl font-bold text-foreground">Add Tentative Bookings</h1>
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>✕</Button>
+                <h1 className="text-2xl font-bold text-foreground">Add Tentative Schedules</h1>
+                <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors')}>✕</Button>
             </div>
 
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label>Client Name*</Label>
+                        <Label>Name*</Label>
                         <Input 
                             value={tentativeDetails.name || ""} 
                             onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} 
@@ -3451,7 +3453,7 @@ export const AddTentativeSchedule = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>Lead Name</Label>
+                        <Label>Sales lead name</Label>
                         <Input 
                             value={tentativeDetails.leadName || ""} 
                             onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} 
@@ -3475,7 +3477,7 @@ export const AddTentativeSchedule = () => {
 
                 <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                        <Label>Address Lookup</Label>
+                        <Label>Pickup location</Label>
                         {/* Corrected call to match your memo declaration */}
                         <AddressAutocomplete 
                             value={tentativeDetails.address}
@@ -3505,7 +3507,7 @@ export const AddTentativeSchedule = () => {
                             onClick={() => setIsAddingBulk(true)}
                             className="bg-primary text-primary-foreground flex gap-2 h-9"
                         >
-                            <Plus className="h-4 w-4" /> Add More Slots
+                            <Plus className="h-4 w-4" /> Add schedules
                         </Button>
                     </div>
 
@@ -3537,13 +3539,13 @@ export const AddTentativeSchedule = () => {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-6 border-t">
-                    <Button variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
+                    <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
                     <Button 
                         onClick={() => AddTentativeScheduleMutation.mutate()}
                         disabled={AddTentativeScheduleMutation.isPending}
                         className="px-8"
                     >
-                        {AddTentativeScheduleMutation.isPending ? "Saving..." : `Save All Bookings`}
+                        {AddTentativeScheduleMutation.isPending ? "Adding..." : `Confirm Tentative Schedules`}
                     </Button>
                 </div>
             </div>
@@ -3552,7 +3554,7 @@ export const AddTentativeSchedule = () => {
             <Dialog open={isAddingBulk} onOpenChange={setIsAddingBulk}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add New Slots</DialogTitle>
+                        <DialogTitle>Add Tentative Schedules</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
@@ -3560,9 +3562,9 @@ export const AddTentativeSchedule = () => {
                             <Select value={bulkType} onValueChange={setBulkType}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="single">Add Single Event</SelectItem>
-                                    <SelectItem value="daily">Repeat Daily (Consecutive Days)</SelectItem>
-                                    <SelectItem value="hourly">Repeat Hourly (Consecutive Hours)</SelectItem>
+                                    <SelectItem value="single">Add Single Schedule</SelectItem>
+                                    <SelectItem value="daily">Bulk Add Daily (Consecutive Days)</SelectItem>
+                                    <SelectItem value="hourly">Bulk Add Hourly (Consecutive Hours)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -3588,7 +3590,7 @@ export const AddTentativeSchedule = () => {
 
                         {bulkType !== "single" && (
                             <div className="space-y-2">
-                                <Label>Number of extra slots</Label>
+                                <Label>Number of copies</Label>
                                 <Input 
                                     type="number" 
                                     value={repeatCount} 
@@ -3600,7 +3602,7 @@ export const AddTentativeSchedule = () => {
                     </div>
                     <DialogFooter>
                         <Button className="w-full" onClick={AddTentativeApplyRepeat}>
-                            Confirm Addition
+                            Confirm Schedules
                         </Button>
                     </DialogFooter>
                 </DialogContent>
