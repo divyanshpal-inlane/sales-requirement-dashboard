@@ -60,6 +60,7 @@ import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
+import {AddTentativeSchedule} from "@/routes/admin/instructors"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -251,6 +252,7 @@ export default function App() {
                 element={<NotificationManagement />}
               />
               <Route path="tentative-schedules-info" element={<TentativeSchedules2 />} />
+              <Route path="tentative-add/:instructorId/:date/:startTime" element={<AddTentativeSchedule />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />
