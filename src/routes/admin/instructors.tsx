@@ -1696,6 +1696,7 @@ function WeeklyScheduleView({
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // 2. For the Edit Tentative Schedule Dialog
   const memoizedTentativeAddressValue = useMemo(
@@ -2603,7 +2604,7 @@ return (
                             : ""
                       } ${schedule ? "cursor-pointer" : ""}
                     `}
-                    onClick={() => {
+                      onClick={() => {
                           setIsTentativeDialogOpen(false);
                           if (schedule && !schedule.isTentative) {
                             handleOccupiedSlotClick(schedule);
@@ -2622,26 +2623,33 @@ return (
                               console.log("Setting tentative schedule", schedule);
                               console.log("Now tentative schedule", tentativeSchedule);
                             }
-                            handleTentativeSlotClick(schedule, day, hour, minute);
+                            const dateParam = format(day, "yyyy-MM-dd");
+                            const timeParam = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                            
+                            // Ensure 'instructorId'
+                            navigate(`/admin/tentative-add/${instructorId}/${dateParam}/${timeParam}`);
+                            
+                            // can be ketp enabled when navigation fails
+                            // handleTentativeSlotClick(schedule, day, hour, minute);
                           }
                         } }
                         >
-
-                    {/* onClick={() => {
-                      setIsTentativeDialogOpen(false);
-                      if (schedule && !schedule.isTentative) {
-                        handleOccupiedSlotClick(schedule);
-                      } else if (!schedule && unavailable) {
-                        toast({
-                          title: "Error",
-                          description: "Not available instructor",
-                          variant: "destructive",
-                        });
-                      } else if (schedule && schedule.isTentative) {
-                        handleTentativeSlotClick(schedule, day, hour, minute);
-                      }
-                    }}
-                  > */}
+                        
+                        {/* onClick={() => {
+                          setIsTentativeDialogOpen(false);
+                          if (schedule && !schedule.isTentative) {
+                            handleOccupiedSlotClick(schedule);
+                          } else if (!schedule && unavailable) {
+                            toast({
+                              title: "Error",
+                              description: "Not available instructor",
+                              variant: "destructive",
+                            });
+                          } else if (schedule && schedule.isTentative) {
+                            handleTentativeSlotClick(schedule, day, hour, minute);
+                          }
+                        }}
+                      > */}
                             {/* Primary Slot Content (Always Visible) */}
                             {schedule ? (
                               <div className="flex w-full flex-col flex-grow items-start justify-center overflow-hidden leading-tight">
@@ -3408,7 +3416,14 @@ export const AddTentativeSchedule = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => navigate(-1),
+        onSuccess: () => {
+          toast({
+            title: "Tentative schedules",
+            description: "Added " + sortedSlots.length + " schedules",
+            variant: "success",
+          });
+          navigate(-1)
+        },
         onError: (err) => console.error("❌ Submission Error:", err)
     });
 
