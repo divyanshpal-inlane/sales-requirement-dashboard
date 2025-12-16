@@ -265,7 +265,7 @@ function LearnerNotificationCard() {
     }
     console.log("All schedules to be sent", scheduleData);
     // The max number of schedules to include in one bulk message (field1 to field9)
-    const maxFields = 8;
+    const maxFields = 5;
     const count = Array.isArray(scheduleData) ? scheduleData.length : 0;
     
     // --- Start Batch Processing ---
@@ -344,9 +344,9 @@ function LearnerNotificationCard() {
               arg3: schedulePacket['field3'] ?? " ",
               arg4: schedulePacket['field4'] ?? " ",
               arg5: schedulePacket['field5'] ?? " ",
-              arg6: schedulePacket['field6'] ?? " ",
-              arg7: schedulePacket['field7'] ?? " ",
-              arg8: schedulePacket['field8'] ?? " ",
+              // arg6: schedulePacket['field6'] ?? " ",
+              // arg7: schedulePacket['field7'] ?? " ",
+              // arg8: schedulePacket['field8'] ?? " ",
               // arg9: schedulePacket['field9'] ?? " ",
               // arg10 is not used as maxFields is 9
             },
