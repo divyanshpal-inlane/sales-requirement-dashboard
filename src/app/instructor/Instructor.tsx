@@ -338,6 +338,8 @@ function Instructor() {
     learner: null,
   });
 
+  const { mutate: updateStatus } = useUpdateScheduleStatus();
+
   const [scheduleDetailDialog, setScheduleDetailDialog] = useState({
     open: false,
     schedule: null,
@@ -851,6 +853,37 @@ function Instructor() {
     }
 
     return days;
+  };
+
+  const scheduleStatusUpdate = ({
+    scheduleId,
+    status,
+    started_at,
+    ended_at,
+  }: {
+    scheduleId: string;
+    status: string;
+    started_at: string;
+    ended_at: string;
+  }) => {
+    updateStatus(
+      {
+        scheduleId,
+        status,
+        started_at,
+        ended_at,
+      },
+      {
+        onSuccess: () => {
+          //console.log("schedule update to", status);
+          toast({
+            title: "Success",
+            description: status === "completed" ? "Lesson ended successfully" : "Lesson started",
+            variant: "success",
+          });
+        },
+      }
+    );
   };
 
   const CalendarDay = ({ date }) => {
@@ -1482,6 +1515,49 @@ function Instructor() {
   const handleLessonEndNavigation = async (learnerId: string, itemId: string) => {
     navigate(`/otp/end/${learnerId}/${itemId}`);
   };
+
+  const checkBoundarySchedule = (instructorSchedules, lessonSchedule, checkStart) => {
+    // console.log("[ENTRY] checkBoundarySchedule" | checkStart, lessonSchedule, instructorSchedules);
+
+    const currentIndex = instructorSchedules.findIndex(s => s.id === lessonSchedule.id);
+    
+    const lessonStartHM = lessonSchedule.start_time.substring(0, 5);
+    const lessonEndHM = lessonSchedule.end_time.substring(0, 5);
+
+    let isBoundary = false;
+
+    if (checkStart) {
+      // If it's the first lesson in the sorted list, it is a START boundary
+      if (currentIndex === 0) {
+        isBoundary = true;
+      } else {
+        const prev = instructorSchedules[currentIndex - 1];
+        const prevEndHM = prev.end_time.substring(0, 5);
+        
+        // If the previous lesson is a different day OR doesn't end when this starts, it's a boundary
+        const isConsecutive = (prev.date === lessonSchedule.date && prevEndHM === lessonStartHM);
+        isBoundary = !isConsecutive;
+      }
+    } else {
+      // If it's the last lesson in the sorted list, it is an END boundary
+      if (currentIndex === instructorSchedules.length - 1) {
+        isBoundary = true;
+      } else {
+        const next = instructorSchedules[currentIndex + 1];
+        const nextStartHM = next.start_time.substring(0, 5);
+        
+        // 4. If the next lesson is a different day OR doesn't start when this ends, it's a boundary
+        const isConsecutive = (next.date === lessonSchedule.date && nextStartHM === lessonEndHM);
+        isBoundary = !isConsecutive;
+      }
+    }
+
+    // Exit Log
+    // console.log(`[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`);
+    
+    return isBoundary;
+  };
+
   return (
     <div className="flex h-full w-full flex-col">
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
@@ -1604,7 +1680,24 @@ function Instructor() {
                             <Button
                               onClick={() => {
                                   // alert("Lesson to be ended by customer");
-                                  navigate(`/otp/end/${learner.id}/${scheduleData.id}`);
+                                  console.log("before check", instructorData, instructorData?.instructorSchedules, scheduleData, false);
+                                      if (checkBoundarySchedule(instructorData?.instructorSchedules, scheduleData, false)) {
+                                        navigate(`/otp/end/${learner.id}/${scheduleData.id}`);
+                                      } else {
+                                        // if not boundary, update schedule status without auth
+                                        console.log("update schedule without auth");
+                                        scheduleStatusUpdate({
+                                          scheduleId: scheduleData.id,
+                                          status: "completed",
+                                          started_at: "",
+                                          ended_at: "",
+                                        });
+                                        console.log("Done update schedule");
+                                        // Wait 1 second, the reload
+                                        setTimeout(() => {
+                                          window.location.reload();
+                                        }, 1000);
+                                      }
                                 }
                                 // handleFinishLesson(
                                 //   schedule.id.toString(),
@@ -1622,7 +1715,23 @@ function Instructor() {
                             scheduleData.status !== "completed" && (
                               <Button
                                 onClick={() => {
-                                  navigate(`/otp/start/${learner?.id}/${scheduleData?.id}`);
+                                  if (checkBoundarySchedule(instructorData.instructorSchedules, scheduleData, true)) {
+                                    navigate(`/otp/start/${learner?.id}/${scheduleData?.id}`);
+                                  } else {
+                                      // if not boundary, update schedule status without auth
+                                      console.log("update schedule without auth");
+                                      scheduleStatusUpdate({
+                                        scheduleId: scheduleData.id,
+                                        status: "ongoing",
+                                        started_at: "",
+                                        ended_at: "",
+                                      });
+                                      console.log("Done update schedule");
+                                      // Wait 1 second, then reload
+                                      setTimeout(() => {
+                                        window.location.reload();
+                                      }, 1000);
+                                    }
                                 }}
                                 size="sm"
                                 className="text-sm"
@@ -1774,7 +1883,9 @@ function Instructor() {
                                       setShowFeedbackDialog(true);
                                     } else {
                                       console.log("Not last lesson of course, no feedback needed", lesson?.number, lessonSchedule?.Courses?.total_lessons);
-                                      navigate(`/otp/end/${learner.id}/${item.id}`);
+                                      if (checkBoundarySchedule(instructorData.instructorSchedules, lessonSchedule, false)) {
+                                        navigate(`/otp/end/${learner.id}/${item.id}`);
+                                      }
                                     }
                                     // handleFinishLesson(
                                     //     schedule.id.toString(),
@@ -1805,10 +1916,15 @@ function Instructor() {
                             </div>
                           )}
                           {lessonSchedule.status !== "ongoing" &&
-                            lessonSchedule.status !== "completed" && (
+                            lessonSchedule.status !== "completed" && 
+                            (
                               <Button
-                                onClick={() => {
-                                  navigate(`/otp/start/${learner.id}/${lessonSchedule.id}`);
+                              onClick={() => {
+                                  // to reduce authorizing on continuous lessons
+                                  // navigate to start auth only if no previous hour lesson of the same learner
+                                  if (checkBoundarySchedule(instructorData.instructorSchedules, lessonSchedule, checkStart=true)) {
+                                    navigate(`/otp/start/${learner.id}/${lessonSchedule.id}`);
+                                  }
                                 }}
                                 size="sm"
                                 className="text-sm"
