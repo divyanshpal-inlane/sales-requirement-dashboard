@@ -1348,6 +1348,41 @@ export default function AdminSchedules() {
     // }
   };
 
+  const handleChangePauseState = async (schedule: any) => {
+    setSelectedSchedule(schedule);
+    // setIsRescheduleModalOpen(true);
+
+
+    // different path - make reschedule request to use calender views nad checks
+    try {
+      // setIsLoading(true);
+      console.log("Changing lesson pause state", schedule);
+      // Create empty payment record (from admin side)
+      const learnerId = schedule?.learner_id;
+
+      const { data: updatedSchedule, error: updateScheduleError } = await supabase
+        .from("Schedule")
+        .update({
+          status: schedule?.status === "paused" ? "booked" : "paused",
+        })
+        .eq("id", schedule?.id);
+
+      if (updateScheduleError) throw updateScheduleError;
+
+      toast({
+        "title": "Lesson status updated",
+        "description": `Lesson status updated for schedule at ${schedule.date})} ${schedule.start_time}`,
+        "type": "destructive",
+      });
+      window.location.reload();
+    } catch (error) {
+      console.error("Error updating lesson from Admin:", error);
+      alert("Failed to update lesson pause from Admin. Please try again.");
+    } finally {
+      // end of updates
+    }
+  }
+
     
 
   function isOldestIncompleteSchedule(schedules: any, schedule: any): import("react").ReactNode {
@@ -1796,6 +1831,13 @@ export default function AdminSchedules() {
                                     : "Mark previous lessons complete"
                                   } */}
                                   Change lesson status
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleChangePauseState(schedule)
+                                  }
+                                >
+                                  Pause / Unpause
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

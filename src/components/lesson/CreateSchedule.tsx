@@ -452,7 +452,8 @@ export default function CreateScheduleWithInstructor({
         .select("*, learner:learner_id(name, area)")
         .eq("instructor_id", selectedInstructorId)
         .gte("date", start)
-        .lte("date", end);
+        .lte("date", end)
+        .neq("status", "paused");
 
       if (error) throw error;
       return data;
@@ -1611,7 +1612,8 @@ function CreateSchedule({
         .gte("date", prevWindowStart.toISOString().split("T")[0])
         .lte("date", prevWindowEnd.toISOString().split("T")[0])
         .order("date", { ascending: false })
-        .order("end_time", { ascending: false });
+        .order("end_time", { ascending: false })
+        .neq("status", "paused");
 
       if (error) throw error;
       // console.log("Fetched instructor schedules in time range:", prevWindowStart, prevWindowEnd, data);
@@ -1719,7 +1721,8 @@ function CreateSchedule({
           "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
         )
         .gte("date", startDate.toISOString().split("T")[0])
-        .lte("date", endDate.toISOString().split("T")[0]);
+        .lte("date", endDate.toISOString().split("T")[0])
+        .neq("status", "paused");
 
       if (error) throw error;
       return data;
@@ -1732,13 +1735,21 @@ function CreateSchedule({
       // const endDate = addDays(startDate, 9);
       const { data, error } = await supabase
         .from("Schedule")
-        .select(
-          "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
-        )
+        .select(`
+          *,
+          Learner (
+            name, 
+            area, 
+            pick_up_location, 
+            address_lat, 
+            address_lng
+          )
+        `)
         .eq("learner_id", learnerId)
-        .neq("status", "completed");
+        .not("status", "in", '("completed","paused")');
 
       if (error) throw error;
+      console.log(data);
       return data;
     },
   });
