@@ -1045,10 +1045,10 @@ function Instructor() {
               </tr>
             </thead>
             <tbody>
-          {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-            const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
-            const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
-                   
+              {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+                const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
+                const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+
                 return (
                   <tr key={timeIndex} className="h-12">
                     <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
@@ -1059,31 +1059,23 @@ function Instructor() {
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                       const day = addDays(currentWeekStart, dayIndex);
 
-                      // Check for instructor schedules
                       const schedule = instructorData?.instructorSchedules?.find(
                         (s) => {
-                          const scheduleDate = new Date(s.date);
-                          const scheduleStart = new Date(
-                            `${s.date}T${s.start_time}`,
-                          );
-                          const scheduleEnd = new Date(
-                            `${s.date}T${s.end_time}`,
-                          );
+                          const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                          const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
                           const currentTime = new Date(day);
                           currentTime.setHours(hour, minute);
 
                           return (
-                            isSameDay(scheduleDate, day) &&
+                            isSameDay(new Date(s.date), day) &&
                             currentTime >= scheduleStart &&
                             currentTime < scheduleEnd
                           );
                         },
                       );
 
-                      // Check for Combined Calendar events
                       const calendarEvent = calendarEvents.find((event) => {
                         if (!event.start?.dateTime) return false;
-
                         const eventStart = new Date(event.start.dateTime);
                         const eventEnd = new Date(event.end.dateTime);
                         const currentTime = new Date(day);
@@ -1108,18 +1100,15 @@ function Instructor() {
 
                       const isScheduleStart =
                         schedule &&
-                        parseInt(schedule.start_time.split(":")[0]) === hour;
-                        // &&
-                        // parseInt(schedule.start_time.split(":")[1]) === minute;
+                        parseInt(schedule.start_time.split(":")[0]) === hour &&
+                        parseInt(schedule.start_time.split(":")[1]) === minute;
 
                       const isGoogleEventStart =
                         calendarEvent &&
-                        new Date(calendarEvent.start.dateTime).getHours() ===
-                          hour &&
-                        new Date(calendarEvent.start.dateTime).getMinutes() ===
-                          minute;
-                      const isEmpty =
-                        !schedule && !calendarEvent && !isUnavailable;
+                        new Date(calendarEvent.start.dateTime).getHours() === hour &&
+                        new Date(calendarEvent.start.dateTime).getMinutes() === minute;
+
+                      const isEmpty = !schedule && !calendarEvent && !isUnavailable;
 
                       return (
                         <td
@@ -1130,7 +1119,7 @@ function Instructor() {
                                 ? "bg-green-200 text-green-800"
                                 : schedule.status === "ongoing"
                                   ? "bg-blue-200 text-blue-800"
-                                  : schedule.status === "paused"   // NEW: Amber logic
+                                  : schedule.status === "paused"
                                     ? "bg-amber-200 text-amber-800"
                                     : "bg-primary text-white"
                               : calendarEvent
@@ -1147,44 +1136,35 @@ function Instructor() {
                             } else if (calendarEvent) {
                               handleEventClick(calendarEvent);
                             } else if (isEmpty) {
-                              handleEmptyCellClick(day, hour); // <-- use day here
+                              handleEmptyCellClick(day, hour, minute);
                             }
                           }}
                         >
-                          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
+                          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-tight">
                             {isScheduleStart ? (
                               <>
-                                <div className="font-semibold">
+                                <div className="font-semibold truncate">
                                   {learnerName}
                                 </div>
                                 <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
+                                <div className="uppercase opacity-80 font-bold tracking-tighter">
+                                  {schedule.status}
+                                </div>
                               </>
                             ) : isGoogleEventStart ? (
                               <>
-                                <div className="font-semibold">
+                                <div className="font-semibold truncate">
                                   {calendarEvent.summary}
                                 </div>
                                 <div>
-                                  {format(
-                                    new Date(calendarEvent.start.dateTime),
-                                    "HH:mm",
-                                  )}{" "}
-                                  -{" "}
-                                  {format(
-                                    new Date(calendarEvent.end.dateTime),
-                                    "HH:mm",
-                                  )}
+                                  {format(new Date(calendarEvent.start.dateTime), "HH:mm")} - {format(new Date(calendarEvent.end.dateTime), "HH:mm")}
                                 </div>
                               </>
                             ) : isEmpty ? (
-                              <div className="text-xs text-gray-400">
+                              <div className="text-gray-400">
                                 <Plus className="mx-auto h-3 w-3" />
                               </div>
-                            ) : isUnavailable && !schedule && !calendarEvent ? (
-                              ""
-                            ) : (
-                              ""
-                            )}
+                            ) : null}
                           </div>
                         </td>
                       );
@@ -1256,6 +1236,10 @@ function Instructor() {
                 }`}
               >
                 {timeSlotSchedules.map((schedule, idx) => {
+                  const [startH, startM] = schedule.start_time.split(":").map(Number);
+                  const isExactStartSlot = startH === hour && startM === minute;
+
+                  if (!isExactStartSlot) return null;
                   const isScheduleStart = parseInt(schedule.start_time.split(":")[0]) === hour;
                   if (!isScheduleStart) return null;
 
