@@ -1517,10 +1517,9 @@ function Instructor() {
   };
 
   const checkBoundarySchedule = (instructorSchedules, lessonSchedule, checkStart) => {
-    // console.log("[ENTRY] checkBoundarySchedule" | checkStart, lessonSchedule, instructorSchedules);
+    console.log(`[ENTRY] checkBoundarySchedule | checkStart: ${checkStart} | lessonSchedule: ${JSON.stringify(lessonSchedule)} | instructorSchedules: ${JSON.stringify(instructorSchedules)}`);
 
     const currentIndex = instructorSchedules.findIndex(s => s.id === lessonSchedule.id);
-    
     const lessonStartHM = lessonSchedule.start_time.substring(0, 5);
     const lessonEndHM = lessonSchedule.end_time.substring(0, 5);
 
@@ -1532,11 +1531,12 @@ function Instructor() {
         isBoundary = true;
       } else {
         const prev = instructorSchedules[currentIndex - 1];
-        const prevEndHM = prev.end_time.substring(0, 5);
-        
-        // If the previous lesson is a different day OR doesn't end when this starts, it's a boundary
-        const isConsecutive = (prev.date === lessonSchedule.date && prevEndHM === lessonStartHM);
-        isBoundary = !isConsecutive;
+        // Boundary is true if Day, Learner, OR Time do NOT match
+        isBoundary = !(
+          prev.date === lessonSchedule.date &&
+          prev.end_time.substring(0, 5) === lessonStartHM &&
+          prev.learner_id === lessonSchedule.learner_id
+        );
       }
     } else {
       // If it's the last lesson in the sorted list, it is an END boundary
@@ -1544,20 +1544,19 @@ function Instructor() {
         isBoundary = true;
       } else {
         const next = instructorSchedules[currentIndex + 1];
-        const nextStartHM = next.start_time.substring(0, 5);
-        
-        // 4. If the next lesson is a different day OR doesn't start when this ends, it's a boundary
-        const isConsecutive = (next.date === lessonSchedule.date && nextStartHM === lessonEndHM);
-        isBoundary = !isConsecutive;
+        // Boundary is true if Day, Learner, OR Time do NOT match
+        isBoundary = !(
+          next.date === lessonSchedule.date &&
+          next.start_time.substring(0, 5) === lessonEndHM &&
+          next.learner_id === lessonSchedule.learner_id
+        );
       }
     }
 
-    // Exit Log
-    // console.log(`[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`);
-    
+    console.log(`[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`);
+
     return isBoundary;
   };
-
   return (
     <div className="flex h-full w-full flex-col">
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
