@@ -1,4 +1,4 @@
-import { Delete, RefreshCcw, Send, UserPlus } from "lucide-react";
+import { Delete, Mail, RefreshCcw, Send, UserPlus } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { addDays, format, formatDate, parse } from "date-fns";
 import Schedule from "../schedule";
@@ -112,6 +112,7 @@ function LearnerNotificationCard() {
     setSendingInstrLessonReminderStatuses,
   ] = useState({});
 
+  const [sendingEmailId, setSendingEmailId] = useState(null);
   const { toast } = useToast();
 
   const fetchSchedulesForReminder = async () => {
@@ -125,8 +126,8 @@ function LearnerNotificationCard() {
         .select(
           `
           *,
-          Learner(name, phone, pick_up_location, address_lat, address_lng),
-          Instructor(name, phone),
+          Learner(name, phone, email, pick_up_location, address_lat, address_lng),
+          Instructor(name, phone, email),
           Courses(name, duration), 
           Lesson(description)`,
         )
@@ -394,6 +395,76 @@ function LearnerNotificationCard() {
   const handleRescheduleFinalTimeClose = () => {
     setReschduleFinalTimeSetDialogOpen(false);
   }
+
+  const handleSendScheduleEmail = async (scheduleData) => {
+    // Disable button for this specific row
+    setSendingEmailId(scheduleData.id);
+
+    // Safely extract values from scheduleData
+    const instructorEmail = scheduleData.Instructor?.email || "";
+    const learnerEmail = scheduleData.Learner?.email || "";
+    const lessonId = scheduleData.Lesson?.number || scheduleData.Lesson?.description || "N/A";
+    const learnerName = scheduleData.Learner?.name || "Unknown Learner";
+
+    console.log(`[EMAIL_ATTEMPT] Lesson: ${lessonId}, Learner: ${learnerName}`);
+
+    // Validation before calling the Edge Function
+    if (!instructorEmail || !learnerEmail) {
+      toast({
+        title: "Email Failed",
+        description: `Missing email for ${!instructorEmail ? "Instructor" : "Learner"}.`,
+        variant: "destructive",
+      });
+      setSendingEmailId(null);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.functions.invoke("send-schedule-emails", {
+        body: {
+          learnerEmail: learnerEmail,
+          instructorEmail: instructorEmail,
+          instructorName: scheduleData.Instructor?.name || "Instructor",
+          learnerName: learnerName,
+          learnerPhone: scheduleData.Learner?.phone || "",
+          emailType: "schedule",
+          batchInfo: ` (Lesson ${lessonId})`,
+          learnerId: scheduleData.learner_id,
+          isMultiEvent: false,
+          events: [{
+            lessonNumber: scheduleData.Lesson?.number || 1,
+            startTime: new Date(`${scheduleData.date}T${scheduleData.start_time}`).toISOString(),
+            endTime: new Date(`${scheduleData.date}T${scheduleData.end_time}`).toISOString(),
+            pickupLocation: scheduleData.Learner?.pick_up_location || "Standard Location",
+            uid: `lesson-${scheduleData.id}`,
+            isCancellation: false,
+            sequence: 0,
+          }],
+          allEvents: [],
+          learnerICSArray: [],
+          instructorICSArray: [],
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email Sent",
+        description: `Schedule for Lesson ${lessonId} sent to ${learnerName}`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error(`[EMAIL_ERROR]`, error);
+      toast({
+        title: "Email Failed",
+        description: "Server error while processing email addresses.",
+        variant: "destructive",
+      });
+    } finally {
+      // Re-enable the button
+      setSendingEmailId(null);
+    }
+  };
   return (
     <div
       className="min-h-screen bg-gray-50"
@@ -493,53 +564,54 @@ function LearnerNotificationCard() {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left">Learner</th>
-                  <th className="px-2 py-2 text-left">Course</th>
-                  <th className="px-2 py-2 text-left">Instructor</th>
-                  <th className="px-2 py-2 text-right">Date</th>
-                  <th className="px-2 py-2 text-center">Start time</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold uppercase">Learner</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold uppercase">Course</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold uppercase">Instructor</th>
+                  <th className="px-2 py-2 text-right text-xs font-semibold uppercase">Date</th>
+                  <th className="px-2 py-2 text-center text-xs font-semibold uppercase">Time</th>
+                  <th className="px-2 py-2 text-right text-xs font-semibold uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {schedulesList
-                  .map((scheduleData) => (
-                    <tr
-                      key={scheduleData.id}
-                      className="border-b hover:bg-muted/50"
+                {schedulesList.map((scheduleData) => (
+                  <tr key={scheduleData.id} className="border-b hover:bg-muted/50">
+                    <td className="px-2 py-2">
+                      <div className="font-medium">{scheduleData.Learner?.name || "Unknown"}</div>
+                    </td>
+                    <td className="px-2 py-2 text-sm">
+                      <div>{scheduleData.Lesson?.description || "Unknown Lesson"}</div>
+                      <div className="text-xs text-gray-500">{scheduleData.Courses?.name || "Unknown Course"}</div>
+                    </td>
+                    <td className="px-2 py-2 text-sm">
+                      {scheduleData.Instructor?.name || "Unknown"}
+                    </td>
+                    <td className="px-2 py-2 text-right text-sm">
+                      {scheduleData.date || "Unknown"}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <span className="text-xs">
+                        {scheduleData.start_time ? scheduleData.start_time.split(':').slice(0, 2).join(':') : "N/A"}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                    <Button
+                      size="sm"
+                      onClick={() => handleSendScheduleEmail(scheduleData)}
+                      disabled={sendingEmailId === scheduleData.id}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 text-[9px] py-1 px-2 h-auto min-h-[28px] whitespace-normal leading-[1.1] text-center inline-flex items-center justify-center max-w-[120px]"
                     >
-                      <td className="px-2 py-2">
-                        <div className="font-medium">
-                          {scheduleData.Learner?.name || "Unknown"}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <>
-                          {(scheduleData.Lesson?.description || "Unknown Lesson")}
-                          <br />
-                          {(scheduleData.Courses?.name || "Unknown Course")}
-                        </>
-                      </td>
-                      <td className="px-2 py-2">
-                        {scheduleData.Instructor.name || "Unknown"}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {scheduleData.date || "Unknown"}
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium`}
-                          >
-                          {
-                              // Check if start_time exists before processing
-                              scheduleData.start_time 
-                                  // Split by colon, take the first two elements (HH and MM), and rejoin.
-                                  ? scheduleData.start_time.split(':').slice(0, 2).join(':') 
-                                  : "Unknown"
-                          }
+                      {sendingEmailId === scheduleData.id ? (
+                        <span className="flex items-center gap-1">
+                          <Loader2 size={8} className="animate-spin" /> 
+                          Sending...
                         </span>
-                      </td>
-                    </tr>
-                  ))}
+                      ) : (
+                        "Send Schedule Email to Learner and Instructor"
+                      )}
+                    </Button>
+                  </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
