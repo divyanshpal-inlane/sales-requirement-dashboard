@@ -955,284 +955,284 @@ export default function AdminSchedules() {
 
   const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
   // Add this function to handle instructor changes with proper calendar updates
-  // const handleInstructorChange = async (
-  //   scheduleId: string,
-  //   newInstructorId: string,
-  // ) => {
-  //   try {
-  //     // Set loading state
-  //     setIsSendingInvites(true);
-  //     setProcessingScheduleId(scheduleId);
+  const handleInstructorChange = async (
+    scheduleId: string,
+    newInstructorId: string,
+  ) => {
+    try {
+      // Set loading state
+      setIsSendingInvites(true);
+      setProcessingScheduleId(scheduleId);
 
-  //     // First, fetch the current schedule to get all its details
-  //     const { data: currentSchedule, error: fetchError } = await supabase
-  //       .from("Schedule")
-  //       .select(
-  //         "*, Learner(id, name, email, pick_up_location, address_lat, address_lng,phone)",
-  //       )
-  //       .eq("id", scheduleId)
-  //       .single();
+      // First, fetch the current schedule to get all its details
+      const { data: currentSchedule, error: fetchError } = await supabase
+        .from("Schedule")
+        .select(
+          "*, Learner(id, name, email, pick_up_location, address_lat, address_lng,phone)",
+        )
+        .eq("id", scheduleId)
+        .single();
 
-  //     if (fetchError) {
-  //       throw new Error(fetchError.message);
-  //     }
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
 
-  //     // Fetch instructor details for both old and new instructors
-  //     const instructorIds = [currentSchedule.instructor_id, newInstructorId];
-  //     const { data: instructorsData, error: instructorsError } = await supabase
-  //       .from("Instructor")
-  //       .select("id_instructor, name, email, phone")
-  //       .in("id_instructor", instructorIds);
+      // Fetch instructor details for both old and new instructors
+      const instructorIds = [currentSchedule.instructor_id, newInstructorId];
+      const { data: instructorsData, error: instructorsError } = await supabase
+        .from("Instructor")
+        .select("id_instructor, name, email, phone")
+        .in("id_instructor", instructorIds);
 
-  //     if (instructorsError) {
-  //       throw new Error(
-  //         `Error fetching instructors: ${instructorsError.message}`,
-  //       );
-  //     }
+      if (instructorsError) {
+        throw new Error(
+          `Error fetching instructors: ${instructorsError.message}`,
+        );
+      }
 
-  //     // Create maps for easy lookup
-  //     const instructorsMap = new Map();
-  //     instructorsData?.forEach((instructor) => {
-  //       instructorsMap.set(instructor.id_instructor, instructor);
-  //     });
+      // Create maps for easy lookup
+      const instructorsMap = new Map();
+      instructorsData?.forEach((instructor) => {
+        instructorsMap.set(instructor.id_instructor, instructor);
+      });
 
-  //     // Get lesson details
-  //     const { data: lessonData, error: lessonError } = await supabase
-  //       .from("Lesson")
-  //       .select("number, id")
-  //       .eq("id", currentSchedule.lesson_id)
-  //       .single();
+      // Get lesson details
+      const { data: lessonData, error: lessonError } = await supabase
+        .from("Lesson")
+        .select("number, id")
+        .eq("id", currentSchedule.lesson_id)
+        .single();
 
-  //     if (lessonError) {
-  //       throw new Error(`Error fetching lesson: ${lessonError.message}`);
-  //     }
+      if (lessonError) {
+        throw new Error(`Error fetching lesson: ${lessonError.message}`);
+      }
 
-  //     // Determine pickup location
-  //     const pickupLocation =
-  //       currentSchedule.Learner.pick_up_location ||
-  //       (currentSchedule.Learner.address_lat &&
-  //       currentSchedule.Learner.address_lng
-  //         ? `${currentSchedule.Learner.address_lat},${currentSchedule.Learner.address_lng}`
-  //         : "To be confirmed");
+      // Determine pickup location
+      const pickupLocation =
+        currentSchedule.Learner.pick_up_location ||
+        (currentSchedule.Learner.address_lat &&
+        currentSchedule.Learner.address_lng
+          ? `${currentSchedule.Learner.address_lat},${currentSchedule.Learner.address_lng}`
+          : "To be confirmed");
 
-  //     // STEP 1: PREPARE CANCELLATION EVENT
-  //     // ---------------------------------
+      // STEP 1: PREPARE CANCELLATION EVENT
+      // ---------------------------------
 
-  //     // Create start and end date objects for the current schedule
-  //     const startDate = new Date(currentSchedule.date);
-  //     const [startHour, startMinute] = currentSchedule.start_time
-  //       .split(":")
-  //       .map(Number);
-  //     startDate.setHours(startHour, startMinute, 0);
+      // Create start and end date objects for the current schedule
+      const startDate = new Date(currentSchedule.date);
+      const [startHour, startMinute] = currentSchedule.start_time
+        .split(":")
+        .map(Number);
+      startDate.setHours(startHour, startMinute, 0);
 
-  //     const endDate = new Date(currentSchedule.date);
-  //     const [endHour, endMinute] = currentSchedule.end_time
-  //       .split(":")
-  //       .map(Number);
-  //     endDate.setHours(endHour, endMinute, 0);
+      const endDate = new Date(currentSchedule.date);
+      const [endHour, endMinute] = currentSchedule.end_time
+        .split(":")
+        .map(Number);
+      endDate.setHours(endHour, endMinute, 0);
 
-  //     // Get old instructor details
-  //     const oldInstructorId = currentSchedule.instructor_id;
-  //     const oldInstructorDetails = instructorsMap.get(oldInstructorId) || {
-  //       name: "Previous Instructor",
-  //       phone: "Contact InLane for details",
-  //       email: "",
-  //     };
+      // Get old instructor details
+      const oldInstructorId = currentSchedule.instructor_id;
+      const oldInstructorDetails = instructorsMap.get(oldInstructorId) || {
+        name: "Previous Instructor",
+        phone: "Contact InLane for details",
+        email: "",
+      };
 
-  //     // Create cancellation event
-  //     const cancellationEvent = {
-  //       startTime: startDate,
-  //       endTime: endDate,
-  //       lessonNumber: lessonData?.number || 0,
-  //       pickupLocation: pickupLocation,
-  //       uid: currentSchedule.calendar_uid || `temp-${Date.now()}-${scheduleId}`,
-  //       sequence: (currentSchedule.calendar_sequence || 0) + 1,
-  //       isCancellation: true,
-  //       instructorId: oldInstructorId,
-  //       instructorName: oldInstructorDetails.name,
-  //       instructorPhone: oldInstructorDetails.phone,
-  //       instructorEmail: oldInstructorDetails.email,
-  //     };
+      // Create cancellation event
+      const cancellationEvent = {
+        startTime: startDate,
+        endTime: endDate,
+        lessonNumber: lessonData?.number || 0,
+        pickupLocation: pickupLocation,
+        uid: currentSchedule.calendar_uid || `temp-${Date.now()}-${scheduleId}`,
+        sequence: (currentSchedule.calendar_sequence || 0) + 1,
+        isCancellation: true,
+        instructorId: oldInstructorId,
+        instructorName: oldInstructorDetails.name,
+        instructorPhone: oldInstructorDetails.phone,
+        instructorEmail: oldInstructorDetails.email,
+      };
 
-  //     // STEP 2: UPDATE THE DATABASE
-  //     // ---------------------------
+      // STEP 2: UPDATE THE DATABASE
+      // ---------------------------
 
-  //     // Update the schedule with the new instructor ID
-  //     const { error: updateError } = await supabase
-  //       .from("Schedule")
-  //       .update({
-  //         instructor_id: newInstructorId,
-  //         calendar_sequence: (currentSchedule.calendar_sequence || 0) + 1,
-  //         // Reset calendar_uid to ensure a new one is generated
-  //         calendar_uid: null,
-  //       })
-  //       .eq("id", scheduleId);
+      // Update the schedule with the new instructor ID
+      const { error: updateError } = await supabase
+        .from("Schedule")
+        .update({
+          instructor_id: newInstructorId,
+          calendar_sequence: (currentSchedule.calendar_sequence || 0) + 1,
+          // Reset calendar_uid to ensure a new one is generated
+          calendar_uid: null,
+        })
+        .eq("id", scheduleId);
 
-  //     if (updateError) {
-  //       throw new Error(`Error updating schedule: ${updateError.message}`);
-  //     }
+      if (updateError) {
+        throw new Error(`Error updating schedule: ${updateError.message}`);
+      }
 
-  //     // STEP 3: PREPARE NEW EVENT
-  //     // ------------------------
+      // STEP 3: PREPARE NEW EVENT
+      // ------------------------
 
-  //     // Get new instructor details
-  //     const newInstructorDetails = instructorsMap.get(newInstructorId) || {
-  //       name: "New Instructor",
-  //       phone: "Contact InLane for details",
-  //       email: "",
-  //     };
+      // Get new instructor details
+      // const newInstructorDetails = instructorsMap.get(newInstructorId) || {
+      //   name: "New Instructor",
+      //   phone: "Contact InLane for details",
+      //   email: "",
+      // };
 
-  //     // Create new event with the new instructor
-  //     const newEvent = {
-  //       startTime: startDate,
-  //       endTime: endDate,
-  //       lessonNumber: lessonData?.number || 0,
-  //       pickupLocation: pickupLocation,
-  //       uid: undefined, // Let the calendar function generate a new UID
-  //       sequence: 0, // Reset sequence for new event
-  //       isCancellation: false,
-  //       instructorId: newInstructorId,
-  //       instructorName: newInstructorDetails.name,
-  //       instructorPhone: newInstructorDetails.phone,
-  //       instructorEmail: newInstructorDetails.email,
-  //     };
+      // // Create new event with the new instructor
+      // const newEvent = {
+      //   startTime: startDate,
+      //   endTime: endDate,
+      //   lessonNumber: lessonData?.number || 0,
+      //   pickupLocation: pickupLocation,
+      //   uid: undefined, // Let the calendar function generate a new UID
+      //   sequence: 0, // Reset sequence for new event
+      //   isCancellation: false,
+      //   instructorId: newInstructorId,
+      //   instructorName: newInstructorDetails.name,
+      //   instructorPhone: newInstructorDetails.phone,
+      //   instructorEmail: newInstructorDetails.email,
+      // };
 
-  //     // In handleInstructorChange function:
+      // In handleInstructorChange function:
 
-  //     // STEP 4: SEND CALENDAR INVITATIONS
-  //     // --------------------------------
+      // STEP 4: SEND CALENDAR INVITATIONS
+      // --------------------------------
 
-  //     // Create a complete list of all events for this learner
-  //     const { data: allLearnerSchedules } = await supabase
-  //       .from("Schedule")
-  //       .select("*, Lesson(id, number)")
-  //       .eq("learner_id", currentSchedule.learner_id)
-  //       .eq("course_id", currentSchedule.course_id);
+      // Create a complete list of all events for this learner
+      // const { data: allLearnerSchedules } = await supabase
+      //   .from("Schedule")
+      //   .select("*, Lesson(id, number)")
+      //   .eq("learner_id", currentSchedule.learner_id)
+      //   .eq("course_id", currentSchedule.course_id);
 
-  //     // Format all schedules as events for display in emails
-  //     const allScheduleEvents = allLearnerSchedules
-  //       ?.map((schedule) => {
-  //         // Skip the current schedule as it's being updated
-  //         if (schedule.id === scheduleId) return null;
+      // Format all schedules as events for display in emails
+      // const allScheduleEvents = allLearnerSchedules
+      //   ?.map((schedule) => {
+      //     // Skip the current schedule as it's being updated
+      //     if (schedule.id === scheduleId) return null;
 
-  //         const scheduleStartDate = new Date(schedule.date);
-  //         const [scheduleStartHour, scheduleStartMinute] = schedule.start_time
-  //           .split(":")
-  //           .map(Number);
-  //         scheduleStartDate.setHours(scheduleStartHour, scheduleStartMinute, 0);
+      //     const scheduleStartDate = new Date(schedule.date);
+      //     const [scheduleStartHour, scheduleStartMinute] = schedule.start_time
+      //       .split(":")
+      //       .map(Number);
+      //     scheduleStartDate.setHours(scheduleStartHour, scheduleStartMinute, 0);
 
-  //         const scheduleEndDate = new Date(schedule.date);
-  //         const [scheduleEndHour, scheduleEndMinute] = schedule.end_time
-  //           .split(":")
-  //           .map(Number);
-  //         scheduleEndDate.setHours(scheduleEndHour, scheduleEndMinute, 0);
+      //     const scheduleEndDate = new Date(schedule.date);
+      //     const [scheduleEndHour, scheduleEndMinute] = schedule.end_time
+      //       .split(":")
+      //       .map(Number);
+      //     scheduleEndDate.setHours(scheduleEndHour, scheduleEndMinute, 0);
 
-  //         const instructorDetails = instructorsMap.get(
-  //           schedule.instructor_id,
-  //         ) || {
-  //           name: "Unknown Instructor",
-  //           phone: "Contact InLane for details",
-  //           email: "",
-  //         };
+      //     const instructorDetails = instructorsMap.get(
+      //       schedule.instructor_id,
+      //     ) || {
+      //       name: "Unknown Instructor",
+      //       phone: "Contact InLane for details",
+      //       email: "",
+      //     };
 
-  //         return {
-  //           startTime: scheduleStartDate,
-  //           endTime: scheduleEndDate,
-  //           lessonNumber: schedule.Lesson?.number || 0,
-  //           pickupLocation: pickupLocation,
-  //           instructorId: schedule.instructor_id,
-  //           instructorName: instructorDetails.name,
-  //           instructorPhone: instructorDetails.phone,
-  //           instructorEmail: instructorDetails.email,
-  //           isCancellation: false,
-  //         };
-  //       })
-  //       .filter(Boolean);
+      //     return {
+      //       startTime: scheduleStartDate,
+      //       endTime: scheduleEndDate,
+      //       lessonNumber: schedule.Lesson?.number || 0,
+      //       pickupLocation: pickupLocation,
+      //       instructorId: schedule.instructor_id,
+      //       instructorName: instructorDetails.name,
+      //       instructorPhone: instructorDetails.phone,
+      //       instructorEmail: instructorDetails.email,
+      //       isCancellation: false,
+      //     };
+      //   })
+      //   .filter(Boolean);
 
-  //     // Add the new event to the complete list
-  //     const completeEventsList = [...allScheduleEvents, newEvent];
+      // Add the new event to the complete list
+      // const completeEventsList = [...allScheduleEvents, newEvent];
 
-  //     // First, send cancellation event
-  //     if (currentSchedule.Learner.email && oldInstructorDetails.email) {
-  //       try {
-  //         // Send cancellation event with complete list of all events
-  //         await sendMultiEventCalendarInvite(
-  //           currentSchedule.Learner.email,
-  //           oldInstructorDetails.email,
-  //           [cancellationEvent], // Only send the cancellation event
-  //           oldInstructorDetails.name,
-  //           currentSchedule.Learner.name || "Student",
-  //           currentSchedule.Learner.phone,
-  //           {
-  //             emailType: "cancellation",
-  //             batchInfo: " - Instructor Change",
-  //             allEvents: completeEventsList, // Include all events for complete table
-  //           },
-  //           currentSchedule.Learner.id,
-  //         );
+      // First, send cancellation event
+      // if (currentSchedule.Learner.email && oldInstructorDetails.email) {
+      //   try {
+      //     // Send cancellation event with complete list of all events
+      //     await sendMultiEventCalendarInvite(
+      //       currentSchedule.Learner.email,
+      //       oldInstructorDetails.email,
+      //       [cancellationEvent], // Only send the cancellation event
+      //       oldInstructorDetails.name,
+      //       currentSchedule.Learner.name || "Student",
+      //       currentSchedule.Learner.phone,
+      //       {
+      //         emailType: "cancellation",
+      //         batchInfo: " - Instructor Change",
+      //         allEvents: completeEventsList, // Include all events for complete table
+      //       },
+      //       currentSchedule.Learner.id,
+      //     );
 
-  //         console.log("Sent cancellation event for instructor change");
-  //       } catch (error) {
-  //         console.error("Error sending cancellation event:", error);
-  //       }
-  //     }
+      //     console.log("Sent cancellation event for instructor change");
+      //   } catch (error) {
+      //     console.error("Error sending cancellation event:", error);
+      //   }
+      // }
 
-  //     // Then, send new event with the new instructor
-  //     if (currentSchedule.Learner.email && newInstructorDetails.email) {
-  //       try {
-  //         // Send new event with complete list of all events
-  //         const uidMap = await sendMultiEventCalendarInvite(
-  //           currentSchedule.Learner.email,
-  //           newInstructorDetails.email,
-  //           [newEvent], // Only send the new event
-  //           newInstructorDetails.name,
-  //           currentSchedule.Learner.name || "Student",
-  //           currentSchedule.Learner.phone,
-  //           {
-  //             emailType: "new",
-  //             batchInfo: " - New Instructor",
-  //             allEvents: completeEventsList, // Include all events for complete table
-  //           },
-  //           currentSchedule.Learner.id,
-  //         );
+      // Then, send new event with the new instructor
+      // if (currentSchedule.Learner.email && newInstructorDetails.email) {
+      //   try {
+      //     // Send new event with complete list of all events
+      //     const uidMap = await sendMultiEventCalendarInvite(
+      //       currentSchedule.Learner.email,
+      //       newInstructorDetails.email,
+      //       [newEvent], // Only send the new event
+      //       newInstructorDetails.name,
+      //       currentSchedule.Learner.name || "Student",
+      //       currentSchedule.Learner.phone,
+      //       {
+      //         emailType: "new",
+      //         batchInfo: " - New Instructor",
+      //         allEvents: completeEventsList, // Include all events for complete table
+      //       },
+      //       currentSchedule.Learner.id,
+      //     );
 
-  //         // Update the database with the new UID
-  //         if (uidMap && uidMap[lessonData?.number]) {
-  //           await supabase
-  //             .from("Schedule")
-  //             .update({
-  //               calendar_uid: uidMap[lessonData?.number],
-  //               calendar_sequence: 0, // Reset sequence for new UID
-  //             })
-  //             .eq("id", scheduleId);
-  //         }
+      //     // Update the database with the new UID
+      //     if (uidMap && uidMap[lessonData?.number]) {
+      //       await supabase
+      //         .from("Schedule")
+      //         .update({
+      //           calendar_uid: uidMap[lessonData?.number],
+      //           calendar_sequence: 0, // Reset sequence for new UID
+      //         })
+      //         .eq("id", scheduleId);
+      //     }
 
-  //         console.log("Sent new event for instructor change");
-  //       } catch (error) {
-  //         console.error("Error sending new event:", error);
-  //       }
-  //     }
+      //     console.log("Sent new event for instructor change");
+      //   } catch (error) {
+      //     console.error("Error sending new event:", error);
+      //   }
+      // }
 
-  //     // Refetch the active learners to reflect the changes in the UI
-  //     await refetchActiveLearners();
+      // Refetch the active learners to reflect the changes in the UI
+      await refetchActiveLearners();
 
-  //     return true;
-  //   } catch (error) {
-  //     console.error("Error changing instructor:", error);
-  //     throw error;
-  //   } finally {
-  //     // Reset loading state regardless of success or failure
-  //     setIsSendingInvites(false);
-  //     setProcessingScheduleId(null);
-  //   }
-  // };
+      return true;
+    } catch (error) {
+      console.error("Error changing instructor:", error);
+      throw error;
+    } finally {
+      // Reset loading state regardless of success or failure
+      setIsSendingInvites(false);
+      setProcessingScheduleId(null);
+    }
+  };
 
   // Function to handle opening the "Change Instructor" dialog
-  // const handleOpenInstructorChange = (schedule: any) => {
-  //   setSelectedSchedule(schedule);
-  //   setSelectedInstructorId(schedule.instructor_id); // Pre-select the current instructor
-  //   setIsInstructorChangeModalOpen(true);
-  // };
+  const handleOpenInstructorChange = (schedule: any) => {
+    setSelectedSchedule(schedule);
+    setSelectedInstructorId(schedule.instructor_id); // Pre-select the current instructor
+    setIsInstructorChangeModalOpen(true);
+  };
 
   // Function to handle opening the "Reschedule" dialog
   const handleOpenReschedule = async (schedule: any) => {
@@ -1772,13 +1772,13 @@ export default function AdminSchedules() {
                               Change of Instructor instructor can be done by raising a reschedule request
                               */ }
                               <DropdownMenuContent>
-                                 {/* <DropdownMenuItem
+                                 <DropdownMenuItem
                                   onClick={() =>
                                     handleOpenInstructorChange(schedule)
                                   }
                                 >
                                   Change Instructor
-                                </DropdownMenuItem> */}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleOpenReschedule(schedule)}
                                 >
@@ -1900,7 +1900,7 @@ export default function AdminSchedules() {
                         {isSendingInvites ? (
                           <span className="flex items-center">
                             <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                            Sending Invites...
+                            Changing Instructor...
                           </span>
                         ) : (
                           "Save"
