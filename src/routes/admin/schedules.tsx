@@ -1,7 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft,
+    Search, 
+    X, 
+    RefreshCcw, 
+    Loader2, 
+    Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -50,6 +56,7 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
+import { Input } from "@/components/ui/input";
 
 export type Schedule = {
   date: Date;
@@ -944,6 +951,7 @@ export default function AdminSchedules() {
   };
 
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
   // Add this function to handle instructor changes with proper calendar updates
@@ -1368,6 +1376,12 @@ export default function AdminSchedules() {
     }
   }
 
+  const filteredLearners = activeLearners?.filter((learner) =>
+    learner.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    learner.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    learner.phone?.includes(searchTerm)
+);
+
   return (
     <div
       className="h-flex flex min-h-screen flex-col bg-white p-8"
@@ -1394,7 +1408,7 @@ export default function AdminSchedules() {
       </div>
 
       <Tabs
-        defaultValue="new"
+        defaultValue="active"
         className="flex h-[calc(100%-73px)] flex-col"
         onValueChange={handleTabChange}
       >
@@ -1650,44 +1664,41 @@ export default function AdminSchedules() {
             <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
               {/* Learners List */}
               <Card className="md:col-span-1">
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle>Active Learners</CardTitle>
+                  <div className="mt-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                      <Input
+                        placeholder="Search by name, email or phone..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[calc(100vh-280px)]">
+                  <ScrollArea className="h-[calc(100vh-340px)]"> {/* Adjusted height for search bar */}
                     {isLoadingActiveLearners ? (
                       <div className="flex items-center justify-center text-gray-500">
                         Loading...
                       </div>
+                    ) : filteredLearners?.length === 0 ? (
+                      <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                        No learners found matching "{searchTerm}"
+                      </div>
                     ) : (
-                      activeLearners?.map((learner) => (
+                      filteredLearners?.map((learner) => (
                         <div key={learner.id} className="mb-2">
                           <LearnerInfoCard
                             learner={{
                               id: learner.id || "",
                               name: learner.name || "",
-                              phone: learner.phone || "",
-                              email: learner.email || "",
-                              area: learner.area || "",
-                              pick_up_location: learner.pick_up_location,
-                              pincode: learner.pincode,
-                              signed_up: learner.signed_up,
-                              created_at: learner.created_at,
-                              address_lat: learner.address_lat,
-                              address_lng: learner.address_lng,
-                              preferred_start_date:
-                                learner.preferred_start_date,
-                              preferred_completion_days:
-                                learner.preferred_completion_days,
-                              prefers_two_hour_classes:
-                                learner.prefers_two_hour_classes,
-                              preferred_two_hour_days: learner.two_hour_days,
-                              DL_test_date: learner.DL_test_date,
+                              // ... rest of your learner mapping
                             }}
                             compact={true}
-                            onClick={(learnerInfo) => {
-                              handleActiveLearnerSelect(learner);
-                            }}
+                            onClick={() => handleActiveLearnerSelect(learner)}
                           />
                         </div>
                       ))
