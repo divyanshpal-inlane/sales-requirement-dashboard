@@ -2727,7 +2727,7 @@ function CreateSchedule({
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
     );
 
-    // Check if this is a 9+1 course type (learner doesn't have a driver's license)
+    // Check if a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
       .from("Learner")
       .select("*")
@@ -2767,9 +2767,6 @@ function CreateSchedule({
       }
     });
 
-    // FIXED LOGIC: Assign lesson numbers sequentially based on chronological order
-    // Create new schedule array with correctly assigned lesson numbers
-    // console.log("Chronologically sorted", chronologicallySortedUpcomingSlots)
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
         // For 9+1 courses, handle lesson 10 specially (keep this logic as is)

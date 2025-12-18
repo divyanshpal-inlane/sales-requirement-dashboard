@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 
@@ -237,7 +238,6 @@ export default function AdminSchedules() {
   });
   const handleActiveLearnerSelect = (learner: any) => {
     console.log("Selected active Learner:", learner);
-    // If this learner is already selected, open the dialog
     if (selectedRequest?.id === learner.id) {
       handleOpenLearnerInfo({
         id: learner.id || "",
@@ -443,6 +443,10 @@ export default function AdminSchedules() {
     keepPreviousData: true,
   });
 
+  //useEffect(() => {
+    //console.log('Active Learners updated:', activeLearners);
+  //}, [activeLearners]);
+
   const handleTabChange = (value: string) => {
     // Reset selectedRequest when changing tabs
     setSelectedRequest(null);
@@ -462,6 +466,7 @@ export default function AdminSchedules() {
       // setIsSendingInvites(true);
       // setProcessingScheduleId(scheduleId);
 
+      console.log("T2_1 updates:", updates, selectedSchedule);
       // First, fetch the current schedule to get all its details
       const { data: currentSchedule, error: fetchError } = await supabase
         .from("Schedule")
@@ -950,6 +955,53 @@ export default function AdminSchedules() {
     }
   };
 
+  const handleUpdateScheduleSimple = async (
+    scheduleId: string,
+    updates: Partial<Schedule>,
+  ) => {
+    console.log("updates of schedule", updates);
+    try {
+      setIsSendingInvites(true);
+
+      const { error } = await supabase
+        .from("Schedule")
+        .update({
+          ...updates,
+        })
+        .eq("id", scheduleId);
+
+      if (error) throw error; // Pass the Supabase error to the catch block
+
+      toast({
+        title: "Success",
+        description: "The schedule has been updated successfully.",
+        variant: "success",
+      });
+
+      if (refetchActiveLearners) {
+        await refetchActiveLearners();
+      }
+      
+      setIsRescheduleModalOpen(false);
+      window.location.reload();
+      return true;
+    } catch (error: any) {
+      // Log the technical error to the console as requested
+      console.error("Technical Error Updating Schedule:", error);
+
+      toast({
+        title: "Update Failed",
+        // Show the technical error message in the description
+        description: error.message || "An unexpected technical error occurred.",
+        variant: "failure", 
+      });
+      
+      return false;
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
+
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -1227,6 +1279,48 @@ export default function AdminSchedules() {
     }
   };
 
+const handleInstructorChangeSimple = async (
+  scheduleId: string,
+  newInstructorId: string,
+) => {
+  try {
+    setIsSendingInvites(true);
+    setProcessingScheduleId(scheduleId);
+
+    // 1. Update the record
+    // Note: We removed the RPC call from inside the update object
+    const { error } = await supabase
+      .from("Schedule")
+      .update({
+        instructor_id: newInstructorId,
+        calendar_uid: null,
+      })
+      .eq("id", scheduleId);
+
+    if (error) throw error;
+
+    toast({
+      title: "Instructor Updated",
+      description: "The instructor has been changed successfully.",
+      variant: "success",
+    });
+
+    if (refetchActiveLearners) await refetchActiveLearners();
+    return true;
+
+  } catch (error: any) {
+    console.error("Technical Error:", error);
+    toast({
+      title: "Update Failed",
+      description: error.message || "Technical error occurred.",
+      variant: "failure",
+    });
+    return false;
+  } finally {
+    setIsSendingInvites(false);
+    setProcessingScheduleId(null);
+  }
+};
   // Function to handle opening the "Change Instructor" dialog
   const handleOpenInstructorChange = (schedule: any) => {
     setSelectedSchedule(schedule);
@@ -1918,10 +2012,18 @@ export default function AdminSchedules() {
                           }
 
                           try {
-                            await handleInstructorChange(
-                              selectedSchedule.id,
-                              selectedInstructorId,
-                            );
+                            if (selectedSchedule.instructor_id) {
+                              await handleInstructorChange(
+                                selectedSchedule.id,
+                                selectedInstructorId,
+                              );
+
+                            } else {
+                              await handleInstructorChangeSimple(
+                                selectedSchedule.id,
+                                selectedInstructorId,
+                              );
+                            }
                             toast({
                               title: "Success",
                               description: "Instructor updated successfully.",
@@ -1965,196 +2067,185 @@ export default function AdminSchedules() {
                   }
                 }}
               >
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Reschedule Lesson</DialogTitle>
-                  </DialogHeader>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reschedule Lesson</DialogTitle>
+                  <DialogDescription>
+                    Set reschedule date and time
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
                   <div className="space-y-4">
-                    {/* Editable Date Field */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Date
-                        </label>
-                        <input
-                          type="date"
-                          value={selectedSchedule.date}
-                          onChange={(e) =>
-                            setSelectedSchedule((prev) => ({
-                              ...prev,
-                              date: e.target.value,
-                            }))
-                          }
-                          className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        />
-                      </div>
-
-                      {/* Editable Time Field */}
-                      <div className="flex items-center gap-8">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Time
-                        </label>
-                        <div className="flex flex-col">
-                          <Select
-                            value={selectedSchedule.start_time}
-                            onValueChange={(value) => {
-                              const startTime = value;
-                              // Calculate end time (1 hour after start time)
-                              const [hours, minutes] = startTime
-                                .split(":")
-                                .map(Number);
-                              const endHours = (hours + 1) % 24;
-                              const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
-
-                              setSelectedSchedule((prev) => ({
-                                ...prev,
-                                start_time: startTime,
-                                end_time: endTime,
-                              }));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a time" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 24 }).map((_, hour) =>
-                                [0, 30].map((minute) => (
-                                  <SelectItem
-                                    key={`${hour}-${minute}`}
-                                    value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
-                                  >
-                                    {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
-                                  </SelectItem>
-                                )),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <span className="text-gray-500">to</span>
-                        <div className="flex flex-col">
-                          <Select
-                            value={selectedSchedule.end_time}
-                            onValueChange={(value) =>
-                              setSelectedSchedule((prev) => ({
-                                ...prev,
-                                end_time: value,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a time" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 24 }).map((_, hour) =>
-                                [0, 30].map((minute) => (
-                                  <SelectItem
-                                    key={`${hour}-${minute}`}
-                                    value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
-                                  >
-                                    {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
-                                  </SelectItem>
-                                )),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                    {/* Date Field */}
+                    <div className="flex items-center gap-2">
+                      <label className="block text-sm font-medium text-gray-700">Date</label>
+                      <input
+                        type="date"
+                        value={selectedSchedule.date || ""} 
+                        onChange={(e) =>
+                          setSelectedSchedule((prev) => ({
+                            ...prev,
+                            date: e.target.value,
+                          }))
+                        }
+                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsRescheduleModalOpen(false)} // Close modal without saving
-                        disabled={isSendingInvites}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={async () => {
-                          try {
-                            // Save the updated schedule to Supabase
+                    <div className="flex items-center gap-8">
+                      {/* Start Time Field */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                        <Select
+                          value={selectedSchedule.start_time || ""}
+                          onValueChange={(value) => {
+                            const startTime = value;
+                            const [hours, minutes] = startTime.split(":").map(Number);
+                            
+                            // Default end time to 1 hour later
+                            const endHours = (hours + 1) % 24;
+                            const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+                            setSelectedSchedule((prev) => ({
+                              ...prev,
+                              start_time: startTime,
+                              end_time: endTime,
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Start" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }).map((_, hour) =>
+                              [0, 30].map((minute) => {
+                                const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                                return (
+                                  <SelectItem key={`start-${val}`} value={val}>
+                                    {val.substring(0, 5)}
+                                  </SelectItem>
+                                );
+                              })
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <span className="text-gray-500 mt-6">to</span>
+                      
+                      {/* End Time Field (Filtered) */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                        <Select
+                          value={selectedSchedule.end_time || ""}
+                          onValueChange={(value) =>
+                            setSelectedSchedule((prev) => ({
+                              ...prev,
+                              end_time: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="End" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }).map((_, hour) =>
+                              [0, 30].map((minute) => {
+                                const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                                
+                                // Validation Logic: Only show slots where End Time > Start Time
+                                const isPastStart = selectedSchedule.start_time 
+                                  ? val > selectedSchedule.start_time 
+                                  : true;
+
+                                if (!isPastStart) return null;
+
+                                return (
+                                  <SelectItem key={`end-${val}`} value={val}>
+                                    {val.substring(0, 5)}
+                                  </SelectItem>
+                                );
+                              })
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsRescheduleModalOpen(false)}
+                      disabled={isSendingInvites}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Final Validation Check
+                        if (!selectedSchedule.date || !selectedSchedule.start_time || !selectedSchedule.end_time) {
+                          toast({
+                            title: "Missing Info",
+                            description: "Please complete all fields.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+
+                        if (selectedSchedule.end_time <= selectedSchedule.start_time) {
+                          toast({
+                            title: "Invalid Duration",
+                            description: "End time must be after start time.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+
+                        try {
+                          console.log("T2_4 current and selected schedules", selectedSchedule);
+                          if (selectedSchedule.status != "topup") {
                             await handleUpdateSchedule(selectedSchedule.id, {
                               date: selectedSchedule.date,
                               start_time: selectedSchedule.start_time,
                               end_time: selectedSchedule.end_time,
                             });
-
-                            // Update the selected request's schedules to ensure the UI reflects the changes
-                            if (selectedRequest) {
-                              // Fetch the updated schedules for this learner
-                              const { data: updatedSchedules, error } =
-                                await supabase
-                                  .from("Schedule")
-                                  .select(
-                                    `
-                                    id, 
-                                    date, 
-                                    start_time, 
-                                    end_time, 
-                                    instructor_id, 
-                                    lesson_id, 
-                                    course_id, 
-                                    learner_id
-                                  `,
-                                                          )
-                                  .eq("learner_id", selectedSchedule.learner_id)
-                                  .eq("course_id", selectedSchedule.course_id);
-
-                              if (!error && updatedSchedules) {
-                                // Sort the schedules chronologically
-                                const sortedSchedules = updatedSchedules.sort(
-                                  (a, b) => {
-                                    const dateA = new Date(
-                                      `${a.date}T${a.start_time}`,
-                                    );
-                                    const dateB = new Date(
-                                      `${b.date}T${b.start_time}`,
-                                    );
-                                    return dateA.getTime() - dateB.getTime();
-                                  },
-                                );
-
-                                // Update the selected request with the sorted schedules
-                                setSelectedRequest((prev) => ({
-                                  ...prev,
-                                  schedules: sortedSchedules,
-                                }));
-                              }
-                            }
-
-                            toast({
-                              title: "Success",
-                              description: "Schedule updated successfully.",
+                          } else {
+                            await handleUpdateScheduleSimple(selectedSchedule.id, {
+                              date: selectedSchedule.date,
+                              start_time: selectedSchedule.start_time,
+                              end_time: selectedSchedule.end_time,
+                              status: "booked",
                             });
 
-                            // Close the modal after saving
-                            setIsRescheduleModalOpen(false);
-
-                            // Refetch active learners to update the view
-                            await refetchActiveLearners();
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to update the schedule.",
-                              variant: "destructive",
-                            });
                           }
-                        }}
-                        disabled={isSendingInvites}
-                      >
-                        {isSendingInvites ? (
-                          <span className="flex items-center">
-                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                            Sending Invites...
-                          </span>
-                        ) : (
-                          "Save"
-                        )}
-                      </Button>
-                    </div>
+
+                          // Refresh logic remains same...
+                          toast({
+                            title: "Success",
+                            description: "Schedule updated successfully.",
+                            variant: "success"
+                          });
+                          setIsRescheduleModalOpen(false);
+                          await refetchActiveLearners();
+                        } catch (error) {
+                          console.error(error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to update schedule.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={isSendingInvites}
+                    >
+                      {isSendingInvites ? "Saving..." : "Save"}
+                    </Button>
                   </div>
-                </DialogContent>
+                </div>
+              </DialogContent>
               </Dialog>
             )}
           </TabsContent>
