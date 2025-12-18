@@ -258,124 +258,115 @@ function LearnerNotificationCard() {
     }
   };
 
-  const sendInstrReminderLesson = async (scheduleData) => {
-    if (!scheduleData) {
-      alert("No schedules info");
-      return;
-    }
-    console.log("All schedules to be sent", scheduleData);
-    // The max number of schedules to include in one bulk message (field1 to field9)
-    const maxFields = 5;
-    const count = Array.isArray(scheduleData) ? scheduleData.length : 0;
+const sendInstrReminderLesson = async (scheduleData) => {
+  // --- CONFIGURATION ---
+  const isTestMode = true; // Toggle this to false for live production
+  const maxFields = 5;
+  // ---------------------
+
+  if (!scheduleData || scheduleData.length === 0) {
+    console.warn("⚠️ No schedule data provided.");
+    return;
+  }
+
+  console.group("🚀 Instructor Reminder Debugger");
+  console.log(`Status: ${isTestMode ? "🧪 TEST MODE (API Blocked)" : "🌐 LIVE MODE"}`);
+
+  // 1. Grouping Logic
+  const groupedByInstructor = scheduleData.reduce((acc, sch) => {
+    const instId = sch.instructor_id || 'unknown'; 
+    const instName = sch.Instructor?.name || "Unknown Instructor";
     
-    // --- Start Batch Processing ---
+    if (!acc[instId]) {
+      acc[instId] = {
+        name: instName,
+        phone: sch.Instructor?.phone || '',
+        schedules: []
+      };
+    }
+    
+    acc[instId].schedules.push(sch);
+    return acc;
+  }, {});
 
-    // Iterate through the scheduleData in batches of size maxFields
-    for (let batchStart = 0; batchStart < count; batchStart += maxFields) {
-      const batchSchedules = scheduleData.slice(batchStart, batchStart + maxFields);
-      
-      const schedulePacket: Record<string, string> = {};
+  const instructorIds = Object.keys(groupedByInstructor);
 
-      // 1. Build schedulePacket for the current batch
+  // 2. Iterate through each Instructor Group
+  for (const id of instructorIds) {
+    const { name, phone, schedules } = groupedByInstructor[id];
+    const totalBatches = Math.ceil(schedules.length / maxFields);
+
+    console.group(`👤 Processing: ${name}`);
+
+    for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+      const batchSchedules = schedules.slice(batchIdx * maxFields, (batchIdx + 1) * maxFields);
+      const schedulePacket = {};
+
       for (let i = 0; i < maxFields; i++) {
-        const sch = batchSchedules[i]; // Use the schedule from the current batch
-        
+        const sch = batchSchedules[i];
         if (sch) {
-          // Construct the detailed schedule string for this field
-          const startTime = sch.start_time 
-                              ? format(
-                                  parse(sch.start_time.slice(0, 5), 'HH:mm', new Date()), // Parse the 'HH:mm' part of the string
-                                  'h:mm a' // Format to 12-hour time with AM/PM (e.g., "2:30 PM")
-                                )
-                              : startTime;
-          const date = sch.date 
-                  ? format(sch.date, 'dd MMM, yyyy') // Transformation: '2025-12-15' -> '15 Dec, 2025'
-                  : date;
-          const learnerName = sch.Learner?.name ?? "NA";
-          const learnerPhone = sch.Learner?.phone ?? "NA";
-          const pickupLocation = (sch.Learner?.address_lat && sch.Learner?.address_lng)
-            ? `https://maps.google.com/maps?q=${sch.Learner?.address_lat},${sch.Learner?.address_lng}`
-            : "NA";
-          const lessonNumber = sch.Lesson?.number ?? "NA";
+          setSendingInstrLessonReminderStatuses?.((prev) => ({ ...prev, [sch.id]: true }));
+
+          const formatTime = (timeStr) => {
+            if (!timeStr) return "??";
+            return format(parse(timeStr.slice(0, 5), 'HH:mm', new Date()), 'h:mm a');
+          };
+
+          const startTime = formatTime(sch.start_time);
+          const endTime = formatTime(sch.end_time); 
+          const date = sch.date ? format(new Date(sch.date), 'dd MMM') : "NA";
+          const learnerName = sch.Learner?.name ?? "Learner";
+          const lessonDesc = sch.Lesson?.description ?? "Lesson";
           
-          schedulePacket[`field${i + 1}`] = 
-            `${date} | ${startTime} | ${learnerName}'s ${lessonNumber}th lesson with Lane | ${learnerPhone} | ${pickupLocation}`;
-            
-          // Reset status for all schedules in the current batch before trying to send
-          // Assuming setSendingInstrLessonReminderStatuses is meant to track 
-          // the sending status of each individual schedule ID, we only do this 
-          // for schedules actually included in the batch.
-          setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [sch.id]: false }));
+          const lat = sch.Learner?.address_lat;
+          const lng = sch.Learner?.address_lng;
+          
+          const mapLink = (lat && lng) 
+            ? `http://maps.google.com/maps?q=${lat},${lng}` 
+            : "NA";
+
+          schedulePacket[`field${i + 1}`] = `${date} | ${startTime}-${endTime} | ${learnerName} (${lessonDesc}) | ${mapLink}`;
         } else {
-          // Fill remaining fields in the packet with a space/empty line
           schedulePacket[`field${i + 1}`] = " ";
         }
       }
-      
-      // Check if the current batch is empty (shouldn't happen if batchStart < count)
-      if (Object.keys(schedulePacket).length === 0) continue; 
-      
-      const schedulesPacket = JSON.stringify(schedulePacket);
-      console.log(`schedulePacket for batch starting at index ${batchStart}:`, schedulePacket);
 
-      // Send the bulk message for the current batch
-      // We assume all schedules in a batch are for the SAME Instructor
-      // and use the Instructor details from the first schedule in the batch.
-      const firstScheduleInBatch = batchSchedules[0];
-
-      if (!firstScheduleInBatch || !firstScheduleInBatch.Instructor) {
-          console.error(`Missing instructor data for batch starting at index ${batchStart}. Skipping batch.`);
-          continue;
-      }
-      
-      console.log(`Sending Instructor reminder for batch (schedules ${batchStart + 1} to ${batchStart + batchSchedules.length})`);
+      const payload = {
+        message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_FINAL",
+        instructor_name: name,
+        instructor_phone: phone,
+        arg1: schedulePacket.field1,
+        arg2: schedulePacket.field2,
+        arg3: schedulePacket.field3,
+        arg4: schedulePacket.field4,
+        arg5: schedulePacket.field5,
+      };
 
       try {
-          const { error } = await supabase.functions.invoke("send-message", {
-            body: {
-              message_type: "REMINDER_INSTRUCTOR_FOR_CLASS_FINAL",
-              // Pull required data from the Instructor of the first schedule in the batch
-              instructor_name: firstScheduleInBatch.Instructor?.name ?? "",
-              instructor_phone: firstScheduleInBatch.Instructor?.phone ?? "",
-
-              // Map the schedule fields from the current schedulePacket
-              arg1: schedulePacket['field1'] ?? " ",
-              arg2: schedulePacket['field2'] ?? " ",
-              arg3: schedulePacket['field3'] ?? " ",
-              arg4: schedulePacket['field4'] ?? " ",
-              arg5: schedulePacket['field5'] ?? " ",
-              // arg6: schedulePacket['field6'] ?? " ",
-              // arg7: schedulePacket['field7'] ?? " ",
-              // arg8: schedulePacket['field8'] ?? " ",
-              // arg9: schedulePacket['field9'] ?? " ",
-              // arg10 is not used as maxFields is 9
-            },
-          });
-
+        if (isTestMode) {
+          console.log(`🧪 [TEST] Payload for ${name}:`, payload);
+        } else {
+          const { error } = await supabase.functions.invoke("send-message", { body: payload });
           if (error) throw error;
-          
-          // Success Toast for the whole batch
-          const learnersInBatch = batchSchedules.map(sch => sch?.Learner?.name).filter(name => name);
-          toast({
-            title: "Success",
-            description: `Lesson reminder sent to instructor for ${learnersInBatch.length} schedules.`,
-          });
-
-        } catch (err) {
-          console.error("Error sending lesson reminder to instructor for batch:", err);
-          toast({
-            title: "Error",
-            description: "Failed to send lesson reminder to instructor for a batch",
-            variant: "destructive",
-          });
-        } finally {
-          // Update statuses for all schedules in the current batch
-          batchSchedules.filter(sch => sch).forEach(sch => {
-              setSendingInstrLessonReminderStatuses((prev) => ({ ...prev, [sch.id]: false }));
-          });
+          console.log(`✅ [LIVE] Sent to ${name}`);
         }
-    } // --- End Batch Processing ---
-  };
+      } catch (err) {
+        console.error(`❌ Error sending to ${name}:`, err);
+      } finally {
+        batchSchedules.forEach(sch => {
+          setSendingInstrLessonReminderStatuses?.((prev) => ({ ...prev, [sch.id]: false }));
+        });
+      }
+    }
+    console.groupEnd();
+  }
+
+  console.groupEnd();
+  toast({ 
+    title: isTestMode ? "Test Finished" : "Success", 
+    description: `Reminders processed for ${instructorIds.length} instructors.` 
+  });
+};
 
   const checkAtleastOneStatusToValue = (statusList, value) => {
     // console.log(statusList);
