@@ -3356,10 +3356,10 @@ function CreateSchedule({
           return false;
         }
       );
-      const isAtleastOneTentativeForLearnerForSlot = schedulesToChange.some((s) => {
-        if (!checkSlotOverlap(s)) return false;
-        if (s.id === 1207) console.log("showing all ids ", s.id);
-        return ((s.learner_id != learnerId) || (s.isTentative));
+      const isAtleastOneTentativeForLearnerForSlot = otherSchedules.some((s) => {
+        if (!checkSlotOverlap(s) || !s.isTentative) return false;
+        // if (s.id === 1207) console.log("showing all ids ", s.id);
+        return ((s.learner_id === learnerId) || (s.isTentative));
       });
       
       const isOnlyTentativeSchedulesForSlotForLearner = schedulesToChange.every((s) => {
@@ -3368,19 +3368,20 @@ function CreateSchedule({
       });
         // Check if this slot is unavailable due to other schedules
         const hasExistingSchedule =
-      selectedInstructorId &&
-      otherSchedules?.some(
-        (s) =>
-          s.instructor_id === selectedInstructorId &&
-          s.date === dateStr &&
-          // Check if the current time is between the start and end times
-          ((hour === parseInt(s.start_time.split(":")[0]) &&
-            minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
-            (hour === parseInt(s.end_time.split(":")[0]) &&
-              minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > parseInt(s.start_time.split(":")[0]) &&
-              hour < parseInt(s.end_time.split(":")[0]))),
-      );
+            selectedInstructorId &&
+            otherSchedules?.some(
+              (s) =>
+                s.isTentative === false &&
+                s.instructor_id === selectedInstructorId &&
+                s.date === dateStr &&
+                // Check if the current time is between the start and end times
+                ((hour === parseInt(s.start_time.split(":")[0]) &&
+                  minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
+                  (hour === parseInt(s.end_time.split(":")[0]) &&
+                    minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+                  (hour > parseInt(s.start_time.split(":")[0]) &&
+                    hour < parseInt(s.end_time.split(":")[0]))),
+            );
 
     // coloring priority - Past , Learner state, instructor state, learner tentative, learner previous preferences
     if (isInPast) return "bg-gray-400"; // Add a distinct color for past slots
