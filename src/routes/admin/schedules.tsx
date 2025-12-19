@@ -420,8 +420,12 @@ export default function AdminSchedules() {
           Lesson!inner(
             id,
             number
+          ),
+          Instructor!inner(
+            name
           )
         )
+
       `,
         )
         .in(
@@ -1505,10 +1509,23 @@ const handleInstructorChangeSimple = async (
     }
   }
 
-  const filteredLearners = activeLearners?.filter((learner) =>
-    learner.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    learner.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    learner.phone?.includes(searchTerm)
+  console.log(activeLearners);
+  const filteredLearners = activeLearners?.filter((learner) => {
+  const search = searchTerm.toLowerCase();
+
+  // 1. Check Learner's own details
+  const learnerMatches = 
+    learner.name?.toLowerCase().includes(search) ||
+    learner.email?.toLowerCase().includes(search) ||
+    learner.phone?.includes(searchTerm);
+
+  // 2. Check ALL instructors linked to this learner's schedules
+  const instructorMatches = learner.schedules?.some((schedule) => 
+    schedule.Instructor?.name?.toLowerCase().includes(search)
+  );
+
+  return learnerMatches || instructorMatches;
+}
 );
 
   return (
