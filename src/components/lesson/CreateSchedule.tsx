@@ -3356,8 +3356,9 @@ function CreateSchedule({
           return false;
         }
       );
-      const isAtleastOneTentativeForLearnerForSlot = otherSchedules.some((s) => {
-        if (!checkSlotOverlap(s) || !s.isTentative) return false;
+      const isAtleastOneTentativeForLearnerForSlot = existingSchedules?.some((s) => {
+        if (!selectedInstructorId) return false;
+        if (!checkSlotOverlap(s) || !s?.isTentative || s?.instructor_id != selectedInstructorId) return false;
         // if (s.id === 1207) console.log("showing all ids ", s.id);
         return ((s.learner_id === learnerId) || (s.isTentative));
       });
