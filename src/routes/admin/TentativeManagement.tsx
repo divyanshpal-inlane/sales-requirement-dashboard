@@ -374,6 +374,7 @@ export default function TentativeScheduleInfo2() {
         console.log("Seraching", lowerCaseQuery, "on details", details);
         // Check key fields inside the schedule object for a match
         return (
+          details.name?.toLowerCase().includes(lowerCaseQuery) ||
           details.pickup_location?.toLowerCase().includes(lowerCaseQuery) ||
           details.leadName?.toLowerCase().includes(lowerCaseQuery) ||
           // Assuming date or time might be searched (useful if formatted search is implemented)

@@ -736,7 +736,8 @@ function Instructor() {
       const { data: learnerSchedules, error: schedulesError } = await supabase
         .from("Schedule")
         .select("id, status")
-        .eq("learner_id", learnerId);
+        .eq("learner_id", learnerId)
+        .neq("status", "paused");
 
       if (schedulesError) {
         console.error("Error fetching learner schedules:", schedulesError);
@@ -1044,10 +1045,10 @@ function Instructor() {
               </tr>
             </thead>
             <tbody>
-          {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-            const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
-            const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
-                   
+              {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+                const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
+                const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+
                 return (
                   <tr key={timeIndex} className="h-12">
                     <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
@@ -1058,31 +1059,23 @@ function Instructor() {
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                       const day = addDays(currentWeekStart, dayIndex);
 
-                      // Check for instructor schedules
                       const schedule = instructorData?.instructorSchedules?.find(
                         (s) => {
-                          const scheduleDate = new Date(s.date);
-                          const scheduleStart = new Date(
-                            `${s.date}T${s.start_time}`,
-                          );
-                          const scheduleEnd = new Date(
-                            `${s.date}T${s.end_time}`,
-                          );
+                          const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                          const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
                           const currentTime = new Date(day);
                           currentTime.setHours(hour, minute);
 
                           return (
-                            isSameDay(scheduleDate, day) &&
+                            isSameDay(new Date(s.date), day) &&
                             currentTime >= scheduleStart &&
                             currentTime < scheduleEnd
                           );
                         },
                       );
 
-                      // Check for Combined Calendar events
                       const calendarEvent = calendarEvents.find((event) => {
                         if (!event.start?.dateTime) return false;
-
                         const eventStart = new Date(event.start.dateTime);
                         const eventEnd = new Date(event.end.dateTime);
                         const currentTime = new Date(day);
@@ -1107,18 +1100,15 @@ function Instructor() {
 
                       const isScheduleStart =
                         schedule &&
-                        parseInt(schedule.start_time.split(":")[0]) === hour;
-                        // &&
-                        // parseInt(schedule.start_time.split(":")[1]) === minute;
+                        parseInt(schedule.start_time.split(":")[0]) === hour &&
+                        parseInt(schedule.start_time.split(":")[1]) === minute;
 
                       const isGoogleEventStart =
                         calendarEvent &&
-                        new Date(calendarEvent.start.dateTime).getHours() ===
-                          hour &&
-                        new Date(calendarEvent.start.dateTime).getMinutes() ===
-                          minute;
-                      const isEmpty =
-                        !schedule && !calendarEvent && !isUnavailable;
+                        new Date(calendarEvent.start.dateTime).getHours() === hour &&
+                        new Date(calendarEvent.start.dateTime).getMinutes() === minute;
+
+                      const isEmpty = !schedule && !calendarEvent && !isUnavailable;
 
                       return (
                         <td
@@ -1129,7 +1119,9 @@ function Instructor() {
                                 ? "bg-green-200 text-green-800"
                                 : schedule.status === "ongoing"
                                   ? "bg-blue-200 text-blue-800"
-                                  : "bg-primary text-white"
+                                  : schedule.status === "paused"
+                                    ? "bg-amber-200 text-amber-800"
+                                    : "bg-primary text-white"
                               : calendarEvent
                                 ? "bg-orange-200 text-orange-800"
                                 : isUnavailable
@@ -1144,44 +1136,35 @@ function Instructor() {
                             } else if (calendarEvent) {
                               handleEventClick(calendarEvent);
                             } else if (isEmpty) {
-                              handleEmptyCellClick(day, hour); // <-- use day here
+                              handleEmptyCellClick(day, hour, minute);
                             }
                           }}
                         >
-                          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
+                          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-tight">
                             {isScheduleStart ? (
                               <>
-                                <div className="font-semibold">
+                                <div className="font-semibold truncate">
                                   {learnerName}
                                 </div>
                                 <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
+                                <div className="uppercase opacity-80 font-bold tracking-tighter">
+                                  {schedule.status}
+                                </div>
                               </>
                             ) : isGoogleEventStart ? (
                               <>
-                                <div className="font-semibold">
+                                <div className="font-semibold truncate">
                                   {calendarEvent.summary}
                                 </div>
                                 <div>
-                                  {format(
-                                    new Date(calendarEvent.start.dateTime),
-                                    "HH:mm",
-                                  )}{" "}
-                                  -{" "}
-                                  {format(
-                                    new Date(calendarEvent.end.dateTime),
-                                    "HH:mm",
-                                  )}
+                                  {format(new Date(calendarEvent.start.dateTime), "HH:mm")} - {format(new Date(calendarEvent.end.dateTime), "HH:mm")}
                                 </div>
                               </>
                             ) : isEmpty ? (
-                              <div className="text-xs text-gray-400">
+                              <div className="text-gray-400">
                                 <Plus className="mx-auto h-3 w-3" />
                               </div>
-                            ) : isUnavailable && !schedule && !calendarEvent ? (
-                              ""
-                            ) : (
-                              ""
-                            )}
+                            ) : null}
                           </div>
                         </td>
                       );
@@ -1198,183 +1181,103 @@ function Instructor() {
 
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
-    const daySchedules =
-      instructorData?.instructorSchedules.filter(
-          (schedule) => isSameDay(new Date(schedule?.date), currentDate),
-        ) || [];
-    // const dayCalendarEvents = calendarEvents.filter((event) => {
-    //   if (!event.start?.dateTime) return false;
-    //   const eventStart = new Date(event.start.dateTime);
-    //   return isSameDay(eventStart, currentDate);
-    // });
+  // 1. Create a helper for consistent colors
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-200 text-green-800 border-green-300";
+      case "ongoing":
+        return "bg-blue-200 text-blue-800 border-blue-300";
+      case "paused":
+        return "bg-amber-200 text-amber-900 border-amber-400"; // Specific Amber
+      default:
+        return "bg-primary text-white border-transparent";
+    }
+  };
 
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex-1 overflow-y-auto">
-          {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-            const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
-            const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
-                      
-            console.log("Filterng day schedules for time slot:", hour, daySchedules);
-            const timeSlotSchedules = daySchedules.filter(
-              (s) => {
-                        const scheduleDate = new Date(s.date);
-                        const scheduleStart = new Date(
-                          `${s.date}T${s.start_time}`,
-                        );
-                        const scheduleEnd = new Date(
-                          `${s.date}T${s.end_time}`,
-                        );
-                        const currentTime = new Date(currentDate);
-                        currentTime.setHours(hour, minute);
+  const daySchedules = instructorData?.instructorSchedules.filter(
+    (schedule) => isSameDay(new Date(schedule?.date), currentDate)
+  ) || [];
 
-                        return (
-                          isSameDay(scheduleDate, currentDate) &&
-                          currentTime >= scheduleStart &&
-                          currentTime < scheduleEnd
-                        );
-              });
-            // console.log("Day schedules", daySchedules);
-            // console.log("timeSlotSchedules", timeSlotSchedules);
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
+          const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
+          const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
 
-            const timeSlotGoogleEvents = null;
-            // dayCalendarEvents.filter((event) => {
-            //   const eventStart = new Date(event.start.dateTime);
-            //   const eventEnd = new Date(event.end.dateTime);
-            //   const currentTime = new Date(currentDate);
-            //   currentTime.setHours(hour, minute);
+          const timeSlotSchedules = daySchedules.filter((s) => {
+            const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+            const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+            const currentTime = new Date(currentDate);
+            currentTime.setHours(hour, minute);
+            return currentTime >= scheduleStart && currentTime < scheduleEnd;
+          });
 
-            //   return currentTime >= eventStart && currentTime < eventEnd;
-            // });
+          const isUnavailable = isTimeUnavailable(instructorData?.unavailability, currentDate, hour, minute);
+          const isEmpty = !timeSlotSchedules?.length && !isUnavailable;
 
-            const isUnavailable = isTimeUnavailable(
-              instructorData?.unavailability,
-              currentDate,
-              hour,
-              minute,
-            );
+          return (
+            <div key={timeIndex} className="flex min-h-[60px] border-b border-gray-100">
+              <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
+                {format(new Date().setHours(hour, minute), "HH:mm")}
+              </div>
 
-            const isEmpty =
-              !(timeSlotSchedules?.length) &&
-              !(timeSlotGoogleEvents?.length) &&
-              !isUnavailable;
-
-            return (
+              {/* 2. Slot Container Background */}
               <div
-                key={timeIndex}
-                className={`flex min-h-[60px] border-b border-gray-100 ${
-                  isEmpty ? "cursor-pointer hover:bg-blue-50" : ""
+                className={`relative flex-1 p-2 ${
+                  isUnavailable && !timeSlotSchedules.length
+                    ? "bg-gray-400"
+                    : timeSlotSchedules.length > 0
+                    ? getStatusStyles(timeSlotSchedules[0].status) // Applied here
+                    : isEmpty
+                    ? "cursor-pointer hover:bg-blue-50"
+                    : ""
                 }`}
-                onClick={() => {
-                  if (isEmpty) {
-                    handleEmptyCellClick(currentDate, hour, minute);
-                  }
-                }}
               >
-                <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
-                  {format(new Date().setHours(hour, minute), "HH:mm")}
-                </div>
+                {timeSlotSchedules.map((schedule, idx) => {
+                  const [startH, startM] = schedule.start_time.split(":").map(Number);
+                  const isExactStartSlot = startH === hour && startM === minute;
 
-                <div
-                  className={`relative flex-1 p-2 ${
-                    // CONDITION 1: Unavailable AND no schedules or Google events (The initial check is fine, but can be simplified)
-                    isUnavailable &&
-                    !(timeSlotSchedules?.length) &&
-                    !(timeSlotGoogleEvents?.length)
-                      ? "bg-gray-400"
-                      : timeSlotSchedules.length > 0
-                      ? timeSlotSchedules[0].status === "completed"
-                        ? "bg-green-200 text-green-800"
-                        : timeSlotSchedules[0].status === "ongoing"
-                        ? "bg-blue-200 text-blue-800"
-                        : "bg-primary text-white"
-                      : timeSlotGoogleEvents?.length > 0
-                      ? "bg-orange-200 text-orange-800"
-                      : isUnavailable
-                      ? "bg-gray-400 text-red-800"
-                      : isEmpty
-                      ? "cursor-pointer hover:bg-blue-50"
-                      : ""
-                  }`}
->
-                  {/* Instructor Schedules */}
-                  {timeSlotSchedules.map((schedule, idx) => {
+                  if (!isExactStartSlot) return null;
+                  const isScheduleStart = parseInt(schedule.start_time.split(":")[0]) === hour;
+                  if (!isScheduleStart) return null;
 
-                    const isScheduleStart =
-                      parseInt(schedule.start_time.split(":")[0]) === hour;
-                      // remove minute check for 30-min starting schedules
-                      //&&
-                      //parseInt(schedule.start_time.split(":")[1]) === minute;
-
-                    if (!isScheduleStart) return null;
-                    console.log("schedule:", schedule, "matches time hour", hour, timeSlotSchedules);
-                    return (
-                      <div
-                        key={`schedule-${idx}`}
-                        className={`mb-1 cursor-pointer rounded p-2 text-sm ${
-                          schedule.status === "completed"
-                            ? "bg-green-200 text-green-800"
-                            : schedule.status === "ongoing"
-                              ? "bg-blue-200 text-blue-800"
-                              : "bg-primary text-white"
-                        } `}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleScheduleClick(schedule, schedule?.Learner);
-                        }}
-
-                      >
-                        <div className="font-medium">
-                          {schedule?.Learner?.name || "N/A"}
-                        </div>
-                        <div className="text-xs">
-                          {schedule?.start_time.substring(0, 5)} -{" "}
-                          {schedule?.end_time.substring(0, 5)}
-                        </div>
-                        <div className="text-xs capitalize">
-                          Status: {schedule?.status}
-                        </div>
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="mb-1 cursor-pointer p-0 text-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleScheduleClick(schedule, schedule?.Learner);
+                      }}
+                    >
+                      <div className="font-bold underline decoration-1 underline-offset-2">
+                        {schedule?.Learner?.name || "N/A"}
                       </div>
-                    );
-                  })}
-                  {/* Calendar Events */}
-                  {
-                    timeSlotGoogleEvents?.length > 0 && (
-                      <>
-                        <div className="text-center font-semibold">
-                          {timeSlotGoogleEvents[0]?.summary}
-                        </div>
-                        <div className="text-center">
-                          {format(
-                            new Date(timeSlotGoogleEvents[0]?.start?.dateTime),
-                            "HH:mm",
-                          )}{" "}
-                          -{" "}
-                          {format(
-                            new Date(timeSlotGoogleEvents[0]?.end?.dateTime),
-                            "HH:mm",
-                          )}
-                        </div>
-                      </>
-                    )
-                  }
-                  {/* Empty slot indicator */}
-                  {isEmpty ? (
-                    <div className="flex h-full items-center justify-center text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        <span className="text-sm">Click to add event</span>
+                      <div className="text-xs mt-1">
+                        {schedule?.start_time.substring(0, 5)} - {schedule?.end_time.substring(0, 5)}
+                      </div>
+                      <div className="text-[10px] mt-1 font-semibold uppercase tracking-wider">
+                        {schedule?.status}
                       </div>
                     </div>
-                  ): ""}
-                </div>
+                  );
+                })}
+
+                {isEmpty && (
+                  <div className="flex h-full items-center justify-center text-gray-400" onClick={() => handleEmptyCellClick(currentDate, hour, minute)}>
+                    <Plus className="h-4 w-4" />
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const EnhancedCalendarView = () => {
     return (
@@ -1517,10 +1420,9 @@ function Instructor() {
   };
 
   const checkBoundarySchedule = (instructorSchedules, lessonSchedule, checkStart) => {
-    // console.log("[ENTRY] checkBoundarySchedule" | checkStart, lessonSchedule, instructorSchedules);
+    console.log(`[ENTRY] checkBoundarySchedule | checkStart: ${checkStart} | lessonSchedule: ${JSON.stringify(lessonSchedule)} | instructorSchedules: ${JSON.stringify(instructorSchedules)}`);
 
     const currentIndex = instructorSchedules.findIndex(s => s.id === lessonSchedule.id);
-    
     const lessonStartHM = lessonSchedule.start_time.substring(0, 5);
     const lessonEndHM = lessonSchedule.end_time.substring(0, 5);
 
@@ -1532,11 +1434,12 @@ function Instructor() {
         isBoundary = true;
       } else {
         const prev = instructorSchedules[currentIndex - 1];
-        const prevEndHM = prev.end_time.substring(0, 5);
-        
-        // If the previous lesson is a different day OR doesn't end when this starts, it's a boundary
-        const isConsecutive = (prev.date === lessonSchedule.date && prevEndHM === lessonStartHM);
-        isBoundary = !isConsecutive;
+        // Boundary is true if Day, Learner, OR Time do NOT match
+        isBoundary = !(
+          prev.date === lessonSchedule.date &&
+          prev.end_time.substring(0, 5) === lessonStartHM &&
+          prev.learner_id === lessonSchedule.learner_id
+        );
       }
     } else {
       // If it's the last lesson in the sorted list, it is an END boundary
@@ -1544,20 +1447,19 @@ function Instructor() {
         isBoundary = true;
       } else {
         const next = instructorSchedules[currentIndex + 1];
-        const nextStartHM = next.start_time.substring(0, 5);
-        
-        // 4. If the next lesson is a different day OR doesn't start when this ends, it's a boundary
-        const isConsecutive = (next.date === lessonSchedule.date && nextStartHM === lessonEndHM);
-        isBoundary = !isConsecutive;
+        // Boundary is true if Day, Learner, OR Time do NOT match
+        isBoundary = !(
+          next.date === lessonSchedule.date &&
+          next.start_time.substring(0, 5) === lessonEndHM &&
+          next.learner_id === lessonSchedule.learner_id
+        );
       }
     }
 
-    // Exit Log
-    // console.log(`[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`);
-    
+    console.log(`[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`);
+
     return isBoundary;
   };
-
   return (
     <div className="flex h-full w-full flex-col">
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
@@ -1711,8 +1613,7 @@ function Instructor() {
                               Finish Lesson
                             </Button>
                           )}
-                          {scheduleData.status !== "ongoing" &&
-                            scheduleData.status !== "completed" && (
+                          {scheduleData.status === "booked" && (
                               <Button
                                 onClick={() => {
                                   if (checkBoundarySchedule(instructorData.instructorSchedules, scheduleData, true)) {
@@ -1915,9 +1816,7 @@ function Instructor() {
                               />;
                             </div>
                           )}
-                          {lessonSchedule.status !== "ongoing" &&
-                            lessonSchedule.status !== "completed" && 
-                            (
+                          {lessonSchedule.status === "booked" && (
                               <Button
                               onClick={() => {
                                   // to reduce authorizing on continuous lessons

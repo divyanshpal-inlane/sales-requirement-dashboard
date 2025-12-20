@@ -1,10 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO } from "date-fns";
-import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -3313,32 +3318,39 @@ const TentativeAddressInput = memo(({
 });
 
 export const AddTentativeSchedule = () => {
+    const testMode = true;
     const navigate = useNavigate();
     const { toast } = useToast();
     const { instructorId, date, startTime } = useParams();
 
-    // 1. Initial State Helpers
-    const defaultDate = date || format(new Date(), "yyyy-MM-dd");
-    const defaultStart = startTime || "09:00";
-    const defaultEnd = startTime 
-        ? format(addHours(parseISO(`${defaultDate}T${defaultStart}`), 1), "HH:mm") 
-        : "10:00";
+    const { data: courses } = useQuery({
+        queryKey: ["courses"],
+        queryFn: async () => {
+            const { data, error } = await supabase.from("Courses").select("*");
+            if (error) throw error;
+            return data;
+        }
+    });
 
     const [isAddingBulk, setIsAddingBulk] = useState(false);
     const [bulkType, setBulkType] = useState("single");
     const [repeatCount, setRepeatCount] = useState(1);
     const [addLessonNumber, setAddLessonNumber] = useState(false);
 
+    const defaultDate = date || format(new Date(), "yyyy-MM-dd");
+    const defaultStart = startTime || "09:00";
+    const defaultEnd = startTime 
+        ? format(addHours(parseISO(`2024-01-01T${startTime}`), 1), "HH:mm") 
+        : "10:00";
+
     const [newSlotDate, setNewSlotDate] = useState(defaultDate);
-    const [newSlotTimes, setNewSlotTimes] = useState({
-        start: defaultStart,
-        end: defaultEnd
-    });
+    const [newSlotTimes, setNewSlotTimes] = useState({ start: defaultStart, end: defaultEnd });
 
     const [slots, setSlots] = useState([{
         date: defaultDate,
         start_time: defaultStart,
         end_time: defaultEnd,
+        description: "" 
     }]);
 
     const [tentativeDetails, setTentativeDetails] = useState({
@@ -3346,340 +3358,242 @@ export const AddTentativeSchedule = () => {
         phone: "",
         paid_info: "Unpaid",
         pickup_location: "",
-        description: "",
-        leadName: "",
+        leadName: "", 
         address: "",
+        course_id: "none",
         lat: null as number | null,
         lng: null as number | null,
     });
 
-    // 2. Time Logic Handlers
-    const handleStartTimeChange = (newStart: string) => {
-        try {
-            const dummyDate = "2024-01-01";
-            const startParsed = parseISO(`${dummyDate}T${newStart}`);
-            // Automatically set end time to start + 1 hour
-            const updatedEnd = format(addHours(startParsed, 1), "HH:mm");
-            
-            setNewSlotTimes({
-                start: newStart,
-                end: updatedEnd
-            });
-        } catch (e) {
-            setNewSlotTimes(prev => ({ ...prev, start: newStart }));
-        }
-    };
+    const [availabilityMap, setAvailabilityMap] = useState<Record<string, any>>({});
 
-    const handleEndTimeChange = (newEnd: string) => {
-        // If end time is manually set before start time, snap it to start time
-        if (newEnd < newSlotTimes.start) {
-            setNewSlotTimes(prev => ({ ...prev, end: prev.start }));
-        } else {
-            setNewSlotTimes(prev => ({ ...prev, end: newEnd }));
-        }
-    };
-
-    const handleAddressSelect = useCallback((address: string, lat: number | null, lng: number | null) => {
-        setTentativeDetails(prev => ({
-            ...prev,
-            address,
-            pickup_location: address,
-            lat,
-            lng
-        }));
-    }, []);
-
-    const AddTentativeApplyRepeat = () => {
-         if (newSlotTimes.start === newSlotTimes.end) {
-             toast({
-                 title: "Invalid Duration",
-                 description: "Start and End time cannot be the same. Please provide at least a 1-minute duration.",
-                 variant: "destructive"
-             });
-             return;
-         }
-        if (newSlotTimes.start > newSlotTimes.end) {
-            toast({
-                title: "Invalid Time",
-                description: "End time cannot be before start time.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        const baseDateObj = parseISO(newSlotDate);
-        let newSlots = [...slots];
-
-        if (bulkType === "single") {
-            newSlots.push({
-                date: newSlotDate,
-                start_time: newSlotTimes.start,
-                end_time: newSlotTimes.end
-            });
-        } else {
-            for (let i = 0; i < repeatCount; i++) {
-                if (bulkType === "daily") {
-                    newSlots.push({
-                        date: format(addDays(baseDateObj, i), "yyyy-MM-dd"),
-                        start_time: newSlotTimes.start,
-                        end_time: newSlotTimes.end
-                    });
-                } else if (bulkType === "hourly") {
-                    const baseStart = parseISO(`${newSlotDate}T${newSlotTimes.start}`);
-                    const baseEnd = parseISO(`${newSlotDate}T${newSlotTimes.end}`);
-                    newSlots.push({
-                        date: newSlotDate,
-                        start_time: format(addHours(baseStart, i), "HH:mm"),
-                        end_time: format(addHours(baseEnd, i), "HH:mm")
-                    });
-                }
+    useEffect(() => {
+        const newMap: Record<string, any> = {};
+        slots.forEach((slot, index) => {
+            const key = `${slot.date}-${slot.start_time}`;
+            if (testMode) {
+                const isBlocked = index % 2 !== 0; 
+                newMap[key] = {
+                    status: isBlocked ? "conflict" : "available",
+                    reason: isBlocked ? "Alternative Slot Blocked" : null
+                };
+            } else {
+                newMap[key] = { status: "available" };
             }
+        });
+        setAvailabilityMap(newMap);
+    }, [slots, testMode]);
+
+    const stats = useMemo(() => {
+        const total = slots.length;
+        const blocked = slots.filter(s => availabilityMap[`${s.date}-${s.start_time}`]?.status === "conflict").length;
+        return { total, blocked };
+    }, [slots, availabilityMap]);
+
+    const getValidationErrors = () => {
+        const errors = [];
+        const cleanPhone = tentativeDetails.phone.replace(/\D/g, "");
+        if (!tentativeDetails.name.trim()) errors.push("Name is required");
+        if (cleanPhone.length !== 10) errors.push("Phone must be 10 digits");
+        if (!tentativeDetails.leadName.trim()) errors.push("Sales Lead is required");
+        if (stats.blocked > 0) errors.push("Remove blocked slots");
+        return errors;
+    };
+
+    const validationErrors = getValidationErrors();
+    const isFormValid = validationErrors.length === 0;
+
+    const handleStartTimeChange = (newStart: string) => {
+        const startParsed = parseISO(`2024-01-01T${newStart}`);
+        setNewSlotTimes({ start: newStart, end: format(addHours(startParsed, 1), "HH:mm") });
+    };
+
+    const handleApplyBulkSchedules = () => {
+        const baseDateObj = parseISO(newSlotDate);
+        let newSlotsList = [...slots];
+        const count = bulkType === "single" ? 1 : repeatCount;
+
+        for (let i = 0; i < count; i++) {
+            let sDate = newSlotDate;
+            let sStart = newSlotTimes.start;
+            let sEnd = newSlotTimes.end;
+
+            if (bulkType === "daily") {
+                sDate = format(addDays(baseDateObj, i), "yyyy-MM-dd");
+            } else if (bulkType === "hourly") {
+                const bStart = parseISO(`${newSlotDate}T${newSlotTimes.start}`);
+                const bEnd = parseISO(`${newSlotDate}T${newSlotTimes.end}`);
+                sStart = format(addHours(bStart, i), "HH:mm");
+                sEnd = format(addHours(bEnd, i), "HH:mm");
+            }
+
+            newSlotsList.push({ date: sDate, start_time: sStart, end_time: sEnd, description: "" });
         }
-        setSlots(newSlots);
+        setSlots(newSlotsList);
         setIsAddingBulk(false);
     };
 
-    const sortedSlots = useMemo(() => {
-        return [...slots].sort((a, b) => {
-            return new Date(`${a.date}T${a.start_time}`).getTime() - new Date(`${b.date}T${b.start_time}`).getTime();
-        });
-    }, [slots, addLessonNumber, tentativeDetails.description]);
+    const getCourseName = useCallback(() => {
+        if (tentativeDetails.course_id === "none") return "";
+        if (tentativeDetails.course_id === "topup") return "Topup";
+        return courses?.find(c => c.id.toString() === tentativeDetails.course_id)?.name || "";
+    }, [tentativeDetails.course_id, courses]);
+
+    useEffect(() => {
+        const baseName = getCourseName();
+        setSlots(prev => prev.map((slot, idx) => {
+            const lessonLabel = `Lesson ${idx + 1}`;
+            let autoPart = "";
+            if (baseName && addLessonNumber) autoPart = `${baseName} - ${lessonLabel}`;
+            else if (baseName) autoPart = baseName;
+            else if (addLessonNumber) autoPart = lessonLabel;
+
+            const isAuto = !slot.description || slot.description.includes("Lesson") || (baseName && slot.description.includes(baseName));
+            return isAuto ? { ...slot, description: autoPart } : slot;
+        }));
+    }, [tentativeDetails.course_id, addLessonNumber, slots.length, getCourseName]);
 
     const AddTentativeScheduleMutation = useMutation({
         mutationFn: async () => {
-            const schedulesToInsert = sortedSlots.map((slot, index) => ({
+            const schedulesToInsert = slots.map((slot) => ({
                 date: slot.date,
                 start_time: slot.start_time,
                 end_time: slot.end_time,
-                enabled: true,
-                isTentative: true,
                 instructor_id: instructorId,
-                tentative_details: {
-                    ...tentativeDetails,
-                    description: addLessonNumber 
-                        ? `${tentativeDetails.description} Lesson ${index + 1}`
-                        : tentativeDetails.description
+                isTentative: true,
+                // course_id is a real column, but description is not
+                course_id: (tentativeDetails.course_id === "none" || tentativeDetails.course_id === "topup") ? null : parseInt(tentativeDetails.course_id),
+                // FIXED: description moved inside the JSON column
+                tentative_details: { 
+                    ...tentativeDetails, 
+                    description: slot.description 
                 }
             }));
-
-            const { data, error } = await supabase.from("Schedule").insert(schedulesToInsert);
+            const { error } = await supabase.from("Schedule").insert(schedulesToInsert);
             if (error) throw error;
-            return data;
         },
         onSuccess: () => {
-            toast({
-                title: "Tentative schedules",
-                description: `Added ${sortedSlots.length} schedules successfully`,
-                variant: "success",
-            });
+            toast({ title: "Success", description: "Tentative schedules added", variant: "success" });
             navigate('/admin/instructors');
-        },
-        onError: (err) => console.error("❌ Submission Error:", err)
+        }
     });
 
     return (
-        <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <h1 className="text-2xl font-bold text-foreground">Add Tentative Schedules</h1>
-                <Button variant="ghost" size="icon" type="button" onClick={() => navigate('/admin/instructors')}>✕</Button>
-            </div>
-
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Name*</Label>
-                        <Input 
-                            value={tentativeDetails.name || ""} 
-                            onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} 
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Phone Number*</Label>
-                        <Input 
-                            value={tentativeDetails.phone || ""} 
-                            onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} 
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Sales lead name</Label>
-                        <Input 
-                            value={tentativeDetails.leadName || ""} 
-                            onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} 
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Payment Status</Label>
-                        <Select 
-                            value={tentativeDetails.paid_info} 
-                            onValueChange={(v) => setTentativeDetails({...tentativeDetails, paid_info: v})}
-                        >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Unpaid">Unpaid</SelectItem>
-                                <SelectItem value="Half paid">Half paid</SelectItem>
-                                <SelectItem value="Full paid">Full paid</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+        <TooltipProvider>
+            <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h1 className="text-2xl font-bold">Add Tentative Schedules</h1>
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors')}>✕</Button>
                 </div>
 
-                <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                        <Label>Pickup location</Label>
-                        <AddressAutocomplete 
-                            value={tentativeDetails.address}
-                            onChange={handleAddressSelect}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Description / Notes</Label>
-                        <Input 
-                            value={tentativeDetails.description || ""} 
-                            onChange={(e) => setTentativeDetails({...tentativeDetails, description: e.target.value})} 
-                        />
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 pt-1">
-                        <Checkbox 
-                            id="lesson-number" 
-                            checked={addLessonNumber} 
-                            onCheckedChange={(checked) => setAddLessonNumber(!!checked)}
-                        />
-                        <Label htmlFor="lesson-number" className="text-sm font-medium leading-none cursor-pointer">
-                            Add Lesson number
-                        </Label>
-                    </div>
-                </div>
-
-                <div className="pt-6 border-t border-dashed">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Label className="text-sm font-bold">Scheduled Slots Preview</Label>
-                            <div className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-bold">
-                                {slots.length}
-                            </div>
-                        </div>
-                        <Button 
-                            type="button"
-                            onClick={() => setIsAddingBulk(true)}
-                            className="bg-primary text-primary-foreground flex gap-2 h-9"
-                        >
-                            <Plus className="h-4 w-4" /> Add schedules
-                        </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto p-1">
-                        {sortedSlots.map((slot, idx) => (
-                            <div key={idx} className="relative group p-3 rounded-lg border border-primary/20 bg-primary/5 flex flex-col hover:border-primary/40 transition-colors">
-                                <div className="flex items-center text-xs font-bold text-primary mb-1">
-                                    <CalendarIcon className="h-3 w-3 mr-1.5" />
-                                    {format(parseISO(slot.date), "MMM do, yyyy")}
-                                </div>
-                                <div className="flex items-center text-xs text-muted-foreground mb-2">
-                                    <Clock className="h-3 w-3 mr-1.5" />
-                                    {slot.start_time} - {slot.end_time}
-                                </div>
-                                
-                                {(tentativeDetails.description || addLessonNumber) && (
-                                    <div className="text-[10px] text-muted-foreground bg-background/50 p-1.5 rounded border border-border/50 italic">
-                                        {tentativeDetails.description} {addLessonNumber ? `Lesson ${idx + 1}` : ""}
-                                    </div>
-                                )}
-
-                                {slots.length > 1 && (
-                                    <Button 
-                                        variant="outline"
-                                        size="icon"
-                                        type="button"
-                                        onClick={() => setSlots(slots.filter((_, i) => i !== idx))}
-                                        className="absolute -top-2 -right-2 h-6 w-6 bg-background text-destructive shadow-sm border rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-6 border-t">
-                    <Button variant="ghost" type="button" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
-                    <Button 
-                        onClick={() => AddTentativeScheduleMutation.mutate()}
-                        disabled={AddTentativeScheduleMutation.isPending}
-                        className="px-8"
-                    >
-                        {AddTentativeScheduleMutation.isPending ? "Adding..." : `Confirm Tentative Schedules`}
-                    </Button>
-                </div>
-            </div>
-
-            <Dialog open={isAddingBulk} onOpenChange={setIsAddingBulk}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add Tentative Schedules</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Name*</Label><Input value={tentativeDetails.name} onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} /></div>
+                        <div className="space-y-2"><Label>Phone Number*</Label><Input value={tentativeDetails.phone} onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} maxLength={10} /></div>
+                        <div className="space-y-2"><Label>Sales lead name*</Label><Input value={tentativeDetails.leadName} onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} /></div>
                         <div className="space-y-2">
-                            <Label>Action</Label>
-                            <Select value={bulkType} onValueChange={setBulkType}>
+                            <Label>Payment Status</Label>
+                            <Select value={tentativeDetails.paid_info} onValueChange={(v) => setTentativeDetails({...tentativeDetails, paid_info: v})}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Half paid">Half paid</SelectItem><SelectItem value="Full paid">Full paid</SelectItem></SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div className="space-y-2">
+                            <Label>Course Selection</Label>
+                            <Select value={tentativeDetails.course_id} onValueChange={(v) => setTentativeDetails({...tentativeDetails, course_id: v})}>
+                                <SelectTrigger><SelectValue placeholder="Select Course" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="single">Add Single Schedule</SelectItem>
-                                    <SelectItem value="daily">Bulk Add Daily (Consecutive Days)</SelectItem>
-                                    <SelectItem value="hourly">Bulk Add Hourly (Consecutive Hours)</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {courses?.map((c) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                                    <SelectItem value="topup">Topup</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label>{bulkType === "single" ? "Date" : "Start Date"}</Label>
-                            <Input 
-                                type="date"
-                                value={newSlotDate}
-                                onChange={(e) => setNewSlotDate(e.target.value)}
-                            />
+                        <div className="flex items-center space-x-2 pb-3">
+                            <Checkbox id="lesson-number" checked={addLessonNumber} onCheckedChange={(v) => setAddLessonNumber(!!v)} />
+                            <Label htmlFor="lesson-number">Add Lesson number</Label>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Start Time</Label>
-                                <Input 
-                                    type="time" 
-                                    value={newSlotTimes.start} 
-                                    onChange={(e) => handleStartTimeChange(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>End Time</Label>
-                                <Input 
-                                    type="time" 
-                                    value={newSlotTimes.end} 
-                                    min={newSlotTimes.start}
-                                    onChange={(e) => handleEndTimeChange(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        {bulkType !== "single" && (
-                            <div className="space-y-2">
-                                <Label>Number of copies</Label>
-                                <Input 
-                                    type="number" 
-                                    value={repeatCount} 
-                                    onChange={(e) => setRepeatCount(parseInt(e.target.value) || 1)}
-                                    min="1" max="15"
-                                />
-                            </div>
-                        )}
                     </div>
-                    <DialogFooter>
-                        <Button type="button" className="w-full" onClick={AddTentativeApplyRepeat}>
-                            Confirm Schedules
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
+
+                    <div className="pt-6 border-t border-dashed">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <Label className="text-sm font-bold">Scheduled Slots Preview</Label>
+                                <div className="flex items-center gap-2 text-xs font-medium px-2 py-1 bg-muted rounded-full">
+                                    <span>Total: {stats.total}</span>
+                                    {stats.blocked > 0 && <span className="text-destructive font-bold border-l pl-2 border-border">Blocked: {stats.blocked}</span>}
+                                </div>
+                            </div>
+                            <Button type="button" onClick={() => setIsAddingBulk(true)} size="sm" variant="outline"><Plus className="h-4 w-4 mr-2" /> Add schedules</Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {slots.map((slot, idx) => (
+                                <div key={idx} className={`p-3 rounded-lg border flex flex-col gap-2 ${availabilityMap[`${slot.date}-${slot.start_time}`]?.status === "conflict" ? 'border-destructive bg-destructive/5' : 'border-primary/20 bg-primary/5'}`}>
+                                    <div className="flex justify-between items-center text-xs font-bold">
+                                        <div>{format(parseISO(slot.date), "MMM do")} | {slot.start_time} - {slot.end_time}</div>
+                                        <Button variant="ghost" size="icon" onClick={() => setSlots(slots.filter((_, i) => i !== idx))} className="h-6 w-6"><Trash2 className="h-3 w-3" /></Button>
+                                    </div>
+                                    <Input className="h-8 text-[11px] bg-background/50" placeholder="Description (in JSON column)" value={slot.description} onChange={(e) => {
+                                        const updated = [...slots];
+                                        updated[idx].description = e.target.value;
+                                        setSlots(updated);
+                                    }} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-6 border-t">
+                        <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <div className="inline-block">
+                                    <Button onClick={() => AddTentativeScheduleMutation.mutate()} disabled={AddTentativeScheduleMutation.isPending || !isFormValid} className="px-8 font-bold">
+                                        Confirm Tentative Schedules
+                                    </Button>
+                                </div>
+                            </TooltipTrigger>
+                            {!isFormValid && <TooltipContent className="bg-destructive text-white p-2 shadow-lg">
+                                <ul className="text-[10px] list-disc list-inside">
+                                    {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+                                </ul>
+                            </TooltipContent>}
+                        </Tooltip>
+                    </div>
+                </div>
+
+                <Dialog open={isAddingBulk} onOpenChange={setIsAddingBulk}>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Bulk Add Schedules</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Bulk Action</Label>
+                                <Select value={bulkType} onValueChange={setBulkType}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="single">Single Schedule</SelectItem>
+                                        <SelectItem value="daily">Bulk Daily</SelectItem>
+                                        <SelectItem value="hourly">Bulk Hourly</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2"><Label>Date</Label><Input type="date" value={newSlotDate} onChange={(e) => setNewSlotDate(e.target.value)} /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2"><Label>Start Time</Label><Input type="time" value={newSlotTimes.start} onChange={(e) => handleStartTimeChange(e.target.value)} /></div>
+                                <div className="space-y-2"><Label>End Time</Label><Input type="time" value={newSlotTimes.end} onChange={(e) => setNewSlotTimes({...newSlotTimes, end: e.target.value})} /></div>
+                            </div>
+                            {bulkType !== "single" && (
+                                <div className="space-y-2"><Label>Number of copies</Label><Input type="number" value={repeatCount} onChange={(e) => setRepeatCount(parseInt(e.target.value) || 1)} min="1" max="15" /></div>
+                            )}
+                        </div>
+                        <DialogFooter><Button className="w-full" onClick={handleApplyBulkSchedules}>Add to Preview</Button></DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        </TooltipProvider>
     );
 };

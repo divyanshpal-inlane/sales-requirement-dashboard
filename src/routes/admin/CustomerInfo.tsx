@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Filter, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDate } from "@/lib/utils";
+import { formatDate, generateRandomOTP } from "@/lib/utils";
 
 export default function CustomerInfo() {
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function CustomerInfo() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const maxNumLessonsOnHalfInstallment = 1;
 
+  const [activeTopup, setActiveTopup] = useState(null);
 
   // Fetch all learners whose payment status is completed
   // in descending order of signup time
@@ -41,7 +42,7 @@ export default function CustomerInfo() {
           .select(`
             *, 
             payment!inner(created_at, updated_at, status),
-            enrollment!inner(amount, installment1_amount, installment2_amount, installment_mode, payment_status),
+            enrollment!inner(id, amount, installment1_amount, installment2_amount, installment_mode, payment_status),
             schedule_preferences!left(learner_id)
           `)
           .order("created_at", { ascending: false });
@@ -324,6 +325,9 @@ export default function CustomerInfo() {
       learner.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       learner.area?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+  useEffect(() => {
+    console.log("filteredLearners", filteredLearners[0]);
+  }, [filteredLearners]);
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
     
@@ -436,7 +440,10 @@ export default function CustomerInfo() {
                     <div
                       key={learner.id}
                       className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
-                      onClick={() => handleLearnerSelect(
+                    >
+                      <div className="flex items-start gap-4">
+                          <Avatar className="h-12 w-12"
+                          onClick={() => handleLearnerSelect(
                         learner={
                             id: learner.id || "",
                             name: learner.name || "",
@@ -459,9 +466,7 @@ export default function CustomerInfo() {
                             DL_test_date: learner.DL_test_date,
                         }
                       )}
-                    >
-                      <div className="flex items-start gap-4">
-                          <Avatar className="h-12 w-12">
+                      >
                               <AvatarFallback className="bg-primary/10 text-primary">
                                   {getInitials(learner.name)}
                               </AvatarFallback>
@@ -517,6 +522,18 @@ export default function CustomerInfo() {
                                           ).trim() || 'N/A'
                                       }
                                   </p>
+                                  {/* Add Topup Button */}
+                                  <Button 
+                                      onClick={() => {
+                                          console.log("[Calling] Opening topup for:", learner.enrollment?.id);
+                                          setActiveTopup({
+                                              enrollmentId: learner?.enrollment?.id,
+                                          });
+                                      }}
+                                      className="mt-4 w-fit px-6 bg-primary hover:opacity-90 text-primary-foreground"
+                                  >
+                                      Add topup
+                                  </Button>
                               </div>
                               {/* Column 4: Status and Time Ago (FIXED HERE) */}
                               <div className="text-right">
@@ -580,6 +597,13 @@ export default function CustomerInfo() {
                   ))}
                 </div>
               )}
+              {/* Render the Topup Dialog */}
+              {activeTopup && (
+                  <TopupDialog 
+                      enrollmentId={activeTopup.enrollmentId}
+                      onClose={() => setActiveTopup(null)}
+                  />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -595,3 +619,275 @@ export default function CustomerInfo() {
     </div>
   );
 }
+
+const TopupDialog = ({ enrollmentId, onClose }) => {
+    // Data State
+    const [addTopupIsLoading, setAddTopupIsLoading] = useState(true);
+    const [addTopupCourseInfo, setAddTopupCourseInfo] = useState(null);
+    const [addTopupLessons, setAddTopupLessons] = useState([]);
+    const [addTopupLearnerId, setAddTopupLearnerId] = useState(null); 
+    const [addTopupCourseId, setAddTopupCourseId] = useState(null); 
+    const [addTopupLessonId, setAddTopupLessonId] = useState(null); 
+    
+    // Form State
+    const [addTopupSelectedLessonIds, setAddTopupSelectedLessonIds] = useState([]);
+    const [addTopupAmount, setAddTopupAmount] = useState('');
+    const [addTopupIsSubmitting, setAddTopupIsSubmitting] = useState(false);
+    const [addTopupToast, setAddTopupToast] = useState(null);
+
+    useEffect(() => {
+        const addTopupFetchData = async () => {
+            if (!enrollmentId) return;
+            setAddTopupIsLoading(true);
+            try {
+                // 1. Fetch Enrollment to get course_id, learner_id, AND instructor_id
+                const { data: addTopupEnrollData, error: addTopupEnrollErr } = await supabase
+                    .from("enrollment")
+                    .select("course_id, learner_id")
+                    .eq("id", enrollmentId)
+                    .single();
+
+                if (addTopupEnrollErr) throw addTopupEnrollErr;
+
+                const addTopupCourseId = addTopupEnrollData.course_id;
+                
+                // Set the state variables for the submission payload
+                setAddTopupLearnerId(addTopupEnrollData.learner_id);
+
+                // 2. Fetch Course Information
+                const { data: addTopupCourseData, error: addTopupCourseErr } = await supabase
+                    .from("Courses")
+                    .select("id, name, total_lessons")
+                    .eq("id", addTopupCourseId)
+                    .single();
+
+                if (addTopupCourseErr) throw addTopupCourseErr;
+                setAddTopupCourseInfo(addTopupCourseData);
+
+                // 3. Fetch Lessons
+                const { data: addTopupLessonData, error: addTopupLessonErr } = await supabase
+                    .from("Lesson")
+                    .select("*")
+                    .eq("course_id", addTopupCourseId)
+                    .order("number", { ascending: true });
+
+                if (addTopupLessonErr) throw addTopupLessonErr;
+                setAddTopupLessons(addTopupLessonData);
+
+            } catch (err) {
+                console.error("[TopupDialog] Fetching error:", err.message);
+                setAddTopupToast({ type: 'error', message: "Failed to load data" });
+            } finally {
+                setAddTopupIsLoading(false);
+            }
+        };
+        addTopupFetchData();
+    }, [enrollmentId]);
+
+    // Helpers
+    const addTopupAddLesson = (id) => setAddTopupSelectedLessonIds(prev => [...prev, id]);
+    
+    const addTopupRemoveLesson = (id) => {
+        setAddTopupSelectedLessonIds(prev => {
+            const addTopupIdx = prev.lastIndexOf(id);
+            if (addTopupIdx > -1) {
+                const addTopupNewArr = [...prev];
+                addTopupNewArr.splice(addTopupIdx, 1);
+                return addTopupNewArr;
+            }
+            return prev;
+        });
+    };
+
+    const addTopupGetLessonCount = (id) => addTopupSelectedLessonIds.filter(itemId => itemId === id).length;
+
+    // --- Summary Logic (Grouped) ---
+    const addTopupCountMap = addTopupSelectedLessonIds.reduce((acc, id) => {
+        acc[id] = (acc[id] || 0) + 1;
+        return acc;
+    }, {});
+
+    const addTopupGroupedDetails = Object.keys(addTopupCountMap).map(id => {
+        const lesson = addTopupLessons.find(l => l.id.toString() === id.toString());
+        return { ...lesson, count: addTopupCountMap[id] };
+    }).filter(l => l.id);
+
+    const addTopupHasMissingDuration = addTopupGroupedDetails.some(l => l.duration === null || l.duration === undefined);
+    const addTopupTotalDurationHours = addTopupGroupedDetails.reduce((acc, curr) => 
+        acc + ((Number(curr.duration) || 0) * curr.count), 0
+    );
+
+const addTopupHandleSubmit = async (e) => {
+    e.preventDefault();
+    const addTopupNumericAmount = parseFloat(addTopupAmount);
+
+    // 1. Validations
+    if (addTopupSelectedLessonIds.length === 0) {
+        setAddTopupToast({ type: 'error', message: "Please select at least one lesson." });
+        return;
+    }
+    if (isNaN(addTopupNumericAmount) || addTopupNumericAmount < 0) {
+        setAddTopupToast({ type: 'error', message: "Invalid amount" });
+        return;
+    }
+
+    setAddTopupIsSubmitting(true);
+
+    // 2. Map through the selected lesson IDs (One record per lesson)
+    const recordsToInsert = addTopupSelectedLessonIds.map((lessonId) => ({
+        enabled: true,
+        learner_id: addTopupLearnerId,
+        course_id: addTopupCourseInfo?.id, // Use the ID from your course info state
+        lesson_id: lessonId,
+        status: 'topup',
+        otp: generateRandomOTP(),
+        otp_end: generateRandomOTP()
+    }));
+
+    console.log(`[TopupDialog] Inserting ${recordsToInsert.length} records into Schedule:`, recordsToInsert);
+
+    try {
+        // 3. Perform Bulk Insert
+        const { error: addTopupError } = await supabase
+            .from('Schedule')
+            .insert(recordsToInsert);
+
+        if (addTopupError) throw addTopupError;
+
+        // SUCCESS UI
+        setAddTopupToast({ 
+            type: 'success', 
+            message: `Successfully added ${addTopupSelectedLessonIds.length} topup lesson(s)!` 
+        });
+
+        setTimeout(() => {
+            onClose();
+        }, 1500);
+
+    } catch (err) {
+        console.error("[TopupDialog] Submission error:", err.message);
+        setAddTopupToast({ type: 'error', message: err.message });
+    } finally {
+        setAddTopupIsSubmitting(false);
+    }
+};
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-gray-900 font-sans">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative overflow-hidden flex flex-col max-h-[90vh]">
+                
+                {addTopupToast && (
+                    <div className={`p-3 text-white text-center text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300 ${
+                        addTopupToast.type === 'success' ? 'bg-primary' : 'bg-destructive'
+                    }`}>
+                        {addTopupToast.message}
+                    </div>
+                )}
+
+                <div className="p-5 border-b flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h2 className="text-xl font-bold">Add Lesson Topup</h2>
+                        <p className="text-sm font-semibold text-primary uppercase">
+                            {addTopupIsLoading ? "Fetching details..." : addTopupCourseInfo?.name}
+                        </p>
+                    </div>
+                    <Button variant="ghost" onClick={onClose} className="text-2xl h-8 w-8 p-0">×</Button>
+                </div>
+
+                {addTopupIsLoading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-10 space-y-3">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm text-gray-500 font-medium">Loading...</span>
+                    </div>
+                ) : (
+                    <form onSubmit={addTopupHandleSubmit} className="p-6 overflow-y-auto space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Available Lessons</label>
+                            <div className="max-h-56 overflow-y-auto border rounded-lg divide-y bg-gray-50">
+                                {addTopupLessons.map(addTopupLesson => {
+                                    const addTopupCount = addTopupGetLessonCount(addTopupLesson.id);
+                                    const addTopupDispDuration = addTopupLesson.duration ? `${addTopupLesson.duration} hours` : "N/A";
+                                    return (
+                                        <div key={addTopupLesson.id} className="p-3 flex justify-between items-start bg-white gap-2">
+                                            <div className="flex flex-col gap-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-gray-800">Lesson {addTopupLesson.number}</span>
+                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border tracking-tight">{addTopupDispDuration}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 line-clamp-2 italic leading-tight">
+                                                    {addTopupLesson.description || "No description provided"}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                {addTopupCount > 0 && (
+                                                    <Button type="button" size="sm" variant="outline" className="h-7 w-7 p-0 border-primary text-primary" onClick={() => addTopupRemoveLesson(addTopupLesson.id)}>-</Button>
+                                                )}
+                                                {addTopupCount > 0 && <span className="text-sm font-bold w-4 text-center">{addTopupCount}</span>}
+                                                <Button type="button" size="sm" className="h-7 w-7 p-0 bg-primary" onClick={() => addTopupAddLesson(addTopupLesson.id)}>+</Button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Grouped Summary Section */}
+                        {addTopupSelectedLessonIds.length > 0 && (
+                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+                                <label className="text-[10px] font-bold text-primary uppercase block tracking-widest border-b border-primary/20 pb-1">Selection Summary</label>
+                                <ul className="text-xs space-y-2 text-gray-700 max-h-32 overflow-y-auto">
+                                    {addTopupGroupedDetails.map((addTopupItem) => (
+                                        <li key={addTopupItem.id} className="flex justify-between items-center bg-white/50 p-1 px-2 rounded border border-primary/5">
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-gray-800">Lesson {addTopupItem.number}</span>
+                                                <span className="text-[10px] text-gray-500 italic truncate w-40">{addTopupItem.description || "Topup"}</span>
+                                            </div>
+                                            <span className="text-primary font-bold">x{addTopupItem.count}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="pt-2 border-t border-primary/30 flex flex-col gap-1">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-gray-600 uppercase">Total Count:</span>
+                                        <span className="font-black text-primary">{addTopupSelectedLessonIds.length} Lessons</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-gray-600 uppercase">Total Duration:</span>
+                                        <span className="font-black text-primary">
+                                            {addTopupHasMissingDuration ? "N/A" : `${addTopupTotalDurationHours} hours`}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Charge Amount</label>
+                            <Input 
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                                value={addTopupAmount}
+                                onChange={(e) => setAddTopupAmount(e.target.value)}
+                                disabled={addTopupIsSubmitting}
+                                className="focus-visible:ring-primary font-black text-lg h-12"
+                            />
+                        </div>
+
+                        <div className="flex gap-3 sticky bottom-0 bg-white pt-2">
+                            <Button variant="outline" type="button" onClick={onClose} className="flex-1 h-11 font-medium" disabled={addTopupIsSubmitting}>Cancel</Button>
+                            <Button 
+                                type="submit" 
+                                disabled={addTopupIsSubmitting || addTopupSelectedLessonIds.length === 0} 
+                                className="flex-1 h-11 bg-primary hover:opacity-90 text-primary-foreground tracking-widest transition-all font-normal"
+                            >
+                                {addTopupIsSubmitting ? 'Sending...' : 'Confirm Topup'}
+                            </Button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+};

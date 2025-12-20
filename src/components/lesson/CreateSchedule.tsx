@@ -452,7 +452,8 @@ export default function CreateScheduleWithInstructor({
         .select("*, learner:learner_id(name, area)")
         .eq("instructor_id", selectedInstructorId)
         .gte("date", start)
-        .lte("date", end);
+        .lte("date", end)
+        .neq("status", "paused");
 
       if (error) throw error;
       return data;
@@ -1611,7 +1612,8 @@ function CreateSchedule({
         .gte("date", prevWindowStart.toISOString().split("T")[0])
         .lte("date", prevWindowEnd.toISOString().split("T")[0])
         .order("date", { ascending: false })
-        .order("end_time", { ascending: false });
+        .order("end_time", { ascending: false })
+        .neq("status", "paused");
 
       if (error) throw error;
       // console.log("Fetched instructor schedules in time range:", prevWindowStart, prevWindowEnd, data);
@@ -1719,7 +1721,8 @@ function CreateSchedule({
           "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
         )
         .gte("date", startDate.toISOString().split("T")[0])
-        .lte("date", endDate.toISOString().split("T")[0]);
+        .lte("date", endDate.toISOString().split("T")[0])
+        .neq("status", "paused");
 
       if (error) throw error;
       return data;
@@ -1732,13 +1735,21 @@ function CreateSchedule({
       // const endDate = addDays(startDate, 9);
       const { data, error } = await supabase
         .from("Schedule")
-        .select(
-          "*,calendar_uid,calendar_sequence, Learner(name, area, pick_up_location, address_lat, address_lng)",
-        )
+        .select(`
+          *,
+          Learner (
+            name, 
+            area, 
+            pick_up_location, 
+            address_lat, 
+            address_lng
+          )
+        `)
         .eq("learner_id", learnerId)
-        .neq("status", "completed");
+        .not("status", "in", '("completed","paused")');
 
       if (error) throw error;
+      console.log(data);
       return data;
     },
   });
@@ -2716,7 +2727,7 @@ function CreateSchedule({
       (l) => (l.number ?? 0) > maxCompletedLessonNumber,
     );
 
-    // Check if this is a 9+1 course type (learner doesn't have a driver's license)
+    // Check if a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
       .from("Learner")
       .select("*")
@@ -2756,9 +2767,6 @@ function CreateSchedule({
       }
     });
 
-    // FIXED LOGIC: Assign lesson numbers sequentially based on chronological order
-    // Create new schedule array with correctly assigned lesson numbers
-    // console.log("Chronologically sorted", chronologicallySortedUpcomingSlots)
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
         // For 9+1 courses, handle lesson 10 specially (keep this logic as is)
@@ -3348,10 +3356,11 @@ function CreateSchedule({
           return false;
         }
       );
-      const isAtleastOneTentativeForLearnerForSlot = schedulesToChange.some((s) => {
-        if (!checkSlotOverlap(s)) return false;
-        if (s.id === 1207) console.log("showing all ids ", s.id);
-        return ((s.learner_id != learnerId) || (s.isTentative));
+      const isAtleastOneTentativeForLearnerForSlot = existingSchedules?.some((s) => {
+        if (!selectedInstructorId) return false;
+        if (!checkSlotOverlap(s) || !s?.isTentative || s?.instructor_id != selectedInstructorId) return false;
+        // if (s.id === 1207) console.log("showing all ids ", s.id);
+        return ((s.learner_id === learnerId) || (s.isTentative));
       });
       
       const isOnlyTentativeSchedulesForSlotForLearner = schedulesToChange.every((s) => {
@@ -3360,19 +3369,20 @@ function CreateSchedule({
       });
         // Check if this slot is unavailable due to other schedules
         const hasExistingSchedule =
-      selectedInstructorId &&
-      otherSchedules?.some(
-        (s) =>
-          s.instructor_id === selectedInstructorId &&
-          s.date === dateStr &&
-          // Check if the current time is between the start and end times
-          ((hour === parseInt(s.start_time.split(":")[0]) &&
-            minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
-            (hour === parseInt(s.end_time.split(":")[0]) &&
-              minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > parseInt(s.start_time.split(":")[0]) &&
-              hour < parseInt(s.end_time.split(":")[0]))),
-      );
+            selectedInstructorId &&
+            otherSchedules?.some(
+              (s) =>
+                s.isTentative === false &&
+                s.instructor_id === selectedInstructorId &&
+                s.date === dateStr &&
+                // Check if the current time is between the start and end times
+                ((hour === parseInt(s.start_time.split(":")[0]) &&
+                  minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
+                  (hour === parseInt(s.end_time.split(":")[0]) &&
+                    minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+                  (hour > parseInt(s.start_time.split(":")[0]) &&
+                    hour < parseInt(s.end_time.split(":")[0]))),
+            );
 
     // coloring priority - Past , Learner state, instructor state, learner tentative, learner previous preferences
     if (isInPast) return "bg-gray-400"; // Add a distinct color for past slots

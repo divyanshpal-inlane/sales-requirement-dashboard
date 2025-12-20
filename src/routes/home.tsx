@@ -429,6 +429,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                   className="w-full"
                   disabled={
                       lessonSchedule?.status?.toUpperCase() === "COMPLETED"
+                      || lessonSchedule?.status?.toUpperCase() === "PAUSED"
                       || !enabledLessonForInstallmentStatus(
                         LessonData?.upcomingLesson?.number,
                       )
@@ -444,7 +445,9 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                               LessonData?.upcomingLesson?.number
                           )
                       ? "Lesson locked"
-                    :"Start Lesson"
+                    : lessonSchedule?.status?.toUpperCase() === "PAUSED"
+                      ? "Lesson Paused"
+                      : "Start Lesson"
                   }
                 </Button>
               </TooltipTrigger>

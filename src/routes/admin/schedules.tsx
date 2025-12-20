@@ -1,7 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft,
+    Search, 
+    X, 
+    RefreshCcw, 
+    Loader2, 
+    Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 
@@ -50,6 +57,7 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
+import { Input } from "@/components/ui/input";
 
 export type Schedule = {
   date: Date;
@@ -230,7 +238,6 @@ export default function AdminSchedules() {
   });
   const handleActiveLearnerSelect = (learner: any) => {
     console.log("Selected active Learner:", learner);
-    // If this learner is already selected, open the dialog
     if (selectedRequest?.id === learner.id) {
       handleOpenLearnerInfo({
         id: learner.id || "",
@@ -413,8 +420,12 @@ export default function AdminSchedules() {
           Lesson!inner(
             id,
             number
+          ),
+          Instructor!inner(
+            name
           )
         )
+
       `,
         )
         .in(
@@ -436,6 +447,10 @@ export default function AdminSchedules() {
     keepPreviousData: true,
   });
 
+  //useEffect(() => {
+    //console.log('Active Learners updated:', activeLearners);
+  //}, [activeLearners]);
+
   const handleTabChange = (value: string) => {
     // Reset selectedRequest when changing tabs
     setSelectedRequest(null);
@@ -455,6 +470,7 @@ export default function AdminSchedules() {
       // setIsSendingInvites(true);
       // setProcessingScheduleId(scheduleId);
 
+      console.log("T2_1 updates:", updates, selectedSchedule);
       // First, fetch the current schedule to get all its details
       const { data: currentSchedule, error: fetchError } = await supabase
         .from("Schedule")
@@ -943,288 +959,378 @@ export default function AdminSchedules() {
     }
   };
 
+  const handleUpdateScheduleSimple = async (
+    scheduleId: string,
+    updates: Partial<Schedule>,
+  ) => {
+    console.log("updates of schedule", updates);
+    try {
+      setIsSendingInvites(true);
+
+      const { error } = await supabase
+        .from("Schedule")
+        .update({
+          ...updates,
+        })
+        .eq("id", scheduleId);
+
+      if (error) throw error; // Pass the Supabase error to the catch block
+
+      toast({
+        title: "Success",
+        description: "The schedule has been updated successfully.",
+        variant: "success",
+      });
+
+      if (refetchActiveLearners) {
+        await refetchActiveLearners();
+      }
+      
+      setIsRescheduleModalOpen(false);
+      window.location.reload();
+      return true;
+    } catch (error: any) {
+      // Log the technical error to the console as requested
+      console.error("Technical Error Updating Schedule:", error);
+
+      toast({
+        title: "Update Failed",
+        // Show the technical error message in the description
+        description: error.message || "An unexpected technical error occurred.",
+        variant: "failure", 
+      });
+      
+      return false;
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
+
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
   // Add this function to handle instructor changes with proper calendar updates
-  // const handleInstructorChange = async (
-  //   scheduleId: string,
-  //   newInstructorId: string,
-  // ) => {
-  //   try {
-  //     // Set loading state
-  //     setIsSendingInvites(true);
-  //     setProcessingScheduleId(scheduleId);
+  const handleInstructorChange = async (
+    scheduleId: string,
+    newInstructorId: string,
+  ) => {
+    try {
+      // Set loading state
+      setIsSendingInvites(true);
+      setProcessingScheduleId(scheduleId);
 
-  //     // First, fetch the current schedule to get all its details
-  //     const { data: currentSchedule, error: fetchError } = await supabase
-  //       .from("Schedule")
-  //       .select(
-  //         "*, Learner(id, name, email, pick_up_location, address_lat, address_lng,phone)",
-  //       )
-  //       .eq("id", scheduleId)
-  //       .single();
+      // First, fetch the current schedule to get all its details
+      const { data: currentSchedule, error: fetchError } = await supabase
+        .from("Schedule")
+        .select(
+          "*, Learner(id, name, email, pick_up_location, address_lat, address_lng,phone)",
+        )
+        .eq("id", scheduleId)
+        .single();
 
-  //     if (fetchError) {
-  //       throw new Error(fetchError.message);
-  //     }
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
 
-  //     // Fetch instructor details for both old and new instructors
-  //     const instructorIds = [currentSchedule.instructor_id, newInstructorId];
-  //     const { data: instructorsData, error: instructorsError } = await supabase
-  //       .from("Instructor")
-  //       .select("id_instructor, name, email, phone")
-  //       .in("id_instructor", instructorIds);
+      // Fetch instructor details for both old and new instructors
+      const instructorIds = [currentSchedule.instructor_id, newInstructorId];
+      const { data: instructorsData, error: instructorsError } = await supabase
+        .from("Instructor")
+        .select("id_instructor, name, email, phone")
+        .in("id_instructor", instructorIds);
 
-  //     if (instructorsError) {
-  //       throw new Error(
-  //         `Error fetching instructors: ${instructorsError.message}`,
-  //       );
-  //     }
+      if (instructorsError) {
+        throw new Error(
+          `Error fetching instructors: ${instructorsError.message}`,
+        );
+      }
 
-  //     // Create maps for easy lookup
-  //     const instructorsMap = new Map();
-  //     instructorsData?.forEach((instructor) => {
-  //       instructorsMap.set(instructor.id_instructor, instructor);
-  //     });
+      // Create maps for easy lookup
+      const instructorsMap = new Map();
+      instructorsData?.forEach((instructor) => {
+        instructorsMap.set(instructor.id_instructor, instructor);
+      });
 
-  //     // Get lesson details
-  //     const { data: lessonData, error: lessonError } = await supabase
-  //       .from("Lesson")
-  //       .select("number, id")
-  //       .eq("id", currentSchedule.lesson_id)
-  //       .single();
+      // Get lesson details
+      const { data: lessonData, error: lessonError } = await supabase
+        .from("Lesson")
+        .select("number, id")
+        .eq("id", currentSchedule.lesson_id)
+        .single();
 
-  //     if (lessonError) {
-  //       throw new Error(`Error fetching lesson: ${lessonError.message}`);
-  //     }
+      if (lessonError) {
+        throw new Error(`Error fetching lesson: ${lessonError.message}`);
+      }
 
-  //     // Determine pickup location
-  //     const pickupLocation =
-  //       currentSchedule.Learner.pick_up_location ||
-  //       (currentSchedule.Learner.address_lat &&
-  //       currentSchedule.Learner.address_lng
-  //         ? `${currentSchedule.Learner.address_lat},${currentSchedule.Learner.address_lng}`
-  //         : "To be confirmed");
+      // Determine pickup location
+      const pickupLocation =
+        currentSchedule.Learner.pick_up_location ||
+        (currentSchedule.Learner.address_lat &&
+        currentSchedule.Learner.address_lng
+          ? `${currentSchedule.Learner.address_lat},${currentSchedule.Learner.address_lng}`
+          : "To be confirmed");
 
-  //     // STEP 1: PREPARE CANCELLATION EVENT
-  //     // ---------------------------------
+      // STEP 1: PREPARE CANCELLATION EVENT
+      // ---------------------------------
 
-  //     // Create start and end date objects for the current schedule
-  //     const startDate = new Date(currentSchedule.date);
-  //     const [startHour, startMinute] = currentSchedule.start_time
-  //       .split(":")
-  //       .map(Number);
-  //     startDate.setHours(startHour, startMinute, 0);
+      // Create start and end date objects for the current schedule
+      const startDate = new Date(currentSchedule.date);
+      const [startHour, startMinute] = currentSchedule.start_time
+        .split(":")
+        .map(Number);
+      startDate.setHours(startHour, startMinute, 0);
 
-  //     const endDate = new Date(currentSchedule.date);
-  //     const [endHour, endMinute] = currentSchedule.end_time
-  //       .split(":")
-  //       .map(Number);
-  //     endDate.setHours(endHour, endMinute, 0);
+      const endDate = new Date(currentSchedule.date);
+      const [endHour, endMinute] = currentSchedule.end_time
+        .split(":")
+        .map(Number);
+      endDate.setHours(endHour, endMinute, 0);
 
-  //     // Get old instructor details
-  //     const oldInstructorId = currentSchedule.instructor_id;
-  //     const oldInstructorDetails = instructorsMap.get(oldInstructorId) || {
-  //       name: "Previous Instructor",
-  //       phone: "Contact InLane for details",
-  //       email: "",
-  //     };
+      // Get old instructor details
+      const oldInstructorId = currentSchedule.instructor_id;
+      const oldInstructorDetails = instructorsMap.get(oldInstructorId) || {
+        name: "Previous Instructor",
+        phone: "Contact InLane for details",
+        email: "",
+      };
 
-  //     // Create cancellation event
-  //     const cancellationEvent = {
-  //       startTime: startDate,
-  //       endTime: endDate,
-  //       lessonNumber: lessonData?.number || 0,
-  //       pickupLocation: pickupLocation,
-  //       uid: currentSchedule.calendar_uid || `temp-${Date.now()}-${scheduleId}`,
-  //       sequence: (currentSchedule.calendar_sequence || 0) + 1,
-  //       isCancellation: true,
-  //       instructorId: oldInstructorId,
-  //       instructorName: oldInstructorDetails.name,
-  //       instructorPhone: oldInstructorDetails.phone,
-  //       instructorEmail: oldInstructorDetails.email,
-  //     };
+      // Create cancellation event
+      const cancellationEvent = {
+        startTime: startDate,
+        endTime: endDate,
+        lessonNumber: lessonData?.number || 0,
+        pickupLocation: pickupLocation,
+        uid: currentSchedule.calendar_uid || `temp-${Date.now()}-${scheduleId}`,
+        sequence: (currentSchedule.calendar_sequence || 0) + 1,
+        isCancellation: true,
+        instructorId: oldInstructorId,
+        instructorName: oldInstructorDetails.name,
+        instructorPhone: oldInstructorDetails.phone,
+        instructorEmail: oldInstructorDetails.email,
+      };
 
-  //     // STEP 2: UPDATE THE DATABASE
-  //     // ---------------------------
+      // STEP 2: UPDATE THE DATABASE
+      // ---------------------------
 
-  //     // Update the schedule with the new instructor ID
-  //     const { error: updateError } = await supabase
-  //       .from("Schedule")
-  //       .update({
-  //         instructor_id: newInstructorId,
-  //         calendar_sequence: (currentSchedule.calendar_sequence || 0) + 1,
-  //         // Reset calendar_uid to ensure a new one is generated
-  //         calendar_uid: null,
-  //       })
-  //       .eq("id", scheduleId);
+      // Update the schedule with the new instructor ID
+      const { error: updateError } = await supabase
+        .from("Schedule")
+        .update({
+          instructor_id: newInstructorId,
+          calendar_sequence: (currentSchedule.calendar_sequence || 0) + 1,
+          // Reset calendar_uid to ensure a new one is generated
+          calendar_uid: null,
+        })
+        .eq("id", scheduleId);
 
-  //     if (updateError) {
-  //       throw new Error(`Error updating schedule: ${updateError.message}`);
-  //     }
+      if (updateError) {
+        throw new Error(`Error updating schedule: ${updateError.message}`);
+      }
 
-  //     // STEP 3: PREPARE NEW EVENT
-  //     // ------------------------
+      // STEP 3: PREPARE NEW EVENT
+      // ------------------------
 
-  //     // Get new instructor details
-  //     const newInstructorDetails = instructorsMap.get(newInstructorId) || {
-  //       name: "New Instructor",
-  //       phone: "Contact InLane for details",
-  //       email: "",
-  //     };
+      // Get new instructor details
+      // const newInstructorDetails = instructorsMap.get(newInstructorId) || {
+      //   name: "New Instructor",
+      //   phone: "Contact InLane for details",
+      //   email: "",
+      // };
 
-  //     // Create new event with the new instructor
-  //     const newEvent = {
-  //       startTime: startDate,
-  //       endTime: endDate,
-  //       lessonNumber: lessonData?.number || 0,
-  //       pickupLocation: pickupLocation,
-  //       uid: undefined, // Let the calendar function generate a new UID
-  //       sequence: 0, // Reset sequence for new event
-  //       isCancellation: false,
-  //       instructorId: newInstructorId,
-  //       instructorName: newInstructorDetails.name,
-  //       instructorPhone: newInstructorDetails.phone,
-  //       instructorEmail: newInstructorDetails.email,
-  //     };
+      // // Create new event with the new instructor
+      // const newEvent = {
+      //   startTime: startDate,
+      //   endTime: endDate,
+      //   lessonNumber: lessonData?.number || 0,
+      //   pickupLocation: pickupLocation,
+      //   uid: undefined, // Let the calendar function generate a new UID
+      //   sequence: 0, // Reset sequence for new event
+      //   isCancellation: false,
+      //   instructorId: newInstructorId,
+      //   instructorName: newInstructorDetails.name,
+      //   instructorPhone: newInstructorDetails.phone,
+      //   instructorEmail: newInstructorDetails.email,
+      // };
 
-  //     // In handleInstructorChange function:
+      // In handleInstructorChange function:
 
-  //     // STEP 4: SEND CALENDAR INVITATIONS
-  //     // --------------------------------
+      // STEP 4: SEND CALENDAR INVITATIONS
+      // --------------------------------
 
-  //     // Create a complete list of all events for this learner
-  //     const { data: allLearnerSchedules } = await supabase
-  //       .from("Schedule")
-  //       .select("*, Lesson(id, number)")
-  //       .eq("learner_id", currentSchedule.learner_id)
-  //       .eq("course_id", currentSchedule.course_id);
+      // Create a complete list of all events for this learner
+      // const { data: allLearnerSchedules } = await supabase
+      //   .from("Schedule")
+      //   .select("*, Lesson(id, number)")
+      //   .eq("learner_id", currentSchedule.learner_id)
+      //   .eq("course_id", currentSchedule.course_id);
 
-  //     // Format all schedules as events for display in emails
-  //     const allScheduleEvents = allLearnerSchedules
-  //       ?.map((schedule) => {
-  //         // Skip the current schedule as it's being updated
-  //         if (schedule.id === scheduleId) return null;
+      // Format all schedules as events for display in emails
+      // const allScheduleEvents = allLearnerSchedules
+      //   ?.map((schedule) => {
+      //     // Skip the current schedule as it's being updated
+      //     if (schedule.id === scheduleId) return null;
 
-  //         const scheduleStartDate = new Date(schedule.date);
-  //         const [scheduleStartHour, scheduleStartMinute] = schedule.start_time
-  //           .split(":")
-  //           .map(Number);
-  //         scheduleStartDate.setHours(scheduleStartHour, scheduleStartMinute, 0);
+      //     const scheduleStartDate = new Date(schedule.date);
+      //     const [scheduleStartHour, scheduleStartMinute] = schedule.start_time
+      //       .split(":")
+      //       .map(Number);
+      //     scheduleStartDate.setHours(scheduleStartHour, scheduleStartMinute, 0);
 
-  //         const scheduleEndDate = new Date(schedule.date);
-  //         const [scheduleEndHour, scheduleEndMinute] = schedule.end_time
-  //           .split(":")
-  //           .map(Number);
-  //         scheduleEndDate.setHours(scheduleEndHour, scheduleEndMinute, 0);
+      //     const scheduleEndDate = new Date(schedule.date);
+      //     const [scheduleEndHour, scheduleEndMinute] = schedule.end_time
+      //       .split(":")
+      //       .map(Number);
+      //     scheduleEndDate.setHours(scheduleEndHour, scheduleEndMinute, 0);
 
-  //         const instructorDetails = instructorsMap.get(
-  //           schedule.instructor_id,
-  //         ) || {
-  //           name: "Unknown Instructor",
-  //           phone: "Contact InLane for details",
-  //           email: "",
-  //         };
+      //     const instructorDetails = instructorsMap.get(
+      //       schedule.instructor_id,
+      //     ) || {
+      //       name: "Unknown Instructor",
+      //       phone: "Contact InLane for details",
+      //       email: "",
+      //     };
 
-  //         return {
-  //           startTime: scheduleStartDate,
-  //           endTime: scheduleEndDate,
-  //           lessonNumber: schedule.Lesson?.number || 0,
-  //           pickupLocation: pickupLocation,
-  //           instructorId: schedule.instructor_id,
-  //           instructorName: instructorDetails.name,
-  //           instructorPhone: instructorDetails.phone,
-  //           instructorEmail: instructorDetails.email,
-  //           isCancellation: false,
-  //         };
-  //       })
-  //       .filter(Boolean);
+      //     return {
+      //       startTime: scheduleStartDate,
+      //       endTime: scheduleEndDate,
+      //       lessonNumber: schedule.Lesson?.number || 0,
+      //       pickupLocation: pickupLocation,
+      //       instructorId: schedule.instructor_id,
+      //       instructorName: instructorDetails.name,
+      //       instructorPhone: instructorDetails.phone,
+      //       instructorEmail: instructorDetails.email,
+      //       isCancellation: false,
+      //     };
+      //   })
+      //   .filter(Boolean);
 
-  //     // Add the new event to the complete list
-  //     const completeEventsList = [...allScheduleEvents, newEvent];
+      // Add the new event to the complete list
+      // const completeEventsList = [...allScheduleEvents, newEvent];
 
-  //     // First, send cancellation event
-  //     if (currentSchedule.Learner.email && oldInstructorDetails.email) {
-  //       try {
-  //         // Send cancellation event with complete list of all events
-  //         await sendMultiEventCalendarInvite(
-  //           currentSchedule.Learner.email,
-  //           oldInstructorDetails.email,
-  //           [cancellationEvent], // Only send the cancellation event
-  //           oldInstructorDetails.name,
-  //           currentSchedule.Learner.name || "Student",
-  //           currentSchedule.Learner.phone,
-  //           {
-  //             emailType: "cancellation",
-  //             batchInfo: " - Instructor Change",
-  //             allEvents: completeEventsList, // Include all events for complete table
-  //           },
-  //           currentSchedule.Learner.id,
-  //         );
+      // First, send cancellation event
+      // if (currentSchedule.Learner.email && oldInstructorDetails.email) {
+      //   try {
+      //     // Send cancellation event with complete list of all events
+      //     await sendMultiEventCalendarInvite(
+      //       currentSchedule.Learner.email,
+      //       oldInstructorDetails.email,
+      //       [cancellationEvent], // Only send the cancellation event
+      //       oldInstructorDetails.name,
+      //       currentSchedule.Learner.name || "Student",
+      //       currentSchedule.Learner.phone,
+      //       {
+      //         emailType: "cancellation",
+      //         batchInfo: " - Instructor Change",
+      //         allEvents: completeEventsList, // Include all events for complete table
+      //       },
+      //       currentSchedule.Learner.id,
+      //     );
 
-  //         console.log("Sent cancellation event for instructor change");
-  //       } catch (error) {
-  //         console.error("Error sending cancellation event:", error);
-  //       }
-  //     }
+      //     console.log("Sent cancellation event for instructor change");
+      //   } catch (error) {
+      //     console.error("Error sending cancellation event:", error);
+      //   }
+      // }
 
-  //     // Then, send new event with the new instructor
-  //     if (currentSchedule.Learner.email && newInstructorDetails.email) {
-  //       try {
-  //         // Send new event with complete list of all events
-  //         const uidMap = await sendMultiEventCalendarInvite(
-  //           currentSchedule.Learner.email,
-  //           newInstructorDetails.email,
-  //           [newEvent], // Only send the new event
-  //           newInstructorDetails.name,
-  //           currentSchedule.Learner.name || "Student",
-  //           currentSchedule.Learner.phone,
-  //           {
-  //             emailType: "new",
-  //             batchInfo: " - New Instructor",
-  //             allEvents: completeEventsList, // Include all events for complete table
-  //           },
-  //           currentSchedule.Learner.id,
-  //         );
+      // Then, send new event with the new instructor
+      // if (currentSchedule.Learner.email && newInstructorDetails.email) {
+      //   try {
+      //     // Send new event with complete list of all events
+      //     const uidMap = await sendMultiEventCalendarInvite(
+      //       currentSchedule.Learner.email,
+      //       newInstructorDetails.email,
+      //       [newEvent], // Only send the new event
+      //       newInstructorDetails.name,
+      //       currentSchedule.Learner.name || "Student",
+      //       currentSchedule.Learner.phone,
+      //       {
+      //         emailType: "new",
+      //         batchInfo: " - New Instructor",
+      //         allEvents: completeEventsList, // Include all events for complete table
+      //       },
+      //       currentSchedule.Learner.id,
+      //     );
 
-  //         // Update the database with the new UID
-  //         if (uidMap && uidMap[lessonData?.number]) {
-  //           await supabase
-  //             .from("Schedule")
-  //             .update({
-  //               calendar_uid: uidMap[lessonData?.number],
-  //               calendar_sequence: 0, // Reset sequence for new UID
-  //             })
-  //             .eq("id", scheduleId);
-  //         }
+      //     // Update the database with the new UID
+      //     if (uidMap && uidMap[lessonData?.number]) {
+      //       await supabase
+      //         .from("Schedule")
+      //         .update({
+      //           calendar_uid: uidMap[lessonData?.number],
+      //           calendar_sequence: 0, // Reset sequence for new UID
+      //         })
+      //         .eq("id", scheduleId);
+      //     }
 
-  //         console.log("Sent new event for instructor change");
-  //       } catch (error) {
-  //         console.error("Error sending new event:", error);
-  //       }
-  //     }
+      //     console.log("Sent new event for instructor change");
+      //   } catch (error) {
+      //     console.error("Error sending new event:", error);
+      //   }
+      // }
 
-  //     // Refetch the active learners to reflect the changes in the UI
-  //     await refetchActiveLearners();
+      // Refetch the active learners to reflect the changes in the UI
+      await refetchActiveLearners();
 
-  //     return true;
-  //   } catch (error) {
-  //     console.error("Error changing instructor:", error);
-  //     throw error;
-  //   } finally {
-  //     // Reset loading state regardless of success or failure
-  //     setIsSendingInvites(false);
-  //     setProcessingScheduleId(null);
-  //   }
-  // };
+      return true;
+    } catch (error) {
+      console.error("Error changing instructor:", error);
+      throw error;
+    } finally {
+      // Reset loading state regardless of success or failure
+      setIsSendingInvites(false);
+      setProcessingScheduleId(null);
+    }
+  };
 
+const handleInstructorChangeSimple = async (
+  scheduleId: string,
+  newInstructorId: string,
+) => {
+  try {
+    setIsSendingInvites(true);
+    setProcessingScheduleId(scheduleId);
+
+    // 1. Update the record
+    // Note: We removed the RPC call from inside the update object
+    const { error } = await supabase
+      .from("Schedule")
+      .update({
+        instructor_id: newInstructorId,
+        calendar_uid: null,
+      })
+      .eq("id", scheduleId);
+
+    if (error) throw error;
+
+    toast({
+      title: "Instructor Updated",
+      description: "The instructor has been changed successfully.",
+      variant: "success",
+    });
+
+    if (refetchActiveLearners) await refetchActiveLearners();
+    return true;
+
+  } catch (error: any) {
+    console.error("Technical Error:", error);
+    toast({
+      title: "Update Failed",
+      description: error.message || "Technical error occurred.",
+      variant: "failure",
+    });
+    return false;
+  } finally {
+    setIsSendingInvites(false);
+    setProcessingScheduleId(null);
+  }
+};
   // Function to handle opening the "Change Instructor" dialog
-  // const handleOpenInstructorChange = (schedule: any) => {
-  //   setSelectedSchedule(schedule);
-  //   setSelectedInstructorId(schedule.instructor_id); // Pre-select the current instructor
-  //   setIsInstructorChangeModalOpen(true);
-  // };
+  const handleOpenInstructorChange = (schedule: any) => {
+    setSelectedSchedule(schedule);
+    setSelectedInstructorId(schedule.instructor_id); // Pre-select the current instructor
+    setIsInstructorChangeModalOpen(true);
+  };
 
   // Function to handle opening the "Reschedule" dialog
   const handleOpenReschedule = async (schedule: any) => {
@@ -1340,6 +1446,41 @@ export default function AdminSchedules() {
     // }
   };
 
+  const handleChangePauseState = async (schedule: any) => {
+    setSelectedSchedule(schedule);
+    // setIsRescheduleModalOpen(true);
+
+
+    // different path - make reschedule request to use calender views nad checks
+    try {
+      // setIsLoading(true);
+      console.log("Changing lesson pause state", schedule);
+      // Create empty payment record (from admin side)
+      const learnerId = schedule?.learner_id;
+
+      const { data: updatedSchedule, error: updateScheduleError } = await supabase
+        .from("Schedule")
+        .update({
+          status: schedule?.status === "paused" ? "booked" : "paused",
+        })
+        .eq("id", schedule?.id);
+
+      if (updateScheduleError) throw updateScheduleError;
+
+      toast({
+        "title": "Lesson status updated",
+        "description": `Lesson status updated for schedule at ${schedule.date})} ${schedule.start_time}`,
+        "type": "destructive",
+      });
+      window.location.reload();
+    } catch (error) {
+      console.error("Error updating lesson from Admin:", error);
+      alert("Failed to update lesson pause from Admin. Please try again.");
+    } finally {
+      // end of updates
+    }
+  }
+
     
 
   function isOldestIncompleteSchedule(schedules: any, schedule: any): import("react").ReactNode {
@@ -1368,6 +1509,25 @@ export default function AdminSchedules() {
     }
   }
 
+  console.log(activeLearners);
+  const filteredLearners = activeLearners?.filter((learner) => {
+  const search = searchTerm.toLowerCase();
+
+  // 1. Check Learner's own details
+  const learnerMatches = 
+    learner.name?.toLowerCase().includes(search) ||
+    learner.email?.toLowerCase().includes(search) ||
+    learner.phone?.includes(searchTerm);
+
+  // 2. Check ALL instructors linked to this learner's schedules
+  const instructorMatches = learner.schedules?.some((schedule) => 
+    schedule.Instructor?.name?.toLowerCase().includes(search)
+  );
+
+  return learnerMatches || instructorMatches;
+}
+);
+
   return (
     <div
       className="h-flex flex min-h-screen flex-col bg-white p-8"
@@ -1394,7 +1554,7 @@ export default function AdminSchedules() {
       </div>
 
       <Tabs
-        defaultValue="new"
+        defaultValue="active"
         className="flex h-[calc(100%-73px)] flex-col"
         onValueChange={handleTabChange}
       >
@@ -1650,44 +1810,41 @@ export default function AdminSchedules() {
             <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
               {/* Learners List */}
               <Card className="md:col-span-1">
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle>Active Learners</CardTitle>
+                  <div className="mt-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                      <Input
+                        placeholder="Search by name, email or phone..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[calc(100vh-280px)]">
+                  <ScrollArea className="h-[calc(100vh-340px)]"> {/* Adjusted height for search bar */}
                     {isLoadingActiveLearners ? (
                       <div className="flex items-center justify-center text-gray-500">
                         Loading...
                       </div>
+                    ) : filteredLearners?.length === 0 ? (
+                      <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                        No learners found matching "{searchTerm}"
+                      </div>
                     ) : (
-                      activeLearners?.map((learner) => (
+                      filteredLearners?.map((learner) => (
                         <div key={learner.id} className="mb-2">
                           <LearnerInfoCard
                             learner={{
                               id: learner.id || "",
                               name: learner.name || "",
-                              phone: learner.phone || "",
-                              email: learner.email || "",
-                              area: learner.area || "",
-                              pick_up_location: learner.pick_up_location,
-                              pincode: learner.pincode,
-                              signed_up: learner.signed_up,
-                              created_at: learner.created_at,
-                              address_lat: learner.address_lat,
-                              address_lng: learner.address_lng,
-                              preferred_start_date:
-                                learner.preferred_start_date,
-                              preferred_completion_days:
-                                learner.preferred_completion_days,
-                              prefers_two_hour_classes:
-                                learner.prefers_two_hour_classes,
-                              preferred_two_hour_days: learner.two_hour_days,
-                              DL_test_date: learner.DL_test_date,
+                              // ... rest of your learner mapping
                             }}
                             compact={true}
-                            onClick={(learnerInfo) => {
-                              handleActiveLearnerSelect(learner);
-                            }}
+                            onClick={() => handleActiveLearnerSelect(learner)}
                           />
                         </div>
                       ))
@@ -1761,13 +1918,13 @@ export default function AdminSchedules() {
                               Change of Instructor instructor can be done by raising a reschedule request
                               */ }
                               <DropdownMenuContent>
-                                 {/* <DropdownMenuItem
+                                 <DropdownMenuItem
                                   onClick={() =>
                                     handleOpenInstructorChange(schedule)
                                   }
                                 >
                                   Change Instructor
-                                </DropdownMenuItem> */}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleOpenReschedule(schedule)}
                                 >
@@ -1785,6 +1942,13 @@ export default function AdminSchedules() {
                                     : "Mark previous lessons complete"
                                   } */}
                                   Change lesson status
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleChangePauseState(schedule)
+                                  }
+                                >
+                                  Pause / Unpause
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1865,10 +2029,18 @@ export default function AdminSchedules() {
                           }
 
                           try {
-                            await handleInstructorChange(
-                              selectedSchedule.id,
-                              selectedInstructorId,
-                            );
+                            if (selectedSchedule.instructor_id) {
+                              await handleInstructorChange(
+                                selectedSchedule.id,
+                                selectedInstructorId,
+                              );
+
+                            } else {
+                              await handleInstructorChangeSimple(
+                                selectedSchedule.id,
+                                selectedInstructorId,
+                              );
+                            }
                             toast({
                               title: "Success",
                               description: "Instructor updated successfully.",
@@ -1889,7 +2061,7 @@ export default function AdminSchedules() {
                         {isSendingInvites ? (
                           <span className="flex items-center">
                             <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                            Sending Invites...
+                            Changing Instructor...
                           </span>
                         ) : (
                           "Save"
@@ -1912,196 +2084,185 @@ export default function AdminSchedules() {
                   }
                 }}
               >
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Reschedule Lesson</DialogTitle>
-                  </DialogHeader>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reschedule Lesson</DialogTitle>
+                  <DialogDescription>
+                    Set reschedule date and time
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
                   <div className="space-y-4">
-                    {/* Editable Date Field */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Date
-                        </label>
-                        <input
-                          type="date"
-                          value={selectedSchedule.date}
-                          onChange={(e) =>
-                            setSelectedSchedule((prev) => ({
-                              ...prev,
-                              date: e.target.value,
-                            }))
-                          }
-                          className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        />
-                      </div>
-
-                      {/* Editable Time Field */}
-                      <div className="flex items-center gap-8">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Time
-                        </label>
-                        <div className="flex flex-col">
-                          <Select
-                            value={selectedSchedule.start_time}
-                            onValueChange={(value) => {
-                              const startTime = value;
-                              // Calculate end time (1 hour after start time)
-                              const [hours, minutes] = startTime
-                                .split(":")
-                                .map(Number);
-                              const endHours = (hours + 1) % 24;
-                              const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
-
-                              setSelectedSchedule((prev) => ({
-                                ...prev,
-                                start_time: startTime,
-                                end_time: endTime,
-                              }));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a time" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 24 }).map((_, hour) =>
-                                [0, 30].map((minute) => (
-                                  <SelectItem
-                                    key={`${hour}-${minute}`}
-                                    value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
-                                  >
-                                    {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
-                                  </SelectItem>
-                                )),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <span className="text-gray-500">to</span>
-                        <div className="flex flex-col">
-                          <Select
-                            value={selectedSchedule.end_time}
-                            onValueChange={(value) =>
-                              setSelectedSchedule((prev) => ({
-                                ...prev,
-                                end_time: value,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a time" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 24 }).map((_, hour) =>
-                                [0, 30].map((minute) => (
-                                  <SelectItem
-                                    key={`${hour}-${minute}`}
-                                    value={`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`}
-                                  >
-                                    {`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`}
-                                  </SelectItem>
-                                )),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                    {/* Date Field */}
+                    <div className="flex items-center gap-2">
+                      <label className="block text-sm font-medium text-gray-700">Date</label>
+                      <input
+                        type="date"
+                        value={selectedSchedule.date || ""} 
+                        onChange={(e) =>
+                          setSelectedSchedule((prev) => ({
+                            ...prev,
+                            date: e.target.value,
+                          }))
+                        }
+                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsRescheduleModalOpen(false)} // Close modal without saving
-                        disabled={isSendingInvites}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={async () => {
-                          try {
-                            // Save the updated schedule to Supabase
+                    <div className="flex items-center gap-8">
+                      {/* Start Time Field */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                        <Select
+                          value={selectedSchedule.start_time || ""}
+                          onValueChange={(value) => {
+                            const startTime = value;
+                            const [hours, minutes] = startTime.split(":").map(Number);
+                            
+                            // Default end time to 1 hour later
+                            const endHours = (hours + 1) % 24;
+                            const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+                            setSelectedSchedule((prev) => ({
+                              ...prev,
+                              start_time: startTime,
+                              end_time: endTime,
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Start" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }).map((_, hour) =>
+                              [0, 30].map((minute) => {
+                                const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                                return (
+                                  <SelectItem key={`start-${val}`} value={val}>
+                                    {val.substring(0, 5)}
+                                  </SelectItem>
+                                );
+                              })
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <span className="text-gray-500 mt-6">to</span>
+                      
+                      {/* End Time Field (Filtered) */}
+                      <div className="flex flex-col">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                        <Select
+                          value={selectedSchedule.end_time || ""}
+                          onValueChange={(value) =>
+                            setSelectedSchedule((prev) => ({
+                              ...prev,
+                              end_time: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="End" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }).map((_, hour) =>
+                              [0, 30].map((minute) => {
+                                const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                                
+                                // Validation Logic: Only show slots where End Time > Start Time
+                                const isPastStart = selectedSchedule.start_time 
+                                  ? val > selectedSchedule.start_time 
+                                  : true;
+
+                                if (!isPastStart) return null;
+
+                                return (
+                                  <SelectItem key={`end-${val}`} value={val}>
+                                    {val.substring(0, 5)}
+                                  </SelectItem>
+                                );
+                              })
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsRescheduleModalOpen(false)}
+                      disabled={isSendingInvites}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Final Validation Check
+                        if (!selectedSchedule.date || !selectedSchedule.start_time || !selectedSchedule.end_time) {
+                          toast({
+                            title: "Missing Info",
+                            description: "Please complete all fields.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+
+                        if (selectedSchedule.end_time <= selectedSchedule.start_time) {
+                          toast({
+                            title: "Invalid Duration",
+                            description: "End time must be after start time.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+
+                        try {
+                          console.log("T2_4 current and selected schedules", selectedSchedule);
+                          if (selectedSchedule.status != "topup") {
                             await handleUpdateSchedule(selectedSchedule.id, {
                               date: selectedSchedule.date,
                               start_time: selectedSchedule.start_time,
                               end_time: selectedSchedule.end_time,
                             });
-
-                            // Update the selected request's schedules to ensure the UI reflects the changes
-                            if (selectedRequest) {
-                              // Fetch the updated schedules for this learner
-                              const { data: updatedSchedules, error } =
-                                await supabase
-                                  .from("Schedule")
-                                  .select(
-                                    `
-                                    id, 
-                                    date, 
-                                    start_time, 
-                                    end_time, 
-                                    instructor_id, 
-                                    lesson_id, 
-                                    course_id, 
-                                    learner_id
-                                  `,
-                                                          )
-                                  .eq("learner_id", selectedSchedule.learner_id)
-                                  .eq("course_id", selectedSchedule.course_id);
-
-                              if (!error && updatedSchedules) {
-                                // Sort the schedules chronologically
-                                const sortedSchedules = updatedSchedules.sort(
-                                  (a, b) => {
-                                    const dateA = new Date(
-                                      `${a.date}T${a.start_time}`,
-                                    );
-                                    const dateB = new Date(
-                                      `${b.date}T${b.start_time}`,
-                                    );
-                                    return dateA.getTime() - dateB.getTime();
-                                  },
-                                );
-
-                                // Update the selected request with the sorted schedules
-                                setSelectedRequest((prev) => ({
-                                  ...prev,
-                                  schedules: sortedSchedules,
-                                }));
-                              }
-                            }
-
-                            toast({
-                              title: "Success",
-                              description: "Schedule updated successfully.",
+                          } else {
+                            await handleUpdateScheduleSimple(selectedSchedule.id, {
+                              date: selectedSchedule.date,
+                              start_time: selectedSchedule.start_time,
+                              end_time: selectedSchedule.end_time,
+                              status: "booked",
                             });
 
-                            // Close the modal after saving
-                            setIsRescheduleModalOpen(false);
-
-                            // Refetch active learners to update the view
-                            await refetchActiveLearners();
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to update the schedule.",
-                              variant: "destructive",
-                            });
                           }
-                        }}
-                        disabled={isSendingInvites}
-                      >
-                        {isSendingInvites ? (
-                          <span className="flex items-center">
-                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                            Sending Invites...
-                          </span>
-                        ) : (
-                          "Save"
-                        )}
-                      </Button>
-                    </div>
+
+                          // Refresh logic remains same...
+                          toast({
+                            title: "Success",
+                            description: "Schedule updated successfully.",
+                            variant: "success"
+                          });
+                          setIsRescheduleModalOpen(false);
+                          await refetchActiveLearners();
+                        } catch (error) {
+                          console.error(error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to update schedule.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={isSendingInvites}
+                    >
+                      {isSendingInvites ? "Saving..." : "Save"}
+                    </Button>
                   </div>
-                </DialogContent>
+                </div>
+              </DialogContent>
               </Dialog>
             )}
           </TabsContent>
