@@ -3429,18 +3429,22 @@ export const AddTentativeSchedule = () => {
         let newSlotsList = [...slots];
         const count = bulkType === "single" ? 1 : repeatCount;
 
+        // Start loop from 0 for "single", but if bulk, 
+        // we ensure sDate/sStart increments based on the loop index.
         for (let i = 0; i < count; i++) {
             let sDate = newSlotDate;
             let sStart = newSlotTimes.start;
             let sEnd = newSlotTimes.end;
 
             if (bulkType === "daily") {
-                sDate = format(addDays(baseDateObj, i), "yyyy-MM-dd");
+                // Change: i + 1 to start from the NEXT day
+                sDate = format(addDays(baseDateObj, i + 1), "yyyy-MM-dd");
             } else if (bulkType === "hourly") {
                 const bStart = parseISO(`${newSlotDate}T${newSlotTimes.start}`);
                 const bEnd = parseISO(`${newSlotDate}T${newSlotTimes.end}`);
-                sStart = format(addHours(bStart, i), "HH:mm");
-                sEnd = format(addHours(bEnd, i), "HH:mm");
+                // Change: i + 1 to start from the NEXT hour
+                sStart = format(addHours(bStart, i + 1), "HH:mm");
+                sEnd = format(addHours(bEnd, i + 1), "HH:mm");
             }
 
             newSlotsList.push({ date: sDate, start_time: sStart, end_time: sEnd, description: "" });
