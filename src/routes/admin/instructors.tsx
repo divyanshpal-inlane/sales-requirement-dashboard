@@ -3368,26 +3368,49 @@ export const AddTentativeSchedule = () => {
 
     const [availabilityMap, setAvailabilityMap] = useState<Record<string, any>>({});
 
-    useEffect(() => 
-    {
+    useEffect(() => {
         const validateAllSlots = async () => {
             if (!instructorId || slots.length === 0) return;
 
             try {
+                // 1. Local Duplicate Check (Identify slots with identical Date + Start Time)
+                const seenSlots = new Set();
+                const localDuplicates: Record<string, boolean> = {};
+                
+                slots.forEach((s, index) => {
+                    const key = `${s.date}-${s.start_time}`;
+                    if (seenSlots.has(key)) {
+                        localDuplicates[index] = true; // Mark this specific index as a duplicate
+                    }
+                    seenSlots.add(key);
+                });
+
                 if (testMode) {
-                    // Test Mode Mock Logic
                     const mockMap: Record<string, any> = {};
                     slots.forEach((s, i) => {
                         const key = `${s.date}-${s.start_time}`;
-                        mockMap[key] = i % 2 !== 0 
-                            ? { available: false, reason: "Test Block" } 
+                        mockMap[key] = localDuplicates[i] 
+                            ? { available: false, reason: "Duplicate Slot in List" }
                             : { available: true, reason: "" };
                     });
                     setAvailabilityMap(mockMap);
                 } else {
-                    // SINGLE HELPER CALL WITH FULL LIST
+                    // 2. Fetch Instructor Conflicts from DB
                     const result = await checkInstructorAvailability(slots, instructorId);
-                    setAvailabilityMap(result);
+                    
+                    // 3. Merge Results: Local duplicates take priority over DB status
+                    const mergedResult: Record<string, any> = { ...result };
+                    slots.forEach((s, i) => {
+                        if (localDuplicates[i]) {
+                            const key = `${s.date}-${s.start_time}`;
+                            mergedResult[key] = { 
+                                available: false, 
+                                reason: "Duplicate Slot: Already added to this list" 
+                            };
+                        }
+                    });
+                    
+                    setAvailabilityMap(mergedResult);
                 }
             } catch (err) {
                 console.error("Availability Check Failed:", err);
