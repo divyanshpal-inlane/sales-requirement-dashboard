@@ -39,6 +39,7 @@ import { Schedule } from "./schedules";
 import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo"
 import { SlotConfig } from "@/types/schedule";
 import { describe } from "node:test";
+import { checkInstructorAvailability } from "@/queries/instructor";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -3318,7 +3319,7 @@ const TentativeAddressInput = memo(({
 });
 
 export const AddTentativeSchedule = () => {
-    const testMode = true;
+    const testMode = false;
     const navigate = useNavigate();
     const { toast } = useToast();
     const { instructorId, date, startTime } = useParams();
@@ -3367,26 +3368,41 @@ export const AddTentativeSchedule = () => {
 
     const [availabilityMap, setAvailabilityMap] = useState<Record<string, any>>({});
 
-    useEffect(() => {
-        const newMap: Record<string, any> = {};
-        slots.forEach((slot, index) => {
-            const key = `${slot.date}-${slot.start_time}`;
-            if (testMode) {
-                const isBlocked = index % 2 !== 0; 
-                newMap[key] = {
-                    status: isBlocked ? "conflict" : "available",
-                    reason: isBlocked ? "Alternative Slot Blocked" : null
-                };
-            } else {
-                newMap[key] = { status: "available" };
+    useEffect(() => 
+    {
+        const validateAllSlots = async () => {
+            if (!instructorId || slots.length === 0) return;
+
+            try {
+                if (testMode) {
+                    // Test Mode Mock Logic
+                    const mockMap: Record<string, any> = {};
+                    slots.forEach((s, i) => {
+                        const key = `${s.date}-${s.start_time}`;
+                        mockMap[key] = i % 2 !== 0 
+                            ? { available: false, reason: "Test Block" } 
+                            : { available: true, reason: "" };
+                    });
+                    setAvailabilityMap(mockMap);
+                } else {
+                    // SINGLE HELPER CALL WITH FULL LIST
+                    const result = await checkInstructorAvailability(slots, instructorId);
+                    setAvailabilityMap(result);
+                }
+            } catch (err) {
+                console.error("Availability Check Failed:", err);
             }
-        });
-        setAvailabilityMap(newMap);
-    }, [slots, testMode]);
+        };
+
+        validateAllSlots();
+    }, [slots, instructorId, testMode]);
 
     const stats = useMemo(() => {
         const total = slots.length;
-        const blocked = slots.filter(s => availabilityMap[`${s.date}-${s.start_time}`]?.status === "conflict").length;
+        const blocked = slots.filter(s => {
+            const status = availabilityMap[`${s.date}-${s.start_time}`];
+            return status?.available === false;
+        }).length;
         return { total, blocked };
     }, [slots, availabilityMap]);
 
@@ -3461,9 +3477,7 @@ export const AddTentativeSchedule = () => {
                 end_time: slot.end_time,
                 instructor_id: instructorId,
                 isTentative: true,
-                // course_id is a real column, but description is not
                 course_id: (tentativeDetails.course_id === "none" || tentativeDetails.course_id === "topup") ? null : parseInt(tentativeDetails.course_id),
-                // FIXED: description moved inside the JSON column
                 tentative_details: { 
                     ...tentativeDetails, 
                     description: slot.description 
@@ -3487,6 +3501,7 @@ export const AddTentativeSchedule = () => {
                 </div>
 
                 <div className="space-y-6">
+                    {/* Input Fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2"><Label>Name*</Label><Input value={tentativeDetails.name} onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} /></div>
                         <div className="space-y-2"><Label>Phone Number*</Label><Input value={tentativeDetails.phone} onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} maxLength={10} /></div>
@@ -3498,6 +3513,20 @@ export const AddTentativeSchedule = () => {
                                 <SelectContent><SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Half paid">Half paid</SelectItem><SelectItem value="Full paid">Full paid</SelectItem></SelectContent>
                             </Select>
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Address / Pickup Location</Label>
+                        <AddressAutocomplete 
+                            value={tentativeDetails.address} 
+                            onChange={(addr, lat, lng) => setTentativeDetails({
+                                ...tentativeDetails, 
+                                address: addr, 
+                                pickup_location: addr, 
+                                lat, 
+                                lng
+                            })} 
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -3518,6 +3547,7 @@ export const AddTentativeSchedule = () => {
                         </div>
                     </div>
 
+                    {/* Preview Table */}
                     <div className="pt-6 border-t border-dashed">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
@@ -3530,29 +3560,62 @@ export const AddTentativeSchedule = () => {
                             <Button type="button" onClick={() => setIsAddingBulk(true)} size="sm" variant="outline"><Plus className="h-4 w-4 mr-2" /> Add schedules</Button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {slots.map((slot, idx) => (
-                                <div key={idx} className={`p-3 rounded-lg border flex flex-col gap-2 ${availabilityMap[`${slot.date}-${slot.start_time}`]?.status === "conflict" ? 'border-destructive bg-destructive/5' : 'border-primary/20 bg-primary/5'}`}>
-                                    <div className="flex justify-between items-center text-xs font-bold">
-                                        <div>{format(parseISO(slot.date), "MMM do")} | {slot.start_time} - {slot.end_time}</div>
-                                        <Button variant="ghost" size="icon" onClick={() => setSlots(slots.filter((_, i) => i !== idx))} className="h-6 w-6"><Trash2 className="h-3 w-3" /></Button>
-                                    </div>
-                                    <Input className="h-8 text-[11px] bg-background/50" placeholder="Description (in JSON column)" value={slot.description} onChange={(e) => {
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {slots.map((slot, idx) => {
+                    const status = availabilityMap[`${slot.date}-${slot.start_time}`];
+                    const isUnavail = status?.available === false;
+
+                    return (
+                        <div key={idx} className={`p-3 rounded-lg border flex flex-col gap-2 ${
+                            isUnavail ? 'border-destructive bg-destructive/5' : 'border-primary/20 bg-primary/5'
+                        }`}>
+                            <div className="flex justify-between items-center text-xs font-bold">
+                                <div className={isUnavail ? 'text-destructive' : 'text-primary'}>
+                                    {format(parseISO(slot.date), "MMM do")} | {slot.start_time} - {slot.end_time}
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setSlots(slots.filter((_, i) => i !== idx))} className="h-6 w-6">
+                                    <Trash2 className="h-3 w-3" />
+                                </Button>
+                            </div>
+
+                            <div className="relative">
+                                <Input 
+                                    className="h-8 text-[11px] bg-background/50 pr-8" 
+                                    value={slot.description}
+                                    onChange={(e) => {
                                         const updated = [...slots];
                                         updated[idx].description = e.target.value;
                                         setSlots(updated);
-                                    }} />
-                                </div>
-                            ))}
+                                    }}
+                                />
+                                {isUnavail && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-destructive">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild><Info className="h-4 w-4" /></TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>{status.reason || "Slot Conflict"}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+                    );
+                })}
+            </div>
                     </div>
 
+                    {/* Footer */}
                     <div className="flex justify-end gap-3 pt-6 border-t">
                         <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
                         <Tooltip delayDuration={0}>
                             <TooltipTrigger asChild>
                                 <div className="inline-block">
-                                    <Button onClick={() => AddTentativeScheduleMutation.mutate()} disabled={AddTentativeScheduleMutation.isPending || !isFormValid} className="px-8 font-bold">
+                                    <Button 
+                                        onClick={() => AddTentativeScheduleMutation.mutate()} 
+                                        disabled={AddTentativeScheduleMutation.isPending || !isFormValid} 
+                                        className="px-8 font-bold"
+                                    >
                                         Confirm Tentative Schedules
                                     </Button>
                                 </div>
@@ -3566,6 +3629,7 @@ export const AddTentativeSchedule = () => {
                     </div>
                 </div>
 
+                {/* Bulk Dialog remains the same */}
                 <Dialog open={isAddingBulk} onOpenChange={setIsAddingBulk}>
                     <DialogContent>
                         <DialogHeader><DialogTitle>Bulk Add Schedules</DialogTitle></DialogHeader>

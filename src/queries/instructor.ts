@@ -437,3 +437,77 @@ export const useUpdateScheduleStatus = () => {
     },
   });
 };
+
+// Check the list of sorted schedules matches any of the instructor schedules or overlaps unavailability slots
+// returns a list of json, where key=> (slot time) and value => string (name of the learner blocking the schedule if not tentative
+// and name of the tentative_details if tentative schedule blocks the slot)
+export const checkInstructorAvailability = async (schedulesToCheck: any[], instructorId: string) => {
+    if (!schedulesToCheck.length || !instructorId) return {};
+
+    console.group("🚀 Strict Instructor Availability Validation");
+    
+    const dates = schedulesToCheck.map(s => s.date);
+    const minDate = dates.reduce((a, b) => a < b ? a : b);
+    const maxDate = dates.reduce((a, b) => a > b ? a : b);
+
+    console.log(`📅 Instructor ID: ${instructorId} | Range: ${minDate} to ${maxDate}`);
+
+    // QUERY FIX: We only fetch schedules for THIS specific instructor
+    // or tentative schedules that might create a global conflict
+    const { data: existingSchedules, error } = await supabase
+        .from("Schedule")
+        .select("id, date, start_time, end_time, isTentative, instructor_id, tentative_details")
+        .gte("date", minDate)
+        .lte("date", maxDate)
+        .eq("instructor_id", instructorId); // STRICT FILTER BY INSTRUCTOR
+
+    if (error) {
+        console.error("❌ DB Error:", error);
+        console.groupEnd();
+        throw error;
+    }
+
+    console.log("Schedules for this Instructor and tentative:", existingSchedules); 
+
+    const map: Record<string, { available: boolean; reason: string }> = {};
+
+    schedulesToCheck.forEach((newSlot) => {
+        const key = `${newSlot.date}-${newSlot.start_time}`;
+        
+        const toMins = (t: string) => {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        };
+
+        const newStart = toMins(newSlot.start_time);
+        const newEnd = toMins(newSlot.end_time);
+
+        // Conflict check against instructor 377c's existing timeline
+        const conflict = existingSchedules?.find(dbRow => {
+            if (dbRow.date !== newSlot.date) return false;
+
+            const dbStart = toMins(dbRow.start_time);
+            const dbEnd = toMins(dbRow.end_time);
+
+            // Interval Overlap Logic
+            return newStart < dbEnd && newEnd > dbStart;
+        });
+
+        if (conflict) {
+            const blockerName = conflict.tentative_details?.name || "Confirmed Lesson";
+            const blockerTime = `${conflict.start_time.substring(0,5)} - ${conflict.end_time.substring(0,5)}`;
+            
+            map[key] = { 
+                available: false, 
+                reason: `Instructor Busy: ${blockerName} (${blockerTime})` 
+            };
+            console.warn(`⚠️ BLOCKED: ${key} overlaps with instructor's existing slot: ${blockerTime}`);
+        } else {
+            map[key] = { available: true, reason: "" };
+        }
+    });
+
+    console.log("🏁 Final Availability Map:", map);
+    console.groupEnd();
+    return map;
+};
