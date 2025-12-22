@@ -2475,19 +2475,22 @@ function CreateSchedule({
       alert("Select Instructor");
       return;
     }
-    if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
-      toast(
-        {
-          title: "Not available on " + format(slot.timestamp, "hh:mm"),
-          describe: "Selected Instructor not available",
-          variant: "destructive"
-        }
-      );
-      // alert("Selected Instructor not available");
-      return;
-    }
-    if (!slot.state.isAvailable || slot.state.isSelected) {
-      if (!slot.state.isAvailable) {
+    // if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
+    //   toast(
+    //     {
+    //       title: "Not available on " + format(slot.timestamp, "hh:mm"),
+    //       describe: "Selected Instructor not available",
+    //       variant: "destructive"
+    //     }
+    //   );
+    //   // alert("Selected Instructor not available");
+    //   return;
+    // }
+    if (
+      (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) ||
+      slot.state.isSelected
+    ) {
+      if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) {
         alert(
           "Unavailable slot time. It means at least one of the following \n" + 
             " already there's schedule on the slot or \n" +
@@ -2496,10 +2499,10 @@ function CreateSchedule({
         );
         return;
       }
-      if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
-        alert("Unavailable Instructor");
-        return;
-      }
+      // if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
+      //   alert("Unavailable Instructor");
+      //   return;
+      // }
       // console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
@@ -3388,11 +3391,11 @@ function CreateSchedule({
     if (isInPast) return "bg-gray-400"; // Add a distinct color for past slots
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
-    if (!slot.state.isAvailable) return "bg-gray-300";
+    if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) return "bg-gray-300";
+    if (isSelected) return "bg-primary";
     if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
       return "bg-gray-300";
     if (hasExistingSchedule) return "bg-gray-300"; // Instructor has other schedule
-    if (isSelected) return "bg-primary";
     if (isAtleastOneTentativeForLearnerForSlot) return "bg-orange-200"; // Tentative schedules are prefferred over onboarding preferences
     if (slot.state.isPreferred) return "bg-primary/30";
     return "bg-white";

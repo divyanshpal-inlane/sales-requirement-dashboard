@@ -2645,14 +2645,14 @@ return (
                           if (schedule && !schedule.isTentative) {
                             handleOccupiedSlotClick(schedule);
                           } else {
-                            if (unavailable) {
-                              toast({
-                                title: "Error",
-                                description: "Not available instructor",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
+                            // if (unavailable) {
+                            //   toast({
+                            //     title: "Error",
+                            //     description: "Not available instructor",
+                            //     variant: "destructive",
+                            //   });
+                            //   return;
+                            // }
                             // if (schedule) setScheduleHelper(schedule);
                             if (schedule && schedule.isTentative) {
                               // handleViewTentativeSlotClick();
