@@ -261,7 +261,7 @@ function LearnerNotificationCard() {
 
 const sendInstrReminderLesson = async (scheduleData) => {
   // --- CONFIGURATION ---
-  const isTestMode = true; // Toggle this to false for live production
+  const isTestMode = false; // Toggle this to false for live production
   const maxFields = 5;
   // ---------------------
 
