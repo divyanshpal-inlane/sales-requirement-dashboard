@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO } from "date-fns";
-import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -283,6 +283,9 @@ export default function InstructorsManagement() {
     Partial<Unavailability>
   >({});
 
+  // instructor search bar
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Add tentative schedule info
   // Fetch all servicable areas for suggestions
   const { data: serviceableAreas, isLoading: areasLoading } = useQuery({
@@ -434,6 +437,20 @@ export default function InstructorsManagement() {
   // Memoized to avoid re-rendering full calender when filling calender events input fields 
   const memoizedInstructors = useMemo(() => instructors, [instructors]);
 
+  const filteredInstructors = useMemo(() => {
+    if (!memoizedInstructors) return [];
+    
+    const query = searchTerm.toLowerCase();
+    
+    return memoizedInstructors.filter((instructor) => {
+      const nameMatch = instructor.name?.toLowerCase().includes(query);
+      const phoneMatch = instructor.phone?.toLowerCase().includes(query);
+      const carMatch = (instructor.car_mode + instructor.car_number).toLowerCase().includes(query);
+      const areaMatch = instructor.areas?.some(area => area.toLowerCase().includes(query));
+
+      return nameMatch || phoneMatch || carMatch || areaMatch;
+    });
+  }, [searchTerm, memoizedInstructors]);
 
   // Fixes mutation refresh lag
   // Define a stable function to update the schedule cache
@@ -727,6 +744,18 @@ export default function InstructorsManagement() {
         </Button>
       </div>
 
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search instructors by name, phone, car, or area..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
       {isLoading ? (
         <div className="flex h-64 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent">
@@ -735,7 +764,7 @@ export default function InstructorsManagement() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {memoizedInstructors?.map((instructor) => (
+          {filteredInstructors?.map((instructor) => (
             <Card
               key={instructor.id_instructor}
               className="flex h-full flex-col overflow-hidden rounded-lg shadow-lg"
