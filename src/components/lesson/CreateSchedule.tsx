@@ -3316,10 +3316,10 @@ function CreateSchedule({
 
     // Check if this slot is part of a current schedule to be rescheduled
     const isCurrentSchedule = schedulesToChange?.some((s) => {
-      if (s.isTentative) return false; // Ignore tentative schedules for current schedule check
-      const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
-      const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
-      const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+      if (s?.isTentative) return false; // Ignore tentative schedules for current schedule check
+      const scheduleStartHour = parseInt(s?.start_time.split(":")[0]);
+      const scheduleStartMinute = parseInt(s?.start_time.split(":")[1] || "0");
+      const scheduleEndHour = parseInt(s?.end_time.split(":")[0]);
 
       // Check if this slot falls within the scheduled time
       return (

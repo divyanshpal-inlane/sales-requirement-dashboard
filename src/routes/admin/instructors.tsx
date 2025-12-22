@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO } from "date-fns";
-import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -283,6 +283,9 @@ export default function InstructorsManagement() {
     Partial<Unavailability>
   >({});
 
+  // instructor search bar
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Add tentative schedule info
   // Fetch all servicable areas for suggestions
   const { data: serviceableAreas, isLoading: areasLoading } = useQuery({
@@ -434,6 +437,20 @@ export default function InstructorsManagement() {
   // Memoized to avoid re-rendering full calender when filling calender events input fields 
   const memoizedInstructors = useMemo(() => instructors, [instructors]);
 
+  const filteredInstructors = useMemo(() => {
+    if (!memoizedInstructors) return [];
+    
+    const query = searchTerm.toLowerCase();
+    
+    return memoizedInstructors.filter((instructor) => {
+      const nameMatch = instructor.name?.toLowerCase().includes(query);
+      const phoneMatch = instructor.phone?.toLowerCase().includes(query);
+      const carMatch = (instructor.car_mode + instructor.car_number).toLowerCase().includes(query);
+      const areaMatch = instructor.areas?.some(area => area.toLowerCase().includes(query));
+
+      return nameMatch || phoneMatch || carMatch || areaMatch;
+    });
+  }, [searchTerm, memoizedInstructors]);
 
   // Fixes mutation refresh lag
   // Define a stable function to update the schedule cache
@@ -727,6 +744,18 @@ export default function InstructorsManagement() {
         </Button>
       </div>
 
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search instructors by name, phone, car, or area..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
       {isLoading ? (
         <div className="flex h-64 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent">
@@ -735,7 +764,7 @@ export default function InstructorsManagement() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {memoizedInstructors?.map((instructor) => (
+          {filteredInstructors?.map((instructor) => (
             <Card
               key={instructor.id_instructor}
               className="flex h-full flex-col overflow-hidden rounded-lg shadow-lg"
@@ -2768,7 +2797,7 @@ return (
                                   <Copy size={8} />
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="destructive"
                                   size="sm"
                                   className={`h-3 p-0 text-[0.5rem] ${isOverdueOngoing ? 'text-black' : 'text-red-300'} hover:bg-orange-200/50`} // Use a lighter red for contrast on orange-500
                                   title="Delete"
@@ -2777,7 +2806,7 @@ return (
                                     handleDeleteTentative(schedule.id);
                                   }}
                                 >
-                                  <Trash2 size={8} />
+                                  <Trash2 className="h-2 w-2" />
                                 </Button>
                               </div>
                             )}
@@ -3368,26 +3397,49 @@ export const AddTentativeSchedule = () => {
 
     const [availabilityMap, setAvailabilityMap] = useState<Record<string, any>>({});
 
-    useEffect(() => 
-    {
+    useEffect(() => {
         const validateAllSlots = async () => {
             if (!instructorId || slots.length === 0) return;
 
             try {
+                // 1. Local Duplicate Check (Identify slots with identical Date + Start Time)
+                const seenSlots = new Set();
+                const localDuplicates: Record<string, boolean> = {};
+                
+                slots.forEach((s, index) => {
+                    const key = `${s.date}-${s.start_time}`;
+                    if (seenSlots.has(key)) {
+                        localDuplicates[index] = true; // Mark this specific index as a duplicate
+                    }
+                    seenSlots.add(key);
+                });
+
                 if (testMode) {
-                    // Test Mode Mock Logic
                     const mockMap: Record<string, any> = {};
                     slots.forEach((s, i) => {
                         const key = `${s.date}-${s.start_time}`;
-                        mockMap[key] = i % 2 !== 0 
-                            ? { available: false, reason: "Test Block" } 
+                        mockMap[key] = localDuplicates[i] 
+                            ? { available: false, reason: "Duplicate Slot in List" }
                             : { available: true, reason: "" };
                     });
                     setAvailabilityMap(mockMap);
                 } else {
-                    // SINGLE HELPER CALL WITH FULL LIST
+                    // 2. Fetch Instructor Conflicts from DB
                     const result = await checkInstructorAvailability(slots, instructorId);
-                    setAvailabilityMap(result);
+                    
+                    // 3. Merge Results: Local duplicates take priority over DB status
+                    const mergedResult: Record<string, any> = { ...result };
+                    slots.forEach((s, i) => {
+                        if (localDuplicates[i]) {
+                            const key = `${s.date}-${s.start_time}`;
+                            mergedResult[key] = { 
+                                available: false, 
+                                reason: "Duplicate Slot: Already added to this list" 
+                            };
+                        }
+                    });
+                    
+                    setAvailabilityMap(mergedResult);
                 }
             } catch (err) {
                 console.error("Availability Check Failed:", err);
@@ -3429,18 +3481,22 @@ export const AddTentativeSchedule = () => {
         let newSlotsList = [...slots];
         const count = bulkType === "single" ? 1 : repeatCount;
 
+        // Start loop from 0 for "single", but if bulk, 
+        // we ensure sDate/sStart increments based on the loop index.
         for (let i = 0; i < count; i++) {
             let sDate = newSlotDate;
             let sStart = newSlotTimes.start;
             let sEnd = newSlotTimes.end;
 
             if (bulkType === "daily") {
-                sDate = format(addDays(baseDateObj, i), "yyyy-MM-dd");
+                // Change: i + 1 to start from the NEXT day
+                sDate = format(addDays(baseDateObj, i + 1), "yyyy-MM-dd");
             } else if (bulkType === "hourly") {
                 const bStart = parseISO(`${newSlotDate}T${newSlotTimes.start}`);
                 const bEnd = parseISO(`${newSlotDate}T${newSlotTimes.end}`);
-                sStart = format(addHours(bStart, i), "HH:mm");
-                sEnd = format(addHours(bEnd, i), "HH:mm");
+                // Change: i + 1 to start from the NEXT hour
+                sStart = format(addHours(bStart, i + 1), "HH:mm");
+                sEnd = format(addHours(bEnd, i + 1), "HH:mm");
             }
 
             newSlotsList.push({ date: sDate, start_time: sStart, end_time: sEnd, description: "" });
@@ -3606,26 +3662,31 @@ export const AddTentativeSchedule = () => {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-end gap-3 pt-6 border-t">
-                        <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <div className="inline-block">
-                                    <Button 
-                                        onClick={() => AddTentativeScheduleMutation.mutate()} 
-                                        disabled={AddTentativeScheduleMutation.isPending || !isFormValid} 
-                                        className="px-8 font-bold"
-                                    >
-                                        Confirm Tentative Schedules
-                                    </Button>
-                                </div>
-                            </TooltipTrigger>
-                            {!isFormValid && <TooltipContent className="bg-destructive text-white p-2 shadow-lg">
-                                <ul className="text-[10px] list-disc list-inside">
-                                    {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+                    <div className="flex flex-col items-end gap-3 pt-6 border-t">
+                        <div className="flex justify-end gap-3">
+                            <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>
+                                Cancel
+                            </Button>
+                            <Button 
+                                onClick={() => AddTentativeScheduleMutation.mutate()} 
+                                disabled={AddTentativeScheduleMutation.isPending} 
+                                className="px-8 font-bold"
+                            >
+                                Confirm Tentative Schedules
+                            </Button>
+                        </div>
+
+                        {/* Inline Error List instead of Tooltip */}
+                        {!isFormValid && (
+                            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg w-full md:max-w-md">
+                                <p className="text-xs font-bold mb-1">Check the following:</p>
+                                <ul className="text-[11px] list-disc list-inside space-y-0.5">
+                                    {validationErrors.map((e, i) => (
+                                        <li key={i}>{e}</li>
+                                    ))}
                                 </ul>
-                            </TooltipContent>}
-                        </Tooltip>
+                            </div>
+                        )}
                     </div>
                 </div>
 
