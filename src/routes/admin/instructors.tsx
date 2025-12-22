@@ -2768,7 +2768,7 @@ return (
                                   <Copy size={8} />
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="destructive"
                                   size="sm"
                                   className={`h-3 p-0 text-[0.5rem] ${isOverdueOngoing ? 'text-black' : 'text-red-300'} hover:bg-orange-200/50`} // Use a lighter red for contrast on orange-500
                                   title="Delete"
@@ -2777,7 +2777,7 @@ return (
                                     handleDeleteTentative(schedule.id);
                                   }}
                                 >
-                                  <Trash2 size={8} />
+                                  <Trash2 className="h-2 w-2" />
                                 </Button>
                               </div>
                             )}
