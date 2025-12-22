@@ -3633,26 +3633,31 @@ export const AddTentativeSchedule = () => {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-end gap-3 pt-6 border-t">
-                        <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>Cancel</Button>
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <div className="inline-block">
-                                    <Button 
-                                        onClick={() => AddTentativeScheduleMutation.mutate()} 
-                                        disabled={AddTentativeScheduleMutation.isPending || !isFormValid} 
-                                        className="px-8 font-bold"
-                                    >
-                                        Confirm Tentative Schedules
-                                    </Button>
-                                </div>
-                            </TooltipTrigger>
-                            {!isFormValid && <TooltipContent className="bg-destructive text-white p-2 shadow-lg">
-                                <ul className="text-[10px] list-disc list-inside">
-                                    {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+                    <div className="flex flex-col items-end gap-3 pt-6 border-t">
+                        <div className="flex justify-end gap-3">
+                            <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>
+                                Cancel
+                            </Button>
+                            <Button 
+                                onClick={() => AddTentativeScheduleMutation.mutate()} 
+                                disabled={AddTentativeScheduleMutation.isPending} 
+                                className="px-8 font-bold"
+                            >
+                                Confirm Tentative Schedules
+                            </Button>
+                        </div>
+
+                        {/* Inline Error List instead of Tooltip */}
+                        {!isFormValid && (
+                            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg w-full md:max-w-md">
+                                <p className="text-xs font-bold mb-1">Check the following:</p>
+                                <ul className="text-[11px] list-disc list-inside space-y-0.5">
+                                    {validationErrors.map((e, i) => (
+                                        <li key={i}>{e}</li>
+                                    ))}
                                 </ul>
-                            </TooltipContent>}
-                        </Tooltip>
+                            </div>
+                        )}
                     </div>
                 </div>
 
