@@ -34,7 +34,7 @@ import {
 import AdminHome from "@/routes/admin/AdminHome";
 import CustomerInfo from "@/routes/admin/CustomerInfo";
 import DLTestDates from "@/routes/admin/DLTestDates";
-import InstructorsManagement from "@/routes/admin/instructors";
+import InstructorsManagement, { InstructorSchedulePage } from "@/routes/admin/instructors";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
@@ -239,6 +239,10 @@ export default function App() {
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructors" element={<InstructorsManagement />} />
+              
+              {/* Added the New Route Here */}
+              <Route path="instructors/:id" element={<InstructorSchedulePage />} />
+
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
               <Route path="learner-details" element={<LearnerDetails />} />

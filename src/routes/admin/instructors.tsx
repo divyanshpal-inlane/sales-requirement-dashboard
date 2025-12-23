@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO } from "date-fns";
-import { ArrowLeft, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO, startOfDay, parse, subWeeks, addWeeks, differenceInMinutes } from "date-fns";
+import { ArrowLeft, Calendar, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search, ChevronLeft, Loader2, AlertCircle, User, Phone, MapPin, ExternalLink, ChevronRight,  } from "lucide-react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -40,6 +41,7 @@ import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorSched
 import { SlotConfig } from "@/types/schedule";
 import { describe } from "node:test";
 import { checkInstructorAvailability } from "@/queries/instructor";
+import { cn } from "@/lib/utils";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -703,7 +705,9 @@ export default function InstructorsManagement() {
   };
 
   const handleOpenScheduleDialog = (id: string) => {
-    setOpenScheduleDialogId(id); // Set the ID of the instructor whose dialog is open
+    console.log("Open schedule fo id`", id);
+    navigate(id);
+    // setOpenScheduleDialogId(id); // Set the ID of the instructor whose dialog is open
   };
 
   const handleCloseScheduleDialog = () => {
@@ -2645,14 +2649,14 @@ return (
                           if (schedule && !schedule.isTentative) {
                             handleOccupiedSlotClick(schedule);
                           } else {
-                            if (unavailable) {
-                              toast({
-                                title: "Error",
-                                description: "Not available instructor",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
+                            // if (unavailable) {
+                            //   toast({
+                            //     title: "Error",
+                            //     description: "Not available instructor",
+                            //     variant: "destructive",
+                            //   });
+                            //   return;
+                            // }
                             // if (schedule) setScheduleHelper(schedule);
                             if (schedule && schedule.isTentative) {
                               // handleViewTentativeSlotClick();
@@ -3544,7 +3548,7 @@ export const AddTentativeSchedule = () => {
         },
         onSuccess: () => {
             toast({ title: "Success", description: "Tentative schedules added", variant: "success" });
-            navigate('/admin/instructors');
+            navigate('/admin/instructors/' + instructorId);
         }
     });
 
@@ -3553,7 +3557,7 @@ export const AddTentativeSchedule = () => {
             <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h1 className="text-2xl font-bold">Add Tentative Schedules</h1>
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors')}>✕</Button>
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button>
                 </div>
 
                 <div className="space-y-6">
@@ -3664,7 +3668,7 @@ export const AddTentativeSchedule = () => {
                     {/* Footer */}
                     <div className="flex flex-col items-end gap-3 pt-6 border-t">
                         <div className="flex justify-end gap-3">
-                            <Button variant="ghost" onClick={() => navigate('/admin/instructors')}>
+                            <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}>
                                 Cancel
                             </Button>
                             <Button 
@@ -3721,4 +3725,268 @@ export const AddTentativeSchedule = () => {
             </div>
         </TooltipProvider>
     );
+};
+
+export const InstructorSchedulePage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // Cross-hair highlighting states
+  const [hoveredDay, setHoveredDay] = useState(null);
+  const [hoveredHour, setHoveredHour] = useState(null);
+
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const timeSlots = useMemo(() => {
+    const slots = [];
+    for (let i = SlotConfig.startHourOfDay; i < SlotConfig.endHourOfDay; i++) {
+      const date = parse(i.toString(), 'H', new Date());
+      slots.push({
+        hour24: i.toString().padStart(2, '0'),
+        display: format(date, "h a")
+      });
+    }
+    return slots;
+  }, []);
+
+  const { data: instructor, isLoading } = useQuery({
+    queryKey: ["instructor-full", id, format(weekStart, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select(`*, schedules:Schedule (*, learner:learner_id (name, phone, pick_up_location), lesson:lesson_id (number))`)
+        .eq("id_instructor", id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (sessionId) => {
+      await supabase.from("Schedule").delete().eq("id", sessionId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["instructor-full"]);
+      if (selectedSlot) setSelectedSlot(null);
+    },
+  });
+
+  const filteredSchedules = useMemo(() => {
+    if (!instructor?.schedules) return [];
+    const q = searchQuery.toLowerCase();
+    return instructor.schedules.filter(s => {
+      const name = (s.isTentative ? s.tentative_details?.name : s.learner?.name) || "";
+      return !searchQuery.trim() || name.toLowerCase().includes(q);
+    });
+  }, [instructor, searchQuery]);
+
+  if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+
+  return (
+    <div className="flex flex-col h-screen max-h-screen bg-white overflow-hidden font-sans">
+      {/* Navigation Header */}
+      <header className="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-white z-[100] shadow-sm">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors')} className="rounded-full">
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentDate(prev => subWeeks(prev, 1))}><ChevronLeft className="w-4 h-4" /></Button>
+            <Button variant="ghost" size="sm" className="px-3 text-[10px] font-bold" onClick={() => setCurrentDate(new Date())}>Today</Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentDate(prev => addWeeks(prev, 1))}><ChevronRight className="w-4 h-4" /></Button>
+          </div>
+          <h1 className="text-xs font-bold text-slate-500 uppercase tracking-tight">
+            {format(weekStart, "MMM d")} - {format(weekDates[6], "MMM d, yyyy")}
+          </h1>
+        </div>
+        <div className="relative w-full max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input 
+            placeholder="Search learner..." 
+            className="pl-9 h-8 bg-slate-50 border-none text-xs"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Time Sidebar */}
+        <div className="w-16 flex flex-col bg-slate-50 border-r shrink-0 z-20">
+          <div className="h-10 border-b bg-white" />
+          <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
+            {timeSlots.map((slot, idx) => (
+              <div 
+                key={slot.hour24} 
+                className={cn(
+                  "flex items-start justify-end pr-2 pt-1 border-b border-slate-200/50 transition-colors",
+                  hoveredHour === idx ? "bg-blue-100/50 text-blue-700" : ""
+                )}
+              >
+                <span className="text-[10px] font-bold uppercase">{slot.display}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Days & Grid Area */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 border-b bg-white shrink-0 z-20">
+            {weekDates.map((date, idx) => (
+              <div 
+                key={date.toString()} 
+                className={cn(
+                  "h-10 flex items-center justify-center border-r last:border-0 transition-colors",
+                  hoveredDay === idx ? "bg-blue-100/50" : "bg-white"
+                )}
+              >
+                <span className="text-[10px] font-bold uppercase text-slate-400 mr-2">{format(date, "EEE")}</span>
+                <span className={cn(
+                  "text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full",
+                  format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? "bg-blue-600 text-white" : "text-slate-700"
+                )}>
+                  {format(date, "d")}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Interactive Grid */}
+          <div 
+            className="flex-1 grid grid-cols-7 relative bg-white min-h-0" 
+            style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}
+          >
+            {timeSlots.map((slot, rowIdx) => (
+              <Fragment key={slot.hour24}>
+                {weekDates.map((date, colIdx) => {
+                  const dateStr = format(date, "yyyy-MM-dd");
+                  const slotSchedules = filteredSchedules.filter(s => 
+                    s.date === dateStr && s.start_time.split(':')[0] === slot.hour24
+                  );
+
+                  return (
+                    <div 
+                      key={`${dateStr}-${slot.hour24}`}
+                      onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
+                      onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
+                      className={cn(
+                        "border-r border-b border-slate-100 relative cursor-pointer group/cell transition-colors",
+                        (hoveredDay === colIdx || hoveredHour === rowIdx) ? "bg-slate-50/50" : "",
+                        (hoveredDay === colIdx && hoveredHour === rowIdx) ? "bg-blue-50/60" : ""
+                      )}
+                      onClick={() => setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules })}
+                    >
+                      {/* Visible Half-Hour Line */}
+                      <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-200 pointer-events-none z-0" />
+
+                      <div className="absolute inset-0 p-0.5 z-10 overflow-visible">
+                         {slotSchedules.map((session, idx) => {
+                           const startMin = parseInt(session.start_time.split(':')[1]);
+                           
+                           // Calculate duration for card height (defaulting to 60 if data is missing)
+                           const start = parse(session.start_time, 'HH:mm', new Date());
+                           const end = parse(session.end_time, 'HH:mm', new Date());
+                           const duration = differenceInMinutes(end, start) || 60;
+                           
+                           // Height calculation: (duration / 60 minutes per cell) * 100%
+                           const heightPct = (duration / 60) * 100;
+                           // Top offset calculation based on minutes
+                           const topOffsetPct = (startMin / 60) * 100;
+
+                           return (
+                             <div 
+                               key={session.id}
+                               className={cn(
+                                 "absolute rounded shadow-md border-l-[3px] transition-all hover:z-[60] group/item p-1 flex flex-col",
+                                 session.isTentative ? "bg-amber-50 border-amber-400 text-amber-900" : "bg-blue-600 border-blue-900 text-white"
+                               )}
+                               style={{ 
+                                 left: `${idx * 18}%`, // Sliding deck effect
+                                 width: '80%', 
+                                 top: `${topOffsetPct}%`,
+                                 height: `${heightPct}%`,
+                                 zIndex: idx + 1,
+                                 minHeight: '20px'
+                               }}
+                             >
+                               <div className="font-bold text-[9px] truncate leading-tight">
+                                  {session.isTentative ? session.tentative_details?.name : session.learner?.name}
+                               </div>
+                               <div className="flex items-center gap-1 opacity-90 mt-auto text-[8px] font-medium whitespace-nowrap">
+                                 <Clock className="w-2 h-2" />
+                                 {session.start_time} - {session.end_time}
+                               </div>
+                               
+                               {session.isTentative && (
+                                 <div className="absolute top-0.5 right-0.5 opacity-0 group-hover/item:opacity-100 bg-white/90 rounded p-0.5 border shadow-sm transition-opacity">
+                                   <Trash2 
+                                     className="w-2.5 h-2.5 text-red-600" 
+                                     onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }} 
+                                   />
+                                 </div>
+                               )}
+                             </div>
+                           );
+                         })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!selectedSlot} onOpenChange={() => setSelectedSlot(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex justify-between">
+              <span>{selectedSlot && format(selectedSlot.date, "EEEE, MMM d")}</span>
+              <span className="text-blue-600 uppercase text-[10px] tracking-widest">{selectedSlot?.hour}:00 BLOCK</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 max-h-[50vh] overflow-y-auto pr-1">
+            {selectedSlot?.schedules.map((session) => (
+              <div key={session.id} className={cn(
+                "p-3 rounded-xl border-2 flex flex-col gap-1 transition-all",
+                session.isTentative ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-100"
+              )}>
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <div className="text-sm font-bold text-slate-800">{session.isTentative ? session.tentative_details?.name : session.learner?.name}</div>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-blue-700 bg-white px-2 py-0.5 rounded w-fit border border-blue-50">
+                      <Clock className="w-3 h-3" /> {session.start_time} - {session.end_time}
+                    </div>
+                    <div className="text-xs text-slate-600 flex items-center gap-2 pt-1"><Phone className="w-3.5 h-3.5" /> {session.isTentative ? session.tentative_details?.phone : session.learner?.phone}</div>
+                    <div className="text-xs text-slate-600 flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-red-400" /> {session.isTentative ? session.tentative_details?.pick_up_location : session.learner?.pick_up_location}</div>
+                  </div>
+                  {session.isTentative && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => deleteMutation.mutate(session.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button 
+            className="w-full bg-blue-600 h-11 font-bold shadow-lg shadow-blue-100" 
+            onClick={() => navigate(`/admin/tentative-add/${id}/${format(selectedSlot.date, "yyyy-MM-dd")}/${selectedSlot.hour}:00`)}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Add Session to Block
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 };
