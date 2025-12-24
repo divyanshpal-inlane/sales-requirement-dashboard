@@ -3352,11 +3352,28 @@ const TentativeAddressInput = memo(({
   );
 });
 
-export const AddTentativeSchedule = () => {
+// 1. Destructure the params from the function arguments (props)
+export const AddTentativeSchedule = ({ 
+    instructorId: propInstructorId, 
+    date: propDate, 
+    startTime: propStartTime 
+}: { 
+    instructorId?: string, 
+    date?: string, 
+    startTime?: string 
+} = {}) => {
+    
     const testMode = false;
     const navigate = useNavigate();
     const { toast } = useToast();
-    const { instructorId, date, startTime } = useParams();
+    
+    // 2. Get params from the URL
+    const { instructorId: urlInstructorId, date: urlDate, startTime: urlStartTime } = useParams();
+
+    // 3. Use URL params first, fallback to prop params if URL is undefined
+    const instructorId = urlInstructorId ?? propInstructorId;
+    const date = urlDate ?? propDate;
+    const startTime = urlStartTime ?? propStartTime;
 
     const { data: courses } = useQuery({
         queryKey: ["courses"],
@@ -3371,7 +3388,7 @@ export const AddTentativeSchedule = () => {
     const [bulkType, setBulkType] = useState("single");
     const [repeatCount, setRepeatCount] = useState(1);
     const [addLessonNumber, setAddLessonNumber] = useState(false);
-
+    
     const defaultDate = date || format(new Date(), "yyyy-MM-dd");
     const defaultStart = startTime || "09:00";
     const defaultEnd = startTime 
@@ -3874,6 +3891,13 @@ export const InstructorSchedulePage = () => {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
+  const [isAddingSession, setIsAddingSession] = useState(false);
+
+  const handleSetSelectedSlot = (slot) => {
+    setSelectedSlot(slot);
+    setIsAddingSession(false); // Always show the list first when a new cell is clicked
+  };
+
   const timeSlots = useMemo(() => {
     const slots = [];
     for (let i = SlotConfig.startHourOfDay; i < SlotConfig.endHourOfDay; i++) {
@@ -3967,8 +3991,6 @@ return (
       </div>
     </header>
 
-    {/* MAIN CONTENT AREA - The "overflow-hidden" here prevents the whole page from scrolling, 
-        but the internal grid remains scrollable */}
     <div className="flex-1 flex overflow-hidden">
       {/* TIME AXIS */}
       <div className="w-16 flex flex-col bg-slate-50 border-r shrink-0 z-20">
@@ -3982,7 +4004,7 @@ return (
         </div>
       </div>
 
-      {/* CALENDAR GRID - This remains fully scrollable */}
+      {/* CALENDAR GRID */}
       <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
         <div className="grid grid-cols-7 border-b bg-white sticky top-0 shrink-0 z-30">
           {weekDates.map((date, idx) => (
@@ -4011,16 +4033,21 @@ return (
                       "border-r border-b border-slate-100 relative group transition-colors cursor-pointer", 
                       (hoveredDay === colIdx || hoveredHour === rowIdx) ? "bg-slate-50" : ""
                     )}
-                    onClick={() => setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules })}
+                    onClick={() => {
+                      setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules });
+                      setIsAddingSession(false);
+                    }}
                   >
                     {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0" style={{ backgroundColor: PALETTE.BLOCK, opacity: 0.15 }} />}
                     {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0" style={{ backgroundColor: PALETTE.BLOCK, opacity: 0.15 }} />}
+                    
                     <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-200 pointer-events-none z-0" />
 
                     <div className="absolute inset-0 p-0.5 z-20 overflow-visible pointer-events-none">
                       {slotSchedules.map((session, idx) => {
                         const startMin = parseInt(session.start_time.split(':')[1]);
                         const duration = differenceInMinutes(parse(session.end_time, 'HH:mm:ss', new Date()), parse(session.start_time, 'HH:mm:ss', new Date())) || 60;
+                        
                         return (
                           <div 
                             key={session.id}
@@ -4039,6 +4066,7 @@ return (
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules });
+                              setIsAddingSession(false);
                             }}
                           >
                             <div className="flex justify-between items-start gap-1">
@@ -4063,7 +4091,7 @@ return (
       </div>
     </div>
 
-    {/* OVERLAY PANEL (Bottom-Up) - No backdrop, allows interaction behind */}
+    {/* LAYER 1: Schedule Details Overlay */}
     <AnimatePresence>
       {selectedSlot && (
         <motion.div
@@ -4071,9 +4099,8 @@ return (
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 30, stiffness: 300 }}
-          className="absolute bottom-0 left-16 right-0 bg-white border-t border-l rounded-tl-2xl shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-[120] max-h-[45vh] flex flex-col overflow-hidden pointer-events-auto"
+          className="absolute bottom-0 left-16 right-0 bg-white border-t border-l rounded-tl-2xl shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-[120] max-h-[45vh] flex flex-col overflow-hidden"
         >
-          {/* Header */}
           <div className="px-6 py-3 border-b flex justify-between items-center shrink-0 bg-slate-50/50">
             <div className="flex items-center gap-3">
                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-xs">
@@ -4084,7 +4111,7 @@ return (
                   {format(selectedSlot.date, "EEEE, MMM d")}
                 </h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  Hour Slot: {selectedSlot.hour}:00
+                  Slot: {selectedSlot.hour}:00
                 </p>
               </div>
             </div>
@@ -4093,7 +4120,7 @@ return (
                 variant="outline" 
                 size="sm" 
                 className="h-8 text-[10px] font-bold uppercase border-black"
-                onClick={() => navigate(`/admin/tentative-add/${id}/${format(selectedSlot.date, "yyyy-MM-dd")}/${selectedSlot.hour}:00`)}
+                onClick={() => setIsAddingSession(true)}
               >
                 <Plus className="w-3 h-3 mr-1" /> Add
               </Button>
@@ -4103,67 +4130,69 @@ return (
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 flex flex-row gap-4 overflow-x-auto min-h-0">
+          <div className="flex-1 overflow-x-auto p-4 flex flex-row gap-4 min-h-0 items-start">
             {selectedSlot.schedules.length === 0 ? (
               <div className="w-full py-8 text-center text-slate-400 text-xs font-bold uppercase tracking-tighter italic">
                 No sessions in this slot
               </div>
             ) : (
-              selectedSlot.schedules.map((session) => {
-                const lat = session.isTentative ? session.tentative_details?.lat : session.learner?.address_lat;
-                const lng = session.isTentative ? session.tentative_details?.lng : session.learner?.address_lng;
-                const mapLink = (lat && lng) ? `http://google.com/maps?q=${lat},${lng}` : null;
-                const locationDisplay = (session.isTentative ? session.tentative_details?.pick_up_location : session.learner?.pick_up_location) || "No location";
-                
-                return (
-                  <div key={session.id} className={cn(
-                    "min-w-[280px] max-w-[320px] p-4 rounded-xl border flex flex-col gap-2 shadow-sm shrink-0", 
-                    session.isTentative ? "bg-[#FFC229]/5 border-[#FFC229]/30" : "bg-[#6257FF]/5 border-[#6257FF]/30"
-                  )}>
-                    <div className="flex justify-between items-start">
-                      <div className="font-bold text-sm truncate pr-2">
-                        {session.isTentative ? session.tentative_details?.name : session.learner?.name}
-                      </div>
-                      {session.isTentative && (
-                        <Trash2 
-                          className="w-3.5 h-3.5 text-red-500 cursor-pointer hover:scale-110 transition-transform" 
-                          onClick={() => deleteMutation.mutate(session.id)}
-                        />
-                      )}
+              selectedSlot.schedules.map((session) => (
+                <div key={session.id} className={cn(
+                  "min-w-[280px] max-w-[320px] p-4 rounded-xl border flex flex-col gap-2 shadow-sm shrink-0", 
+                  session.isTentative ? "bg-[#FFC229]/5 border-[#FFC229]/30" : "bg-[#6257FF]/5 border-[#6257FF]/30"
+                )}>
+                  <div className="flex justify-between items-start">
+                    <div className="font-bold text-sm truncate pr-2">
+                      {session.isTentative ? session.tentative_details?.name : session.learner?.name}
                     </div>
-
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 bg-white border rounded px-2 py-0.5 w-fit">
-                      <Clock className="w-3 h-3" /> 
-                      {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
-                    </div>
-
-                    <div className="text-[11px] font-medium text-slate-700 flex items-center gap-2">
-                      <Phone className="w-3 h-3 opacity-50" />
-                      {session.isTentative ? session.tentative_details?.phone : session.learner?.phone}
-                    </div>
-
-                    {mapLink ? (
-                      <a href={mapLink} target="_blank" rel="noopener noreferrer" className="text-[11px] flex items-start gap-2 text-slate-600 hover:text-black">
-                        <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                        <span className="underline truncate">{locationDisplay}</span>
-                      </a>
-                    ) : (
-                      <div className="text-[11px] flex items-start gap-2 text-slate-400 italic">
-                        <MapPin className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{locationDisplay}</span>
-                      </div>
-                    )}
-
-                    {(session.isTentative && session.tentative_details?.description) && (
-                      <div className="mt-1 p-2 bg-white/50 rounded text-[10px] leading-tight border border-black/5 italic text-slate-500">
-                        {session.tentative_details.description}
-                      </div>
+                    {session.isTentative && (
+                      <Trash2 
+                        className="w-3.5 h-3.5 text-red-500 cursor-pointer hover:scale-110 transition-transform" 
+                        onClick={() => deleteMutation.mutate(session.id)}
+                      />
                     )}
                   </div>
-                );
-              })
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 bg-white border rounded px-2 py-0.5 w-fit">
+                    <Clock className="w-3 h-3" /> 
+                    {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
+                  </div>
+                  <div className="text-[11px] font-medium text-slate-700 flex items-center gap-2">
+                    <Phone className="w-3 h-3 opacity-50" />
+                    {session.isTentative ? session.tentative_details?.phone : session.learner?.phone}
+                  </div>
+                </div>
+              ))
             )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* LAYER 2: Add Booking Overlay (Stacks on top of Layer 1) */}
+    <AnimatePresence>
+      {isAddingSession && selectedSlot && (
+        <motion.div
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 250 }}
+          className="absolute bottom-0 left-16 right-0 bg-white border-t border-l rounded-tl-2xl shadow-[0_-25px_60px_rgba(0,0,0,0.2)] z-[130] h-[60vh] flex flex-col overflow-hidden"
+        >
+          <div className="px-6 py-4 border-b flex justify-between items-center shrink-0 bg-black text-white">
+            <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                <h2 className="text-sm font-bold uppercase tracking-tight">Add Session</h2>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setIsAddingSession(false)} className="h-8 w-8 text-white hover:bg-white/10">
+                <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+            <AddTentativeSchedule 
+                instructorId={id} 
+                date={format(selectedSlot.date, "yyyy-MM-dd")} 
+                startTime={`${selectedSlot.hour}:00`} 
+            />
           </div>
         </motion.div>
       )}
