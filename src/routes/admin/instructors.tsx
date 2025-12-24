@@ -4072,6 +4072,10 @@ return (
                             <div className="flex justify-between items-start gap-1">
                               <div className="font-bold text-[9px] truncate leading-tight flex-1">
                                 {session.isTentative ? session.tentative_details?.name : session.learner?.name}
+                                {/* Suffix bracket logic */}
+                                {!session.isTentative && session.lesson?.number && (
+                                  <span className="ml-1 opacity-80">({session.lesson.number})</span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1 opacity-90 mt-auto text-[8px] font-medium whitespace-nowrap">
