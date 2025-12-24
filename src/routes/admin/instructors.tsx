@@ -3727,6 +3727,127 @@ export const AddTentativeSchedule = () => {
     );
 };
 
+  function isTimeUnavailable(
+    unavailability: any[] | null | undefined,
+    day: Date,
+    hour: number,
+    minute: number,
+  ): boolean {
+    if (
+      !unavailability ||
+      !Array.isArray(unavailability) ||
+      unavailability.length === 0
+    ) {
+      return false;
+    }
+
+    const currentTime = new Date(day);
+    currentTime.setHours(hour, minute);
+    const dayOfWeek = format(day, "EEEE").toLowerCase();
+    const formattedDate = format(day, "yyyy-MM-dd");
+
+    return unavailability.some((u) => {
+      if (u.booked_date && u.all_day) {
+        return formattedDate === u.booked_date;
+      }
+
+      if (
+        u.booked_date &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        const unavailableStart = new Date(
+          `${u.booked_date}T${u.booked_start_time}`,
+        );
+        const unavailableEnd = new Date(
+          `${u.booked_date}T${u.booked_end_time}`,
+        );
+        return (
+          formattedDate === u.booked_date &&
+          currentTime >= unavailableStart &&
+          currentTime < unavailableEnd
+        );
+      }
+
+      if (u.day_of_week && u.all_day) {
+        return u.day_of_week === dayOfWeek;
+      }
+
+      if (
+        u.day_of_week &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        if (u.day_of_week === dayOfWeek) {
+          const [startHour, startMinute] = u.booked_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
+          const unavailableStart = new Date(day);
+          unavailableStart.setHours(startHour, startMinute);
+          const unavailableEnd = new Date(day);
+          unavailableEnd.setHours(endHour, endMinute);
+
+          return (
+            currentTime >= unavailableStart && currentTime < unavailableEnd
+          );
+        }
+      }
+
+      if (u.start_date && u.end_date && u.range_all_day) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59);
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        u.range_start_time &&
+        u.range_end_time
+      ) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59);
+
+        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+          const [startHour, startMinute] = u.range_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+
+          const todayStart = new Date(day);
+          todayStart.setHours(startHour, startMinute);
+
+          const todayEnd = new Date(day);
+          todayEnd.setHours(endHour, endMinute);
+
+          return currentTime >= todayStart && currentTime < todayEnd;
+        }
+      }
+
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        !u.range_start_time
+      ) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59);
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      return false;
+    });
+  }
+  
+
 export const InstructorSchedulePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -3736,9 +3857,18 @@ export const InstructorSchedulePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  // Cross-hair highlighting states
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredHour, setHoveredHour] = useState(null);
+
+  const PALETTE = {
+    SUCCESS: "#00CE84",
+    PURPLE_LIGHT: "#B28FFF",
+    PURPLE_DARK: "#6257FF",
+    MINT: "#00FF91",
+    ORANGE: "#FFC229",
+    CYAN: "#6BECFF",
+    BLOCK: "#475569" 
+  };
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -3755,12 +3885,25 @@ export const InstructorSchedulePage = () => {
     return slots;
   }, []);
 
-  const { data: instructor, isLoading } = useQuery({
+const { data: instructor, isLoading } = useQuery({
     queryKey: ["instructor-full", id, format(weekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Instructor")
-        .select(`*, schedules:Schedule (*, learner:learner_id (name, phone, pick_up_location), lesson:lesson_id (number))`)
+        .select(`
+          *, 
+          schedules:Schedule (
+            *, 
+            learner:learner_id (
+              name, 
+              phone, 
+              pick_up_location, 
+              address_lat, 
+              address_lng
+            ), 
+            lesson:lesson_id (number)
+          )
+        `)
         .eq("id_instructor", id)
         .single();
       if (error) throw error;
@@ -3783,15 +3926,20 @@ export const InstructorSchedulePage = () => {
     const q = searchQuery.toLowerCase();
     return instructor.schedules.filter(s => {
       const name = (s.isTentative ? s.tentative_details?.name : s.learner?.name) || "";
-      return !searchQuery.trim() || name.toLowerCase().includes(q);
+      const phone = (s.isTentative ? s.tentative_details?.phone : s.learner?.phone) || "";
+      return !searchQuery.trim() || 
+             name.toLowerCase().includes(q) || 
+             phone.includes(q);
     });
   }, [instructor, searchQuery]);
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+  // Helper for cleaning seconds from "HH:mm:ss"
+  const formatTimeStr = (time) => time ? time.slice(0, 5) : "";
 
-  return (
+  if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" /></div>;
+
+return (
     <div className="flex flex-col h-screen max-h-screen bg-white overflow-hidden font-sans">
-      {/* Navigation Header */}
       <header className="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-white z-[100] shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors')} className="rounded-full">
@@ -3808,9 +3956,9 @@ export const InstructorSchedulePage = () => {
         </div>
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input 
-            placeholder="Search learner..." 
-            className="pl-9 h-8 bg-slate-50 border-none text-xs"
+          <input 
+            placeholder="Search name or phone..." 
+            className="w-full pl-9 h-8 bg-slate-50 border-none text-xs rounded-md focus:ring-1 focus:ring-slate-200 outline-none"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -3818,126 +3966,108 @@ export const InstructorSchedulePage = () => {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Time Sidebar */}
         <div className="w-16 flex flex-col bg-slate-50 border-r shrink-0 z-20">
           <div className="h-10 border-b bg-white" />
           <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
             {timeSlots.map((slot, idx) => (
-              <div 
-                key={slot.hour24} 
-                className={cn(
-                  "flex items-start justify-end pr-2 pt-1 border-b border-slate-200/50 transition-colors",
-                  hoveredHour === idx ? "bg-blue-100/50 text-blue-700" : ""
-                )}
-              >
-                <span className="text-[10px] font-bold uppercase">{slot.display}</span>
+              <div key={slot.hour24} className={cn("flex items-start justify-end pr-2 pt-1 border-b border-slate-200/50 transition-colors", hoveredHour === idx ? "bg-slate-200/30" : "")}>
+                <span className="text-[10px] font-bold uppercase text-slate-400">{slot.display}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Days & Grid Area */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          {/* Day Headers */}
           <div className="grid grid-cols-7 border-b bg-white shrink-0 z-20">
             {weekDates.map((date, idx) => (
-              <div 
-                key={date.toString()} 
-                className={cn(
-                  "h-10 flex items-center justify-center border-r last:border-0 transition-colors",
-                  hoveredDay === idx ? "bg-blue-100/50" : "bg-white"
-                )}
-              >
+              <div key={date.toString()} className={cn("h-10 flex items-center justify-center border-r last:border-0 transition-colors", hoveredDay === idx ? "bg-slate-100" : "bg-white")}>
                 <span className="text-[10px] font-bold uppercase text-slate-400 mr-2">{format(date, "EEE")}</span>
-                <span className={cn(
-                  "text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full",
-                  format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? "bg-blue-600 text-white" : "text-slate-700"
-                )}>
+                <span className={cn("text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full", format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? "bg-[#6257FF] text-white" : "text-slate-700")}>
                   {format(date, "d")}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Interactive Grid */}
-          <div 
-            className="flex-1 grid grid-cols-7 relative bg-white min-h-0" 
-            style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}
-          >
+          <div className="flex-1 grid grid-cols-7 relative bg-white min-h-0" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
             {timeSlots.map((slot, rowIdx) => (
               <Fragment key={slot.hour24}>
                 {weekDates.map((date, colIdx) => {
                   const dateStr = format(date, "yyyy-MM-dd");
-                  const slotSchedules = filteredSchedules.filter(s => 
-                    s.date === dateStr && s.start_time.split(':')[0] === slot.hour24
-                  );
+                  const slotSchedules = filteredSchedules.filter(s => s.date === dateStr && s.start_time.split(':')[0] === slot.hour24);
+
+                  const isTopUnavailable = isTimeUnavailable(instructor?.unavailability, date, parseInt(slot.hour24), 0);
+                  const isBottomUnavailable = isTimeUnavailable(instructor?.unavailability, date, parseInt(slot.hour24), 30);
 
                   return (
-                    <div 
-                      key={`${dateStr}-${slot.hour24}`}
-                      onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
-                      onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
-                      className={cn(
-                        "border-r border-b border-slate-100 relative cursor-pointer group/cell transition-colors",
-                        (hoveredDay === colIdx || hoveredHour === rowIdx) ? "bg-slate-50/50" : "",
-                        (hoveredDay === colIdx && hoveredHour === rowIdx) ? "bg-blue-50/60" : ""
-                      )}
-                      onClick={() => setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules })}
-                    >
-                      {/* Visible Half-Hour Line */}
-                      <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-200 pointer-events-none z-0" />
+                  <div 
+                    key={`${dateStr}-${slot.hour24}`}
+                    className={cn(
+                      "border-r border-b border-slate-100 relative group transition-colors", 
+                      (hoveredDay === colIdx || hoveredHour === rowIdx) ? "bg-slate-50" : ""
+                    )}
+                    // We keep the cell click for ADDING new sessions
+                    onClick={() => setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules })}
+                  >
+                    {/* Unavailability Backgrounds (z-0) */}
+                    {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0" style={{ backgroundColor: PALETTE.BLOCK, opacity: 0.15 }} />}
+                    {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0" style={{ backgroundColor: PALETTE.BLOCK, opacity: 0.15 }} />}
+                    
+                    <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-200 pointer-events-none z-0" />
 
-                      <div className="absolute inset-0 p-0.5 z-10 overflow-visible">
-                         {slotSchedules.map((session, idx) => {
-                           const startMin = parseInt(session.start_time.split(':')[1]);
-                           
-                           // Calculate duration for card height (defaulting to 60 if data is missing)
-                           const start = parse(session.start_time, 'HH:mm', new Date());
-                           const end = parse(session.end_time, 'HH:mm', new Date());
-                           const duration = differenceInMinutes(end, start) || 60;
-                           
-                           // Height calculation: (duration / 60 minutes per cell) * 100%
-                           const heightPct = (duration / 60) * 100;
-                           // Top offset calculation based on minutes
-                           const topOffsetPct = (startMin / 60) * 100;
-
-                           return (
-                             <div 
-                               key={session.id}
-                               className={cn(
-                                 "absolute rounded shadow-md border-l-[3px] transition-all hover:z-[60] group/item p-1 flex flex-col",
-                                 session.isTentative ? "bg-amber-50 border-amber-400 text-amber-900" : "bg-blue-600 border-blue-900 text-white"
-                               )}
-                               style={{ 
-                                 left: `${idx * 18}%`, // Sliding deck effect
-                                 width: '80%', 
-                                 top: `${topOffsetPct}%`,
-                                 height: `${heightPct}%`,
-                                 zIndex: idx + 1,
-                                 minHeight: '20px'
-                               }}
-                             >
-                               <div className="font-bold text-[9px] truncate leading-tight">
+                    {/* Sessions Layer (z-20) */}
+                    <div className="absolute inset-0 p-0.5 z-20 overflow-visible pointer-events-none">
+                      {slotSchedules.map((session, idx) => {
+                        const startMin = parseInt(session.start_time.split(':')[1]);
+                        const duration = differenceInMinutes(parse(session.end_time, 'HH:mm:ss', new Date()), parse(session.start_time, 'HH:mm:ss', new Date())) || 60;
+                        
+                        return (
+                          <div 
+                            key={session.id}
+                            className={cn(
+                              "absolute rounded shadow-md border-l-[3px] p-1 flex flex-col transition-all cursor-pointer pointer-events-auto hover:brightness-95", 
+                              session.isTentative ? "bg-[#FFC229] border-[#92400E] text-[#451A03]" : "bg-[#6257FF] border-[#B28FFF] text-white"
+                            )}
+                            style={{ 
+                              left: `${idx * 15}%`, 
+                              width: '85%', 
+                              top: `${(startMin / 60) * 100}%`, 
+                              height: `${(duration / 60) * 100}%`,
+                              zIndex: 50 + idx, // Ensure high z-index
+                              minHeight: '24px'
+                            }}
+                            // FIX: This explicit onClick handles the bottom half issue
+                            onClick={(e) => {
+                              e.stopPropagation(); // Stop the "Add Session" cell click from firing
+                              e.preventDefault();
+                              setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules });
+                            }}
+                          >
+                            <div className="flex justify-between items-start gap-1">
+                              <div className="font-bold text-[9px] truncate leading-tight flex-1">
                                   {session.isTentative ? session.tentative_details?.name : session.learner?.name}
-                               </div>
-                               <div className="flex items-center gap-1 opacity-90 mt-auto text-[8px] font-medium whitespace-nowrap">
-                                 <Clock className="w-2 h-2" />
-                                 {session.start_time} - {session.end_time}
-                               </div>
-                               
-                               {session.isTentative && (
-                                 <div className="absolute top-0.5 right-0.5 opacity-0 group-hover/item:opacity-100 bg-white/90 rounded p-0.5 border shadow-sm transition-opacity">
-                                   <Trash2 
-                                     className="w-2.5 h-2.5 text-red-600" 
-                                     onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }} 
-                                   />
-                                 </div>
-                               )}
-                             </div>
-                           );
-                         })}
-                      </div>
+                              </div>
+                              {session.isTentative && (
+                                <div 
+                                  className="bg-white/90 rounded p-0.5 border shadow-sm cursor-pointer hover:bg-white shrink-0" 
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    deleteMutation.mutate(session.id); 
+                                  }}
+                                >
+                                  <Trash2 className="w-2.5 h-2.5 text-red-600" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 opacity-90 mt-auto text-[8px] font-medium whitespace-nowrap">
+                              <Clock className="w-2 h-2" />
+                              {formatTimeStr(session.start_time)}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
+                  </div>
                   );
                 })}
               </Fragment>
@@ -3946,44 +4076,116 @@ export const InstructorSchedulePage = () => {
         </div>
       </div>
 
-      {/* Detail Dialog */}
       <Dialog open={!!selectedSlot} onOpenChange={() => setSelectedSlot(null)}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold flex justify-between">
+            <DialogTitle className="text-sm font-bold flex justify-between text-black">
               <span>{selectedSlot && format(selectedSlot.date, "EEEE, MMM d")}</span>
-              <span className="text-blue-600 uppercase text-[10px] tracking-widest">{selectedSlot?.hour}:00 BLOCK</span>
+              <span className="uppercase text-[10px] tracking-widest opacity-60">{selectedSlot?.hour}:00</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2 max-h-[50vh] overflow-y-auto pr-1">
-            {selectedSlot?.schedules.map((session) => (
-              <div key={session.id} className={cn(
-                "p-3 rounded-xl border-2 flex flex-col gap-1 transition-all",
-                session.isTentative ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-100"
-              )}>
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <div className="text-sm font-bold text-slate-800">{session.isTentative ? session.tentative_details?.name : session.learner?.name}</div>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-blue-700 bg-white px-2 py-0.5 rounded w-fit border border-blue-50">
-                      <Clock className="w-3 h-3" /> {session.start_time} - {session.end_time}
+          
+          <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
+            {selectedSlot?.schedules.map((session) => {
+              const lat = session.isTentative ? session.tentative_details?.lat : session.learner?.address_lat;
+              const lng = session.isTentative ? session.tentative_details?.lng : session.learner?.address_lng;
+              
+              const mapLink = (lat && lng) 
+                ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` 
+                : null;
+
+              const locationDisplay = (session.isTentative ? session.tentative_details?.pick_up_location : session.learner?.pick_up_location) || "No location provided";
+              
+              const description = session.isTentative ? session.tentative_details?.description : null;
+              const paidInfo = session.isTentative ? session.tentative_details?.paid_info : null;
+              const leadName = session.isTentative ? session.tentative_details?.leadName : null;
+
+              return (
+                <div key={session.id} className={cn(
+                  "p-4 rounded-xl border-2 flex flex-col gap-2 transition-all text-black", 
+                  session.isTentative ? "bg-[#FFC229]/20 border-[#FFC229]" : "bg-[#6257FF]/10 border-[#6257FF]"
+                )}>
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2 w-full">
+                      {/* Header: Name and Lead Name - All Black Text */}
+                      <div>
+                        <div className="text-sm font-bold flex items-center gap-2">
+                          {session.isTentative ? session.tentative_details?.name : session.learner?.name}
+                          {leadName && (
+                            <span className="text-[10px] bg-white px-2 py-0.5 rounded border border-black/20 font-bold uppercase tracking-tight">
+                              Lead: {leadName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Time Badge - Black Text, White Background */}
+                      <div className="flex items-center gap-2 text-xs font-bold px-2 py-0.5 rounded w-fit border border-black/20 bg-white">
+                        <Clock className="w-3.5 h-3.5" /> 
+                        {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
+                      </div>
+
+                      {/* Contact and Location - All Black Text */}
+                      <div className="space-y-1.5">
+                        <div className="text-xs flex items-center gap-2 font-medium">
+                          <Phone className="w-3.5 h-3.5" /> 
+                          {session.isTentative ? session.tentative_details?.phone : session.learner?.phone}
+                        </div>
+                        
+                        {mapLink ? (
+                          <a href={mapLink} target="_blank" rel="noopener noreferrer" className="text-xs flex items-start gap-2 group mt-1">
+                            <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span className="underline break-words leading-relaxed flex-1 font-medium">{locationDisplay}</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-40 shrink-0 mt-1" />
+                          </a>
+                        ) : (
+                          <div className="text-xs flex items-start gap-2 mt-1 opacity-70">
+                            <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" /> 
+                            <span className="break-words">{locationDisplay}</span> (NA)
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Description and Paid Info - All Black Text */}
+                      {(description || paidInfo) && (
+                        <div className="mt-1 pt-2 border-t border-black/10 space-y-2">
+                          {description && (
+                            <div className="text-[11px] leading-relaxed bg-white/40 p-2 rounded border border-black/5">
+                              <span className="font-bold block mb-0.5 uppercase text-[9px]">Description:</span>
+                              {description}
+                            </div>
+                          )}
+                          {paidInfo && (
+                            <div className="text-[11px] font-bold flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-black" />
+                              Payment: {paidInfo}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-slate-600 flex items-center gap-2 pt-1"><Phone className="w-3.5 h-3.5" /> {session.isTentative ? session.tentative_details?.phone : session.learner?.phone}</div>
-                    <div className="text-xs text-slate-600 flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-red-400" /> {session.isTentative ? session.tentative_details?.pick_up_location : session.learner?.pick_up_location}</div>
+
+                    {session.isTentative && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-black shrink-0 hover:bg-black/5" 
+                        onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(session.id); }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
-                  {session.isTentative && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => deleteMutation.mutate(session.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
           <Button 
-            className="w-full bg-blue-600 h-11 font-bold shadow-lg shadow-blue-100" 
+            className="w-full bg-black hover:bg-slate-800 text-white h-11 font-bold shadow-lg" 
             onClick={() => navigate(`/admin/tentative-add/${id}/${format(selectedSlot.date, "yyyy-MM-dd")}/${selectedSlot.hour}:00`)}
           >
-            <Plus className="w-4 h-4 mr-2" /> Add Session to Block
+            <Plus className="w-4 h-4 mr-2" /> Add Session
           </Button>
         </DialogContent>
       </Dialog>

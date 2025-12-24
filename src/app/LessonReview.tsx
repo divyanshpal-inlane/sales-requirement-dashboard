@@ -74,12 +74,12 @@ export default function LessonReview() {
   const timeframeOptions = ['0-3 Months', '3-6 Months', '6-12 Months', '1+ Year', 'Not Sure'];
 
   const buttons = [
-    { id: 1, color: "#00CE84", text: "Better Lesson" },
-    { id: 2, color: "#B28FFF", text: "More Guidance" },
-    { id: 3, color: "#6257FF", text: "Car Condition" },
-    { id: 4, color: "#00FF91", text: "Safety" },
-    { id: 5, color: "#FFC229", text: "Lesson Duration" },
-    { id: 6, color: "#6BECFF", text: "Others" },
+    { id: 1, color: "#00CE84",  },
+    { id: 2, color: "#B28FFF",  },
+    { id: 3, color: "#6257FF",  },
+    { id: 4, color: "#00FF91",  },
+    { id: 5, color: "#FFC229",  },
+    { id: 6, color: "#6BECFF",  },
   ];
   
   // FIX 4: Validation logic
