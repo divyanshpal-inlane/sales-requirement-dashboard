@@ -619,7 +619,7 @@ console.log("Called send email");
                           : enrollment.installment_mode}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        ₹{getPayableAmount(enrollment).toLocaleString()}
+                        ₹{getPayableAmount(enrollment)?.toLocaleString()}
                       </td>
                       <td className="px-2 py-2 text-center">
                         <span
