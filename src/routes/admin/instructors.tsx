@@ -4127,12 +4127,13 @@ export const InstructorSchedulePage = () => {
       </div>
 
       {/* FULL DESCRIPTION */}
-      <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
+      {isTentative && (<div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
         <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">Description</p>
         <span className="italic leading-relaxed">
-          {isTentative ? (details.description ? `"${details.description}"` : "N/A") : "N/A"}
+          {(details.description ? `"${details.description}"` : "N/A")}
         </span>
-      </div>
+      </div>)
+      }
 
       {/* FOOTER: Time */}
       <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-bold text-slate-600">
