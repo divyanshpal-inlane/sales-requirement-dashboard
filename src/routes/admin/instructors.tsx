@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO, startOfDay, parse, subWeeks, addWeeks, differenceInMinutes, subDays } from "date-fns";
-import { ArrowLeft, Calendar, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search, ChevronLeft, Loader2, AlertCircle, User, Phone, MapPin, ExternalLink, ChevronRight, ChevronsLeft, ChevronsRight,  } from "lucide-react";
+import { ArrowLeft, Calendar, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search, ChevronLeft, Loader2, AlertCircle, User, Phone, MapPin, ExternalLink, ChevronRight, ChevronsLeft, ChevronsRight, Wrench } from "lucide-react";
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -3745,6 +3745,288 @@ export const AddTentativeSchedule = ({
     );
 };
 
+export const EditTentativeSchedule = ({ 
+    schedule 
+}: { 
+    schedule: any 
+}) => {
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const instructorId = schedule?.instructor_id;
+
+    // --- DEBUG LOGS ---
+    useEffect(() => {
+        console.log("🛠️ EditTentativeSchedule - Received Schedule Prop:", schedule);
+        
+        if (schedule) {
+            console.log("📝 Mapping Tentative Details:", schedule.tentative_details);
+            
+            // Define the new state objects
+            const newSlots = [{
+                date: schedule.date || "",
+                start_time: schedule.start_time || "",
+                end_time: schedule.end_time || "",
+                description: schedule.tentative_details?.description || "" 
+            }];
+
+            const newDetails = {
+                name: schedule.tentative_details?.name || "",
+                phone: schedule.tentative_details?.phone || "",
+                paid_info: schedule.tentative_details?.paid_info || "Unpaid",
+                pickup_location: schedule.tentative_details?.pickup_location || "",
+                leadName: schedule.tentative_details?.leadName || "", 
+                address: schedule.tentative_details?.address || "",
+                course_id: schedule.course_id?.toString() || "none",
+                lat: schedule.tentative_details?.lat ?? null,
+                lng: schedule.tentative_details?.lng ?? null,
+            };
+
+            setSlots(newSlots);
+            setTentativeDetails(newDetails);
+
+            console.log("✅ State has been set to:", { newSlots, newDetails });
+        } else {
+            console.warn("⚠️ Schedule prop is NULL or UNDEFINED");
+        }
+    }, [schedule]); // This will fire every time the 'schedule' object reference changes
+    // 1. Initial State Hooks
+    const [slots, setSlots] = useState([]);
+    const [tentativeDetails, setTentativeDetails] = useState({
+        name: "",
+        phone: "",
+        paid_info: "Unpaid",
+        pickup_location: "",
+        leadName: "", 
+        address: "",
+        course_id: "none",
+        lat: null as number | null,
+        lng: null as number | null,
+    });
+
+    const { data: courses } = useQuery({
+        queryKey: ["courses"],
+        queryFn: async () => {
+            const { data, error } = await supabase.from("Courses").select("*");
+            if (error) throw error;
+            return data;
+        }
+    });
+
+    // 2. Reset Logic: Sync state when schedule prop changes
+    useEffect(() => {
+        if (schedule) {
+            setSlots([{
+                date: schedule.date || "",
+                start_time: schedule.start_time || "",
+                end_time: schedule.end_time || "",
+                description: schedule.tentative_details?.description || "" 
+            }]);
+
+            setTentativeDetails({
+                name: schedule.tentative_details?.name || "",
+                phone: schedule.tentative_details?.phone || "",
+                paid_info: schedule.tentative_details?.paid_info || "Unpaid",
+                pickup_location: schedule.tentative_details?.pickup_location || "",
+                leadName: schedule.tentative_details?.leadName || "", 
+                address: schedule.tentative_details?.address || "",
+                course_id: schedule.course_id?.toString() || "none",
+                lat: schedule.tentative_details?.lat ?? null,
+                lng: schedule.tentative_details?.lng ?? null,
+            });
+        }
+    }, [schedule]);
+
+    const [availabilityMap, setAvailabilityMap] = useState<Record<string, any>>({});
+
+    useEffect(() => {
+        const validateAllSlots = async () => {
+            if (!instructorId || slots.length === 0) return;
+            try {
+                const result = await checkInstructorAvailability(slots, instructorId);
+                setAvailabilityMap(result);
+            } catch (err) {
+                console.error("Availability Check Failed:", err);
+            }
+        };
+        validateAllSlots();
+    }, [slots, instructorId]);
+
+    const stats = useMemo(() => {
+        const total = slots.length;
+        const blocked = slots.filter(s => {
+            const status = availabilityMap[`${s.date}-${s.start_time}`];
+            return status?.available === false;
+        }).length;
+        return { total, blocked };
+    }, [slots, availabilityMap]);
+
+    const validationErrors = useMemo(() => {
+        const errors = [];
+        const cleanPhone = (tentativeDetails.phone || "").replace(/\D/g, "");
+        if (!tentativeDetails.name?.trim()) errors.push("Name is required");
+        if (cleanPhone.length !== 10) errors.push("Phone must be 10 digits");
+        if (!tentativeDetails.leadName?.trim()) errors.push("Sales Lead is required");
+        if (stats.blocked > 0) errors.push("Remove blocked slots");
+        return errors;
+    }, [tentativeDetails, stats.blocked]);
+
+    const isFormValid = validationErrors.length === 0;
+
+    const UpdateTentativeScheduleMutation = useMutation({
+        mutationFn: async () => {
+            if (!slots[0]) return;
+            
+            const updatedData = {
+                date: slots[0].date,
+                start_time: slots[0].start_time,
+                end_time: slots[0].end_time,
+                course_id: (tentativeDetails.course_id === "none" || tentativeDetails.course_id === "topup") ? null : parseInt(tentativeDetails.course_id),
+                tentative_details: { 
+                    ...tentativeDetails, 
+                    description: slots[0].description 
+                }
+            };
+
+            const { error } = await supabase
+                .from("Schedule")
+                .update(updatedData)
+                .eq('id', schedule.id);
+
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast({ title: "Updated", description: "Schedule updated successfully", variant: "success" });
+            navigate('/admin/instructors/' + instructorId);
+        }
+    });
+
+    return (
+        <TooltipProvider>
+            <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h1 className="text-2xl font-bold">Edit Tentative Schedule</h1>
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Name*</Label>
+                            <Input value={tentativeDetails.name} onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Phone Number*</Label>
+                            <Input value={tentativeDetails.phone} onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} maxLength={10} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Sales lead name*</Label>
+                            <Input value={tentativeDetails.leadName} onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Payment Status</Label>
+                            <Select value={tentativeDetails.paid_info} onValueChange={(v) => setTentativeDetails({...tentativeDetails, paid_info: v})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Unpaid">Unpaid</SelectItem>
+                                    <SelectItem value="Half paid">Half paid</SelectItem>
+                                    <SelectItem value="Full paid">Full paid</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Address / Pickup Location</Label>
+                        <AddressAutocomplete 
+                            value={tentativeDetails.address} 
+                            onChange={(addr, lat, lng) => setTentativeDetails({
+                                ...tentativeDetails, 
+                                address: addr, 
+                                pickup_location: addr, 
+                                lat, 
+                                lng
+                            })} 
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div className="space-y-2">
+                            <Label>Course Selection</Label>
+                            <Select value={tentativeDetails.course_id} onValueChange={(v) => setTentativeDetails({...tentativeDetails, course_id: v})}>
+                                <SelectTrigger><SelectValue placeholder="Select Course" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {courses?.map((c) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                                    <SelectItem value="topup">Topup</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-dashed">
+                        <Label className="text-sm font-bold mb-4 block">Schedule Details</Label>
+                        <div className="grid grid-cols-1 gap-4">
+                            {slots.map((slot, idx) => (
+                                <div key={idx} className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-3">
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Input type="date" value={slot.date} onChange={(e) => {
+                                            const updated = [...slots];
+                                            updated[idx].date = e.target.value;
+                                            setSlots(updated);
+                                        }} />
+                                        <Input type="time" value={slot.start_time} onChange={(e) => {
+                                            const updated = [...slots];
+                                            updated[idx].start_time = e.target.value;
+                                            setSlots(updated);
+                                        }} />
+                                        <Input type="time" value={slot.end_time} onChange={(e) => {
+                                            const updated = [...slots];
+                                            updated[idx].end_time = e.target.value;
+                                            setSlots(updated);
+                                        }} />
+                                    </div>
+                                    <Input 
+                                        placeholder="Description/Lesson Info"
+                                        value={slot.description}
+                                        onChange={(e) => {
+                                            const updated = [...slots];
+                                            updated[idx].description = e.target.value;
+                                            setSlots(updated);
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-3 pt-6 border-t">
+                        <div className="flex justify-end gap-3">
+                            <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}>
+                                Cancel
+                            </Button>
+                            <Button 
+                                onClick={() => UpdateTentativeScheduleMutation.mutate()} 
+                                disabled={UpdateTentativeScheduleMutation.isPending } 
+                                className="px-8 font-bold"
+                            >
+                                {UpdateTentativeScheduleMutation.isPending ? "Updating..." : "Update Schedule"}
+                            </Button>
+                        </div>
+
+                        {!isFormValid && (
+                            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg w-full md:max-w-md">
+                                <ul className="text-[11px] list-disc list-inside">
+                                    {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </TooltipProvider>
+    );
+};
+
   function isTimeUnavailable(
     unavailability: any[] | null | undefined,
     day: Date,
@@ -3961,6 +4243,9 @@ export const InstructorSchedulePage = () => {
     },
   });
 
+  const [editingSession, setEditingSession] = useState<any | null>(null);
+
+
   const filteredSchedules = useMemo(() => {
     if (!instructor?.schedules) return [];
     const q = searchQuery.toLowerCase();
@@ -3971,9 +4256,17 @@ export const InstructorSchedulePage = () => {
     });
   }, [instructor, searchQuery]);
 
+  // Reset edit state when closing the sidebar or switching slots
+  const handleCloseSidebar = () => {
+      setSelectedSlot(null);
+      setEditingSession(null);
+  };
+
+
   const formatTimeStr = (time) => time ? time.slice(0, 5) : "";
 
   if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" /></div>;
+
 
   return (
     <div className="flex flex-col h-screen max-h-screen bg-white overflow-hidden font-sans">
@@ -4066,38 +4359,75 @@ export const InstructorSchedulePage = () => {
 {selectedSlot.schedules.map((session) => {
   const details = session.tentative_details || {};
   const isTentative = session.isTentative;
-  
-  // Logic to show N/A for empty values
   const displayValue = (val: any) => (val && val !== "" ? val : "N/A");
   const paidStatus = isTentative ? (details.paid_info || "Unpaid") : "Unpaid";
 
+  // Check if this specific session is currently being deleted
+  const isDeleting = deleteMutation.isPending && deleteMutation.variables === session.id;
+
   return (
     <div key={session.id} className={cn(
-      "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all", 
+      "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all group relative", 
       isTentative ? "bg-amber-50/30 border-amber-200" : "bg-indigo-50/30 border-indigo-200"
     )}>
-      {/* HEADER: Name & Lead */}
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col">
-          <div className="font-bold text-sm text-slate-900">
+      {/* HEADER: Name & Lead + Actions */}
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="font-bold text-sm text-slate-900 truncate">
             {isTentative ? displayValue(details.name) : displayValue(session.learner?.name)}
             {!isTentative && session.lesson?.number && (
               <span className="ml-1 text-indigo-400">#{session.lesson.number}</span>
             )}
           </div>
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight truncate">
             Lead: {isTentative ? displayValue(details.leadName) : "N/A"}
           </span>
         </div>
         
-        {/* Static Status Badge */}
-        <div className={cn(
-          "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border",
-          paidStatus === "Full paid" ? "bg-emerald-100 border-emerald-200 text-emerald-700" :
-          paidStatus === "Half paid" ? "bg-sky-100 border-sky-200 text-sky-700" :
-          "bg-slate-100 border-slate-200 text-slate-600"
-        )}>
-          {paidStatus}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Status Badge */}
+          <div className={cn(
+              "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border",
+              paidStatus === "Full paid" ? "bg-emerald-100 border-emerald-200 text-emerald-700" :
+              paidStatus === "Half paid" ? "bg-sky-100 border-sky-200 text-sky-700" :
+              "bg-slate-100 border-slate-200 text-slate-600"
+            )}>
+              {paidStatus}
+            </div>
+
+{/* Edit Button (Spanner) - ONLY for Tentative */}
+  {isTentative && (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 shrink-0"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditingSession(session);
+      }}
+    >
+      <Wrench className="w-3 h-3" />
+    </Button>
+  )}
+          {/* Delete Button - Now permanently visible & at the far right */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-slate-400 hover:text-destructive hover:bg-destructive/10 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click events
+              if (window.confirm("Delete this session?")) {
+                deleteMutation.mutate(session.id);
+              }
+            }}
+            disabled={deleteMutation.isPending}
+          >
+            {isDeleting ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Trash2 className="w-3 h-3" />
+            )}
+          </Button>
         </div>
       </div>
 
@@ -4109,10 +4439,9 @@ export const InstructorSchedulePage = () => {
             <span className="font-medium leading-normal">
               {isTentative ? displayValue(details.pickup_location) : displayValue(session.learner?.pick_up_location)}
             </span>
-            {/* Maps Link with ?q=lat,lng */}
             {isTentative && details.lat && details.lng ? (
               <a 
-                href={`https://www.google.com/maps?q=${details.lat},${details.lng}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${details.lat},${details.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-1 uppercase"
@@ -4120,24 +4449,33 @@ export const InstructorSchedulePage = () => {
                 Open in Maps <ExternalLink className="w-3 h-3" />
               </a>
             ) : (
-               <span className="text-[9px] text-slate-400 font-bold uppercase mt-1">No Map Link (N/A)</span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase mt-1">No Map Link (N/A)</span>
             )}
           </div>
         </div>
       </div>
 
       {/* FULL DESCRIPTION */}
-      <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
-        <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">Description</p>
-        <span className="italic leading-relaxed">
-          {isTentative ? (details.description ? `"${details.description}"` : "N/A") : "N/A"}
-        </span>
-      </div>
+      {isTentative && (
+        <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
+          <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">Description</p>
+          <span className="italic leading-relaxed">
+            {(details.description ? `"${details.description}"` : "N/A")}
+          </span>
+        </div>
+      )}
 
       {/* FOOTER: Time */}
-      <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-bold text-slate-600">
-        <Clock className="w-3.5 h-3.5 text-slate-400" /> 
-        {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+          <Clock className="w-3.5 h-3.5 text-slate-400" /> 
+          {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
+        </div>
+        {isTentative && (
+          <span className="text-[8px] font-bold text-amber-600 uppercase tracking-tighter bg-amber-100 px-1 rounded">
+            Tentative
+          </span>
+        )}
       </div>
     </div>
   );
@@ -4153,6 +4491,38 @@ export const InstructorSchedulePage = () => {
                         <Button variant="ghost" size="icon" onClick={() => setIsAddingSession(false)} className="text-white hover:bg-white/20"><X className="w-4 h-4" /></Button>
                       </div>
                       <div className="flex-1 overflow-y-auto p-6"><AddTentativeSchedule instructorId={id} date={format(selectedSlot.date, "yyyy-MM-dd")} startTime={`${selectedSlot.hour}:00`} /></div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {/* EDIT OVERLAY */}
+                <AnimatePresence>
+                  {editingSession && (
+                    <motion.div 
+                      initial={{ x: "-100%" }} 
+                      animate={{ x: 0 }} 
+                      exit={{ x: "-100%" }} 
+                      className="absolute inset-0 bg-white z-[60] flex flex-col"
+                    >
+                      <div className="px-6 py-4 border-b flex justify-between items-center bg-indigo-600 text-white">
+                        <span className="text-xs font-bold uppercase flex items-center gap-2">
+                          <Wrench className="w-3 h-3" /> Edit Tentative
+                        </span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => setEditingSession(null)} 
+                          className="text-white hover:bg-white/20"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-6">
+                        <EditTentativeSchedule 
+                          key={editingSession.id}
+                          schedule={editingSession} 
+                          onSuccess={() => setEditingSession(null)} // Assuming your edit component supports a callback
+                        />
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -4220,19 +4590,36 @@ export const InstructorSchedulePage = () => {
                               <div 
                                 key={session.id}
                                 className={cn(
-                                  "absolute rounded-sm shadow-md border-l-2 p-1 flex flex-col pointer-events-auto transition-all", 
+                                  "absolute rounded-sm shadow-md border-l-2 p-1 flex flex-col pointer-events-auto transition-all group/grid", 
                                   session.isTentative ? "bg-amber-400 border-amber-600 text-amber-950" : "bg-indigo-500 border-indigo-700 text-white"
                                 )}
-                                style={{ left: `${idx * 10}%`, width: '90%', top: `${(startMin / 60) * 100}%`, height: `${(duration / 60) * 100}%`, zIndex: 50 + idx, minHeight: '24px' }}
+                                style={{ 
+                                  left: `${idx * 10}%`, 
+                                  width: '90%', 
+                                  top: `${(startMin / 60) * 100}%`, 
+                                  height: `${(duration / 60) * 100}%`, 
+                                  zIndex: 50 + idx, 
+                                  minHeight: '24px' 
+                                }}
                               >
-                                <div className="font-bold text-[8px] truncate leading-none mb-0.5">
-                                  {session.isTentative ? session.tentative_details?.name : session.learner?.name}
-                                  {!session.isTentative && session.lesson?.number && <span> ({session.lesson.number})</span>}
-                                </div>
-                                <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
-                                  <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
-                                </div>
+                              {/* GRID DELETE BUTTON */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteMutation.mutate(session.id);
+                                }}
+                                className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+
+                              <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4">
+                                {session.isTentative ? session.tentative_details?.name : session.learner?.name}
                               </div>
+                              <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
+                                <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
+                              </div>
+                            </div>
                             );
                           })}
                         </div>
