@@ -4066,38 +4066,61 @@ export const InstructorSchedulePage = () => {
 {selectedSlot.schedules.map((session) => {
   const details = session.tentative_details || {};
   const isTentative = session.isTentative;
-  
-  // Logic to show N/A for empty values
   const displayValue = (val: any) => (val && val !== "" ? val : "N/A");
   const paidStatus = isTentative ? (details.paid_info || "Unpaid") : "Unpaid";
 
+  // Check if this specific session is currently being deleted
+  const isDeleting = deleteMutation.isPending && deleteMutation.variables === session.id;
+
   return (
     <div key={session.id} className={cn(
-      "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all", 
+      "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all group relative", 
       isTentative ? "bg-amber-50/30 border-amber-200" : "bg-indigo-50/30 border-indigo-200"
     )}>
-      {/* HEADER: Name & Lead */}
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col">
-          <div className="font-bold text-sm text-slate-900">
+      {/* HEADER: Name & Lead + Actions */}
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="font-bold text-sm text-slate-900 truncate">
             {isTentative ? displayValue(details.name) : displayValue(session.learner?.name)}
             {!isTentative && session.lesson?.number && (
               <span className="ml-1 text-indigo-400">#{session.lesson.number}</span>
             )}
           </div>
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight truncate">
             Lead: {isTentative ? displayValue(details.leadName) : "N/A"}
           </span>
         </div>
         
-        {/* Static Status Badge */}
-        <div className={cn(
-          "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border",
-          paidStatus === "Full paid" ? "bg-emerald-100 border-emerald-200 text-emerald-700" :
-          paidStatus === "Half paid" ? "bg-sky-100 border-sky-200 text-sky-700" :
-          "bg-slate-100 border-slate-200 text-slate-600"
-        )}>
-          {paidStatus}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Status Badge */}
+          <div className={cn(
+            "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border",
+            paidStatus === "Full paid" ? "bg-emerald-100 border-emerald-200 text-emerald-700" :
+            paidStatus === "Half paid" ? "bg-sky-100 border-sky-200 text-sky-700" :
+            "bg-slate-100 border-slate-200 text-slate-600"
+          )}>
+            {paidStatus}
+          </div>
+
+          {/* Delete Button - Now permanently visible & at the far right */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-slate-400 hover:text-destructive hover:bg-destructive/10 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click events
+              if (window.confirm("Delete this session?")) {
+                deleteMutation.mutate(session.id);
+              }
+            }}
+            disabled={deleteMutation.isPending}
+          >
+            {isDeleting ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Trash2 className="w-3 h-3" />
+            )}
+          </Button>
         </div>
       </div>
 
@@ -4109,10 +4132,9 @@ export const InstructorSchedulePage = () => {
             <span className="font-medium leading-normal">
               {isTentative ? displayValue(details.pickup_location) : displayValue(session.learner?.pick_up_location)}
             </span>
-            {/* Maps Link with ?q=lat,lng */}
             {isTentative && details.lat && details.lng ? (
               <a 
-                href={`https://www.google.com/maps?q=${details.lat},${details.lng}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${details.lat},${details.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-1 uppercase"
@@ -4120,25 +4142,33 @@ export const InstructorSchedulePage = () => {
                 Open in Maps <ExternalLink className="w-3 h-3" />
               </a>
             ) : (
-               <span className="text-[9px] text-slate-400 font-bold uppercase mt-1">No Map Link (N/A)</span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase mt-1">No Map Link (N/A)</span>
             )}
           </div>
         </div>
       </div>
 
       {/* FULL DESCRIPTION */}
-      {isTentative && (<div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
-        <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">Description</p>
-        <span className="italic leading-relaxed">
-          {(details.description ? `"${details.description}"` : "N/A")}
-        </span>
-      </div>)
-      }
+      {isTentative && (
+        <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
+          <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">Description</p>
+          <span className="italic leading-relaxed">
+            {(details.description ? `"${details.description}"` : "N/A")}
+          </span>
+        </div>
+      )}
 
       {/* FOOTER: Time */}
-      <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-bold text-slate-600">
-        <Clock className="w-3.5 h-3.5 text-slate-400" /> 
-        {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+          <Clock className="w-3.5 h-3.5 text-slate-400" /> 
+          {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
+        </div>
+        {isTentative && (
+          <span className="text-[8px] font-bold text-amber-600 uppercase tracking-tighter bg-amber-100 px-1 rounded">
+            Tentative
+          </span>
+        )}
       </div>
     </div>
   );
@@ -4221,19 +4251,36 @@ export const InstructorSchedulePage = () => {
                               <div 
                                 key={session.id}
                                 className={cn(
-                                  "absolute rounded-sm shadow-md border-l-2 p-1 flex flex-col pointer-events-auto transition-all", 
+                                  "absolute rounded-sm shadow-md border-l-2 p-1 flex flex-col pointer-events-auto transition-all group/grid", 
                                   session.isTentative ? "bg-amber-400 border-amber-600 text-amber-950" : "bg-indigo-500 border-indigo-700 text-white"
                                 )}
-                                style={{ left: `${idx * 10}%`, width: '90%', top: `${(startMin / 60) * 100}%`, height: `${(duration / 60) * 100}%`, zIndex: 50 + idx, minHeight: '24px' }}
+                                style={{ 
+                                  left: `${idx * 10}%`, 
+                                  width: '90%', 
+                                  top: `${(startMin / 60) * 100}%`, 
+                                  height: `${(duration / 60) * 100}%`, 
+                                  zIndex: 50 + idx, 
+                                  minHeight: '24px' 
+                                }}
                               >
-                                <div className="font-bold text-[8px] truncate leading-none mb-0.5">
-                                  {session.isTentative ? session.tentative_details?.name : session.learner?.name}
-                                  {!session.isTentative && session.lesson?.number && <span> ({session.lesson.number})</span>}
-                                </div>
-                                <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
-                                  <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
-                                </div>
+                              {/* GRID DELETE BUTTON */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteMutation.mutate(session.id);
+                                }}
+                                className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+
+                              <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4">
+                                {session.isTentative ? session.tentative_details?.name : session.learner?.name}
                               </div>
+                              <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
+                                <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
+                              </div>
+                            </div>
                             );
                           })}
                         </div>
