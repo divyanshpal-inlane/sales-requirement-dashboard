@@ -4490,10 +4490,15 @@ export const InstructorSchedulePage = () => {
                       const paidInfoValue = isTentative ? details.paid_info : (session.paid_status || session.payment_status);
                       const pickupLocation = isTentative ? display(details.pickup_location) : display(session.learner?.pick_up_location);
 
-                      // Map Link Logic: Only create a link if coordinates exist
-                      const hasCoords = details.lat && details.lng;
+                      const lat = isTentative ? details.lat : session.learner?.address_lat;
+                      const lng = isTentative ? details.lng : session.learner?.address_lng;
+
+                      // 2. Check if valid coordinates exist
+                      const hasCoords = lat && lng;
+
+                      // 3. Create the URL (Fixed the template literal syntax as well)
                       const mapUrl = hasCoords 
-                        ? `https://www.google.com/maps/search/?api=1&query=${details.lat},${details.lng}`
+                        ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
                         : null;
 
                       return (
