@@ -124,6 +124,142 @@ const initialInstructorData: InstructorData = {
 
 // Google Maps Autocomplete Component
 // Update the AddressAutocomplete component
+// const AddressAutocomplete = memo(({
+//   value,
+//   onChange,
+// }: {
+//   value: string;
+//   onChange: (address: string, lat: number | null, lng: number | null) => void;
+// }) => {
+//   const inputRef = useRef<HTMLInputElement>(null);
+//   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+//   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+//   const [selectedAddress, setSelectedAddress] = useState<string>(value);
+
+//   // Update internal state when prop value changes
+//   useEffect(() => {
+//     setSelectedAddress(value);
+//   }, [value]);
+
+//   useEffect(() => {
+//     // Check if the script is already loading or loaded
+//     const existingScript = document.querySelector(
+//       'script[src*="maps.googleapis.com/maps/api/js"]',
+//     );
+
+//     if (!window.google?.maps?.places && !existingScript) {
+//       const googleMapScript = document.createElement("script");
+//       googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+//       googleMapScript.async = true;
+//       googleMapScript.defer = true;
+
+//       googleMapScript.onload = () => {
+//         setIsScriptLoaded(true);
+//       };
+
+//       document.head.appendChild(googleMapScript);
+//     } else if (window.google?.maps?.places) {
+//       setIsScriptLoaded(true);
+//     }
+//   }, []);
+
+//   useEffect(() => {
+//     if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places)
+//       return;
+
+//     try {
+//       // Clear previous instance if it exists
+//       if (autocompleteRef.current) {
+//         google.maps.event.clearInstanceListeners(autocompleteRef.current);
+//       }
+
+//       // Create new autocomplete instance with specific options
+//       const options: google.maps.places.AutocompleteOptions = {
+//         componentRestrictions: { country: "IN" },
+//         fields: ["address_components", "formatted_address", "geometry"],
+//       };
+
+//       autocompleteRef.current = new window.google.maps.places.Autocomplete(
+//         inputRef.current,
+//         options,
+//       );
+
+//       // Add place_changed listener
+//       autocompleteRef.current.addListener("place_changed", () => {
+//         const place = autocompleteRef.current?.getPlace();
+//         if (!place?.formatted_address || !place.geometry?.location) return;
+
+//         const lat = place.geometry.location.lat();
+//         const lng = place.geometry.location.lng();
+
+//         // Update internal state first
+//         setSelectedAddress(place.formatted_address);
+
+//         // Then call the parent's onChange
+//         onChange(place.formatted_address, lat, lng);
+//       });
+//     } catch (error) {
+//       console.error("Error initializing Google Places Autocomplete:", error);
+//     }
+//   }, [isScriptLoaded, onChange]);
+
+//   // Add CSS to ensure the dropdown is visible and clickable
+//   useEffect(() => {
+//     const style = document.createElement("style");
+//     style.innerHTML = `
+//       .pac-container {
+//         z-index: 10000 !important; 
+//         pointer-events: auto !important;
+//       }
+//       .pac-item {
+//         cursor: pointer !important;
+//       }
+//     `;
+//     document.head.appendChild(style);
+
+//     return () => {
+//       document.head.removeChild(style);
+//     };
+//   }, []);
+
+//   // Handle manual input changes
+//   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+//     const newValue = e.target.value;
+//     setSelectedAddress(newValue);
+//     // Only update parent state when user is typing manually
+//     // (not when autocomplete is filling the field)
+//     onChange(newValue, null, null);
+//   };
+
+//   // Ensure the input value reflects the selected address
+//   useEffect(() => {
+//     if (inputRef.current && selectedAddress !== inputRef.current.value) {
+//       inputRef.current.value = selectedAddress;
+//     }
+//   }, [selectedAddress]);
+
+//   return (
+//     <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+//       <Input
+//         ref={inputRef}
+//         value={selectedAddress}
+//         onChange={handleInputChange}
+//         placeholder="Enter address"
+//         className="w-full"
+//         autoComplete="off"
+//         // Prevent clicks from propagating to parent elements
+//         onClick={(e) => e.stopPropagation()}
+//       />
+//       {!isScriptLoaded && (
+//         <div className="mt-1 text-sm text-gray-500">
+//           Loading address autocomplete...
+//         </div>
+//       )}
+//     </div>
+//   );
+// });
+
+// Updated version: handles lat,lng from mouse click also 
 const AddressAutocomplete = memo(({
   value,
   onChange,
@@ -134,127 +270,65 @@ const AddressAutocomplete = memo(({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<string>(value);
+  const [internalValue, setInternalValue] = useState(value);
 
-  // Update internal state when prop value changes
+  // Sync internal value with prop
+  useEffect(() => { setInternalValue(value); }, [value]);
+
+  // Script loading logic (keep your existing logic here)
   useEffect(() => {
-    setSelectedAddress(value);
-  }, [value]);
-
-  useEffect(() => {
-    // Check if the script is already loading or loaded
-    const existingScript = document.querySelector(
-      'script[src*="maps.googleapis.com/maps/api/js"]',
-    );
-
-    if (!window.google?.maps?.places && !existingScript) {
-      const googleMapScript = document.createElement("script");
-      googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
-      googleMapScript.async = true;
-      googleMapScript.defer = true;
-
-      googleMapScript.onload = () => {
-        setIsScriptLoaded(true);
-      };
-
-      document.head.appendChild(googleMapScript);
-    } else if (window.google?.maps?.places) {
-      setIsScriptLoaded(true);
-    }
+    /* ... your existing script loading logic ... */
+    if (window.google?.maps?.places) setIsScriptLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places)
-      return;
+    if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places) return;
 
-    try {
-      // Clear previous instance if it exists
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
+    // Initialize Autocomplete once
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: "IN" },
+      fields: ["formatted_address", "geometry"],
+    });
 
-      // Create new autocomplete instance with specific options
-      const options: google.maps.places.AutocompleteOptions = {
-        componentRestrictions: { country: "IN" },
-        fields: ["address_components", "formatted_address", "geometry"],
-      };
-
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        inputRef.current,
-        options,
-      );
-
-      // Add place_changed listener
-      autocompleteRef.current.addListener("place_changed", () => {
-        const place = autocompleteRef.current?.getPlace();
-        if (!place?.formatted_address || !place.geometry?.location) return;
-
+    // Handle Selection
+    const listener = autocompleteRef.current.addListener("place_changed", () => {
+      const place = autocompleteRef.current?.getPlace();
+      
+      if (place?.geometry?.location) {
+        const addr = place.formatted_address || "";
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
-
-        // Update internal state first
-        setSelectedAddress(place.formatted_address);
-
-        // Then call the parent's onChange
-        onChange(place.formatted_address, lat, lng);
-      });
-    } catch (error) {
-      console.error("Error initializing Google Places Autocomplete:", error);
-    }
-  }, [isScriptLoaded, onChange]);
-
-  // Add CSS to ensure the dropdown is visible and clickable
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.innerHTML = `
-      .pac-container {
-        z-index: 10000 !important; 
-        pointer-events: auto !important;
+        
+        console.log("📍 Google Selection:", { addr, lat, lng });
+        setInternalValue(addr);
+        onChange(addr, lat, lng);
       }
-      .pac-item {
-        cursor: pointer !important;
-      }
-    `;
-    document.head.appendChild(style);
+    });
 
     return () => {
-      document.head.removeChild(style);
+      if (listener) google.maps.event.removeListener(listener);
     };
-  }, []);
+  }, [isScriptLoaded]); // REMOVED 'onChange' from dependencies to prevent re-init
 
-  // Handle manual input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setSelectedAddress(newValue);
-    // Only update parent state when user is typing manually
-    // (not when autocomplete is filling the field)
-    onChange(newValue, null, null);
+  const handleManualTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInternalValue(val);
+    // When typing manually, we clear lat/lng
+    onChange(val, null, null);
   };
 
-  // Ensure the input value reflects the selected address
-  useEffect(() => {
-    if (inputRef.current && selectedAddress !== inputRef.current.value) {
-      inputRef.current.value = selectedAddress;
-    }
-  }, [selectedAddress]);
-
   return (
-    <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+    <div className="relative w-full">
       <Input
         ref={inputRef}
-        value={selectedAddress}
-        onChange={handleInputChange}
-        placeholder="Enter address"
+        value={internalValue}
+        onChange={handleManualTyping}
+        placeholder="Search address..."
         className="w-full"
         autoComplete="off"
-        // Prevent clicks from propagating to parent elements
-        onClick={(e) => e.stopPropagation()}
+        // Prevent event bubbling that might interfere with selection
+        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
       />
-      {!isScriptLoaded && (
-        <div className="mt-1 text-sm text-gray-500">
-          Loading address autocomplete...
-        </div>
-      )}
     </div>
   );
 });
@@ -377,7 +451,7 @@ export default function InstructorsManagement() {
         longitude: lng,
       }));
     },
-    [], // No dependencies to avoid recreating this function
+    [],
   );
 
   // Fetch all instructors along with their schedules
@@ -3623,13 +3697,20 @@ const TentativeAddressInput = memo(({
                           <AddressAutocomplete 
                               className="h-8 text-xs"
                               value={tentativeDetails.address} 
-                              onChange={(addr, lat, lng) => setTentativeDetails({
-                                  ...tentativeDetails, 
-                                  address: addr, 
-                                  pickup_location: addr, 
-                                  lat, 
-                                  lng
-                              })} 
+                              onChange={(addr, lat, lng) => {
+                                    // console.log("Incoming Autocomplete Data:", { addr, lat, lng });
+                                    setTentativeDetails((prev) => {
+                                        const updatedState = {
+                                            ...prev,
+                                            address: addr,
+                                            pickup_location: addr,
+                                            lat: lat,
+                                            lng: lng
+                                        };
+                                        // console.log("Merged State:", updatedState);
+                                        return updatedState;
+                                    });
+                              }} 
                           />
                       </div>
 
