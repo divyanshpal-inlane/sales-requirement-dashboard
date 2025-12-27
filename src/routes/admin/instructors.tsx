@@ -4560,9 +4560,20 @@ export const InstructorSchedulePage = () => {
                         )}>
                           {/* 1. TITLE & ICONS */}
                           <div className="flex justify-between items-center gap-4">
-                            <div className="font-bold text-base text-slate-900 truncate flex-1">
-                              {isTentative ? display(details.name) : display(session.learner?.name)}
-                            </div>
+                          <div className="font-bold text-base text-slate-900 truncate flex-1">
+                            {isTentative ? (
+                              display(details.name)
+                            ) : (
+                              <>
+                                {display(session.learner?.name)}
+                                {session.lesson?.number && (
+                                  <span className="ml-1.5 text-slate-500 font-medium">
+                                    ({session.lesson?.number})
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
                             <div className="flex items-center gap-1 shrink-0">
                               {isTentative && (
                                 <Button
@@ -4803,8 +4814,19 @@ export const InstructorSchedulePage = () => {
                                 <Trash2 className="w-2.5 h-2.5" />
                               </button>
 
-                              <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4">
-                                {session.isTentative ? session.tentative_details?.name : session.learner?.name}
+                              <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4 flex items-center gap-1">
+                                <span>
+                                  {session.isTentative 
+                                    ? session.tentative_details?.name 
+                                    : session.learner?.name}
+                                </span>
+                                
+                                {/* Show Lesson Number for confirmed schedules only */}
+                                {!session.isTentative && session.lesson?.number && (
+                                  <span className="opacity-80 font-black px-1 py-0.5 bg-black/10 rounded-[2px] shrink-0">
+                                    ({session.lesson.number})
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
                                 <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
