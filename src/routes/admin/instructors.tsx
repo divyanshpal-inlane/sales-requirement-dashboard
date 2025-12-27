@@ -4804,15 +4804,19 @@ export const InstructorSchedulePage = () => {
                                 }}
                               >
                               {/* GRID DELETE BUTTON */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteMutation.mutate(schedule.id);
-                                }}
-                                className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20"
-                              >
-                                <Trash2 className="w-2.5 h-2.5" />
-                              </button>
+                              {schedule.isTentative && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Double check the logic inside the mutation call
+                                    deleteMutation.mutate(schedule.id);
+                                  }}
+                                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20 transition-colors"
+                                  title="Delete tentative schedule"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5 text-amber-950" />
+                                </button>
+                              )}
 
                               <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4 flex items-center gap-1">
                                 <span>
