@@ -4829,7 +4829,8 @@ export const InstructorSchedulePage = () => {
                                 )}
                               </div>
                               <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
-                                <Clock className="w-1.5 h-1.5" /> {formatTimeStr(schedule.start_time)}
+                                <Clock className="w-1.5 h-1.5" /> 
+                                {format(parse(schedule.start_time, 'HH:mm:ss', new Date()), 'h:mm a')} - {format(parse(schedule.end_time, 'HH:mm:ss', new Date()), 'h:mm a')}
                               </div>
                             </div>
                             );
