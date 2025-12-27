@@ -4162,9 +4162,9 @@ const TentativeAddressInput = memo(({
 
                       <div className="flex flex-col items-end gap-3 pt-6 border-t">
                           <div className="flex justify-end gap-3">
-                              {/* <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}> */}
+                              {/* <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}>
                                   Cancel
-                              </Button>
+                              </Button> */}
                               <Button 
                                   onClick={() => UpdateTentativeScheduleMutation.mutate()} 
                                   disabled={UpdateTentativeScheduleMutation.isPending } 
