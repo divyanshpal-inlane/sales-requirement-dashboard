@@ -4607,7 +4607,7 @@ export const InstructorSchedulePage = () => {
                 />
                 <motion.div 
                   initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
-                  className="fixed top-[64px] bottom-0 left-0 w-1/2 bg-white z-[9999] flex flex-col shadow-2xl border-r"
+                  className="fixed top-[64px] bottom-0 left-0 w-1/3 bg-white z-[9999] flex flex-col shadow-2xl border-r"
                 >
                   <div className={cn("h-14 px-6 border-b flex justify-between items-center shrink-0 text-white", isAddingSession ? "bg-black" : "bg-indigo-600")}>
                     <span className="text-xs font-bold uppercase">{isAddingSession ? "Add Session" : "Edit Tentative"}</span>
