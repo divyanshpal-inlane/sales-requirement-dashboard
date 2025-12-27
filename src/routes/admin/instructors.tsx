@@ -3649,7 +3649,7 @@ const TentativeAddressInput = memo(({
               <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
                   <div className="flex justify-between items-center mb-6 border-b pb-4">
                       <h1 className="text-l font-bold">Add Tentative Schedules</h1>
-                      <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button>
+                      {/* <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button> */}
                   </div>
                   <div className="space-y-6 text-sm">
                       {/* Input Fields - Stacked on separate lines with smaller font */}
@@ -3847,9 +3847,9 @@ const TentativeAddressInput = memo(({
                       {/* Footer */}
                       <div className="flex flex-col items-end gap-3 pt-4 border-t">
                           <div className="flex justify-end gap-3">
-                              <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('/admin/instructors/' + instructorId)}>
+                              {/* <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('/admin/instructors/' + instructorId)}>
                                   Cancel
-                              </Button>
+                              </Button> */}
                               <Button 
                                   size="sm"
                                   onClick={() => AddTentativeScheduleMutation.mutate()} 
