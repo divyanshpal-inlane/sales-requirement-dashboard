@@ -4342,7 +4342,7 @@ export const InstructorSchedulePage = () => {
 
 
 
-  const [isAddingSession, setIsAddingSession] = useState(false);
+  const [isAddingschedule, setIsAddingschedule] = useState(false);
 
   // Direction logic: Top half (until noon) slides from bottom, Bottom half slides from top
   const isTopHalf = selectedSlot ? parseInt(selectedSlot.hour) < 12 : true;
@@ -4382,8 +4382,8 @@ export const InstructorSchedulePage = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (sessionId) => {
-      await supabase.from("Schedule").delete().eq("id", sessionId);
+    mutationFn: async (scheduleId) => {
+      await supabase.from("Schedule").delete().eq("id", scheduleId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["instructor-full"]);
@@ -4392,11 +4392,11 @@ export const InstructorSchedulePage = () => {
   });
 
   const updatePaidInfoMutation = useMutation({
-    mutationFn: async ({ sessionId, paidInfo }) => {
+    mutationFn: async ({ scheduleId, paidInfo }) => {
       const { error } = await supabase
         .from("Schedule")
         .update({ paid_info: paidInfo }) // Ensure this column exists in your DB
-        .eq("id", sessionId);
+        .eq("id", scheduleId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -4404,7 +4404,7 @@ export const InstructorSchedulePage = () => {
     },
   });
 
-  const [editingSession, setEditingSession] = useState<any | null>(null);
+  const [editingschedule, setEditingschedule] = useState<any | null>(null);
 
 
   const filteredSchedules = useMemo(() => {
@@ -4420,7 +4420,7 @@ export const InstructorSchedulePage = () => {
   // Reset edit state when closing the sidebar or switching slots
   const handleCloseSidebar = () => {
       setSelectedSlot(null);
-      setEditingSession(null);
+      setEditingschedule(null);
   };
 
 
@@ -4491,7 +4491,7 @@ export const InstructorSchedulePage = () => {
                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                     <Calendar className="w-6 h-6 text-slate-300" />
                   </div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select a slot to view sessions</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select a slot to view schedules</p>
                 </motion.div>
               ) : (
                 <motion.div
@@ -4515,14 +4515,14 @@ export const InstructorSchedulePage = () => {
                     <Button 
                       variant="outline" 
                       className="w-full h-10 text-[10px] font-bold uppercase border-dashed border-2 border-slate-200 text-slate-400 hover:border-black hover:text-black mb-2"
-                      onClick={() => setIsAddingSession(true)}
+                      onClick={() => setIsAddingschedule(true)}
                     >
-                      <Plus className="w-3 h-3 mr-2" /> Add Session
+                      <Plus className="w-3 h-3 mr-2" /> Add schedule
                     </Button>
 
-                    {selectedSlot.schedules?.map((session) => {
-                      const details = session.tentative_details || {};
-                      const isTentative = session.isTentative;
+                    {selectedSlot.schedules?.map((schedule) => {
+                      const details = schedule.tentative_details || {};
+                      const isTentative = schedule.isTentative;
                       
                       // Helper to ensure N/A is shown
                       const display = (val) => (val && String(val).trim() !== "" ? val : "N/A");
@@ -4539,11 +4539,11 @@ export const InstructorSchedulePage = () => {
                         } catch (e) { return timeStr; }
                       };
 
-                      const paidInfoValue = isTentative ? details.paid_info : (session.paid_status || session.payment_status);
-                      const pickupLocation = isTentative ? display(details.pickup_location) : display(session.learner?.pick_up_location);
+                      const paidInfoValue = isTentative ? details.paid_info : (schedule.paid_status || schedule.payment_status);
+                      const pickupLocation = isTentative ? display(details.pickup_location) : display(schedule.learner?.pick_up_location);
 
-                      const lat = isTentative ? details.lat : session.learner?.address_lat;
-                      const lng = isTentative ? details.lng : session.learner?.address_lng;
+                      const lat = isTentative ? details.lat : schedule.learner?.address_lat;
+                      const lng = isTentative ? details.lng : schedule.learner?.address_lng;
 
                       // 2. Check if valid coordinates exist
                       const hasCoords = lat && lng;
@@ -4554,7 +4554,7 @@ export const InstructorSchedulePage = () => {
                         : null;
 
                       return (
-                        <div key={session.id} className={cn(
+                        <div key={schedule.id} className={cn(
                           "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all relative", 
                           isTentative ? "bg-amber-50/30 border-amber-200" : "bg-indigo-50/30 border-indigo-200"
                         )}>
@@ -4565,10 +4565,10 @@ export const InstructorSchedulePage = () => {
                               display(details.name)
                             ) : (
                               <>
-                                {display(session.learner?.name)}
-                                {session.lesson?.number && (
+                                {display(schedule.learner?.name)}
+                                {schedule.lesson?.number && (
                                   <span className="ml-1.5 text-slate-500 font-medium">
-                                    ({session.lesson?.number})
+                                    ({schedule.lesson?.number})
                                   </span>
                                 )}
                               </>
@@ -4578,14 +4578,14 @@ export const InstructorSchedulePage = () => {
                               {isTentative && (
                                 <Button
                                   variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-white"
-                                  onClick={() => session && setEditingSession(session)}
+                                  onClick={() => schedule && setEditingschedule(schedule)}
                                 >
                                   <Wrench className="w-4 h-4" />
                                 </Button>
                               )}
                               <Button
                                 variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-white"
-                                onClick={() => { if(window.confirm("Delete?")) deleteMutation.mutate(session.id) }}
+                                onClick={() => { if(window.confirm("Delete?")) deleteMutation.mutate(schedule.id) }}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -4596,7 +4596,7 @@ export const InstructorSchedulePage = () => {
                           <div className="flex items-center gap-2 text-slate-700">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
                             <span className="text-xs font-black uppercase tracking-tight">
-                              {format12Hour(session.start_time)} — {format12Hour(session.end_time)}
+                              {format12Hour(schedule.start_time)} — {format12Hour(schedule.end_time)}
                             </span>
                           </div>
 
@@ -4604,7 +4604,7 @@ export const InstructorSchedulePage = () => {
                           <div className="flex items-center gap-2">
                             <Phone className="w-3.5 h-3.5 text-slate-400" />
                             <span className="text-[11px] font-semibold text-slate-600">
-                              {isTentative ? display(details.phone) : display(session.learner?.phone)}
+                              {isTentative ? display(details.phone) : display(schedule.learner?.phone)}
                             </span>
                           </div>
 
@@ -4661,26 +4661,26 @@ export const InstructorSchedulePage = () => {
 
           {/* FIXED OVERLAY BLOCK (Keep this exactly as before) */}
           <AnimatePresence>
-            {(isAddingSession || editingSession) && (
+            {(isAddingschedule || editingschedule) && (
               <>
                 <motion.div 
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   className="fixed inset-0 bg-black/10 z-[9998]"
-                  onClick={() => { setIsAddingSession(false); setEditingSession(null); }}
+                  onClick={() => { setIsAddingschedule(false); setEditingschedule(null); }}
                 />
                 <motion.div 
                   initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
                   className="fixed top-[64px] bottom-0 left-0 w-1/3 bg-white z-[9999] flex flex-col shadow-2xl border-r"
                 >
-                  <div className={cn("h-14 px-6 border-b flex justify-between items-center shrink-0 text-white", isAddingSession ? "bg-black" : "bg-indigo-600")}>
-                    <span className="text-xs font-bold uppercase">{isAddingSession ? "Add Session" : "Edit Tentative"}</span>
-                    <Button variant="ghost" size="icon" onClick={() => { setIsAddingSession(false); setEditingSession(null); }} className="text-white hover:bg-white/20"><X className="w-5 h-5" /></Button>
+                  <div className={cn("h-14 px-6 border-b flex justify-between items-center shrink-0 text-white", isAddingschedule ? "bg-black" : "bg-indigo-600")}>
+                    <span className="text-xs font-bold uppercase">{isAddingschedule ? "Add schedule" : "Edit Tentative"}</span>
+                    <Button variant="ghost" size="icon" onClick={() => { setIsAddingschedule(false); setEditingschedule(null); }} className="text-white hover:bg-white/20"><X className="w-5 h-5" /></Button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
-                    {isAddingSession ? (
+                    {isAddingschedule ? (
                       <AddTentativeSchedule instructorId={id} date={format(selectedSlot.date, "yyyy-MM-dd")} startTime={`${selectedSlot.hour}:00`} />
                     ) : (
-                      <EditTentativeSchedule key={editingSession?.id} schedule={editingSession} onSuccess={() => setEditingSession(null)} />
+                      <EditTentativeSchedule key={editingschedule?.id} schedule={editingschedule} onSuccess={() => setEditingschedule(null)} />
                     )}
                   </div>
                 </motion.div>
@@ -4777,22 +4777,22 @@ export const InstructorSchedulePage = () => {
                       )}
                       onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
                       onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
-                      onClick={() => { setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules }); setIsAddingSession(false); }}
+                      onClick={() => { setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules }); setIsAddingschedule(false); }}
                     >
                         {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0 opacity-25" style={{ backgroundColor: PALETTE.BLOCK }} />}
                         {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0 opacity-25" style={{ backgroundColor: PALETTE.BLOCK }} />}
                         <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-100 pointer-events-none z-0" />
 
                         <div className="absolute inset-0 p-0.5 z-20 overflow-visible pointer-events-none">
-                          {slotSchedules.map((session, idx) => {
-                            const startMin = parseInt(session.start_time.split(':')[1]);
-                            const duration = differenceInMinutes(parse(session.end_time, 'HH:mm:ss', new Date()), parse(session.start_time, 'HH:mm:ss', new Date())) || 60;
+                          {slotSchedules.map((schedule, idx) => {
+                            const startMin = parseInt(schedule.start_time.split(':')[1]);
+                            const duration = differenceInMinutes(parse(schedule.end_time, 'HH:mm:ss', new Date()), parse(schedule.start_time, 'HH:mm:ss', new Date())) || 60;
                             return (
                               <div 
-                                key={session.id}
+                                key={schedule.id}
                                 className={cn(
                                   "absolute rounded-sm shadow-md border-l-2 p-1 flex flex-col pointer-events-auto transition-all group/grid", 
-                                  session.isTentative ? "bg-amber-400 border-amber-600 text-amber-950" : "bg-indigo-500 border-indigo-700 text-white"
+                                  schedule.isTentative ? "bg-amber-400 border-amber-600 text-amber-950" : "bg-indigo-500 border-indigo-700 text-white"
                                 )}
                                 style={{ 
                                   left: `${idx * 10}%`, 
@@ -4807,7 +4807,7 @@ export const InstructorSchedulePage = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteMutation.mutate(session.id);
+                                  deleteMutation.mutate(schedule.id);
                                 }}
                                 className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20"
                               >
@@ -4816,20 +4816,20 @@ export const InstructorSchedulePage = () => {
 
                               <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4 flex items-center gap-1">
                                 <span>
-                                  {session.isTentative 
-                                    ? session.tentative_details?.name 
-                                    : session.learner?.name}
+                                  {schedule.isTentative 
+                                    ? schedule.tentative_details?.name 
+                                    : schedule.learner?.name}
                                 </span>
                                 
                                 {/* Show Lesson Number for confirmed schedules only */}
-                                {!session.isTentative && session.lesson?.number && (
+                                {!schedule.isTentative && schedule.lesson?.number && (
                                   <span className="opacity-80 font-black px-1 py-0.5 bg-black/10 rounded-[2px] shrink-0">
-                                    ({session.lesson.number})
+                                    ({schedule.lesson.number})
                                   </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
-                                <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
+                                <Clock className="w-1.5 h-1.5" /> {formatTimeStr(schedule.start_time)}
                               </div>
                             </div>
                             );
