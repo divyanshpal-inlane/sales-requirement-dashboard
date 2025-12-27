@@ -4328,7 +4328,7 @@ export const InstructorSchedulePage = () => {
     MINT: "#00FF91",
     ORANGE: "#FFC229",
     CYAN: "#6BECFF",
-    BLOCK: "#475569" 
+    BLOCK: "#475568" 
   };
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -4680,27 +4680,70 @@ export const InstructorSchedulePage = () => {
 
         {/* CALENDAR (2/3 Width) */}
         <div className="flex-1 flex flex-row overflow-hidden bg-white">
-          {/* TIME AXIS */}
-          <div className="w-14 flex flex-col bg-slate-50 border-r shrink-0 z-20">
-            <div className="h-10 border-b bg-white" />
-            <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
-              {timeSlots.map((slot, idx) => (
-                <div key={slot.hour24} className={cn("flex items-start justify-end pr-2 pt-1 border-b border-slate-100 transition-colors", hoveredHour === idx ? "bg-slate-200/50" : "")}>
-                  <span className="text-[9px] font-bold uppercase text-slate-400">{slot.display}</span>
+        {/* TIME AXIS */}
+        <div className="w-14 flex flex-col bg-slate-50 border-r shrink-0 z-20">
+          <div className="h-10 border-b bg-white" />
+          <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
+            {timeSlots.map((slot, idx) => {
+              const isRowHovered = hoveredHour === idx;
+              
+              return (
+                <div 
+                  key={slot.hour24} 
+                  className={cn(
+                    "flex items-start justify-end pr-2 pt-1 border-b border-slate-100 transition-colors", 
+                    // Theme Update: White on Dark Grey
+                    isRowHovered ? "bg-slate-500" : "bg-white"
+                  )}
+                >
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase transition-colors",
+                    // Toggle text color based on hover
+                    isRowHovered ? "text-white" : "text-slate-400"
+                  )}>
+                    {slot.display}
+                  </span>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
 
           <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
             {/* GRID HEADERS */}
             <div className="grid grid-cols-7 border-b bg-white sticky top-0 shrink-0 z-30">
-              {weekDates.map((date, idx) => (
-                <div key={date.toString()} className={cn("h-10 flex flex-col items-center justify-center border-r last:border-0 transition-colors", hoveredDay === idx ? "bg-slate-100" : "bg-white")}>
-                  <span className="text-[8px] font-bold uppercase text-slate-400">{format(date, "EEE")}</span>
-                  <span className={cn("text-[10px] font-black", format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? "text-[#6257FF]" : "text-slate-700")}>{format(date, "d")}</span>
+            {weekDates.map((date, idx) => {
+              const isHovered = hoveredDay === idx;
+              const isToday = format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+
+              return (
+                <div 
+                  key={date.toString()} 
+                  className={cn(
+                    "h-10 flex flex-col items-center justify-center border-r last:border-0 transition-colors", 
+                    isHovered ? "bg-slate-500" : "bg-white"
+                  )}
+                >
+                  {/* Day Name (EEE) */}
+                  <span className={cn(
+                    "text-[8px] font-bold uppercase", 
+                    isHovered ? "text-slate-100" : "text-slate-400"
+                  )}>
+                    {format(date, "EEE")}
+                  </span>
+
+                  {/* Day Number (d) */}
+                  <span className={cn(
+                    "text-[10px] font-black", 
+                    isHovered 
+                      ? "text-white" 
+                      : isToday ? "text-[#6257FF]" : "text-slate-700"
+                  )}>
+                    {format(date, "d")}
+                  </span>
                 </div>
-              ))}
+              );
+            })}
             </div>
 
             {/* GRID CELLS */}
@@ -4714,19 +4757,19 @@ export const InstructorSchedulePage = () => {
                     const isBottomUnavailable = isTimeUnavailable(instructor?.unavailability, date, parseInt(slot.hour24), 30);
 
                     return (
-                      <div 
-                        key={`${dateStr}-${slot.hour24}`}
-                        className={cn(
-                          "border-r border-b border-slate-50 relative group cursor-pointer transition-colors", 
-                          (hoveredDay === colIdx || hoveredHour === rowIdx) ? "bg-slate-50/50" : "",
-                          selectedSlot?.date === date && selectedSlot?.hour === slot.hour24 ? "bg-indigo-50/30" : ""
-                        )}
-                        onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
-                        onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
-                        onClick={() => { setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules }); setIsAddingSession(false); }}
-                      >
-                        {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0 opacity-10" style={{ backgroundColor: PALETTE.BLOCK }} />}
-                        {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0 opacity-10" style={{ backgroundColor: PALETTE.BLOCK }} />}
+                    <div 
+                      key={`${dateStr}-${slot.hour24}`}
+                      className={cn(
+                        "border-r border-b border-slate-50 relative group cursor-pointer transition-colors", 
+                        "hover:bg-slate-200", 
+                        selectedSlot?.date === date && selectedSlot?.hour === slot.hour24 ? "bg-indigo-50" : "bg-white"
+                      )}
+                      onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
+                      onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
+                      onClick={() => { setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules }); setIsAddingSession(false); }}
+                    >
+                        {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0 opacity-25" style={{ backgroundColor: PALETTE.BLOCK }} />}
+                        {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0 opacity-25" style={{ backgroundColor: PALETTE.BLOCK }} />}
                         <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-100 pointer-events-none z-0" />
 
                         <div className="absolute inset-0 p-0.5 z-20 overflow-visible pointer-events-none">
