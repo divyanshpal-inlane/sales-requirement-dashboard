@@ -317,6 +317,7 @@ const sendInstrReminderLesson = async (scheduleData) => {
           const endTime = formatTime(sch.end_time); 
           const date = sch.date ? format(new Date(sch.date), 'dd MMM') : "NA";
           const learnerName = sch.Learner?.name ?? "Learner";
+          const learnerPhone = sch.Learner?.phone ?? "N/A";
           const lessonDesc = sch.Lesson?.description ?? "Lesson";
           
           const lat = sch.Learner?.address_lat;
@@ -326,7 +327,7 @@ const sendInstrReminderLesson = async (scheduleData) => {
             ? `http://maps.google.com/maps?q=${lat},${lng}` 
             : "NA";
 
-          schedulePacket[`field${i + 1}`] = `${date} | ${startTime}-${endTime} | ${learnerName} (${lessonDesc}) | ${mapLink}`;
+          schedulePacket[`field${i + 1}`] = `${date} | ${startTime}-${endTime} | ${learnerName} ${learnerPhone} (${lessonDesc}) | ${mapLink}`;
         } else {
           schedulePacket[`field${i + 1}`] = " ";
         }
