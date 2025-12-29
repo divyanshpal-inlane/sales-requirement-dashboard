@@ -2592,12 +2592,33 @@ return (
                 return (
                   <th
                     key={index}
-                    className={`border border-gray-200 p-0.5 py-0.5 text-xs ${isToday ? "bg-blue-100 font-bold" : ""} ${index === hoveredDayIndex ? 'bg-gray-800 text-white' : ''}`}
-                    style={{ width: `${columnWidthPercentage}%` }} // Dynamic width
+                    className={cn(
+                      "border border-gray-200 p-1 text-xs transition-colors relative",
+                      // Only the hover effect applies to the whole <th> background
+                      index === hoveredDayIndex ? "bg-gray-800 text-white" : "bg-white text-gray-600"
+                    )}
+                    style={{ width: `${columnWidthPercentage}%` }}
                   >
-                    {format(day, "EE")}{" "}
-                    <div className="text-[0.6rem] font-normal">
-                      {format(day, "MMM d")}
+                    {/* This inner div creates the bubble effect */}
+                    <div 
+                      className={cn(
+                        "flex flex-col items-center justify-center mx-auto transition-all",
+                        // Create a 36px x 36px circle if today
+                        isToday ? "h-9 w-9 rounded-full shadow-sm" : ""
+                      )}
+                      style={{ 
+                        // Only show purple bubble if today AND not hovered
+                        backgroundColor: (isToday && index !== hoveredDayIndex) ? PALETTE.PURPLE_DARK : 'transparent',
+                        // Ensure text is white inside the purple bubble
+                        color: (isToday && index !== hoveredDayIndex) ? 'white' : 'inherit'
+                      }}
+                    >
+                      <span className="font-bold uppercase leading-tight">
+                        {format(day, "EE")}
+                      </span>
+                      <div className="text-[0.6rem] leading-tight">
+                        {format(day, "MMM d")}
+                      </div>
                     </div>
                   </th>
                 );
@@ -4730,28 +4751,39 @@ export const InstructorSchedulePage = () => {
               return (
                 <div 
                   key={date.toString()} 
-                  className={cn(
-                    "h-10 flex flex-col items-center justify-center border-r last:border-0 transition-colors", 
-                    isHovered ? "bg-slate-500" : "bg-white"
-                  )}
+                  className="h-10 flex flex-col items-center justify-center border-r last:border-0 transition-colors"
+                  style={{ 
+                    // Use BLOCK for hover state, otherwise keep it white
+                    backgroundColor: isHovered ? PALETTE.BLOCK : "#FFFFFF" 
+                  }}
                 >
                   {/* Day Name (EEE) */}
-                  <span className={cn(
-                    "text-[8px] font-bold uppercase", 
-                    isHovered ? "text-slate-100" : "text-slate-400"
-                  )}>
+                  <span 
+                    className="text-[8px] font-bold uppercase mb-0.5 transition-colors"
+                    style={{ 
+                      // Light text on dark hover, otherwise slate-400
+                      color: isHovered ? "#F1F5F9" : "#94A3B8" 
+                    }}
+                  >
                     {format(date, "EEE")}
                   </span>
 
-                  {/* Day Number (d) */}
-                  <span className={cn(
-                    "text-[10px] font-black", 
-                    isHovered 
-                      ? "text-white" 
-                      : isToday ? "text-[#6257FF]" : "text-slate-700"
-                  )}>
+                  {/* Day Number (d) - The Circle Container */}
+                  <div 
+                    className={cn(
+                      "flex items-center justify-center text-[10px] font-black transition-all rounded-full",
+                      // Fixed size ensures it stays a perfect circle
+                      "w-6 h-6"
+                    )}
+                    style={{ 
+                      // CIRCLE BACKGROUND: Purple if today (and not hovered)
+                      backgroundColor: (isToday && !isHovered) ? PALETTE.PURPLE_DARK : "transparent",
+                      // TEXT COLOR: White if in bubble or hovered, otherwise dark slate
+                      color: (isHovered || (isToday && !isHovered)) ? "#FFFFFF" : "#334155"
+                    }}
+                  >
                     {format(date, "d")}
-                  </span>
+                  </div>
                 </div>
               );
             })}
