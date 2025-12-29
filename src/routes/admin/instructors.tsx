@@ -3954,7 +3954,7 @@ const TentativeAddressInput = memo(({
               const newDetails = {
                   name: schedule.tentative_details?.name || "",
                   phone: schedule.tentative_details?.phone || "",
-                  paid_info: schedule.tentative_details?.paid_info || "Unpaid",
+                  paid_info: schedule.tentative_details?.paid_info || "N/A",
                   pickup_location: schedule.tentative_details?.pickup_location || "",
                   leadName: schedule.tentative_details?.leadName || "", 
                   address: schedule.tentative_details?.address || "",
@@ -4663,14 +4663,32 @@ export const InstructorSchedulePage = () => {
                             </span>
                           </div>
 
-                          {/* 7. PAID INFO */}
-                          <div className="flex items-center gap-2 border-t border-slate-100 pt-3 mt-1">
-                            <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment:</span>
-                            <span className="text-[11px] font-bold text-slate-700">
-                              {display(paidInfoValue)}
-                            </span>
-                          </div>
+{/* 7. PAID INFO */}
+<div className="flex items-center gap-2 border-t border-slate-100 pt-3 mt-1">
+  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+    Payment:
+  </span>
+  <span 
+    className={cn(
+      "text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase transition-colors text-white",
+      // Exception: Use Tailwind class for unpaid red
+      paidInfoValue?.toLowerCase() === 'unpaid' ? "bg-red-500" : ""
+    )}
+    style={{ 
+      // Use PALETTE for the rest, only if it's NOT unpaid
+      backgroundColor: (() => {
+        const status = paidInfoValue?.toLowerCase();
+        if (status === 'unpaid') return undefined; // Let Tailwind class handle it
+        if (status === 'full paid') return PALETTE.SUCCESS;
+        if (status === 'half paid') return PALETTE.ORANGE;
+        return PALETTE.BLOCK;
+      })()
+    }}
+  >
+    {display(paidInfoValue)}
+  </span>
+</div>
                         </div>
                       );
                     })}
