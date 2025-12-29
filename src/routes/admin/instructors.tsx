@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMinutes, addHours, endOfWeek, format, isSameDay, startOfWeek, parseISO, startOfDay, parse, subWeeks, addWeeks, differenceInMinutes, subDays } from "date-fns";
-import { ArrowLeft, Calendar, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search, ChevronLeft, Loader2, AlertCircle, User, Phone, MapPin, ExternalLink, ChevronRight, ChevronsLeft, ChevronsRight, Wrench } from "lucide-react";
+import { ArrowLeft, Calendar, CalendarIcon, Check, ChevronsUpDown, Clock, Copy, Plus, PlusCircle, Trash2, X, Info, Badge, Search, ChevronLeft, Loader2, AlertCircle, User, Phone, MapPin, ExternalLink, ChevronRight, ChevronsLeft, ChevronsRight, Wrench, CreditCard } from "lucide-react";
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -124,6 +124,142 @@ const initialInstructorData: InstructorData = {
 
 // Google Maps Autocomplete Component
 // Update the AddressAutocomplete component
+// const AddressAutocomplete = memo(({
+//   value,
+//   onChange,
+// }: {
+//   value: string;
+//   onChange: (address: string, lat: number | null, lng: number | null) => void;
+// }) => {
+//   const inputRef = useRef<HTMLInputElement>(null);
+//   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+//   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+//   const [selectedAddress, setSelectedAddress] = useState<string>(value);
+
+//   // Update internal state when prop value changes
+//   useEffect(() => {
+//     setSelectedAddress(value);
+//   }, [value]);
+
+//   useEffect(() => {
+//     // Check if the script is already loading or loaded
+//     const existingScript = document.querySelector(
+//       'script[src*="maps.googleapis.com/maps/api/js"]',
+//     );
+
+//     if (!window.google?.maps?.places && !existingScript) {
+//       const googleMapScript = document.createElement("script");
+//       googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+//       googleMapScript.async = true;
+//       googleMapScript.defer = true;
+
+//       googleMapScript.onload = () => {
+//         setIsScriptLoaded(true);
+//       };
+
+//       document.head.appendChild(googleMapScript);
+//     } else if (window.google?.maps?.places) {
+//       setIsScriptLoaded(true);
+//     }
+//   }, []);
+
+//   useEffect(() => {
+//     if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places)
+//       return;
+
+//     try {
+//       // Clear previous instance if it exists
+//       if (autocompleteRef.current) {
+//         google.maps.event.clearInstanceListeners(autocompleteRef.current);
+//       }
+
+//       // Create new autocomplete instance with specific options
+//       const options: google.maps.places.AutocompleteOptions = {
+//         componentRestrictions: { country: "IN" },
+//         fields: ["address_components", "formatted_address", "geometry"],
+//       };
+
+//       autocompleteRef.current = new window.google.maps.places.Autocomplete(
+//         inputRef.current,
+//         options,
+//       );
+
+//       // Add place_changed listener
+//       autocompleteRef.current.addListener("place_changed", () => {
+//         const place = autocompleteRef.current?.getPlace();
+//         if (!place?.formatted_address || !place.geometry?.location) return;
+
+//         const lat = place.geometry.location.lat();
+//         const lng = place.geometry.location.lng();
+
+//         // Update internal state first
+//         setSelectedAddress(place.formatted_address);
+
+//         // Then call the parent's onChange
+//         onChange(place.formatted_address, lat, lng);
+//       });
+//     } catch (error) {
+//       console.error("Error initializing Google Places Autocomplete:", error);
+//     }
+//   }, [isScriptLoaded, onChange]);
+
+//   // Add CSS to ensure the dropdown is visible and clickable
+//   useEffect(() => {
+//     const style = document.createElement("style");
+//     style.innerHTML = `
+//       .pac-container {
+//         z-index: 10000 !important; 
+//         pointer-events: auto !important;
+//       }
+//       .pac-item {
+//         cursor: pointer !important;
+//       }
+//     `;
+//     document.head.appendChild(style);
+
+//     return () => {
+//       document.head.removeChild(style);
+//     };
+//   }, []);
+
+//   // Handle manual input changes
+//   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+//     const newValue = e.target.value;
+//     setSelectedAddress(newValue);
+//     // Only update parent state when user is typing manually
+//     // (not when autocomplete is filling the field)
+//     onChange(newValue, null, null);
+//   };
+
+//   // Ensure the input value reflects the selected address
+//   useEffect(() => {
+//     if (inputRef.current && selectedAddress !== inputRef.current.value) {
+//       inputRef.current.value = selectedAddress;
+//     }
+//   }, [selectedAddress]);
+
+//   return (
+//     <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+//       <Input
+//         ref={inputRef}
+//         value={selectedAddress}
+//         onChange={handleInputChange}
+//         placeholder="Enter address"
+//         className="w-full"
+//         autoComplete="off"
+//         // Prevent clicks from propagating to parent elements
+//         onClick={(e) => e.stopPropagation()}
+//       />
+//       {!isScriptLoaded && (
+//         <div className="mt-1 text-sm text-gray-500">
+//           Loading address autocomplete...
+//         </div>
+//       )}
+//     </div>
+//   );
+// });
+
+// Updated version: handles lat,lng from mouse click also 
 const AddressAutocomplete = memo(({
   value,
   onChange,
@@ -134,127 +270,65 @@ const AddressAutocomplete = memo(({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<string>(value);
+  const [internalValue, setInternalValue] = useState(value);
 
-  // Update internal state when prop value changes
+  // Sync internal value with prop
+  useEffect(() => { setInternalValue(value); }, [value]);
+
+  // Script loading logic (keep your existing logic here)
   useEffect(() => {
-    setSelectedAddress(value);
-  }, [value]);
-
-  useEffect(() => {
-    // Check if the script is already loading or loaded
-    const existingScript = document.querySelector(
-      'script[src*="maps.googleapis.com/maps/api/js"]',
-    );
-
-    if (!window.google?.maps?.places && !existingScript) {
-      const googleMapScript = document.createElement("script");
-      googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
-      googleMapScript.async = true;
-      googleMapScript.defer = true;
-
-      googleMapScript.onload = () => {
-        setIsScriptLoaded(true);
-      };
-
-      document.head.appendChild(googleMapScript);
-    } else if (window.google?.maps?.places) {
-      setIsScriptLoaded(true);
-    }
+    /* ... your existing script loading logic ... */
+    if (window.google?.maps?.places) setIsScriptLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places)
-      return;
+    if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places) return;
 
-    try {
-      // Clear previous instance if it exists
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
+    // Initialize Autocomplete once
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: "IN" },
+      fields: ["formatted_address", "geometry"],
+    });
 
-      // Create new autocomplete instance with specific options
-      const options: google.maps.places.AutocompleteOptions = {
-        componentRestrictions: { country: "IN" },
-        fields: ["address_components", "formatted_address", "geometry"],
-      };
-
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        inputRef.current,
-        options,
-      );
-
-      // Add place_changed listener
-      autocompleteRef.current.addListener("place_changed", () => {
-        const place = autocompleteRef.current?.getPlace();
-        if (!place?.formatted_address || !place.geometry?.location) return;
-
+    // Handle Selection
+    const listener = autocompleteRef.current.addListener("place_changed", () => {
+      const place = autocompleteRef.current?.getPlace();
+      
+      if (place?.geometry?.location) {
+        const addr = place.formatted_address || "";
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
-
-        // Update internal state first
-        setSelectedAddress(place.formatted_address);
-
-        // Then call the parent's onChange
-        onChange(place.formatted_address, lat, lng);
-      });
-    } catch (error) {
-      console.error("Error initializing Google Places Autocomplete:", error);
-    }
-  }, [isScriptLoaded, onChange]);
-
-  // Add CSS to ensure the dropdown is visible and clickable
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.innerHTML = `
-      .pac-container {
-        z-index: 10000 !important; 
-        pointer-events: auto !important;
+        
+        console.log("📍 Google Selection:", { addr, lat, lng });
+        setInternalValue(addr);
+        onChange(addr, lat, lng);
       }
-      .pac-item {
-        cursor: pointer !important;
-      }
-    `;
-    document.head.appendChild(style);
+    });
 
     return () => {
-      document.head.removeChild(style);
+      if (listener) google.maps.event.removeListener(listener);
     };
-  }, []);
+  }, [isScriptLoaded]); // REMOVED 'onChange' from dependencies to prevent re-init
 
-  // Handle manual input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setSelectedAddress(newValue);
-    // Only update parent state when user is typing manually
-    // (not when autocomplete is filling the field)
-    onChange(newValue, null, null);
+  const handleManualTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInternalValue(val);
+    // When typing manually, we clear lat/lng
+    onChange(val, null, null);
   };
 
-  // Ensure the input value reflects the selected address
-  useEffect(() => {
-    if (inputRef.current && selectedAddress !== inputRef.current.value) {
-      inputRef.current.value = selectedAddress;
-    }
-  }, [selectedAddress]);
-
   return (
-    <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+    <div className="relative w-full">
       <Input
         ref={inputRef}
-        value={selectedAddress}
-        onChange={handleInputChange}
-        placeholder="Enter address"
+        value={internalValue}
+        onChange={handleManualTyping}
+        placeholder="Search address..."
         className="w-full"
         autoComplete="off"
-        // Prevent clicks from propagating to parent elements
-        onClick={(e) => e.stopPropagation()}
+        // Prevent event bubbling that might interfere with selection
+        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
       />
-      {!isScriptLoaded && (
-        <div className="mt-1 text-sm text-gray-500">
-          Loading address autocomplete...
-        </div>
-      )}
     </div>
   );
 });
@@ -377,7 +451,7 @@ export default function InstructorsManagement() {
         longitude: lng,
       }));
     },
-    [], // No dependencies to avoid recreating this function
+    [],
   );
 
   // Fetch all instructors along with their schedules
@@ -1900,7 +1974,7 @@ function WeeklyScheduleView({
         title: formMode === "add" ? "Tentative Schedule Added" : "Schedule Updated",
         description:
           formMode === "add"
-            ? "New tentative schedule has been added successfully"
+            ? "Tentative schedule has been added successfully"
             : "Tentative schedule details have been updated successfully",
       });
     },
@@ -2518,12 +2592,33 @@ return (
                 return (
                   <th
                     key={index}
-                    className={`border border-gray-200 p-0.5 py-0.5 text-xs ${isToday ? "bg-blue-100 font-bold" : ""} ${index === hoveredDayIndex ? 'bg-gray-800 text-white' : ''}`}
-                    style={{ width: `${columnWidthPercentage}%` }} // Dynamic width
+                    className={cn(
+                      "border border-gray-200 p-1 text-xs transition-colors relative",
+                      // Only the hover effect applies to the whole <th> background
+                      index === hoveredDayIndex ? "bg-gray-800 text-white" : "bg-white text-gray-600"
+                    )}
+                    style={{ width: `${columnWidthPercentage}%` }}
                   >
-                    {format(day, "EE")}{" "}
-                    <div className="text-[0.6rem] font-normal">
-                      {format(day, "MMM d")}
+                    {/* This inner div creates the bubble effect */}
+                    <div 
+                      className={cn(
+                        "flex flex-col items-center justify-center mx-auto transition-all",
+                        // Create a 36px x 36px circle if today
+                        isToday ? "h-9 w-9 rounded-full shadow-sm" : ""
+                      )}
+                      style={{ 
+                        // Only show purple bubble if today AND not hovered
+                        backgroundColor: (isToday && index !== hoveredDayIndex) ? PALETTE.PURPLE_DARK : 'transparent',
+                        // Ensure text is white inside the purple bubble
+                        color: (isToday && index !== hoveredDayIndex) ? 'white' : 'inherit'
+                      }}
+                    >
+                      <span className="font-bold uppercase leading-tight">
+                        {format(day, "EE")}
+                      </span>
+                      <div className="text-[0.6rem] leading-tight">
+                        {format(day, "MMM d")}
+                      </div>
                     </div>
                   </th>
                 );
@@ -3566,143 +3661,232 @@ export const AddTentativeSchedule = ({
         },
         onSuccess: () => {
             toast({ title: "Success", description: "Tentative schedules added", variant: "success" });
-            navigate('/admin/instructors/' + instructorId);
+            //navigate('/admin/instructors/' + instructorId);
+            window.location.reload();
         }
+
     });
 
     return (
         <TooltipProvider>
             <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h1 className="text-2xl font-bold">Add Tentative Schedules</h1>
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button>
+                    <h1 className="text-l font-bold">Add Tentative Schedules</h1>
+                    {/* <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button> */}
                 </div>
-
-                <div className="space-y-6">
-                    {/* Input Fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Name*</Label><Input value={tentativeDetails.name} onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} /></div>
-                        <div className="space-y-2"><Label>Phone Number*</Label><Input value={tentativeDetails.phone} onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} maxLength={10} /></div>
-                        <div className="space-y-2"><Label>Sales lead name*</Label><Input value={tentativeDetails.leadName} onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} /></div>
-                        <div className="space-y-2">
-                            <Label>Payment Status</Label>
+                <div className="space-y-6 text-sm">
+                    {/* Input Fields - Stacked on separate lines with smaller font */}
+                    <div className="flex flex-col gap-3 max-w-md">
+                        <div className="space-y-1">
+                            <Label className="text-xs">Name*</Label>
+                            <Input 
+                                className="h-8 text-xs" 
+                                value={tentativeDetails.name} 
+                                onChange={(e) => setTentativeDetails({...tentativeDetails, name: e.target.value})} 
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Phone Number*</Label>
+                            <Input 
+                                className="h-8 text-xs" 
+                                value={tentativeDetails.phone} 
+                                onChange={(e) => setTentativeDetails({...tentativeDetails, phone: e.target.value})} 
+                                maxLength={10} 
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Sales lead name*</Label>
+                            <Input 
+                                className="h-8 text-xs" 
+                                value={tentativeDetails.leadName} 
+                                onChange={(e) => setTentativeDetails({...tentativeDetails, leadName: e.target.value})} 
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Payment Status</Label>
                             <Select value={tentativeDetails.paid_info} onValueChange={(v) => setTentativeDetails({...tentativeDetails, paid_info: v})}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent><SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Half paid">Half paid</SelectItem><SelectItem value="Full paid">Full paid</SelectItem></SelectContent>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Unpaid" className="text-xs">Unpaid</SelectItem>
+                                    <SelectItem value="Half paid" className="text-xs">Half paid</SelectItem>
+                                    <SelectItem value="Full paid" className="text-xs">Full paid</SelectItem>
+                                </SelectContent>
                             </Select>
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Address / Pickup Location</Label>
+                    <div className="space-y-1 max-w-md">
+                        <Label className="text-xs">Address / Pickup Location</Label>
                         <AddressAutocomplete 
+                            className="h-8 text-xs"
                             value={tentativeDetails.address} 
-                            onChange={(addr, lat, lng) => setTentativeDetails({
-                                ...tentativeDetails, 
-                                address: addr, 
-                                pickup_location: addr, 
-                                lat, 
-                                lng
-                            })} 
+                            onChange={(addr, lat, lng) => {
+                                  // console.log("Incoming Autocomplete Data:", { addr, lat, lng });
+                                  setTentativeDetails((prev) => {
+                                      const updatedState = {
+                                          ...prev,
+                                          address: addr,
+                                          pickup_location: addr,
+                                          lat: lat,
+                                          lng: lng
+                                      };
+                                      // console.log("Merged State:", updatedState);
+                                      return updatedState;
+                                  });
+                            }} 
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                        <div className="space-y-2">
-                            <Label>Course Selection</Label>
+                    {/* Course Selection stacked on separate lines */}
+                    <div className="flex flex-col gap-3 max-w-md">
+                        <div className="space-y-1">
+                            <Label className="text-xs">Course Selection</Label>
                             <Select value={tentativeDetails.course_id} onValueChange={(v) => setTentativeDetails({...tentativeDetails, course_id: v})}>
-                                <SelectTrigger><SelectValue placeholder="Select Course" /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Course" /></SelectTrigger>
+                                <SelectContent className="text-xs">
                                     <SelectItem value="none">None</SelectItem>
                                     {courses?.map((c) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                                     <SelectItem value="topup">Topup</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex items-center space-x-2 pb-3">
+                        <div className="flex items-center space-x-2 pt-1">
                             <Checkbox id="lesson-number" checked={addLessonNumber} onCheckedChange={(v) => setAddLessonNumber(!!v)} />
-                            <Label htmlFor="lesson-number">Add Lesson number</Label>
+                            <Label htmlFor="lesson-number" className="text-xs">Add Lesson number</Label>
                         </div>
                     </div>
 
-                    {/* Preview Table */}
-                    <div className="pt-6 border-t border-dashed">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <Label className="text-sm font-bold">Scheduled Slots Preview</Label>
-                                <div className="flex items-center gap-2 text-xs font-medium px-2 py-1 bg-muted rounded-full">
-                                    <span>Total: {stats.total}</span>
-                                    {stats.blocked > 0 && <span className="text-destructive font-bold border-l pl-2 border-border">Blocked: {stats.blocked}</span>}
-                                </div>
-                            </div>
-                            <Button type="button" onClick={() => setIsAddingBulk(true)} size="sm" variant="outline"><Plus className="h-4 w-4 mr-2" /> Add schedules</Button>
+                    {/* Preview Table Section */}
+                    <div className="pt-4 border-t border-dashed">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <Label className="text-xs font-bold">Scheduled Slots Preview</Label>
+                          <div className="flex items-center gap-2 text-[10px] font-medium px-2 py-0.5 bg-muted rounded-full">
+                            <span>Total: {stats.total}</span>
+                            {stats.blocked > 0 && (
+                              <span className="text-destructive font-bold border-l pl-2 border-border">
+                                Blocked: {stats.blocked}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <Button
+                          type="button"
+                          onClick={() => setIsAddingBulk(true)}
+                          size="xs"
+                          variant="outline"
+                          className="h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add schedules
+                        </Button>
+                      </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {slots.map((slot, idx) => {
-                    const status = availabilityMap[`${slot.date}-${slot.start_time}`];
-                    const isUnavail = status?.available === false;
+                      <div className="grid grid-cols-1 gap-3">
+                        {slots.map((slot, idx) => {
+                          const status = availabilityMap[`${slot.date}-${slot.start_time}`];
+                          const isUnavail = status?.available === false;
 
-                    return (
-                        <div key={idx} className={`p-3 rounded-lg border flex flex-col gap-2 ${
-                            isUnavail ? 'border-destructive bg-destructive/5' : 'border-primary/20 bg-primary/5'
-                        }`}>
-                            <div className="flex justify-between items-center text-xs font-bold">
-                                <div className={isUnavail ? 'text-destructive' : 'text-primary'}>
-                                    {format(parseISO(slot.date), "MMM do")} | {slot.start_time} - {slot.end_time}
+                          return (
+                            <div
+                              key={idx}
+                              className={`p-3 rounded-lg border flex flex-col gap-3 transition-all ${
+                                isUnavail
+                                  ? "border-destructive/30 bg-destructive/5 shadow-sm"
+                                  : "border-primary/20 bg-primary/5"
+                              }`}
+                            >
+                              {/* TOP ROW: Date/Time and Actions */}
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <div className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${
+                                      isUnavail ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+                                    }`}>
+                                    {format(parseISO(slot.date), "MMM do")}
+                                  </div>
+                                  <div className="text-[11px] font-bold text-slate-600">
+                                    {slot.start_time} — {slot.end_time}
+                                  </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => setSlots(slots.filter((_, i) => i !== idx))} className="h-6 w-6">
-                                    <Trash2 className="h-3 w-3" />
-                                </Button>
-                            </div>
 
-                            <div className="relative">
-                                <Input 
-                                    className="h-8 text-[11px] bg-background/50 pr-8" 
-                                    value={slot.description}
-                                    onChange={(e) => {
-                                        const updated = [...slots];
-                                        updated[idx].description = e.target.value;
-                                        setSlots(updated);
-                                    }}
-                                />
-                                {isUnavail && (
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-destructive">
-                                        <Tooltip>
-                                            <TooltipTrigger asChild><Info className="h-4 w-4" /></TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>{status.reason || "Slot Conflict"}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-1">
+                                  {isUnavail && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-destructive/10 text-destructive cursor-help">
+                                            <Info className="h-3.5 w-3.5" />
+                                            <span className="text-[9px] font-bold uppercase">Conflict</span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="text-xs">{status.reason || "Slot Conflict"}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                  
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setSlots(slots.filter((_, i) => i !== idx))}
+                                    className="h-7 w-7 text-slate-400 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* BOTTOM ROW: Full-width Description Input with hover */}
+                              <div className="relative">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Input
+                                        className="h-9 text-xs bg-background/80 border-slate-200 focus:border-primary transition-all"
+                                        placeholder="Add description or notes for this specific slot..."
+                                        value={slot.description}
+                                        onChange={(e) => {
+                                          const updated = [...slots];
+                                          updated[idx].description = e.target.value;
+                                          setSlots(updated);
+                                        }}
+                                      />
+                                    </TooltipTrigger>
+                                    {/* Tooltip appears if text is long to ensure it's always readable */}
+                                    {slot.description && slot.description.length > 30 && (
+                                      <TooltipContent side="bottom" className="max-w-[400px] break-words">
+                                        <p className="text-xs">{slot.description}</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
                             </div>
-                        </div>
-                    );
-                })}
-            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex flex-col items-end gap-3 pt-6 border-t">
+                    <div className="flex flex-col items-end gap-3 pt-4 border-t">
                         <div className="flex justify-end gap-3">
-                            <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}>
+                            {/* <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('/admin/instructors/' + instructorId)}>
                                 Cancel
-                            </Button>
+                            </Button> */}
                             <Button 
+                                size="sm"
                                 onClick={() => AddTentativeScheduleMutation.mutate()} 
                                 disabled={AddTentativeScheduleMutation.isPending} 
-                                className="px-8 font-bold"
+                                className="px-6 text-xs font-bold"
                             >
                                 Confirm Tentative Schedules
                             </Button>
                         </div>
 
-                        {/* Inline Error List instead of Tooltip */}
                         {!isFormValid && (
-                            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg w-full md:max-w-md">
-                                <p className="text-xs font-bold mb-1">Check the following:</p>
-                                <ul className="text-[11px] list-disc list-inside space-y-0.5">
+                            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-2 rounded-lg w-full md:max-w-md">
+                                <p className="text-[10px] font-bold mb-1">Check the following:</p>
+                                <ul className="text-[10px] list-disc list-inside space-y-0.5">
                                     {validationErrors.map((e, i) => (
                                         <li key={i}>{e}</li>
                                     ))}
@@ -3772,7 +3956,7 @@ export const EditTentativeSchedule = ({
             const newDetails = {
                 name: schedule.tentative_details?.name || "",
                 phone: schedule.tentative_details?.phone || "",
-                paid_info: schedule.tentative_details?.paid_info || "Unpaid",
+                paid_info: schedule.tentative_details?.paid_info || "N/A",
                 pickup_location: schedule.tentative_details?.pickup_location || "",
                 leadName: schedule.tentative_details?.leadName || "", 
                 address: schedule.tentative_details?.address || "",
@@ -3897,6 +4081,7 @@ export const EditTentativeSchedule = ({
         onSuccess: () => {
             toast({ title: "Updated", description: "Schedule updated successfully", variant: "success" });
             navigate('/admin/instructors/' + instructorId);
+            window.location.reload();
         }
     });
 
@@ -3904,8 +4089,8 @@ export const EditTentativeSchedule = ({
         <TooltipProvider>
             <div className="p-6 max-w-4xl mx-auto bg-background shadow-xl rounded-xl border border-border">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h1 className="text-2xl font-bold">Edit Tentative Schedule</h1>
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button>
+                    <h1 className="text-l font-bold">Edit Tentative Schedule</h1>
+                    {/* <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button> */}
                 </div>
 
                 <div className="space-y-6">
@@ -4001,9 +4186,9 @@ export const EditTentativeSchedule = ({
 
                     <div className="flex flex-col items-end gap-3 pt-6 border-t">
                         <div className="flex justify-end gap-3">
-                            <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}>
+                            {/* <Button variant="ghost" onClick={() => navigate('/admin/instructors/' + instructorId)}>
                                 Cancel
-                            </Button>
+                            </Button> */}
                             <Button 
                                 onClick={() => UpdateTentativeScheduleMutation.mutate()} 
                                 disabled={UpdateTentativeScheduleMutation.isPending } 
@@ -4027,125 +4212,125 @@ export const EditTentativeSchedule = ({
     );
 };
 
-  function isTimeUnavailable(
-    unavailability: any[] | null | undefined,
-    day: Date,
-    hour: number,
-    minute: number,
-  ): boolean {
-    if (
-      !unavailability ||
-      !Array.isArray(unavailability) ||
-      unavailability.length === 0
-    ) {
-      return false;
+function isTimeUnavailable(
+  unavailability: any[] | null | undefined,
+  day: Date,
+  hour: number,
+  minute: number,
+): boolean {
+  if (
+    !unavailability ||
+    !Array.isArray(unavailability) ||
+    unavailability.length === 0
+  ) {
+    return false;
+  }
+
+  const currentTime = new Date(day);
+  currentTime.setHours(hour, minute);
+  const dayOfWeek = format(day, "EEEE").toLowerCase();
+  const formattedDate = format(day, "yyyy-MM-dd");
+
+  return unavailability.some((u) => {
+    if (u.booked_date && u.all_day) {
+      return formattedDate === u.booked_date;
     }
 
-    const currentTime = new Date(day);
-    currentTime.setHours(hour, minute);
-    const dayOfWeek = format(day, "EEEE").toLowerCase();
-    const formattedDate = format(day, "yyyy-MM-dd");
+    if (
+      u.booked_date &&
+      u.booked_start_time &&
+      u.booked_end_time &&
+      !u.all_day
+    ) {
+      const unavailableStart = new Date(
+        `${u.booked_date}T${u.booked_start_time}`,
+      );
+      const unavailableEnd = new Date(
+        `${u.booked_date}T${u.booked_end_time}`,
+      );
+      return (
+        formattedDate === u.booked_date &&
+        currentTime >= unavailableStart &&
+        currentTime < unavailableEnd
+      );
+    }
 
-    return unavailability.some((u) => {
-      if (u.booked_date && u.all_day) {
-        return formattedDate === u.booked_date;
-      }
+    if (u.day_of_week && u.all_day) {
+      return u.day_of_week === dayOfWeek;
+    }
 
-      if (
-        u.booked_date &&
-        u.booked_start_time &&
-        u.booked_end_time &&
-        !u.all_day
-      ) {
-        const unavailableStart = new Date(
-          `${u.booked_date}T${u.booked_start_time}`,
-        );
-        const unavailableEnd = new Date(
-          `${u.booked_date}T${u.booked_end_time}`,
-        );
+    if (
+      u.day_of_week &&
+      u.booked_start_time &&
+      u.booked_end_time &&
+      !u.all_day
+    ) {
+      if (u.day_of_week === dayOfWeek) {
+        const [startHour, startMinute] = u.booked_start_time
+          .split(":")
+          .map(Number);
+        const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
+        const unavailableStart = new Date(day);
+        unavailableStart.setHours(startHour, startMinute);
+        const unavailableEnd = new Date(day);
+        unavailableEnd.setHours(endHour, endMinute);
+
         return (
-          formattedDate === u.booked_date &&
-          currentTime >= unavailableStart &&
-          currentTime < unavailableEnd
+          currentTime >= unavailableStart && currentTime < unavailableEnd
         );
       }
+    }
 
-      if (u.day_of_week && u.all_day) {
-        return u.day_of_week === dayOfWeek;
+    if (u.start_date && u.end_date && u.range_all_day) {
+      const rangeStart = new Date(u.start_date);
+      const rangeEnd = new Date(u.end_date);
+      rangeEnd.setHours(23, 59, 59);
+      return currentTime >= rangeStart && currentTime <= rangeEnd;
+    }
+
+    if (
+      u.start_date &&
+      u.end_date &&
+      !u.range_all_day &&
+      u.range_start_time &&
+      u.range_end_time
+    ) {
+      const rangeStart = new Date(u.start_date);
+      const rangeEnd = new Date(u.end_date);
+      rangeEnd.setHours(23, 59, 59);
+
+      if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+        const [startHour, startMinute] = u.range_start_time
+          .split(":")
+          .map(Number);
+        const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+
+        const todayStart = new Date(day);
+        todayStart.setHours(startHour, startMinute);
+
+        const todayEnd = new Date(day);
+        todayEnd.setHours(endHour, endMinute);
+
+        return currentTime >= todayStart && currentTime < todayEnd;
       }
+    }
 
-      if (
-        u.day_of_week &&
-        u.booked_start_time &&
-        u.booked_end_time &&
-        !u.all_day
-      ) {
-        if (u.day_of_week === dayOfWeek) {
-          const [startHour, startMinute] = u.booked_start_time
-            .split(":")
-            .map(Number);
-          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+    if (
+      u.start_date &&
+      u.end_date &&
+      !u.range_all_day &&
+      !u.range_start_time
+    ) {
+      const rangeStart = new Date(u.start_date);
+      const rangeEnd = new Date(u.end_date);
+      rangeEnd.setHours(23, 59, 59);
+      return currentTime >= rangeStart && currentTime <= rangeEnd;
+    }
 
-          const unavailableStart = new Date(day);
-          unavailableStart.setHours(startHour, startMinute);
-          const unavailableEnd = new Date(day);
-          unavailableEnd.setHours(endHour, endMinute);
-
-          return (
-            currentTime >= unavailableStart && currentTime < unavailableEnd
-          );
-        }
-      }
-
-      if (u.start_date && u.end_date && u.range_all_day) {
-        const rangeStart = new Date(u.start_date);
-        const rangeEnd = new Date(u.end_date);
-        rangeEnd.setHours(23, 59, 59);
-        return currentTime >= rangeStart && currentTime <= rangeEnd;
-      }
-
-      if (
-        u.start_date &&
-        u.end_date &&
-        !u.range_all_day &&
-        u.range_start_time &&
-        u.range_end_time
-      ) {
-        const rangeStart = new Date(u.start_date);
-        const rangeEnd = new Date(u.end_date);
-        rangeEnd.setHours(23, 59, 59);
-
-        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
-          const [startHour, startMinute] = u.range_start_time
-            .split(":")
-            .map(Number);
-          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
-
-          const todayStart = new Date(day);
-          todayStart.setHours(startHour, startMinute);
-
-          const todayEnd = new Date(day);
-          todayEnd.setHours(endHour, endMinute);
-
-          return currentTime >= todayStart && currentTime < todayEnd;
-        }
-      }
-
-      if (
-        u.start_date &&
-        u.end_date &&
-        !u.range_all_day &&
-        !u.range_start_time
-      ) {
-        const rangeStart = new Date(u.start_date);
-        const rangeEnd = new Date(u.end_date);
-        rangeEnd.setHours(23, 59, 59);
-        return currentTime >= rangeStart && currentTime <= rangeEnd;
-      }
-
-      return false;
-    });
-  }
+    return false;
+  });
+}
   
 
 export const InstructorSchedulePage = () => {
@@ -4167,7 +4352,7 @@ export const InstructorSchedulePage = () => {
     MINT: "#00FF91",
     ORANGE: "#FFC229",
     CYAN: "#6BECFF",
-    BLOCK: "#475569" 
+    BLOCK: "#475568" 
   };
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -4181,7 +4366,7 @@ export const InstructorSchedulePage = () => {
 
 
 
-  const [isAddingSession, setIsAddingSession] = useState(false);
+  const [isAddingschedule, setIsAddingschedule] = useState(false);
 
   // Direction logic: Top half (until noon) slides from bottom, Bottom half slides from top
   const isTopHalf = selectedSlot ? parseInt(selectedSlot.hour) < 12 : true;
@@ -4221,8 +4406,8 @@ export const InstructorSchedulePage = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (sessionId) => {
-      await supabase.from("Schedule").delete().eq("id", sessionId);
+    mutationFn: async (scheduleId) => {
+      await supabase.from("Schedule").delete().eq("id", scheduleId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["instructor-full"]);
@@ -4231,11 +4416,11 @@ export const InstructorSchedulePage = () => {
   });
 
   const updatePaidInfoMutation = useMutation({
-    mutationFn: async ({ sessionId, paidInfo }) => {
+    mutationFn: async ({ scheduleId, paidInfo }) => {
       const { error } = await supabase
         .from("Schedule")
         .update({ paid_info: paidInfo }) // Ensure this column exists in your DB
-        .eq("id", sessionId);
+        .eq("id", scheduleId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -4243,7 +4428,7 @@ export const InstructorSchedulePage = () => {
     },
   });
 
-  const [editingSession, setEditingSession] = useState<any | null>(null);
+  const [editingschedule, setEditingschedule] = useState<any | null>(null);
 
 
   const filteredSchedules = useMemo(() => {
@@ -4259,7 +4444,7 @@ export const InstructorSchedulePage = () => {
   // Reset edit state when closing the sidebar or switching slots
   const handleCloseSidebar = () => {
       setSelectedSlot(null);
-      setEditingSession(null);
+      setEditingschedule(null);
   };
 
 
@@ -4317,243 +4502,312 @@ export const InstructorSchedulePage = () => {
     </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* LEFT SIDEBAR (1/4 Width) */}
-        <aside className="w-1/4 border-r bg-slate-50/50 relative flex flex-col z-40 overflow-hidden shadow-xl">
-          <AnimatePresence mode="wait">
-            {!selectedSlot ? (
-              <motion.div 
-                key="empty"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex-1 flex flex-col items-center justify-center p-8 text-center"
-              >
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                  <Calendar className="w-6 h-6 text-slate-300" />
-                </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select a slot to view sessions</p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="content"
-                initial={{ y: isTopHalf ? "100%" : "-100%", opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: isTopHalf ? "100%" : "-100%", opacity: 0 }}
-                className="flex-1 flex flex-col overflow-hidden bg-white"
-              >
-                <div className="px-6 py-5 border-b flex justify-between items-center shrink-0 bg-slate-50/80">
-                  <div>
-                    <h2 className="text-sm font-bold text-black">{format(selectedSlot.date, "EEEE, MMM d")}</h2>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hour: {selectedSlot.hour}:00</p>
+        {/* LEFT SIDEBAR (1/3 Width) */}
+        <aside className="w-1/3 border-r bg-slate-50/50 relative flex flex-col z-40 overflow-hidden shadow-xl">
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              {!selectedSlot ? (
+                <motion.div 
+                  key="empty"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="flex-1 flex flex-col items-center justify-center p-8 text-center"
+                >
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                    <Calendar className="w-6 h-6 text-slate-300" />
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedSlot(null)} className="h-8 w-8 rounded-full"><X className="w-4 h-4" /></Button>
-                </div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select a slot to view schedules</p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="content"
+                  initial={{ y: isTopHalf ? "100%" : "-100%", opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: isTopHalf ? "100%" : "-100%", opacity: 0 }}
+                  className="flex-1 flex flex-col overflow-hidden bg-white"
+                >
+                  <div className="px-6 py-5 border-b flex justify-between items-center shrink-0 bg-slate-50/80">
+                    <div>
+                      <h2 className="text-sm font-bold text-black">{format(selectedSlot.date, "EEEE, MMM d")}</h2>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hour: {selectedSlot.hour}:00</p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedSlot(null)} className="h-8 w-8 rounded-full">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
 
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-10 text-[10px] font-bold uppercase border-dashed border-2 border-slate-200 text-slate-400 hover:border-black hover:text-black mb-2"
-                    onClick={() => setIsAddingSession(true)}
-                  >
-                    <Plus className="w-3 h-3 mr-2" /> Add Session
-                  </Button>
-
-{selectedSlot.schedules.map((session) => {
-  const details = session.tentative_details || {};
-  const isTentative = session.isTentative;
-  const displayValue = (val: any) => (val && val !== "" ? val : "N/A");
-  const paidStatus = isTentative ? (details.paid_info || "Unpaid") : "Unpaid";
-
-  // Check if this specific session is currently being deleted
-  const isDeleting = deleteMutation.isPending && deleteMutation.variables === session.id;
-
-  return (
-    <div key={session.id} className={cn(
-      "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all group relative", 
-      isTentative ? "bg-amber-50/30 border-amber-200" : "bg-indigo-50/30 border-indigo-200"
-    )}>
-      {/* HEADER: Name & Lead + Actions */}
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex flex-col flex-1 min-w-0">
-          <div className="font-bold text-sm text-slate-900 truncate">
-            {isTentative ? displayValue(details.name) : displayValue(session.learner?.name)}
-            {!isTentative && session.lesson?.number && (
-              <span className="ml-1 text-indigo-400">#{session.lesson.number}</span>
-            )}
-          </div>
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight truncate">
-            Lead: {isTentative ? displayValue(details.leadName) : "N/A"}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Status Badge */}
-          <div className={cn(
-              "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border",
-              paidStatus === "Full paid" ? "bg-emerald-100 border-emerald-200 text-emerald-700" :
-              paidStatus === "Half paid" ? "bg-sky-100 border-sky-200 text-sky-700" :
-              "bg-slate-100 border-slate-200 text-slate-600"
-            )}>
-              {paidStatus}
-            </div>
-
-{/* Edit Button (Spanner) - ONLY for Tentative */}
-  {isTentative && (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 shrink-0"
-      onClick={(e) => {
-        e.stopPropagation();
-        setEditingSession(session);
-      }}
-    >
-      <Wrench className="w-3 h-3" />
-    </Button>
-  )}
-          {/* Delete Button - Now permanently visible & at the far right */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-slate-400 hover:text-destructive hover:bg-destructive/10 shrink-0"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent card click events
-              if (window.confirm("Delete this session?")) {
-                deleteMutation.mutate(session.id);
-              }
-            }}
-            disabled={deleteMutation.isPending}
-          >
-            {isDeleting ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Trash2 className="w-3 h-3" />
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* FULL PICKUP LOCATION & QUERY LINK */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-start gap-2 text-[11px] text-slate-700 bg-white/60 p-2 rounded-lg border border-slate-100">
-          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-          <div className="flex flex-col gap-1 w-full">
-            <span className="font-medium leading-normal">
-              {isTentative ? displayValue(details.pickup_location) : displayValue(session.learner?.pick_up_location)}
-            </span>
-            {isTentative && details.lat && details.lng ? (
-              <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${details.lat},${details.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-1 uppercase"
-              >
-                Open in Maps <ExternalLink className="w-3 h-3" />
-              </a>
-            ) : (
-              <span className="text-[9px] text-slate-400 font-bold uppercase mt-1">No Map Link (N/A)</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* FULL DESCRIPTION */}
-      {isTentative && (
-        <div className="text-[11px] text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border-l-4 border-slate-300">
-          <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">Description</p>
-          <span className="italic leading-relaxed">
-            {(details.description ? `"${details.description}"` : "N/A")}
-          </span>
-        </div>
-      )}
-
-      {/* FOOTER: Time */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
-          <Clock className="w-3.5 h-3.5 text-slate-400" /> 
-          {formatTimeStr(session.start_time)} - {formatTimeStr(session.end_time)}
-        </div>
-        {isTentative && (
-          <span className="text-[8px] font-bold text-amber-600 uppercase tracking-tighter bg-amber-100 px-1 rounded">
-            Tentative
-          </span>
-        )}
-      </div>
-    </div>
-  );
-})}
-                </div>
-
-                {/* ADD OVERLAY (Within Sidebar) */}
-                <AnimatePresence>
-                  {isAddingSession && (
-                    <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} className="absolute inset-0 bg-white z-50 flex flex-col">
-                      <div className="px-6 py-4 border-b flex justify-between items-center bg-black text-white">
-                        <span className="text-xs font-bold uppercase">Add Session</span>
-                        <Button variant="ghost" size="icon" onClick={() => setIsAddingSession(false)} className="text-white hover:bg-white/20"><X className="w-4 h-4" /></Button>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-6"><AddTentativeSchedule instructorId={id} date={format(selectedSlot.date, "yyyy-MM-dd")} startTime={`${selectedSlot.hour}:00`} /></div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                {/* EDIT OVERLAY */}
-                <AnimatePresence>
-                  {editingSession && (
-                    <motion.div 
-                      initial={{ x: "-100%" }} 
-                      animate={{ x: 0 }} 
-                      exit={{ x: "-100%" }} 
-                      className="absolute inset-0 bg-white z-[60] flex flex-col"
+                  <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-10 text-[10px] font-bold uppercase border-dashed border-2 border-slate-200 text-slate-400 hover:border-black hover:text-black mb-2"
+                      onClick={() => setIsAddingschedule(true)}
                     >
-                      <div className="px-6 py-4 border-b flex justify-between items-center bg-indigo-600 text-white">
-                        <span className="text-xs font-bold uppercase flex items-center gap-2">
-                          <Wrench className="w-3 h-3" /> Edit Tentative
-                        </span>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => setEditingSession(null)} 
-                          className="text-white hover:bg-white/20"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-6">
-                        <EditTentativeSchedule 
-                          key={editingSession.id}
-                          schedule={editingSession} 
-                          onSuccess={() => setEditingSession(null)} // Assuming your edit component supports a callback
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
+                      <Plus className="w-3 h-3 mr-2" /> Add schedule
+                    </Button>
+
+                    {selectedSlot.schedules?.map((schedule) => {
+                      const details = schedule.tentative_details || {};
+                      const isTentative = schedule.isTentative;
+                      
+                      // Helper to ensure N/A is shown
+                      const display = (val) => (val && String(val).trim() !== "" ? val : "N/A");
+
+                      // Format to 12-hour format
+                      const format12Hour = (timeStr) => {
+                        if (!timeStr) return "--:--";
+                        try {
+                          const [hours, minutes] = timeStr.split(':');
+                          let h = parseInt(hours);
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          h = h % 12 || 12;
+                          return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
+                        } catch (e) { return timeStr; }
+                      };
+
+                      const paidInfoValue = isTentative ? details.paid_info : (schedule.paid_status || schedule.payment_status);
+                      const pickupLocation = isTentative ? display(details.pickup_location) : display(schedule.learner?.pick_up_location);
+
+                      const lat = isTentative ? details.lat : schedule.learner?.address_lat;
+                      const lng = isTentative ? details.lng : schedule.learner?.address_lng;
+
+                      // 2. Check if valid coordinates exist
+                      const hasCoords = lat && lng;
+
+                      // 3. Create the URL (Fixed the template literal syntax as well)
+                      const mapUrl = hasCoords 
+                        ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+                        : null;
+
+                      return (
+                        <div key={schedule.id} className={cn(
+                          "p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all relative", 
+                          isTentative ? "bg-amber-50/30 border-amber-200" : "bg-indigo-50/30 border-indigo-200"
+                        )}>
+                          {/* 1. TITLE & ICONS */}
+                          <div className="flex justify-between items-center gap-4">
+                          <div className="font-bold text-base text-slate-900 truncate flex-1">
+                            {isTentative ? (
+                              display(details.name)
+                            ) : (
+                              <>
+                                {display(schedule.learner?.name)}
+                                {schedule.lesson?.number && (
+                                  <span className="ml-1.5 text-slate-500 font-medium">
+                                    ({schedule.lesson?.number})
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isTentative && (
+                                <Button
+                                  variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-white"
+                                  onClick={() => schedule && setEditingschedule(schedule)}
+                                >
+                                  <Wrench className="w-4 h-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-white"
+                                onClick={() => { if(window.confirm("Delete?")) deleteMutation.mutate(schedule.id) }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* 2. START-END TIME */}
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-xs font-black uppercase tracking-tight">
+                              {format12Hour(schedule.start_time)} — {format12Hour(schedule.end_time)}
+                            </span>
+                          </div>
+
+                          {/* 3. PHONE */}
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-[11px] font-semibold text-slate-600">
+                              {isTentative ? display(details.phone) : display(schedule.learner?.phone)}
+                            </span>
+                          </div>
+
+                          {/* 4. LOCATION (Conditional Link) */}
+                          {mapUrl && pickupLocation !== "N/A" ? (
+                            <a 
+                              href={mapUrl}
+                              target="_blank" rel="noopener noreferrer"
+                              className="flex items-start gap-2 text-[11px] text-slate-700 bg-white/80 p-2.5 rounded-lg border border-slate-100 hover:border-indigo-300 hover:text-indigo-600 transition-all group/map"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5 group-hover/map:text-indigo-500" />
+                              <span className="font-medium leading-normal flex-1">{pickupLocation}</span>
+                              <ExternalLink className="w-3 h-3 opacity-40" />
+                            </a>
+                          ) : (
+                            <div className="flex items-start gap-2 text-[11px] text-slate-400 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
+                              <MapPin className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-0.5" />
+                              <span className="font-medium leading-normal flex-1">{pickupLocation}</span>
+                            </div>
+                          )}
+
+                          {/* 5. DESCRIPTION */}
+                          <div className="text-[11px] text-slate-600 bg-slate-100/40 p-2.5 rounded-lg border border-dashed border-slate-200">
+                            <p className="font-bold text-[9px] uppercase text-slate-400 mb-1 tracking-wider">Description</p>
+                            <span className="italic leading-relaxed block">
+                              {isTentative ? display(details.description) : "N/A"}
+                            </span>
+                          </div>
+
+                          {/* 6. LEAD NAME */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead:</span>
+                            <span className="text-[11px] font-semibold text-slate-600">
+                              {isTentative ? display(details.leadName) : "N/A"}
+                            </span>
+                          </div>
+
+{/* 7. PAID INFO */}
+<div className="flex items-center gap-2 border-t border-slate-100 pt-3 mt-1">
+  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+    Payment:
+  </span>
+  <span 
+    className={cn(
+      "text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase transition-colors text-white",
+      // Exception: Use Tailwind class for unpaid red
+      paidInfoValue?.toLowerCase() === 'unpaid' ? "bg-red-500" : ""
+    )}
+    style={{ 
+      // Use PALETTE for the rest, only if it's NOT unpaid
+      backgroundColor: (() => {
+        const status = paidInfoValue?.toLowerCase();
+        if (status === 'unpaid') return undefined; // Let Tailwind class handle it
+        if (status === 'full paid') return PALETTE.SUCCESS;
+        if (status === 'half paid') return PALETTE.ORANGE;
+        return PALETTE.BLOCK;
+      })()
+    }}
+  >
+    {display(paidInfoValue)}
+  </span>
+</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* FIXED OVERLAY BLOCK (Keep this exactly as before) */}
+          <AnimatePresence>
+            {(isAddingschedule || editingschedule) && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/10 z-[9998]"
+                  onClick={() => { setIsAddingschedule(false); setEditingschedule(null); }}
+                />
+                <motion.div 
+                  initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+                  className="fixed top-[64px] bottom-0 left-0 w-1/3 bg-white z-[9999] flex flex-col shadow-2xl border-r"
+                >
+                  <div className={cn("h-14 px-6 border-b flex justify-between items-center shrink-0 text-white", isAddingschedule ? "bg-black" : "bg-indigo-600")}>
+                    <span className="text-xs font-bold uppercase">{isAddingschedule ? "Add schedule" : "Edit Tentative"}</span>
+                    <Button variant="ghost" size="icon" onClick={() => { setIsAddingschedule(false); setEditingschedule(null); }} className="text-white hover:bg-white/20"><X className="w-5 h-5" /></Button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
+                    {isAddingschedule ? (
+                      <AddTentativeSchedule instructorId={id} date={format(selectedSlot.date, "yyyy-MM-dd")} startTime={`${selectedSlot.hour}:00`} />
+                    ) : (
+                      <EditTentativeSchedule key={editingschedule?.id} schedule={editingschedule} onSuccess={() => setEditingschedule(null)} />
+                    )}
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
         </aside>
 
-        {/* CALENDAR (3/4 Width) */}
+        {/* CALENDAR (2/3 Width) */}
         <div className="flex-1 flex flex-row overflow-hidden bg-white">
-          {/* TIME AXIS */}
-          <div className="w-14 flex flex-col bg-slate-50 border-r shrink-0 z-20">
-            <div className="h-10 border-b bg-white" />
-            <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
-              {timeSlots.map((slot, idx) => (
-                <div key={slot.hour24} className={cn("flex items-start justify-end pr-2 pt-1 border-b border-slate-100 transition-colors", hoveredHour === idx ? "bg-slate-200/50" : "")}>
-                  <span className="text-[9px] font-bold uppercase text-slate-400">{slot.display}</span>
+        {/* TIME AXIS */}
+        <div className="w-14 flex flex-col bg-slate-50 border-r shrink-0 z-20">
+          <div className="h-10 border-b bg-white" />
+          <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}>
+            {timeSlots.map((slot, idx) => {
+              const isRowHovered = hoveredHour === idx;
+              
+              return (
+                <div 
+                  key={slot.hour24} 
+                  className={cn(
+                    "flex items-start justify-end pr-2 pt-1 border-b border-slate-100 transition-colors", 
+                    // Theme Update: White on Dark Grey
+                    isRowHovered ? "bg-slate-500" : "bg-white"
+                  )}
+                >
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase transition-colors",
+                    // Toggle text color based on hover
+                    isRowHovered ? "text-white" : "text-slate-400"
+                  )}>
+                    {slot.display}
+                  </span>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
 
           <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
             {/* GRID HEADERS */}
             <div className="grid grid-cols-7 border-b bg-white sticky top-0 shrink-0 z-30">
-              {weekDates.map((date, idx) => (
-                <div key={date.toString()} className={cn("h-10 flex flex-col items-center justify-center border-r last:border-0 transition-colors", hoveredDay === idx ? "bg-slate-100" : "bg-white")}>
-                  <span className="text-[8px] font-bold uppercase text-slate-400">{format(date, "EEE")}</span>
-                  <span className={cn("text-[10px] font-black", format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? "text-[#6257FF]" : "text-slate-700")}>{format(date, "d")}</span>
+            {weekDates.map((date, idx) => {
+              const isHovered = hoveredDay === idx;
+              const isToday = format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+
+              return (
+                <div 
+                  key={date.toString()} 
+                  className="h-10 flex flex-col items-center justify-center border-r last:border-0 transition-colors"
+                  style={{ 
+                    // Use BLOCK for hover state, otherwise keep it white
+                    backgroundColor: isHovered ? PALETTE.BLOCK : "#FFFFFF" 
+                  }}
+                >
+                  {/* Day Name (EEE) */}
+                  <span 
+                    className="text-[8px] font-bold uppercase mb-0.5 transition-colors"
+                    style={{ 
+                      // Light text on dark hover, otherwise slate-400
+                      color: isHovered ? "#F1F5F9" : "#94A3B8" 
+                    }}
+                  >
+                    {format(date, "EEE")}
+                  </span>
+
+                  {/* Day Number (d) - The Circle Container */}
+                  <div 
+                    className={cn(
+                      "flex items-center justify-center text-[10px] font-black transition-all rounded-full",
+                      // Fixed size ensures it stays a perfect circle
+                      "w-6 h-6"
+                    )}
+                    style={{ 
+                      // CIRCLE BACKGROUND: Purple if today (and not hovered)
+                      backgroundColor: (isToday && !isHovered) ? PALETTE.PURPLE_DARK : "transparent",
+                      // TEXT COLOR: White if in bubble or hovered, otherwise dark slate
+                      color: (isHovered || (isToday && !isHovered)) ? "#FFFFFF" : "#334155"
+                    }}
+                  >
+                    {format(date, "d")}
+                  </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
 
             {/* GRID CELLS */}
@@ -4567,31 +4821,31 @@ export const InstructorSchedulePage = () => {
                     const isBottomUnavailable = isTimeUnavailable(instructor?.unavailability, date, parseInt(slot.hour24), 30);
 
                     return (
-                      <div 
-                        key={`${dateStr}-${slot.hour24}`}
-                        className={cn(
-                          "border-r border-b border-slate-50 relative group cursor-pointer transition-colors", 
-                          (hoveredDay === colIdx || hoveredHour === rowIdx) ? "bg-slate-50/50" : "",
-                          selectedSlot?.date === date && selectedSlot?.hour === slot.hour24 ? "bg-indigo-50/30" : ""
-                        )}
-                        onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
-                        onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
-                        onClick={() => { setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules }); setIsAddingSession(false); }}
-                      >
-                        {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0 opacity-10" style={{ backgroundColor: PALETTE.BLOCK }} />}
-                        {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0 opacity-10" style={{ backgroundColor: PALETTE.BLOCK }} />}
+                    <div 
+                      key={`${dateStr}-${slot.hour24}`}
+                      className={cn(
+                        "border-r border-b border-slate-50 relative group cursor-pointer transition-colors", 
+                        "hover:bg-slate-200", 
+                        selectedSlot?.date === date && selectedSlot?.hour === slot.hour24 ? "bg-indigo-50" : "bg-white"
+                      )}
+                      onMouseEnter={() => { setHoveredDay(colIdx); setHoveredHour(rowIdx); }}
+                      onMouseLeave={() => { setHoveredDay(null); setHoveredHour(null); }}
+                      onClick={() => { setSelectedSlot({ date, hour: slot.hour24, schedules: slotSchedules }); setIsAddingschedule(false); }}
+                    >
+                        {isTopUnavailable && <div className="absolute top-0 left-0 w-full h-1/2 z-0 opacity-25" style={{ backgroundColor: PALETTE.BLOCK }} />}
+                        {isBottomUnavailable && <div className="absolute bottom-0 left-0 w-full h-1/2 z-0 opacity-25" style={{ backgroundColor: PALETTE.BLOCK }} />}
                         <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-slate-100 pointer-events-none z-0" />
 
                         <div className="absolute inset-0 p-0.5 z-20 overflow-visible pointer-events-none">
-                          {slotSchedules.map((session, idx) => {
-                            const startMin = parseInt(session.start_time.split(':')[1]);
-                            const duration = differenceInMinutes(parse(session.end_time, 'HH:mm:ss', new Date()), parse(session.start_time, 'HH:mm:ss', new Date())) || 60;
+                          {slotSchedules.map((schedule, idx) => {
+                            const startMin = parseInt(schedule.start_time.split(':')[1]);
+                            const duration = differenceInMinutes(parse(schedule.end_time, 'HH:mm:ss', new Date()), parse(schedule.start_time, 'HH:mm:ss', new Date())) || 60;
                             return (
                               <div 
-                                key={session.id}
+                                key={schedule.id}
                                 className={cn(
                                   "absolute rounded-sm shadow-md border-l-2 p-1 flex flex-col pointer-events-auto transition-all group/grid", 
-                                  session.isTentative ? "bg-amber-400 border-amber-600 text-amber-950" : "bg-indigo-500 border-indigo-700 text-white"
+                                  schedule.isTentative ? "bg-amber-400 border-amber-600 text-amber-950" : "bg-indigo-500 border-indigo-700 text-white"
                                 )}
                                 style={{ 
                                   left: `${idx * 10}%`, 
@@ -4603,21 +4857,37 @@ export const InstructorSchedulePage = () => {
                                 }}
                               >
                               {/* GRID DELETE BUTTON */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteMutation.mutate(session.id);
-                                }}
-                                className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20"
-                              >
-                                <Trash2 className="w-2.5 h-2.5" />
-                              </button>
+                              {schedule.isTentative && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Double check the logic inside the mutation call
+                                    deleteMutation.mutate(schedule.id);
+                                  }}
+                                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-black/10 hover:bg-black/20 transition-colors"
+                                  title="Delete tentative schedule"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5 text-amber-950" />
+                                </button>
+                              )}
 
-                              <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4">
-                                {session.isTentative ? session.tentative_details?.name : session.learner?.name}
+                              <div className="font-bold text-[8px] truncate leading-none mb-0.5 pr-4 flex items-center gap-1">
+                                <span>
+                                  {schedule.isTentative 
+                                    ? schedule.tentative_details?.name 
+                                    : schedule.learner?.name}
+                                </span>
+                                
+                                {/* Show Lesson Number for confirmed schedules only */}
+                                {!schedule.isTentative && schedule.lesson?.number && (
+                                  <span className="opacity-80 font-black px-1 py-0.5 bg-black/10 rounded-[2px] shrink-0">
+                                    ({schedule.lesson.number})
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-0.5 opacity-90 text-[7px] font-medium">
-                                <Clock className="w-1.5 h-1.5" /> {formatTimeStr(session.start_time)}
+                                <Clock className="w-1.5 h-1.5" /> 
+                                {format(parse(schedule.start_time, 'HH:mm:ss', new Date()), 'h:mm a')} - {format(parse(schedule.end_time, 'HH:mm:ss', new Date()), 'h:mm a')}
                               </div>
                             </div>
                             );
