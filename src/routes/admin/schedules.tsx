@@ -538,10 +538,14 @@ export default function AdminSchedules() {
       const instructorIds = new Set(
         learnerSchedules.map((s) => s.instructor_id),
       );
+      const validInstructorIds = Array.from(instructorIds).filter(
+        (id) => id !== null && id !== undefined
+      );
+
       const { data: instructorsData, error: instructorsError } = await supabase
         .from("Instructor")
         .select("id_instructor, name, email, phone")
-        .in("id_instructor", Array.from(instructorIds));
+        .in("id_instructor", validInstructorIds);
 
       if (instructorsError) {
         throw new Error(
@@ -680,25 +684,24 @@ export default function AdminSchedules() {
           // This ensures all affected events are properly cancelled
           if (schedule.id !== scheduleId) {
             const lessonStartDate = new Date(schedule.date);
-            const [lessonStartHour, lessonStartMinute] = schedule.start_time
+            const [lessonStartHour, lessonStartMinute] = (schedule?.start_time || "00:00:00")
               .split(":")
               .map(Number);
             lessonStartDate.setHours(lessonStartHour, lessonStartMinute, 0);
 
-            const lessonEndDate = new Date(schedule.date);
-            const [lessonEndHour, lessonEndMinute] = schedule.end_time
+            // 2. Handle End Time safely
+            const lessonEndDate = new Date(schedule?.date || new Date());
+            const [lessonEndHour, lessonEndMinute] = (schedule?.end_time || "00:00:00")
               .split(":")
               .map(Number);
             lessonEndDate.setHours(lessonEndHour, lessonEndMinute, 0);
 
-            const lessonInstructorDetails = instructorsMap.get(
-              schedule.instructor_id,
-            ) || {
+            // 3. Handle Instructor Lookup safely
+            const lessonInstructorDetails = instructorsMap.get(schedule?.instructor_id) || {
               name: "Unknown Instructor",
               phone: "Contact InLane for details",
               email: "",
             };
-
             cancellationEvents.push({
               startTime: lessonStartDate,
               endTime: lessonEndDate,
@@ -776,26 +779,26 @@ export default function AdminSchedules() {
 
         // Create start and end date objects
         const newStartDate = new Date(updatedSchedule.date);
-        const [newStartHour, newStartMinute] = updatedSchedule.start_time
-          .split(":")
-          .map(Number);
-        newStartDate.setHours(newStartHour, newStartMinute, 0);
+// 1. Safe parsing for New Start Time
+const [newStartHour, newStartMinute] = (updatedSchedule?.start_time || "00:00")
+  .split(":")
+  .map(Number);
+newStartDate.setHours(newStartHour, newStartMinute, 0);
 
-        const newEndDate = new Date(updatedSchedule.date);
-        const [newEndHour, newEndMinute] = updatedSchedule.end_time
-          .split(":")
-          .map(Number);
-        newEndDate.setHours(newEndHour, newEndMinute, 0);
+// 2. Safe parsing for New End Date and Time
+const newEndDate = new Date(updatedSchedule?.date || new Date());
+const [newEndHour, newEndMinute] = (updatedSchedule?.end_time || "00:00")
+  .split(":")
+  .map(Number);
+newEndDate.setHours(newEndHour, newEndMinute, 0);
 
-        // Get instructor details
-        const updatedInstructorId = updatedSchedule.instructor_id;
-        const updatedInstructorDetails = instructorsMap.get(
-          updatedInstructorId,
-        ) || {
-          name: "Unknown Instructor",
-          phone: "Contact InLane for details",
-          email: "",
-        };
+// 3. Safe Instructor Lookup
+const updatedInstructorId = updatedSchedule?.instructor_id;
+const updatedInstructorDetails = (updatedInstructorId ? instructorsMap.get(updatedInstructorId) : null) || {
+  name: "Unknown Instructor",
+  phone: "Contact InLane for details",
+  email: "",
+};
 
         // Add new event
         newEvents.push({
@@ -1033,13 +1036,17 @@ export default function AdminSchedules() {
         throw new Error(fetchError.message);
       }
 
-      // Fetch instructor details for both old and new instructors
-      const instructorIds = [currentSchedule.instructor_id, newInstructorId];
+      // Fetch instructor details for both prev and currrent instructors
+      // unless no instructors are set currently
+      // Filter out nulls/undefined from the ID list before querying Supabase
+      const instructorIds = [currentSchedule.instructor_id, newInstructorId].filter(
+        (id) => id !== null && id !== undefined
+      );
+
       const { data: instructorsData, error: instructorsError } = await supabase
         .from("Instructor")
         .select("id_instructor, name, email, phone")
         .in("id_instructor", instructorIds);
-
       if (instructorsError) {
         throw new Error(
           `Error fetching instructors: ${instructorsError.message}`,
@@ -1333,12 +1340,21 @@ const handleInstructorChangeSimple = async (
   };
 
   // Function to handle opening the "Reschedule" dialog
-  const handleOpenReschedule = async (schedule: any) => {
+const handleOpenReschedule = async (schedule: any) => {
+    // Basic validation
+    if (!schedule) return;
+
+    // If your app depends on having an instructor, check it here
+    if (!schedule.id_instructor) {
+        console.warn("Schedule object is missing a valid instructor ID");
+        // You might want to handle this case specifically
+    }
+
     setSelectedSchedule(schedule);
     setIsRescheduleModalOpen(true);
+    
+    // Note: The code below this 'return' in your snippet is currently unreachable.
     return;
-
-
     // different path - make reschedule request to use calender views nad checks
     try {
       // setIsLoading(true);
@@ -1909,7 +1925,7 @@ const handleInstructorChangeSimple = async (
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm">
+                                <Button variant="outline" size="sm" type="button">
                                   Actions
                                 </Button>
                               </DropdownMenuTrigger>
