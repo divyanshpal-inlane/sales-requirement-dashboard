@@ -492,6 +492,7 @@ export default function InstructorsManagement() {
             date,
             start_time,
             end_time,
+            course_id,
             isTentative,
             tentative_details,
             learner:learner_id ( name, phone, pick_up_location, address_lat, address_lng),
@@ -3982,7 +3983,7 @@ export const EditTentativeSchedule = ({
         pickup_location: "",
         leadName: "", 
         address: "",
-        course_id: "none",
+        course_id: null as string | null,
         lat: null as number | null,
         lng: null as number | null,
     });
@@ -4064,7 +4065,10 @@ export const EditTentativeSchedule = ({
                 date: slots[0].date,
                 start_time: slots[0].start_time,
                 end_time: slots[0].end_time,
-                course_id: (tentativeDetails.course_id === "none" || tentativeDetails.course_id === "topup") ? null : parseInt(tentativeDetails.course_id),
+                // SANITIZE HERE: If it's a special string, send null to the DB
+                course_id: (tentativeDetails.course_id === "none" || tentativeDetails.course_id === "topup") 
+                    ? null 
+                    : tentativeDetails.course_id, 
                 tentative_details: { 
                     ...tentativeDetails, 
                     description: slots[0].description 
@@ -4137,11 +4141,49 @@ export const EditTentativeSchedule = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                         <div className="space-y-2">
                             <Label>Course Selection</Label>
-                            <Select value={tentativeDetails.course_id} onValueChange={(v) => setTentativeDetails({...tentativeDetails, course_id: v})}>
+                            <Select 
+                                value={tentativeDetails.course_id || "none"} 
+                                onValueChange={(v) => {
+                                    // 1. Determine the display name for the description
+                                    let displayName = "";
+                                    let finalCourseId = v;
+
+                                    if (v === "topup") {
+                                        displayName = "Topup";
+                                    } else if (v === "none") {
+                                        displayName = "";
+                                        finalCourseId = "none";
+                                    } else {
+                                        const selectedCourse = courses?.find(c => c.id.toString() === v);
+                                        displayName = selectedCourse ? selectedCourse.name : "";
+                                        finalCourseId = selectedCourse ? selectedCourse.id.toString() : v;
+                                    }
+
+                                    // 2. Update the tentativeDetails (the course ID)
+                                    setTentativeDetails({
+                                        ...tentativeDetails, 
+                                        course_id: finalCourseId
+                                    });
+
+                                    // 3. Update the description in the slots state
+                                    if (slots.length > 0) {
+                                        const updatedSlots = [...slots];
+                                        updatedSlots[0] = {
+                                            ...updatedSlots[0],
+                                            description: displayName // Clears old text and sets course name
+                                        };
+                                        setSlots(updatedSlots);
+                                    }
+                                }}
+                            >
                                 <SelectTrigger><SelectValue placeholder="Select Course" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">None</SelectItem>
-                                    {courses?.map((c) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                                    {courses?.map((c) => (
+                                        <SelectItem key={c.id} value={c.id.toString()}>
+                                            {c.name}
+                                        </SelectItem>
+                                    ))}
                                     <SelectItem value="topup">Topup</SelectItem>
                                 </SelectContent>
                             </Select>
