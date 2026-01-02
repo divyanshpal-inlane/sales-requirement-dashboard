@@ -7,8 +7,9 @@ import { ArrowLeft,
     RefreshCcw, 
     Loader2, 
     Users,
+    MoreHorizontal,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -950,7 +951,7 @@ const updatedInstructorDetails = (updatedInstructorId ? instructorsMap.get(updat
 
       // Refetch the active learners to reflect the changes in the UI
       await refetchActiveLearners();
-      window.location.reload();
+      //window.location.reload();
       return true;
     } catch (error) {
       console.error("Error updating schedule:", error);
@@ -990,7 +991,7 @@ const updatedInstructorDetails = (updatedInstructorId ? instructorsMap.get(updat
       }
       
       setIsRescheduleModalOpen(false);
-      window.location.reload();
+      //window.location.reload();
       return true;
     } catch (error: any) {
       // Log the technical error to the console as requested
@@ -1446,7 +1447,7 @@ const handleOpenReschedule = async (schedule: any) => {
       // not required on admin side
 
       refetchActiveLearners();
-      window.location.reload();
+      // window.location.reload();
     } catch (error) {
       console.error("Error updating lesson from Admin:", error);
       alert("Failed to update lesson from Admin. Please try again.");
@@ -1488,7 +1489,7 @@ const handleOpenReschedule = async (schedule: any) => {
         "description": `Lesson status updated for schedule at ${schedule.date})} ${schedule.start_time}`,
         "type": "destructive",
       });
-      window.location.reload();
+      // window.location.reload();
     } catch (error) {
       console.error("Error updating lesson from Admin:", error);
       alert("Failed to update lesson pause from Admin. Please try again.");
@@ -1822,466 +1823,77 @@ const handleOpenReschedule = async (schedule: any) => {
             </div>
           </TabsContent>
 
-          <TabsContent value="active" className="h-full">
-            <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
-              {/* Learners List */}
-              <Card className="md:col-span-1">
-                <CardHeader className="pb-3">
-                  <CardTitle>Active Learners</CardTitle>
-                  <div className="mt-2">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                      <Input
-                        placeholder="Search by name, email or phone..."
-                        className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[calc(100vh-340px)]"> {/* Adjusted height for search bar */}
-                    {isLoadingActiveLearners ? (
-                      <div className="flex items-center justify-center text-gray-500">
-                        Loading...
-                      </div>
-                    ) : filteredLearners?.length === 0 ? (
-                      <div className="flex items-center justify-center py-10 text-sm text-gray-500">
-                        No learners found matching "{searchTerm}"
-                      </div>
-                    ) : (
-                      filteredLearners?.map((learner) => (
-                        <div key={learner.id} className="mb-2">
-                          <LearnerInfoCard
-                            learner={{
-                              id: learner.id || "",
-                              name: learner.name || "",
-                              // ... rest of your learner mapping
-                            }}
-                            compact={true}
-                            onClick={() => handleActiveLearnerSelect(learner)}
-                          />
-                        </div>
-                      ))
-                    )}
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              {/* Schedule Management */}
-              <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle>
-                    {selectedRequest
-                      ? `${selectedRequest.name}'s Schedule`
-                      : "Select a Learner"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedRequest ? (
-                    <div className="space-y-4">
-                      {selectedRequest?.schedules
-                        ?.sort((a, b) => {
-                          // Sort chronologically by date and time
-                          const dateTimeA = new Date(
-                            `${a.date}T${a.start_time}`,
-                          );
-                          const dateTimeB = new Date(
-                            `${b.date}T${b.start_time}`,
-                          );
-                          return dateTimeA.getTime() - dateTimeB.getTime();
-                        })
-                        .map((schedule) => (
-                          <div
-                            key={schedule.id}
-                            className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50"
-                          >
-                            <div>
-                              <div className="font-medium">
-                                Lesson {schedule.Lesson.number} - {schedule.date} - {schedule.start_time} to{" "}
-                                {schedule.end_time}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                Instructor:{" "}
-                                {
-                                  instructorData.find(
-                                    (i) =>
-                                      i.id_instructor ===
-                                      schedule.instructor_id,
-                                  )?.name
-                                }
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                Status:{" "}
-                                {
-                                  schedule
-                                  ? schedule.status
-                                    ? schedule.status
-                                    : "N/A"
-                                  : "N/A"
-                                }
-                              </div>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" type="button">
-                                  Actions
-                                </Button>
-                              </DropdownMenuTrigger>
-                              {/* Instructor should not be changed
-                              abruptly without checking the availability calender.
-                              Change of Instructor instructor can be done by raising a reschedule request
-                              */ }
-                              <DropdownMenuContent>
-                                 <DropdownMenuItem
-                                  onClick={() =>
-                                    handleOpenInstructorChange(schedule)
-                                  }
-                                >
-                                  Change Instructor
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenReschedule(schedule)}
-                                >
-                                  Reschedule
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleChangeLessonStatus(schedule)}
-                                  // disabled={schedule.status === 'completed' || 
-                                  //   !isOldestIncompleteSchedule(selectedRequest?.schedules, schedule)}
-                                  >
-                                  {/* {schedule.status === 'completed'
-                                    ?'Mark Lesson as Completed (Lesson Completed)' 
-                                    : isOldestIncompleteSchedule(selectedRequest?.schedules, schedule)
-                                    ? 'Mark Lesson as Completed'
-                                    : "Mark previous lessons complete"
-                                  } */}
-                                  Change lesson status
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleChangePauseState(schedule)
-                                  }
-                                >
-                                  Pause / Unpause
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
-                      Select a learner to manage their schedule
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+<TabsContent value="active" className="h-full">
+  <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
+    {/* Learners List */}
+    <Card className="md:col-span-1">
+      <CardHeader className="pb-3">
+        <CardTitle>Active Learners</CardTitle>
+        <div className="mt-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Search by name, email or phone..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[calc(100vh-340px)]">
+          {isLoadingActiveLearners ? (
+            <div className="flex items-center justify-center text-gray-500">
+              Loading...
             </div>
+          ) : filteredLearners?.length === 0 ? (
+            <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+              No learners found matching "{searchTerm}"
+            </div>
+          ) : (
+            filteredLearners?.map((learner) => (
+              <div key={learner.id} className="mb-2">
+                <LearnerInfoCard
+                  learner={{
+                    id: learner.id || "",
+                    name: learner.name || "",
+                  }}
+                  compact={true}
+                  onClick={() => handleActiveLearnerSelect(learner)}
+                />
+              </div>
+            ))
+          )}
+        </ScrollArea>
+      </CardContent>
+    </Card>
 
-            {/* Instructor Change Dialog */}
-            {selectedSchedule && (
-              <Dialog
-                open={isInstructorChangeModalOpen}
-                onOpenChange={(open) => {
-                  // Only allow closing if not processing
-                  if (!isSendingInvites) {
-                    setIsInstructorChangeModalOpen(open);
-                  }
-                }}
-              >
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Change Instructor</DialogTitle>
-                  </DialogHeader>
-                  <p className="text-sm">Warning: Change only if you know next instructor is available. 
-                    If not sure, put a reschedule request and confirm using calender view.
-                  </p>
-                  <div className="space-y-4">
-                    {/* Dropdown to Select Instructor */}
-                    <Select
-                      value={selectedInstructorId}
-                      onValueChange={(value) => {
-                        console.log("Selected Instructor ID:", value);
-                        setSelectedInstructorId(value);
-                      }}
-                      disabled={isSendingInvites}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an instructor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {instructorData?.map((instructor) => (
-                          <SelectItem
-                            key={instructor.id_instructor}
-                            value={instructor.id_instructor}
-                          >
-                            {instructor.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsInstructorChangeModalOpen(false)}
-                        disabled={isSendingInvites}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={async () => {
-                          if (!selectedInstructorId) {
-                            toast({
-                              title: "Error",
-                              description:
-                                "Please select an instructor before saving.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-
-                          try {
-                            if (selectedSchedule.instructor_id) {
-                              await handleInstructorChange(
-                                selectedSchedule.id,
-                                selectedInstructorId,
-                              );
-
-                            } else {
-                              await handleInstructorChangeSimple(
-                                selectedSchedule.id,
-                                selectedInstructorId,
-                              );
-                            }
-                            toast({
-                              title: "Success",
-                              description: "Instructor updated successfully.",
-                            });
-
-                            // Close the modal after saving
-                            setIsInstructorChangeModalOpen(false);
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to update the instructor.",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                        disabled={isSendingInvites}
-                      >
-                        {isSendingInvites ? (
-                          <span className="flex items-center">
-                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                            Changing Instructor...
-                          </span>
-                        ) : (
-                          "Save"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-
-            {/* Reschedule Dialog */}
-            {selectedSchedule && (
-              <Dialog
-                open={isRescheduleModalOpen}
-                onOpenChange={(open) => {
-                  // Only allow closing if not processing
-                  if (!isSendingInvites) {
-                    setIsRescheduleModalOpen(open);
-                  }
-                }}
-              >
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Reschedule Lesson</DialogTitle>
-                  <DialogDescription>
-                    Set reschedule date and time
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4">
-                  <div className="space-y-4">
-                    {/* Date Field */}
-                    <div className="flex items-center gap-2">
-                      <label className="block text-sm font-medium text-gray-700">Date</label>
-                      <input
-                        type="date"
-                        value={selectedSchedule.date || ""} 
-                        onChange={(e) =>
-                          setSelectedSchedule((prev) => ({
-                            ...prev,
-                            date: e.target.value,
-                          }))
-                        }
-                        className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-8">
-                      {/* Start Time Field */}
-                      <div className="flex flex-col">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                        <Select
-                          value={selectedSchedule.start_time || ""}
-                          onValueChange={(value) => {
-                            const startTime = value;
-                            const [hours, minutes] = startTime.split(":").map(Number);
-                            
-                            // Default end time to 1 hour later
-                            const endHours = (hours + 1) % 24;
-                            const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
-
-                            setSelectedSchedule((prev) => ({
-                              ...prev,
-                              start_time: startTime,
-                              end_time: endTime,
-                            }));
-                          }}
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue placeholder="Start" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 24 }).map((_, hour) =>
-                              [0, 30].map((minute) => {
-                                const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
-                                return (
-                                  <SelectItem key={`start-${val}`} value={val}>
-                                    {val.substring(0, 5)}
-                                  </SelectItem>
-                                );
-                              })
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <span className="text-gray-500 mt-6">to</span>
-                      
-                      {/* End Time Field (Filtered) */}
-                      <div className="flex flex-col">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                        <Select
-                          value={selectedSchedule.end_time || ""}
-                          onValueChange={(value) =>
-                            setSelectedSchedule((prev) => ({
-                              ...prev,
-                              end_time: value,
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue placeholder="End" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 24 }).map((_, hour) =>
-                              [0, 30].map((minute) => {
-                                const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
-                                
-                                // Validation Logic: Only show slots where End Time > Start Time
-                                const isPastStart = selectedSchedule.start_time 
-                                  ? val > selectedSchedule.start_time 
-                                  : true;
-
-                                if (!isPastStart) return null;
-
-                                return (
-                                  <SelectItem key={`end-${val}`} value={val}>
-                                    {val.substring(0, 5)}
-                                  </SelectItem>
-                                );
-                              })
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsRescheduleModalOpen(false)}
-                      disabled={isSendingInvites}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        // Final Validation Check
-                        if (!selectedSchedule.date || !selectedSchedule.start_time || !selectedSchedule.end_time) {
-                          toast({
-                            title: "Missing Info",
-                            description: "Please complete all fields.",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-
-                        if (selectedSchedule.end_time <= selectedSchedule.start_time) {
-                          toast({
-                            title: "Invalid Duration",
-                            description: "End time must be after start time.",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-
-                        try {
-                          console.log("T2_4 current and selected schedules", selectedSchedule);
-                          if (selectedSchedule.status != "topup") {
-                            await handleUpdateSchedule(selectedSchedule.id, {
-                              date: selectedSchedule.date,
-                              start_time: selectedSchedule.start_time,
-                              end_time: selectedSchedule.end_time,
-                            });
-                          } else {
-                            await handleUpdateScheduleSimple(selectedSchedule.id, {
-                              date: selectedSchedule.date,
-                              start_time: selectedSchedule.start_time,
-                              end_time: selectedSchedule.end_time,
-                              status: "booked",
-                            });
-
-                          }
-
-                          // Refresh logic remains same...
-                          toast({
-                            title: "Success",
-                            description: "Schedule updated successfully.",
-                            variant: "success"
-                          });
-                          setIsRescheduleModalOpen(false);
-                          await refetchActiveLearners();
-                        } catch (error) {
-                          console.error(error);
-                          toast({
-                            title: "Error",
-                            description: "Failed to update schedule.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      disabled={isSendingInvites}
-                    >
-                      {isSendingInvites ? "Saving..." : "Save"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-              </Dialog>
-            )}
-          </TabsContent>
+    {/* Schedule Management - INTEGRATED COMPONENT */}
+    {selectedRequest ? (
+      <LearnerSchedulesManager 
+        learnerId={selectedRequest.id} 
+        instructorData={instructorData} // Pass this if the manager needs the list for dropdowns
+      />
+    ) : (
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle>Select a Learner</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
+            Select a learner from the list to manage their schedule
+          </div>
+        </CardContent>
+      </Card>
+    )}
+  </div>
+  
+  {/* NOTE: The Instructor Change Dialog and Reschedule Dialog logic 
+      should now live inside <LearnerSchedulesManager />. 
+      They have been removed from here to prevent duplicate IDs and state conflicts.
+  */}
+</TabsContent>
         </div>
       </Tabs>
       {selectedLearnerForDialog && (
@@ -2294,3 +1906,336 @@ const handleOpenReschedule = async (schedule: any) => {
     </div>
   );
 }
+
+
+interface LearnerSchedulesManagerProps {
+  learnerId: string;
+  instructorData: any[];
+}
+
+export const LearnerSchedulesManager = ({ 
+  learnerId, 
+  instructorData 
+}: LearnerSchedulesManagerProps) => {
+  const [learner, setLearner] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  // Modal States
+  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedInstructorId, setSelectedInstructorId] = useState("");
+
+  // 1. Data Fetching
+  const syncData = useCallback(async () => {
+    if (!learnerId) return;
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("Learner")
+        .select(`
+          id, name, area, phone, email,
+          schedules:Schedule(
+            id, date, start_time, end_time, instructor_id,
+            status,
+            Lesson!inner(id, number),
+            Instructor(name)
+          )
+        `)
+        .eq("id", learnerId)
+        .single();
+
+      if (error) throw error;
+      setLearner(data);
+    } catch (error: any) {
+      console.error("Data fetch error:", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [learnerId]);
+
+  useEffect(() => {
+    syncData();
+  }, [syncData]);
+
+  // 2. Action Handlers
+  const onSaveInstructor = async () => {
+    if (!selectedInstructorId || !selectedSchedule) return;
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase
+        .from("Schedule")
+        .update({ instructor_id: selectedInstructorId })
+        .eq("id", selectedSchedule.id);
+
+      if (error) throw error;
+      setIsInstructorChangeModalOpen(false);
+      await syncData();
+      toast({ title: "Updated", description: "Instructor changed." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const onUpdateStatus = async (scheduleId: string, newStatus: string) => {
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase
+        .from("Schedule")
+        .update({ status: newStatus })
+        .eq("id", scheduleId);
+
+      if (error) throw error;
+      await syncData();
+      toast({ title: "Status Updated", description: `Lesson marked as ${newStatus}.` });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!selectedSchedule) return;
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase
+        .from("Schedule")
+        .update({
+          date: selectedSchedule.date,
+          start_time: selectedSchedule.start_time,
+          end_time: selectedSchedule.end_time
+        })
+        .eq("id", selectedSchedule.id);
+
+      if (error) throw error;
+      setIsRescheduleModalOpen(false);
+      await syncData();
+      toast({ title: "Rescheduled", description: "Lesson updated successfully." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 md:col-span-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isLoading ? "Updating..." : `${learner?.name ?? "Learner"}'s Schedule`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {learner?.schedules?.length > 0 ? (
+              [...learner.schedules]
+                .sort((a, b) => new Date(`${a.date}T${a.start_time ?? "00:00"}`).getTime() - new Date(`${b.date}T${b.start_time ?? "00:00"}`).getTime())
+                .map((schedule) => (
+                  <div key={schedule.id} className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50">
+                    <div className="space-y-1">
+                      <div className="font-medium text-sm md:text-base">
+                        Lesson {schedule.Lesson?.number ?? "N/A"} — {schedule.date ?? "N/A"}
+                      </div>
+                      <div className="text-xs md:text-sm text-gray-500">
+                        {schedule.start_time?.substring(0, 5) ?? "N/A"} - {schedule.end_time?.substring(0, 5) ?? "N/A"}
+                        <span className="mx-2">|</span>
+                        Instructor: {schedule.Instructor?.name ?? "Unassigned"}
+                      </div>
+                      <div className="text-xs font-medium uppercase text-gray-600">
+                        Status: {schedule.status ?? "N/A"}
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" disabled={isProcessing}>Actions</Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onUpdateStatus(schedule.id, "completed")}>
+                          Mark as Completed
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedSchedule(schedule);
+                          setSelectedInstructorId(schedule.instructor_id);
+                          setIsInstructorChangeModalOpen(true);
+                        }}>
+                          Change Instructor
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedSchedule({ ...schedule });
+                          setIsRescheduleModalOpen(true);
+                        }}>
+                          Reschedule
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onUpdateStatus(schedule.id, schedule.status === "paused" ? "booked" : "paused")}>
+                          {schedule.status === "paused" ? "Resume Lesson" : "Pause Lesson"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))
+            ) : (
+              <div className="text-center py-10 text-gray-500">
+                {isLoading ? "Fetching data..." : "No records found."}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Instructor Dialog */}
+      <Dialog open={isInstructorChangeModalOpen} onOpenChange={setIsInstructorChangeModalOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Change Instructor</DialogTitle></DialogHeader>
+          <div className="py-4 space-y-4">
+            <Select value={selectedInstructorId} onValueChange={setSelectedInstructorId}>
+              <SelectTrigger><SelectValue placeholder="Select Instructor" /></SelectTrigger>
+              <SelectContent>
+                {instructorData?.map((ins) => (
+                  <SelectItem key={ins.id_instructor} value={ins.id_instructor}>{ins.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsInstructorChangeModalOpen(false)}>Cancel</Button>
+              <Button onClick={onSaveInstructor} disabled={isProcessing}>Confirm</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Dialog - EXACT structure provided */}
+      <Dialog
+        open={isRescheduleModalOpen}
+        onOpenChange={(open) => {
+          if (!isProcessing) {
+            setIsRescheduleModalOpen(open);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reschedule Lesson</DialogTitle>
+            <DialogDescription>
+              Set reschedule date and time
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedSchedule && (
+              <div className="space-y-4">
+                {/* Date Field */}
+                <div className="flex items-center gap-2">
+                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <input
+                    type="date"
+                    value={selectedSchedule.date || ""} 
+                    onChange={(e) =>
+                      setSelectedSchedule((prev: any) => ({
+                        ...prev,
+                        date: e.target.value,
+                      }))
+                    }
+                    className="mt-1 block h-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-8">
+                  {/* Start Time Field */}
+                  <div className="flex flex-col">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <Select
+                      value={selectedSchedule.start_time || ""}
+                      onValueChange={(value) => {
+                        const startTime = value;
+                        const [hours, minutes] = startTime.split(":").map(Number);
+                        
+                        // Default end time to 1 hour later
+                        const endHours = (hours + 1) % 24;
+                        const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+                        setSelectedSchedule((prev: any) => ({
+                          ...prev,
+                          start_time: startTime,
+                          end_time: endTime,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Start" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 }).map((_, hour) =>
+                          [0, 30].map((minute) => {
+                            const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                            return (
+                              <SelectItem key={`start-${val}`} value={val}>
+                                {val.substring(0, 5)}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <span className="text-gray-500 mt-6">to</span>
+                  
+                  {/* End Time Field (Filtered) */}
+                  <div className="flex flex-col">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                    <Select
+                      value={selectedSchedule.end_time || ""}
+                      onValueChange={(value) =>
+                        setSelectedSchedule((prev: any) => ({
+                          ...prev,
+                          end_time: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="End" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 }).map((_, hour) =>
+                          [0, 30].map((minute) => {
+                            const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                            
+                            const isPastStart = selectedSchedule.start_time 
+                              ? val > selectedSchedule.start_time 
+                              : true;
+
+                            if (!isPastStart) return null;
+
+                            return (
+                              <SelectItem key={`end-${val}`} value={val}>
+                                {val.substring(0, 5)}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={() => setIsRescheduleModalOpen(false)}>Cancel</Button>
+                  <Button onClick={handleRescheduleSubmit} disabled={isProcessing}>
+                    {isProcessing ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
