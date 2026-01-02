@@ -450,9 +450,18 @@ export default function AdminSchedules() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
 
+  // Inside your main Dashboard/Tabs component
+  const [selectedFilterInstructorId, setSelectedFilterInstructorId] = useState<string>("");
 
+  // This handles the "Clearing" logic
+  const handleInstructorChange = (id: string) => {
+    setSelectedInstructorId(id);
+    setSelectedLearnerId(null); // Clear the right bar (Schedules)
+    // The left bar (Learner List) will automatically filter based on this ID
+  };
   console.log(activeLearners);
   const filteredLearners = activeLearners?.filter((learner) => {
   const search = searchTerm.toLowerCase();
@@ -464,11 +473,11 @@ export default function AdminSchedules() {
     learner.phone?.includes(searchTerm);
 
   // 2. Check ALL instructors linked to this learner's schedules
-  const instructorMatches = learner.schedules?.some((schedule) => 
-    schedule.Instructor?.name?.toLowerCase().includes(search)
-  );
+  // const instructorMatches = learner.schedules?.some((schedule) => 
+  //   schedule.Instructor?.name?.toLowerCase().includes(search)
+  // );
 
-  return learnerMatches || instructorMatches;
+  return learnerMatches ; // || instructorMatches;
 }
 );
 
@@ -750,9 +759,40 @@ export default function AdminSchedules() {
             </div>
           </TabsContent>
 
-<TabsContent value="active" className="h-full">
-  <div className="grid h-full grid-cols-1 gap-4 p-6 md:grid-cols-3">
-    {/* Learners List */}
+<TabsContent value="active" className="h-full space-y-4">
+  {/* TOP BAR: Instructor Filter */}
+  <div className="px-6 pt-4">
+    <div className="flex items-center gap-4 bg-white p-4 rounded-lg border shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <Users size={18} className="text-indigo-600" />
+        <span>Filter by Instructor:</span>
+      </div>
+      <Select 
+        value={selectedFilterInstructorId || "all"} 
+        onValueChange={(val) => {
+          setSelectedFilterInstructorId(val === "all" ? "" : val);
+          setSelectedRequest(null); // Clear right bar when instructor changes
+        }}
+      >
+        <SelectTrigger className="w-[280px]">
+          <SelectValue placeholder="All Instructors" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Instructors</SelectItem>
+          {instructorData?.map((ins) => (
+            <SelectItem key={ins.id_instructor} value={ins.id_instructor}>
+              {ins.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
+
+  {/* MAIN CONTENT: Left and Right Bars */}
+  <div className="grid h-full grid-cols-1 gap-4 p-6 pt-0 md:grid-cols-3">
+    
+    {/* LEFT BAR: Learners List */}
     <Card className="md:col-span-1">
       <CardHeader className="pb-3">
         <CardTitle>Active Learners</CardTitle>
@@ -769,9 +809,10 @@ export default function AdminSchedules() {
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[calc(100vh-340px)]">
+        <ScrollArea className="h-[calc(100vh-380px)]">
           {isLoadingActiveLearners ? (
-            <div className="flex items-center justify-center text-gray-500">
+            <div className="flex items-center justify-center py-10 text-gray-500">
+              <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
               Loading...
             </div>
           ) : filteredLearners?.length === 0 ? (
@@ -779,47 +820,59 @@ export default function AdminSchedules() {
               No learners found matching "{searchTerm}"
             </div>
           ) : (
-            filteredLearners?.map((learner) => (
-              <div key={learner.id} className="mb-2">
-                <LearnerInfoCard
-                  learner={{
-                    id: learner.id || "",
-                    name: learner.name || "",
-                  }}
-                  compact={true}
-                  onClick={() => handleActiveLearnerSelect(learner)}
-                />
-              </div>
-            ))
+            filteredLearners
+              // Filter learners locally if an instructor is selected
+              ?.filter(learner => {
+                if (!selectedFilterInstructorId) return true;
+                // Assumes learner object has a schedule join or instructor_id reference
+                return learner.schedules?.some(s => s.instructor_id === selectedFilterInstructorId);
+              })
+              .map((learner) => (
+                <div key={learner.id} className="mb-2">
+                  <LearnerInfoCard
+                    learner={{
+                      id: learner.id || "",
+                      name: learner.name || "",
+                    }}
+                    // Highlight the selected learner
+                    className={selectedRequest?.id === learner.id ? "border-indigo-500 bg-indigo-50" : ""}
+                    compact={true}
+                    onClick={() => handleActiveLearnerSelect(learner)}
+                  />
+                </div>
+              ))
           )}
         </ScrollArea>
       </CardContent>
     </Card>
 
-    {/* Schedule Management - INTEGRATED COMPONENT */}
-    {selectedRequest ? (
-      <LearnerSchedulesManager 
-        learnerId={selectedRequest.id} 
-        instructorData={instructorData} // Pass this if the manager needs the list for dropdowns
-      />
-    ) : (
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>Select a Learner</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
-            Select a learner from the list to manage their schedule
-          </div>
-        </CardContent>
-      </Card>
-    )}
+    {/* RIGHT BAR: Schedule Management Integrated Component */}
+    <div className="md:col-span-2">
+      {selectedRequest ? (
+        <LearnerSchedulesManager 
+          key={selectedRequest.id} // Key ensures component re-mounts/refreshes for new learner
+          learnerId={selectedRequest.id} 
+          instructorData={instructorData} 
+        />
+      ) : (
+        <Card className="h-full border-dashed">
+          <CardHeader>
+            <CardTitle className="text-gray-400">Schedule Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-[calc(100vh-320px)] flex-col items-center justify-center text-center text-gray-400">
+              <div className="rounded-full bg-gray-50 p-6 mb-4">
+                <Users size={48} className="text-gray-200" />
+              </div>
+              <p className="max-w-[250px]">
+                Select a learner from the list to manage their schedule and instructor assignments.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   </div>
-  
-  {/* NOTE: The Instructor Change Dialog and Reschedule Dialog logic 
-      should now live inside <LearnerSchedulesManager />. 
-      They have been removed from here to prevent duplicate IDs and state conflicts.
-  */}
 </TabsContent>
         </div>
       </Tabs>
@@ -833,6 +886,44 @@ export default function AdminSchedules() {
     </div>
   );
 }
+
+interface InstructorFilterProps {
+  instructors: any[];
+  selectedInstructorId: string | null;
+  onInstructorChange: (id: string) => void;
+}
+
+export const InstructorFilter = ({ instructors, selectedInstructorId, onInstructorChange }: InstructorFilterProps) => {
+  return (
+    <div className="flex items-center gap-4 bg-white p-4 rounded-lg border mb-6 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <Users size={18} className="text-indigo-600" />
+        <span>Filter by Instructor:</span>
+      </div>
+      <Select 
+        value={selectedInstructorId || "all"} 
+        onValueChange={(val) => onInstructorChange(val === "all" ? "" : val)}
+      >
+        <SelectTrigger className="w-[280px]">
+          <SelectValue placeholder="All Instructors" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Instructors</SelectItem>
+          {instructors.map((ins) => (
+            <SelectItem key={ins.id_instructor} value={ins.id_instructor}>
+              {ins.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {selectedInstructorId && (
+        <span className="text-xs text-gray-400 animate-in fade-in">
+          Showing learners assigned to this instructor
+        </span>
+      )}
+    </div>
+  );
+};
 
 
 interface LearnerSchedulesManagerProps {
