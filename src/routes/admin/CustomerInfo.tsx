@@ -640,10 +640,20 @@ const handleUpdatePaidInfoSave = async () => {
                               </div>
                               {/* Column 3: Payment/Enrollment Info (Installment, Total, Due, Status, Due Since) */}
                               <div>
-                                  <p className="text-sm">
-                                      <span className="font-medium">Installment mode</span>{" "}
-                                      {learner.enrollment?.installment_mode || "N/A"}
-                                  </p>
+                                <p className="text-sm">
+                                  <span className="font-medium">Installment mode:</span>{" "}
+                                  {(() => {
+                                    const mode = learner.enrollment?.installment_mode;
+
+                                    const modeMap = {
+                                      first_half: "2nd installment pending",
+                                      second_half: "Both installment done",
+                                      full: "Full complete",
+                                    };
+
+                                    return modeMap[mode] || mode || "N/A";
+                                  })()}
+                                </p>
                                   <p className="text-sm">
                                       <span className="font-medium">Total amount:</span>{" "}
                                       {learner.enrollment?.amount || "N/A"}
@@ -653,8 +663,21 @@ const handleUpdatePaidInfoSave = async () => {
                                       {getDueAmount(learner)}
                                   </p>
                                   <p className="text-sm">
-                                      <span className="font-medium">Payment status:</span>{" "}
-                                      {learner.enrollment?.payment_status || "N/A"}
+                                    <span className="font-medium">Payment status:</span>{" "}
+                                    {(() => {
+                                      const status = learner.enrollment?.payment_status;
+
+                                      // Mapping object for the logic
+                                      const statusMap = {
+                                        pending: "Unpaid",
+                                        half_paid: "only half done",
+                                        completed: "Full complete",
+                                        full: "Full complete",
+                                        full_paid: "Full complete",
+                                      };
+
+                                      return statusMap[status] || status || "N/A";
+                                    })()}
                                   </p>
                                   <p className="text-sm">
                                       <span className="font-medium">Due since:</span>{" "}
