@@ -421,7 +421,7 @@ export default function AdminSchedules() {
             id,
             number
           ),
-          Instructor!inner(
+          Instructor(
             name
           )
         )
