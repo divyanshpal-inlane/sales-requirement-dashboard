@@ -1018,10 +1018,13 @@ export const LearnerSchedulesManager = ({
   };
 
   const handleRescheduleSubmit = async () => {
-    if (!selectedSchedule) return;
+    if (!selectedSchedule || !learner?.schedules) return;
+    
     try {
       setIsProcessing(true);
-      const { error } = await supabase
+
+      // 1. Update the time for the specific schedule
+      const { error: updateError } = await supabase
         .from("Schedule")
         .update({
           date: selectedSchedule.date,
@@ -1030,10 +1033,40 @@ export const LearnerSchedulesManager = ({
         })
         .eq("id", selectedSchedule.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 2. Local Re-sorting Logic
+      // We create a fresh list of schedules, replacing the old version of the updated one
+      const updatedSchedules = learner.schedules.map((s: any) => 
+        s.id === selectedSchedule.id ? { ...s, ...selectedSchedule } : s
+      );
+
+      // Sort by Date then Start Time
+      const sortedSchedules = [...updatedSchedules].sort((a, b) => {
+        const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+        const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+        return dateTimeA - dateTimeB;
+      });
+
+      // 3. Prepare Bulk Update for Lesson Numbers
+      // We iterate through the sorted list and assign numbers 1, 2, 3...
+      const lessonUpdates = sortedSchedules.map((schedule, index) => ({
+        id: schedule.Lesson.id,
+        number: index + 1, // Lesson 1, Lesson 2, etc.
+      }));
+
+      // Perform bulk update on the Lesson table
+      const { error: lessonError } = await supabase
+        .from("Lesson")
+        .upsert(lessonUpdates);
+
+      if (lessonError) throw lessonError;
+
+      // Cleanup
       setIsRescheduleModalOpen(false);
       await syncData();
-      toast({ title: "Rescheduled", description: "Lesson updated successfully." });
+      toast({ title: "Rescheduled", description: "Schedules re-ordered and lessons re-numbered." });
+      
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {

@@ -487,6 +487,7 @@ const getScheduleDuration = (schedule: LearnerSchedule) => {
         return "0 min";
     }
 
+  
     if (isLessThanOneMinute) {
         return "< 1 min";
     }
@@ -711,8 +712,8 @@ const getScheduleDuration = (schedule: LearnerSchedule) => {
                               </span>{" "}
                               •{" "}
                               <span className="text-primary">
-                                {schedule.start_time.substring(0, 5)} to{" "}
-                                {schedule.end_time.substring(0, 5)}
+                                {schedule.start_time?.substring(0, 5)} to{" "}
+                                {schedule.end_time?.substring(0, 5)}
                               </span>
                             </p>
                             <p className="mt-1 text-sm text-gray-600">
