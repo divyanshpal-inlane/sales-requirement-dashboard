@@ -300,14 +300,40 @@ serve(async (req) => {
     const initiateSaleUrl =
       Deno.env.get("ORANGE_PG_INITIATE_SALE_URL") ??
       "https://pgpay.icicibank.com/tsp/pg/api/v2/initiateSale";
-    const returnURL = Deno.env.get("PAYMENT_RETURN_URL") ?? "";
+    // Trim returnURL to remove any trailing whitespace
+    const returnURL = (Deno.env.get("PAYMENT_RETURN_URL") ?? "").trim();
 
     // 5. Prepare Orange PG request data
     const merchantTxnNo = `ORD-${paymentRecord.id}`;
     const txnDate = formatTxnDate();
+    const customerMobileNo = phone.startsWith("91") ? phone : `91${phone}`;
 
-    // Build request data (fields used for hash calculation)
-    const requestData: Record<string, string> = {
+    // Build hash data - ONLY these fields are used for hash calculation per ICICI docs
+    // aggregatorID is NOT included in hash calculation
+    const hashData: Record<string, string> = {
+      addlParam1: installmentType || "full",
+      addlParam2: paymentType || "course",
+      amount: amount.toFixed(2),
+      currencyCode: "356",
+      customerEmailID: email,
+      customerMobileNo: customerMobileNo,
+      customerName: name,
+      merchantId: merchantId,
+      merchantTxnNo: merchantTxnNo,
+      payType: "0",
+      returnURL: returnURL,
+      transactionType: "SALE",
+      txnDate: txnDate,
+    };
+
+    console.log("Hash data:", JSON.stringify(hashData, null, 2));
+
+    // 6. Generate secure hash using HMAC-SHA256
+    const secureHash = await generateSecureHash(hashData, secretKey);
+    console.log("Generated secureHash:", secureHash);
+
+    // 7. Build final request with all fields including aggregatorID
+    const finalRequest = {
       merchantId: merchantId,
       aggregatorID: aggregatorId,
       merchantTxnNo: merchantTxnNo,
@@ -318,27 +344,17 @@ serve(async (req) => {
       transactionType: "SALE",
       returnURL: returnURL,
       txnDate: txnDate,
-      customerMobileNo: phone.startsWith("91") ? phone : `91${phone}`,
+      customerMobileNo: customerMobileNo,
       customerName: name,
-      // Additional params for our use
       addlParam1: installmentType || "full",
       addlParam2: paymentType || "course",
+      secureHash: secureHash,
     };
 
     console.log(
       "Orange PG Request data:",
-      JSON.stringify(requestData, null, 2),
+      JSON.stringify(finalRequest, null, 2),
     );
-
-    // 6. Generate secure hash using HMAC-SHA256
-    const secureHash = await generateSecureHash(requestData, secretKey);
-    console.log("Generated secureHash:", secureHash);
-
-    // 7. Add secureHash to request
-    const finalRequest = {
-      ...requestData,
-      secureHash: secureHash,
-    };
 
     // 8. Call Orange PG InitiateSale API
     const response = await fetch(initiateSaleUrl, {
@@ -363,7 +379,7 @@ serve(async (req) => {
     // 9. Check if InitiateSale was successful
     if (pgResponse.responseCode !== "R1000") {
       throw new Error(
-        `Payment initiation failed: ${pgResponse.respDescription || pgResponse.responseCode}`,
+        `Payment initiation failed: ${pgResponse.responseDescription || pgResponse.respDescription || pgResponse.responseCode}`,
       );
     }
 
