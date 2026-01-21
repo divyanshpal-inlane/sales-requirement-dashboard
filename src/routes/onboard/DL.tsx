@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
 import { useQueryClient } from "@tanstack/react-query";
 
-
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
@@ -80,12 +79,12 @@ export default function DLQuestion() {
               console.log("Refetching learner query");
               // Refetch queries to ensure Learner data is updated on home page
               // Better solution than addding delays
-              await queryClient.refetchQueries({ queryKey: ['learner'] });
+              await queryClient.refetchQueries({ queryKey: ["learner"] });
 
               localStorage.setItem("onboardingDone", "true");
 
               navigate("/home");
-              
+
               // Send message in the background without awaiting
               if (learner) {
                 supabase.functions
@@ -98,8 +97,8 @@ export default function DLQuestion() {
                   .catch((error) => {
                     console.error("Error sending message:", error);
                   });
-                }
-              },
+              }
+            },
           },
         );
       } else {
@@ -120,8 +119,8 @@ export default function DLQuestion() {
               console.log("Refetching learner query");
               // Refetch queries to ensure Learner data is updated on home page
               // Better solution than addding delays
-              await queryClient.refetchQueries({ queryKey: ['learner'] });
-              
+              await queryClient.refetchQueries({ queryKey: ["learner"] });
+
               // Also set onboardingDone on localStorage
               localStorage.setItem("onboardingDone", "true");
 

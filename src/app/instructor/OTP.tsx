@@ -47,7 +47,7 @@ const CountdownRedirect = ({ onComplete }: { onComplete: () => void }) => {
   );
 };
 
-const OTPVerification = ({isVerifyStartLesson}: boolean) => {
+const OTPVerification = ({ isVerifyStartLesson }: boolean) => {
   const { learnerId, scheduleId } = useParams();
   const [otp, setOTP] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
@@ -70,9 +70,9 @@ const OTPVerification = ({isVerifyStartLesson}: boolean) => {
 
   const handleOtpInputChange = (event) => {
     const value = event.target.value;
-    
+
     // 1. Filter: Only allow digits
-    const numericValue = value.replace(/\D/g, '');
+    const numericValue = value.replace(/\D/g, "");
 
     // 2. Limit: Enforce the maximum length
     const finalOtp = numericValue.slice(0, 6);
@@ -185,7 +185,8 @@ const OTPVerification = ({isVerifyStartLesson}: boolean) => {
                 <div className="space-y-6">
                   <div className="flex flex-col items-center space-y-4">
                     <p className="text-center text-sm text-gray-600 sm:text-base">
-                      Enter the 6-digit code to {isVerifyStartLesson ? "start" : "end"} lesson
+                      Enter the 6-digit code to{" "}
+                      {isVerifyStartLesson ? "start" : "end"} lesson
                     </p>
 
                     <div className="w-full max-w-xs sm:max-w-md">
@@ -196,9 +197,9 @@ const OTPVerification = ({isVerifyStartLesson}: boolean) => {
                         onChange={handleOtpInputChange}
                         maxLength={6}
                         pattern="\d{6}" // HTML5 validation hint
-                        className="border border-gray-300 rounded-lg p-3 text-2xl tracking-widest text-center"
+                        className="rounded-lg border border-gray-300 p-3 text-center text-2xl tracking-widest"
                         placeholder="Enter 6-digit code"
-                        style={{ width: '100%', letterSpacing: '20px' }} // Custom styling for wide spacing
+                        style={{ width: "100%", letterSpacing: "20px" }} // Custom styling for wide spacing
                       />
                     </div>
 
@@ -211,13 +212,17 @@ const OTPVerification = ({isVerifyStartLesson}: boolean) => {
 
                   <Button
                     className="w-full bg-[#00CE84] text-sm transition-all hover:scale-[1.02] hover:bg-[#04A76C] disabled:bg-gray-300 sm:text-base"
-                    onClick={async () => {await handleSubmit(isVerifyStartLesson);}}
+                    onClick={async () => {
+                      await handleSubmit(isVerifyStartLesson);
+                    }}
                     disabled={otp.length !== 6 || isLoadingVerification}
                   >
                     {isLoadingVerification ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : isVerifyStartLesson ? (
+                      "Verify & Start"
                     ) : (
-                      isVerifyStartLesson ? "Verify & Start" : "Verify & End"
+                      "Verify & End"
                     )}
                   </Button>
                 </div>

@@ -68,10 +68,10 @@ export const LESSON_CONTENT: LessonContent = {
           text: "Every pro driver has good control of the car - drive slowly ",
         },
         { icon: "🚗", text: "Keep it chill, under 20 km/h" },
-          {
-            icon: "🚧",
-            text: "Distance - give obstacles some personal space",
-          },
+        {
+          icon: "🚧",
+          text: "Distance - give obstacles some personal space",
+        },
       ],
       title: "You will be good at Starting & Stopping the Car",
       points: [
@@ -95,7 +95,11 @@ export const LESSON_CONTENT: LessonContent = {
           header: "Move Forward:",
           desc: "Balance clutch & accelerator",
         },
-        { icon: "brakes.svg", header: "Stop Smoothly:", desc: "Press brake and then clutch for quick stops" },
+        {
+          icon: "brakes.svg",
+          header: "Stop Smoothly:",
+          desc: "Press brake and then clutch for quick stops",
+        },
       ],
       game: {
         type: "image",

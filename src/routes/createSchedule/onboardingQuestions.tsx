@@ -41,8 +41,8 @@ export default function OnboardingQuestions() {
           ? parseInt(completionDays)
           : null,
         prefers_two_hour_classes: canTakeTwoHourClasses,
-        two_hour_days: canTakeTwoHourClasses 
-          ? selectedTwoHourDays.join(', ') // Convert the array of days (e.g., ["Mon", "Wed"]) to a string ("Mon, Wed")
+        two_hour_days: canTakeTwoHourClasses
+          ? selectedTwoHourDays.join(", ") // Convert the array of days (e.g., ["Mon", "Wed"]) to a string ("Mon, Wed")
           : null,
       },
       {
@@ -54,10 +54,11 @@ export default function OnboardingQuestions() {
   };
 
   const handleDayToggle = (day) => {
-    setSelectedTwoHourDays(prevDays => 
-      prevDays.includes(day)
-        ? prevDays.filter(d => d !== day) // Remove day if already selected
-        : [...prevDays, day]             // Add day if not selected
+    setSelectedTwoHourDays(
+      (prevDays) =>
+        prevDays.includes(day)
+          ? prevDays.filter((d) => d !== day) // Remove day if already selected
+          : [...prevDays, day], // Add day if not selected
     );
   };
 
@@ -156,9 +157,9 @@ export default function OnboardingQuestions() {
                 <Label htmlFor="two-hour-days" className="mt-16">
                   Which day(s)1 can you take classes for more than 2 hours?
                 </Label>
-                <div 
-                  id="two-hour-days" 
-                  className="mt-2 flex space-x-2 justify-between"
+                <div
+                  id="two-hour-days"
+                  className="mt-2 flex justify-between space-x-2"
                   // The id is moved to the container div for accessibility grouping
                 >
                   {DAYS_OF_WEEK.map((day) => (
@@ -167,14 +168,11 @@ export default function OnboardingQuestions() {
                       type="button"
                       onClick={() => handleDayToggle(day)}
                       // Apply styling based on whether the day is selected
-                      className={`
-                        flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-colors
-                        ${
-                          selectedTwoHourDays.includes(day)
-                            ? "bg-blue-600 text-white shadow-md hover:bg-blue-700" // Selected style (e.g., blue)
-                            : "bg-gray-100 text-gray-800 hover:bg-gray-200"     // Default style
-                        }
-                      `}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                        selectedTwoHourDays.includes(day)
+                          ? "bg-blue-600 text-white shadow-md hover:bg-blue-700" // Selected style (e.g., blue)
+                          : "bg-gray-100 text-gray-800 hover:bg-gray-200" // Default style
+                      } `}
                     >
                       {day}
                     </button>
@@ -182,7 +180,10 @@ export default function OnboardingQuestions() {
                 </div>
                 {/* Optional: Display the selected days below for verification */}
                 <p className="mt-2 text-sm text-gray-500">
-                  Selected: {selectedTwoHourDays.length > 0 ? selectedTwoHourDays.join(', ') : 'None'}
+                  Selected:{" "}
+                  {selectedTwoHourDays.length > 0
+                    ? selectedTwoHourDays.join(", ")
+                    : "None"}
                 </p>
               </div>
             )}

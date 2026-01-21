@@ -78,7 +78,6 @@ interface TimeSlotState {
   isCurrentInstrUnavailable: boolean | false;
 }
 interface HourlySlot {
-
   timestamp: Date;
   timeSlot: TimeSlot | null;
   state: TimeSlotState;
@@ -204,10 +203,10 @@ export default function CreateScheduleWithInstructor({
     null,
   );
   const [showLearnerDialog, setShowLearnerDialog] = useState(false);
-    const [selectedTentativeSchedule, setSelectedTentativeSchedule] = useState<LearnerInfo | null>(
-    null,
-  );
-  const [showTentativeScheduleDialog, setShowTentativeScheduleDialog] = useState(false);
+  const [selectedTentativeSchedule, setSelectedTentativeSchedule] =
+    useState<LearnerInfo | null>(null);
+  const [showTentativeScheduleDialog, setShowTentativeScheduleDialog] =
+    useState(false);
   const { toast } = useToast();
 
   // Calender settings
@@ -246,42 +245,21 @@ export default function CreateScheduleWithInstructor({
     },
   });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // Fetch testative schedules for the learner's area
   const { data: tentativeSchedules } = useQuery({
     queryKey: ["tentative_schedules", selectedInstructorId, learnerId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("Schedule")
-      .select("*")
-      .eq('isTentative', true)
-      .eq('learner_id', learnerId)
-      .eq('instructor_id', selectedInstructorId)
-      .order('created_at', {ascending: false});
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("*")
+        .eq("isTentative", true)
+        .eq("learner_id", learnerId)
+        .eq("instructor_id", selectedInstructorId)
+        .order("created_at", { ascending: false });
       // Note that there can be multiple tentative schedules for different slots
 
       if (error) {
-        if (error.code === 'PGRST116') {
+        if (error.code === "PGRST116") {
           // ignore null output of query
           return null;
         }
@@ -289,48 +267,19 @@ export default function CreateScheduleWithInstructor({
       }
       return data;
     },
-    enabled: !!selectedInstructorId // The query will run only when selectedInstructorId is not-null
+    enabled: !!selectedInstructorId, // The query will run only when selectedInstructorId is not-null
   });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   // Calculate distances between learner and instructors
   useEffect(() => {
     const calculateDistances = async () => {
-      if (
-        !instructors ||
-        !learnerDetails
-      ) {
+      if (!instructors || !learnerDetails) {
         return;
       }
-      if (
-        !learnerDetails.address_lat ||
-        !learnerDetails.address_lng
-      ) {
-        console.error("Cannot find distance: Location details of the learner not found");
+      if (!learnerDetails.address_lat || !learnerDetails.address_lng) {
+        console.error(
+          "Cannot find distance: Location details of the learner not found",
+        );
         return;
       }
 
@@ -359,7 +308,10 @@ export default function CreateScheduleWithInstructor({
           let retryDistanceAPICallCount = 0;
 
           // console.log("lat, lng, instructor", learnerLat, learnerLng, instructor.latitude, instructor.longitude, instructor);
-          while (!(drivingDistance === null) && (retryDistanceAPICallCount < maxRetryDistanceAPICallCount)) {
+          while (
+            !(drivingDistance === null) &&
+            retryDistanceAPICallCount < maxRetryDistanceAPICallCount
+          ) {
             try {
               // console.log("Call distance API retry: ", retryDistanceAPICallCount)
               drivingDistance = await getDrivingDistanceViaSDK(
@@ -375,22 +327,25 @@ export default function CreateScheduleWithInstructor({
               // results when slider set to small value
               // drivingDistance = straightLineDistance;
             } finally {
-              retryDistanceAPICallCount ++;
+              retryDistanceAPICallCount++;
             }
           }
 
-          if (!(drivingDistance === null) && (retryDistanceAPICallCount >= maxRetryDistanceAPICallCount)) {
+          if (
+            !(drivingDistance === null) &&
+            retryDistanceAPICallCount >= maxRetryDistanceAPICallCount
+          ) {
             console.error(
               "Distance API failed after " +
                 maxRetryDistanceAPICallCount +
-                " retries");
-            
+                " retries",
+            );
+
             // set to straight line distance to avoid UI failure
             drivingDistance = straightLineDistance;
             // TODO: handle the error
             // throw new Error("Cannot calculate driving distance.");
           }
-
 
           instructorsWithDistanceData.push({
             ...instructor,
@@ -791,7 +746,13 @@ export default function CreateScheduleWithInstructor({
     );
   };
   // Add this helper function before your return statement
-  const isTimeSlotUnavailable = (instructorId, instructorsWithDistanceData, day, hour, minute) => {
+  const isTimeSlotUnavailable = (
+    instructorId,
+    instructorsWithDistanceData,
+    day,
+    hour,
+    minute,
+  ) => {
     if (!instructorId || !instructorsWithDistanceData) return false;
 
     // Find the selected instructor
@@ -941,7 +902,15 @@ export default function CreateScheduleWithInstructor({
     return <div>No learner details found</div>;
   }
 
-  const handleAvailableSlotClick = (learnerData, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute) => {
+  const handleAvailableSlotClick = (
+    learnerData,
+    selectedInstructorId,
+    instructorsWithDistance,
+    tentativeSchedules,
+    day,
+    hour,
+    minute,
+  ) => {
     console.log(learnerData);
 
     console.log("tentativeSchedules, ", tentativeSchedules);
@@ -949,17 +918,12 @@ export default function CreateScheduleWithInstructor({
     // Filter schedule for the given slot if any
     // tentativeSchedulesOfSlot = tentativeSchedules.filter((s) => )
 
-
     // Find the schedule for the current day and time
     const currentTime = new Date(day);
     currentTime.setHours(hour, minute);
     const tentativeSchedulesOfSlot = tentativeSchedules?.find((s) => {
-      const scheduleStart = new Date(
-        `${s.date}T${s.start_time}`,
-      );
-      const scheduleEnd = new Date(
-        `${s.date}T${s.end_time}`,
-      );
+      const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+      const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
       return (
         isSameDay(scheduleStart, day) &&
         currentTime >= scheduleStart &&
@@ -967,32 +931,38 @@ export default function CreateScheduleWithInstructor({
       );
     });
 
-    console.log("tentativeSchedulesOfSlot, ", tentativeSchedulesOfSlot, currentTime, hour, minute);
+    console.log(
+      "tentativeSchedulesOfSlot, ",
+      tentativeSchedulesOfSlot,
+      currentTime,
+      hour,
+      minute,
+    );
 
-      // Format the learner data to match LearnerInfo interface
-      const learnerInfo: LearnerInfo = {
-        id: learnerData.id,
-        name: learnerData.name,
-        phone: learnerData.phone,
-        email: learnerData.email || "",
-        area: learnerData.area,
-        pincode: learnerData.pincode,
-        signed_up: learnerData.signed_up,
-        created_at: learnerData.created_at,
-        address_lat: learnerData.address_lat,
-        address_lng: learnerData.address_lng,
-        preferred_start_date: learnerData.preferred_start_date,
-        preferred_completion_days: learnerData.preferred_completion_days,
-        prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
-        pick_up_location: learnerData.pick_up_location,
-      };
-    
+    // Format the learner data to match LearnerInfo interface
+    const learnerInfo: LearnerInfo = {
+      id: learnerData.id,
+      name: learnerData.name,
+      phone: learnerData.phone,
+      email: learnerData.email || "",
+      area: learnerData.area,
+      pincode: learnerData.pincode,
+      signed_up: learnerData.signed_up,
+      created_at: learnerData.created_at,
+      address_lat: learnerData.address_lat,
+      address_lng: learnerData.address_lng,
+      preferred_start_date: learnerData.preferred_start_date,
+      preferred_completion_days: learnerData.preferred_completion_days,
+      prefers_two_hour_classes: learnerData.prefers_two_hour_classes,
+      pick_up_location: learnerData.pick_up_location,
+    };
+
     setSelectedTentativeSchedule(learnerInfo);
     setShowTentativeScheduleDialog(true);
     // display data if exist
 
     // define state hooks on the component side and use them directly here for updating
-    // Call mutate function for updating the state 
+    // Call mutate function for updating the state
 
     // const formData = { /* Gather your form data here */ };
     // try {
@@ -1002,33 +972,28 @@ export default function CreateScheduleWithInstructor({
     // } catch (error) {
     //   console.error('Mutation failed:', error.message);
     // }
-  }
-
+  };
 
   const getBookedDetailsForShow = (schedule) => {
     // console.log("Fetch learner from ", schedule);
     const learnerDetails = schedule.learner;
     return (
-        <>
-      {/* Learner name (bold), area (optional) */}
-      <span className="text-base font-bold leading-tight">
-        {learnerDetails?.name}
-      </span>
-      {learnerDetails?.area && (
-        <span className="text-xs text-white/90">
-          {learnerDetails?.area}
+      <>
+        {/* Learner name (bold), area (optional) */}
+        <span className="text-base font-bold leading-tight">
+          {learnerDetails?.name}
         </span>
-      )}
-      {/* Time range */}
-      <span className="mt-1 text-xs font-medium">
-        {schedule.start_time.slice(0, 5)} -{" "}
-        {schedule.end_time.slice(0, 5)}
-      </span>
-    </>
+        {learnerDetails?.area && (
+          <span className="text-xs text-white/90">{learnerDetails?.area}</span>
+        )}
+        {/* Time range */}
+        <span className="mt-1 text-xs font-medium">
+          {schedule.start_time.slice(0, 5)} - {schedule.end_time.slice(0, 5)}
+        </span>
+      </>
+    );
+  };
 
-    )
-  }
-  
   // useEffect(() => {
   //   console.log("instructorsWithDistance", instructorsWithDistance);
   // }, [instructorsWithDistance]);
@@ -1065,19 +1030,19 @@ export default function CreateScheduleWithInstructor({
                       value={instructor.id_instructor}
                       className="w-full"
                     >
-                      <div className="flex w-full items-center justify-between flex-wrap">
+                      <div className="flex w-full flex-wrap items-center justify-between">
                         {/* Name + badges container */}
                         <div className="flex flex-wrap items-center gap-2">
                           <span>
                             {instructor.name}
                             {instructor.areas && instructor.areas.length > 0
-                              ? ` (${instructor.areas.join(', ')})`
-                              : ''
-                            }
+                              ? ` (${instructor.areas.join(", ")})`
+                              : ""}
                           </span>
 
                           {instructor.areas.some(
-                            (area) => area.toLowerCase() === learnerArea.toLowerCase(),
+                            (area) =>
+                              area.toLowerCase() === learnerArea.toLowerCase(),
                           ) && (
                             <Badge
                               variant="outline"
@@ -1087,16 +1052,14 @@ export default function CreateScheduleWithInstructor({
                             </Badge>
                           )}
 
-                          {
-                          instructor.isWithinRadius && true && (
+                          {instructor.isWithinRadius && true && (
                             <Badge
                               variant="outline"
                               className="border-green-200 bg-green-50 text-green-700"
                             >
                               Matching Radius
                             </Badge>
-                          )
-                          }
+                          )}
                         </div>
 
                         {/* Distance is a sibling element, to avoid overflow masking*/}
@@ -1166,99 +1129,137 @@ export default function CreateScheduleWithInstructor({
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-                    const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay; // Start from 5 AM
-                    const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+                  {Array.from({ length: SlotConfig.numSlotsPerDay }).map(
+                    (_, timeIndex) => {
+                      const hour =
+                        Math.floor(timeIndex / SlotConfig.numSlotsPerHour) +
+                        SlotConfig.startHourOfDay; // Start from 5 AM
+                      const minute =
+                        (SlotConfig.numMinutesPerSlot *
+                          (timeIndex % SlotConfig.numSlotsPerHour)) %
+                        60;
                       // console.log("Learner slot", hour, minute);
-                        return (
-                      <tr key={timeIndex} className="h-10">
-                        <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center text-base text-gray-700">
-                          {format(new Date().setHours(hour, minute), "h:mm a")}
-                        </td>
-                        {Array.from({ length: 7 }).map((_, dayIndex) => {
-                          const day = addDays(currentRangeStart, dayIndex);
+                      return (
+                        <tr key={timeIndex} className="h-10">
+                          <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center text-base text-gray-700">
+                            {format(
+                              new Date().setHours(hour, minute),
+                              "h:mm a",
+                            )}
+                          </td>
+                          {Array.from({ length: 7 }).map((_, dayIndex) => {
+                            const day = addDays(currentRangeStart, dayIndex);
 
-                          // Find the schedule for the current day and time
-                          const schedule = instructorSchedule?.find((s) => {
-                            const scheduleStart = new Date(
-                              `${s.date}T${s.start_time}`,
+                            // Find the schedule for the current day and time
+                            const schedule = instructorSchedule?.find((s) => {
+                              const scheduleStart = new Date(
+                                `${s.date}T${s.start_time}`,
+                              );
+                              const scheduleEnd = new Date(
+                                `${s.date}T${s.end_time}`,
+                              );
+                              const currentTime = new Date(day);
+                              currentTime.setHours(hour, minute);
+                              return (
+                                isSameDay(scheduleStart, day) &&
+                                currentTime >= scheduleStart &&
+                                currentTime < scheduleEnd
+                              );
+                            });
+
+                            const unavailable = isTimeSlotUnavailable(
+                              selectedInstructorId,
+                              instructorsWithDistance,
+                              day,
+                              hour,
+                              minute,
                             );
-                            const scheduleEnd = new Date(
-                              `${s.date}T${s.end_time}`,
-                            );
-                            const currentTime = new Date(day);
-                            currentTime.setHours(hour, minute);
+
+                            // Determine if this cell is the start of a schedule
+                            const isScheduleStart =
+                              schedule &&
+                              parseInt(schedule.start_time.split(":")[0]) ===
+                                hour &&
+                              parseInt(schedule.start_time.split(":")[1]) ===
+                                minute;
+
                             return (
-                              isSameDay(scheduleStart, day) &&
-                              currentTime >= scheduleStart &&
-                              currentTime < scheduleEnd
-                            );
-                          });
+                              <td
+                                key={dayIndex}
+                                className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center align-middle ${
+                                  schedule
+                                    ? schedule.isTentative
+                                      ? "bg-orange-200 text-white"
+                                      : "bg-green-500 text-white"
+                                    : unavailable
+                                      ? "bg-gray-300 text-red-800"
+                                      : ""
+                                } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
+                                onClick={() => {
+                                  if (schedule && !schedule.isTentative) {
+                                    handleOccupiedSlotClick(schedule);
+                                  } else {
+                                    if (schedule?.isTentative) {
+                                      // Show message to user to manage tentative schedules from Instructor management
+                                      toast({
+                                        title: "Tentative Schedule",
+                                        description:
+                                          "Tentative schedules can be updated from Instructor management panel",
+                                        variant: "destructive",
+                                      });
+                                      return;
+                                    }
 
-                          const unavailable = isTimeSlotUnavailable(
-                            selectedInstructorId,
-                            instructorsWithDistance,
-                            day,
-                            hour,
-                            minute,
-                          );
-
-                          // Determine if this cell is the start of a schedule
-                          const isScheduleStart =
-                            schedule &&
-                            parseInt(schedule.start_time.split(":")[0]) ===
-                              hour &&
-                            parseInt(schedule.start_time.split(":")[1]) ===
-                              minute;
-
-                          return (
-                            <td
-                              key={dayIndex}
-                              className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center align-middle ${
-                                schedule
-                                  ? schedule.isTentative 
-                                    ? "bg-orange-200 text-white"
-                                    : "bg-green-500 text-white"
-                                  : unavailable
-                                    ? "bg-gray-300 text-red-800"
-                                  : ""
-                              } ${schedule ? "cursor-pointer hover:opacity-80" : ""}`}
-                              onClick={() => {
-                                if (schedule && !schedule.isTentative) {
-                                  handleOccupiedSlotClick(schedule);
-                                } else {
-                                  if (schedule?.isTentative) {
-                                    // Show message to user to manage tentative schedules from Instructor management
-                                    toast({
-                                      title: "Tentative Schedule",
-                                      description: "Tentative schedules can be updated from Instructor management panel",
-                                      variant: "destructive",
-                                    });
-                                    return;
+                                    // The following can be implemented to create the schedules also from the Intructor calender
+                                    // However, it can be done from the Learner panel by selecting the same slot hence it is added functionality not must have
+                                    // handleAvailableSlotClick(request.Learner, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute);
                                   }
-
-                                  // The following can be implemented to create the schedules also from the Intructor calender
-                                  // However, it can be done from the Learner panel by selecting the same slot hence it is added functionality not must have
-                                  // handleAvailableSlotClick(request.Learner, selectedInstructorId, instructorsWithDistance, tentativeSchedules, day, hour, minute);
-                                }
-                              }
-                            }
-                            >
-                              <div className="flex h-full flex-col items-center justify-center">
-                                {isScheduleStart && schedule && !schedule.isTentative ? (
-                                  getBookedDetailsForShow(schedule, learnerDetails)
-                                ) : isScheduleStart && schedule && schedule.isTentative ? (
-                                  <span className="text-base leading-tight text-gray-500"> 
-                                    <ul className="text-left text-xs">
-                                      <li><strong>{schedule.tentative_details?.name || "Tentative"}</strong></li>
-                                      <li>Lead Name: {schedule.tentative_details?.leadName || "N/A"}</li>
-                                      <li>Phone: {schedule.tentative_details?.phone || "N/A"}</li>
-                                      <li className="overflow-hidden whitespace-nowrap text-ellipsis">
-                                        Description: {schedule.tentative_details?.description || "N/A"}
-                                      </li>
-                                      <li>Paid Info: {schedule.tentative_details?.paid_info || "N/A"}</li>
-                                      <li>  
-                                        {schedule.tentative_details?.latitude && schedule.tentative_details?.longitude ? (
+                                }}
+                              >
+                                <div className="flex h-full flex-col items-center justify-center">
+                                  {isScheduleStart &&
+                                  schedule &&
+                                  !schedule.isTentative ? (
+                                    getBookedDetailsForShow(
+                                      schedule,
+                                      learnerDetails,
+                                    )
+                                  ) : isScheduleStart &&
+                                    schedule &&
+                                    schedule.isTentative ? (
+                                    <span className="text-base leading-tight text-gray-500">
+                                      <ul className="text-left text-xs">
+                                        <li>
+                                          <strong>
+                                            {schedule.tentative_details?.name ||
+                                              "Tentative"}
+                                          </strong>
+                                        </li>
+                                        <li>
+                                          Lead Name:{" "}
+                                          {schedule.tentative_details
+                                            ?.leadName || "N/A"}
+                                        </li>
+                                        <li>
+                                          Phone:{" "}
+                                          {schedule.tentative_details?.phone ||
+                                            "N/A"}
+                                        </li>
+                                        <li className="overflow-hidden text-ellipsis whitespace-nowrap">
+                                          Description:{" "}
+                                          {schedule.tentative_details
+                                            ?.description || "N/A"}
+                                        </li>
+                                        <li>
+                                          Paid Info:{" "}
+                                          {schedule.tentative_details
+                                            ?.paid_info || "N/A"}
+                                        </li>
+                                        <li>
+                                          {schedule.tentative_details
+                                            ?.latitude &&
+                                          schedule.tentative_details
+                                            ?.longitude ? (
                                             <a
                                               href={`https://www.google.com/maps?q=${schedule.tentative_details.latitude},${schedule.tentative_details.longitude}`}
                                               target="_blank"
@@ -1269,21 +1270,22 @@ export default function CreateScheduleWithInstructor({
                                               Map link
                                             </a>
                                           ) : (
-                                            <span className="text-muted-foreground">Map N/A</span>
+                                            <span className="text-muted-foreground">
+                                              Map N/A
+                                            </span>
                                           )}
-                                      </li>
-                                    </ul>
-
-                                  </span>
-                                  ) : null
-                              }
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                                        </li>
+                                      </ul>
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    },
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1437,31 +1439,33 @@ export default function CreateScheduleWithInstructor({
                   </div>
                 </div>
               )}
-              {showInstructorDetails && selectedInstructorId && learnerDetails && (
-                <MapWithRoute
-                  origin={{
-                    lat: learnerDetails.address_lat,
-                    lng: learnerDetails.address_lng,
-                  }}
-                  destination={{
-                    lat: instructorsWithDistance.find(
-                      (instructor) =>
-                        instructor.id_instructor === selectedInstructorId,
-                    )?.latitude,
-                    lng: instructorsWithDistance.find(
-                      (instructor) =>
-                        instructor.id_instructor === selectedInstructorId,
-                    )?.longitude,
-                  }}
-                  apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                  instructorName={
-                    instructorsWithDistance.find(
-                      (instructor) =>
-                        instructor.id_instructor === selectedInstructorId,
-                    )?.name
-                  }
-                />
-              )}
+              {showInstructorDetails &&
+                selectedInstructorId &&
+                learnerDetails && (
+                  <MapWithRoute
+                    origin={{
+                      lat: learnerDetails.address_lat,
+                      lng: learnerDetails.address_lng,
+                    }}
+                    destination={{
+                      lat: instructorsWithDistance.find(
+                        (instructor) =>
+                          instructor.id_instructor === selectedInstructorId,
+                      )?.latitude,
+                      lng: instructorsWithDistance.find(
+                        (instructor) =>
+                          instructor.id_instructor === selectedInstructorId,
+                      )?.longitude,
+                    }}
+                    apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                    instructorName={
+                      instructorsWithDistance.find(
+                        (instructor) =>
+                          instructor.id_instructor === selectedInstructorId,
+                      )?.name
+                    }
+                  />
+                )}
               {/* <div>A is the location of Learner<br>B is the location of Instructor</br></div> */}
             </div>
           </CardContent>
@@ -1545,11 +1549,10 @@ function CreateSchedule({
 
   // const numSlotsPerHour = 2;
   // const numHoursPerDay = 18; // 5 AM to 11:59 PM in half-hour slots
-  // const numSlotsPerDay = Math.ceil(numSlotsPerHour * numHoursPerDay); 
-  
+  // const numSlotsPerDay = Math.ceil(numSlotsPerHour * numHoursPerDay);
 
   // get Unvailability of default instructor
-  const defaultInstructorUnavailability = useMemo ( () => {
+  const defaultInstructorUnavailability = useMemo(() => {
     // showing instructorWithDistance
     // Find the selected instructor
     const selectedInstructor = instructorsWithDistance.find(
@@ -1557,8 +1560,7 @@ function CreateSchedule({
     );
     // console.log('%c ~ file: CreateSchedule.tsx [] -> selectedInstructor?.unavailability; : ', selectedInstructor?.unavailability);
     return selectedInstructor?.unavailability;
-}, [defaultInstructorId]);
-
+  }, [defaultInstructorId]);
 
   // Sync startDate with currentRangeStart from parent
   useEffect(() => {
@@ -1572,10 +1574,12 @@ function CreateSchedule({
     return unavailabilityDataChecker(
       defaultInstructorId,
       instructorsWithDistance,
-      day, hour, minute,
+      day,
+      hour,
+      minute,
     );
     return true;
-  }
+  };
 
   // Ensure the selected instructor is updated when defaultInstructorId changes
   useEffect(() => {
@@ -1594,10 +1598,7 @@ function CreateSchedule({
   });
 
   const { data: prevSchedules } = useQuery({
-    queryKey: [
-      "prevSchedules",
-      startDate,
-    ],
+    queryKey: ["prevSchedules", startDate],
     queryFn: async () => {
       if (!startDate) return null;
       const windowRange = 10;
@@ -1633,22 +1634,23 @@ function CreateSchedule({
     //   slotTime.getTime() - 60 * 60 * 1000 * numHoursWindowForPrevLoc,
     // );
 
-    // Find if instructor has any booking wothin the numHoursWindowForPrevLoc 
+    // Find if instructor has any booking wothin the numHoursWindowForPrevLoc
     // hours before the selected slot
     // Searching on other shcedules assumes the instructor might not have class for the
     // same instructor
     // another query should be made to fetch last schedule of the instructor before the current slot
 
     const previousBooking = prevSchedules?.find((schedule) => {
-      if (schedule.instructor_id !== instructorId || schedule.isTentative) return false;
+      if (schedule.instructor_id !== instructorId || schedule.isTentative)
+        return false;
 
       const scheduleEndTime = new Date(`${schedule.date}T${schedule.end_time}`);
       const scheduleStartTime = new Date(
         `${schedule.date}T${schedule.start_time}`,
       );
-    // console.log(`T7_1 ${scheduleEndTime} > ${endDate} (${scheduleEndTime >= endDate }) \n
-    //   && ${scheduleEndTime} <= ${slotTime} (${scheduleEndTime <= slotTime}) \n
-    //   = (${scheduleEndTime >= endDate && scheduleEndTime <= slotTime})`);
+      // console.log(`T7_1 ${scheduleEndTime} > ${endDate} (${scheduleEndTime >= endDate }) \n
+      //   && ${scheduleEndTime} <= ${slotTime} (${scheduleEndTime <= slotTime}) \n
+      //   = (${scheduleEndTime >= endDate && scheduleEndTime <= slotTime})`);
       // Check if the schedule ends within 1 hour before our slot
       return scheduleEndTime >= endDate && scheduleEndTime <= slotTime;
     });
@@ -1735,7 +1737,8 @@ function CreateSchedule({
       // const endDate = addDays(startDate, 9);
       const { data, error } = await supabase
         .from("Schedule")
-        .select(`
+        .select(
+          `
           *,
           Learner (
             name, 
@@ -1744,7 +1747,8 @@ function CreateSchedule({
             address_lat, 
             address_lng
           )
-        `)
+        `,
+        )
         .eq("learner_id", learnerId)
         .not("status", "in", '("completed","paused")');
 
@@ -1765,8 +1769,8 @@ function CreateSchedule({
           s.learner_id === learnerId,
       );
 
-      // from the minimum lesson number that's requested for the current learner, 
-      // filter other later lessons that were scheduled after the minimum requested 
+      // from the minimum lesson number that's requested for the current learner,
+      // filter other later lessons that were scheduled after the minimum requested
       // but are not part of the request list.
       const laterScheduleOfLearnerToChange = existingLearnerSchedules.filter(
         (s) =>
@@ -1802,7 +1806,6 @@ function CreateSchedule({
         (s) => s.learner_id !== learnerId,
       );
 
-      
       return [toChange, laterScheduleOfLearnerToChange, others];
     }, [
       existingSchedules,
@@ -1811,29 +1814,33 @@ function CreateSchedule({
       allLessons,
       minLessonNumber,
     ]);
-    // console.log("T7_5 other schedules calculated", otherSchedules);
+  // console.log("T7_5 other schedules calculated", otherSchedules);
   // Calculate hourly slots for each day
   const calculateDaySchedule = (date: Date): DaySchedule => {
     const daySchedule: DaySchedule = [];
     const dateStr = format(date, "yyyy-MM-dd");
-    // From the re-schedule requests, none should fall on same day 
+    // From the re-schedule requests, none should fall on same day
     const isDayBlocked = schedulesToChange.some(
-      (s) => (format(new Date(s.date), "yyyy-MM-dd") === dateStr) && (!s.isTentative),
+      (s) =>
+        format(new Date(s.date), "yyyy-MM-dd") === dateStr && !s.isTentative,
     );
     const isToday = isSameDay(date, new Date());
     const currentTime = new Date();
 
-    for (let hour = SlotConfig.startHourOfDay; hour <= SlotConfig.endHourOfDay; hour++) {
+    for (
+      let hour = SlotConfig.startHourOfDay;
+      hour <= SlotConfig.endHourOfDay;
+      hour++
+    ) {
       for (const minute of [0, Math.ceil(60 / SlotConfig.numSlotsPerHour)]) {
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
         // console.log("hour and minute", hour, minute, schedulesToChange);
         // Check if the slot is in the past for today
-        const isInPast =
-          timestamp < startOfDay(subDays(new Date(), 30));
-        // console.log("inPast", 
-        //   isInPast, 
-        //   timestamp, 
+        const isInPast = timestamp < startOfDay(subDays(new Date(), 30));
+        // console.log("inPast",
+        //   isInPast,
+        //   timestamp,
         //   startOfDay(subDays(new Date(), 30)),
         // );
         // Find which time slot this time belongs to
@@ -1881,7 +1888,7 @@ function CreateSchedule({
         // Note that it only checks the unavailability
         // Filter to only include instructors within their service radius
         let selectedInstrUnvailable = false; //assum instructors are available unless blocked
-        
+
         const availableInstructors =
           instructorsWithDistance
             ?.filter((instructor) => {
@@ -1894,13 +1901,14 @@ function CreateSchedule({
               // It's only added here to avoid running another loop
               if (instructor.id_instructor === selectedInstructorId) {
                 // console.log("availability for slot ", hour, minute, instructor);
-                selectedInstrUnvailable = unavailabilityDataChecker(
-                  defaultInstructorId,
-                  instructorsWithDistance,
-                  date,
-                  hour,
-                  minute,
-                ) || instrBookedForSlot;
+                selectedInstrUnvailable =
+                  unavailabilityDataChecker(
+                    defaultInstructorId,
+                    instructorsWithDistance,
+                    date,
+                    hour,
+                    minute,
+                  ) || instrBookedForSlot;
 
                 // if (dateStr === "2025-10-10" && hour === 6) console.log("selectedInstrAvailable updated to", selectedInstrUnvailable);
               }
@@ -1916,7 +1924,7 @@ function CreateSchedule({
         //   console.log("ID and schedules", selectedInstructorId, availableInstructors, instructorsWithDistance);
         //   // assuming availableInstructors's a list of IDs
         //   selectedInstrUnvailable = !availableInstructors.some(
-        //     (availInstrId) => 
+        //     (availInstrId) =>
         //       (availInstrId === selectedInstructorId)
         //   );
         //   console.log("Unvailasble", selectedInstrUnvailable);
@@ -1938,19 +1946,19 @@ function CreateSchedule({
               }
             : undefined;
         // console.log("selectedInstructorId, selectedInstructorUnavailable", selectedInstructorId, selectedInstrUnvailable);
-  // const available = (              availableInstructors.length > 0 &&
-  //             !selectedInstrUnvailable &&
-  //             !isLearnerSchedule &&
-  //             !isDayBlocked &&
-  //             !isInPast);
-  // if (date.getDate() === 2 && hour === 10) {
+        // const available = (              availableInstructors.length > 0 &&
+        //             !selectedInstrUnvailable &&
+        //             !isLearnerSchedule &&
+        //             !isDayBlocked &&
+        //             !isInPast);
+        // if (date.getDate() === 2 && hour === 10) {
 
-  //   console.log(
-  //     "availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour",
-  //     availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour);
-  //     console.log(available ? "AVAILABLE" : "NOT AVAILABLE");
-  //   }
-   
+        //   console.log(
+        //     "availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour",
+        //     availableInstructors.length, selectedInstrUnvailable, isLearnerSchedule, isDayBlocked, isInPast, hour);
+        //     console.log(available ? "AVAILABLE" : "NOT AVAILABLE");
+        //   }
+
         daySchedule.push({
           timestamp,
           timeSlot: timeSlot as TimeSlot | null,
@@ -1966,13 +1974,13 @@ function CreateSchedule({
                 format(s.date, "yyyy-MM-dd") === dateStr &&
                 s.hour === hour &&
                 s.minutes === minute,
-              ),
-              isPreferred: !!isPreferred,
-              isCurrentSchedule,
-              isLearnerSchedule,
-              existingSchedule,
-              availableInstructors,
-              isCurrentInstrUnavailable: selectedInstrUnvailable,
+            ),
+            isPreferred: !!isPreferred,
+            isCurrentSchedule,
+            isLearnerSchedule,
+            existingSchedule,
+            availableInstructors,
+            isCurrentInstrUnavailable: selectedInstrUnvailable,
           },
         });
       }
@@ -2229,15 +2237,15 @@ function CreateSchedule({
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden">
-        <DialogHeader>
-        <DialogTitle>
-          Select Instructor for{" "}
-          {date && slot
-          ? `${format(date, "MMM d, yyyy")} at ${format(slot.timestamp, "h:mm a")}`
-          : ""}
-        </DialogTitle>
-        </DialogHeader>
+        <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>
+              Select Instructor for{" "}
+              {date && slot
+                ? `${format(date, "MMM d, yyyy")} at ${format(slot.timestamp, "h:mm a")}`
+                : ""}
+            </DialogTitle>
+          </DialogHeader>
 
           {/* NEW: Filters and Search Controls */}
           <div className="space-y-4 border-b pb-4">
@@ -2260,8 +2268,8 @@ function CreateSchedule({
                   Location
                 </label>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  (Note: Previous location is set when last booking was within 12 hours,
-                  otherwise office location)
+                  (Note: Previous location is set when last booking was within
+                  12 hours, otherwise office location)
                 </label>
               </div>
 
@@ -2456,7 +2464,11 @@ function CreateSchedule({
     );
   };
   // Check if the numSlots can be selected without overlapping end of the day
-  const checkOverlapEndOfDay = (hour: number, minute: number, numSlots: number) => {
+  const checkOverlapEndOfDay = (
+    hour: number,
+    minute: number,
+    numSlots: number,
+  ) => {
     // Calculate total minutes to add based on number of slots
     const minutesToAdd = numSlots * SlotConfig.numMinutesPerSlot;
 
@@ -2492,10 +2504,10 @@ function CreateSchedule({
     ) {
       if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) {
         alert(
-          "Unavailable slot time. It means at least one of the following \n" + 
+          "Unavailable slot time. It means at least one of the following \n" +
             " already there's schedule on the slot or \n" +
-            " selected instructor not available or \n"+
-            " the time falls in the past \n"
+            " selected instructor not available or \n" +
+            " the time falls in the past \n",
         );
         return;
       }
@@ -2515,8 +2527,8 @@ function CreateSchedule({
           const groupId = prev.find(
             (s) =>
               format(s.date, "yyyy-MM-dd") === dateStr &&
-            s.hour === hour &&
-            s.minutes === minute,
+              s.hour === hour &&
+              s.minutes === minute,
           )?.slotGroupId;
           console.log("prev and groupId of slot are", prev, groupId);
           return prev.filter((s) => s.slotGroupId !== groupId);
@@ -2614,7 +2626,10 @@ function CreateSchedule({
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
-    if (direction === "prev" && isBefore(addDays(startDate, -6), addDays(new Date(), -30))) {
+    if (
+      direction === "prev" &&
+      isBefore(addDays(startDate, -6), addDays(new Date(), -30))
+    ) {
       return;
     }
     const newDate = addDays(startDate, direction === "next" ? 7 : -7);
@@ -2650,10 +2665,9 @@ function CreateSchedule({
     // Get completed lessons to maintain their numbers
     // Update: also consider lessons from past that are not in completed status
     const completedLessons = existingCourseSchedules.filter(
-      (s) =>
-        s.status === "completed"
-        // new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) <
-        // new Date().getTime(),
+      (s) => s.status === "completed",
+      // new Date(s.date).setHours(parseInt(s.start_time.split(":")[0])) <
+      // new Date().getTime(),
     );
 
     // Group selected slots by their slotGroupId
@@ -2692,8 +2706,9 @@ function CreateSchedule({
       ...existingCourseSchedules
         .filter(
           (s) =>
-            new Date(s?.date).setHours(parseInt(s?.start_time?.split(":")[0])) >=
-            new Date().getTime(),
+            new Date(s?.date).setHours(
+              parseInt(s?.start_time?.split(":")[0]),
+            ) >= new Date().getTime(),
         )
         .map((schedule) => ({
           date: new Date(schedule.date),
@@ -3161,7 +3176,10 @@ function CreateSchedule({
             ? instructorsData[0].email
             : "";
         if (!primaryInstructorEmail) {
-          console.error("Missing email for primary instructor", instructorsData);
+          console.error(
+            "Missing email for primary instructor",
+            instructorsData,
+          );
           return;
         }
 
@@ -3234,11 +3252,11 @@ function CreateSchedule({
                   if (schedule.lessonNumber == 10) {
                     console.log("Setting lesson10 booked for learner");
                     await supabase
-                    .from("Learner")
-                    .update({
-                      has_lesson10_booked: true
-                    })
-                    .eq("id", learnerData.id)
+                      .from("Learner")
+                      .update({
+                        has_lesson10_booked: true,
+                      })
+                      .eq("id", learnerData.id);
                   }
                 }
               }
@@ -3277,7 +3295,7 @@ function CreateSchedule({
   }
 
   const getSlotColor = (slot: HourlySlot) => {
-    // console.trace("getSlotColor called for slot:", slot, slot.state) 
+    // console.trace("getSlotColor called for slot:", slot, slot.state)
     // console.log("schedulesToChange", schedulesToChange);
     if (!slot.timeSlot) return "bg-gray-50";
 
@@ -3286,20 +3304,21 @@ function CreateSchedule({
     const minutes = slot.timestamp.getMinutes();
     const isToday = isSameDay(slot.timestamp, new Date());
     const isInPast = slot.timestamp < startOfDay(subDays(new Date(), 30));
-    
+
     const checkSlotOverlap = (s: Schedule) => {
       const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
       const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
       const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
 
-      return (s.date === dateStr &&
+      return (
+        s.date === dateStr &&
         // Check if the current time is between the start and end times
         ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
           (hour === scheduleEndHour &&
             minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
           (hour > scheduleStartHour && hour < scheduleEndHour))
       );
-    }
+    };
 
     // Check if this slot or the adjacent slot (to make a full hour) is selected
     const isSelected =
@@ -3337,61 +3356,72 @@ function CreateSchedule({
     // Check if this slot is part of another existing learner schedule
     const isLearnerSchedule = existingSchedules?.some((s) => {
       if (!s.isTentative) {
-        if (s.learner_id !== learnerId ||
-           request.lesson_ids.includes(s.lesson_id ?? "")) {
-             return false;
-           }
-           
-           const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
-           const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
-           const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
-           
-           // Check if this slot falls within the scheduled time
-      return (
-        s.date === dateStr &&
-        // Check if the current time is between the start and end times
-        ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
-          (hour === scheduleEndHour &&
-            minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-            (hour > scheduleStartHour && hour < scheduleEndHour))
-          );
-        }
+        if (
+          s.learner_id !== learnerId ||
+          request.lesson_ids.includes(s.lesson_id ?? "")
+        ) {
           return false;
         }
-      );
-      const isAtleastOneTentativeForLearnerForSlot = existingSchedules?.some((s) => {
+
+        const scheduleStartHour = parseInt(s.start_time.split(":")[0]);
+        const scheduleStartMinute = parseInt(s.start_time.split(":")[1] || "0");
+        const scheduleEndHour = parseInt(s.end_time.split(":")[0]);
+
+        // Check if this slot falls within the scheduled time
+        return (
+          s.date === dateStr &&
+          // Check if the current time is between the start and end times
+          ((hour === scheduleStartHour && minutes >= scheduleStartMinute) ||
+            (hour === scheduleEndHour &&
+              minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+            (hour > scheduleStartHour && hour < scheduleEndHour))
+        );
+      }
+      return false;
+    });
+    const isAtleastOneTentativeForLearnerForSlot = existingSchedules?.some(
+      (s) => {
         if (!selectedInstructorId) return false;
-        if (!checkSlotOverlap(s) || !s?.isTentative || s?.instructor_id != selectedInstructorId) return false;
+        if (
+          !checkSlotOverlap(s) ||
+          !s?.isTentative ||
+          s?.instructor_id != selectedInstructorId
+        )
+          return false;
         // if (s.id === 1207) console.log("showing all ids ", s.id);
-        return ((s.learner_id === learnerId) || (s.isTentative));
-      });
-      
-      const isOnlyTentativeSchedulesForSlotForLearner = schedulesToChange.every((s) => {
+        return s.learner_id === learnerId || s.isTentative;
+      },
+    );
+
+    const isOnlyTentativeSchedulesForSlotForLearner = schedulesToChange.every(
+      (s) => {
         if (!checkSlotOverlap(s)) return true;
-        return ((s.learner_id != learnerId) || (s.isTentative));
-      });
-        // Check if this slot is unavailable due to other schedules
-        const hasExistingSchedule =
-            selectedInstructorId &&
-            otherSchedules?.some(
-              (s) =>
-                s.isTentative === false &&
-                s.instructor_id === selectedInstructorId &&
-                s.date === dateStr &&
-                // Check if the current time is between the start and end times
-                ((hour === parseInt(s.start_time.split(":")[0]) &&
-                  minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
-                  (hour === parseInt(s.end_time.split(":")[0]) &&
-                    minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
-                  (hour > parseInt(s.start_time.split(":")[0]) &&
-                    hour < parseInt(s.end_time.split(":")[0]))),
-            );
+        return s.learner_id != learnerId || s.isTentative;
+      },
+    );
+    // Check if this slot is unavailable due to other schedules
+    const hasExistingSchedule =
+      selectedInstructorId &&
+      otherSchedules?.some(
+        (s) =>
+          s.isTentative === false &&
+          s.instructor_id === selectedInstructorId &&
+          s.date === dateStr &&
+          // Check if the current time is between the start and end times
+          ((hour === parseInt(s.start_time.split(":")[0]) &&
+            minutes >= parseInt(s.start_time.split(":")[1] || "0")) ||
+            (hour === parseInt(s.end_time.split(":")[0]) &&
+              minutes < parseInt(s.end_time.split(":")[1] || "0")) ||
+            (hour > parseInt(s.start_time.split(":")[0]) &&
+              hour < parseInt(s.end_time.split(":")[0]))),
+      );
 
     // coloring priority - Past , Learner state, instructor state, learner tentative, learner previous preferences
     if (isInPast) return "bg-gray-400"; // Add a distinct color for past slots
     if (isLearnerSchedule) return "bg-blue-200";
     if (isCurrentSchedule) return "bg-yellow-200";
-    if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) return "bg-gray-300";
+    if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable)
+      return "bg-gray-300";
     if (isSelected) return "bg-primary";
     if (selectedInstructorId && slot.state.isCurrentInstrUnavailable)
       return "bg-gray-300";
@@ -3514,7 +3544,7 @@ function CreateSchedule({
       </ScrollArea>
 
       <div className="flex items-center justify-between">
-        <div className="flex gap-4 text-sm flex-wrap">
+        <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-primary/30" />
             <span>Preferred</span>
@@ -3557,8 +3587,7 @@ function CreateSchedule({
           onClick={async () => {
             await handleCreateSchedule();
             window.location.reload();
-          }
-          }
+          }}
           disabled={
             selectedSlots.length / 2 !== request.lesson_ids.length ||
             isSendingInvites

@@ -454,50 +454,44 @@ export const LearnerInfoDialog = ({
     {} as Record<number, string[]>,
   );
 
-
-const getScheduleDuration = (schedule: LearnerSchedule) => {
+  const getScheduleDuration = (schedule: LearnerSchedule) => {
     if (!schedule || !schedule.started_at || !schedule.ended_at) {
       console.error(schedule, schedule?.started_at, schedule?.ended_at);
       return "Duration N/A";
     }
-    
+
     // 1. Parse the timestamp strings into Date objects
     const startTime = new Date(schedule.started_at);
     const endTime = new Date(schedule.ended_at);
 
     // 2. Calculate the duration between the two Date objects
     const duration = intervalToDuration({
-        start: startTime,
-        end: endTime
+      start: startTime,
+      end: endTime,
     });
 
     // Handle cases where the duration is 0 or contains only seconds (less than a minute)
-    const isLessThanOneMinute = 
-        !duration.hours && 
-        !duration.minutes && 
-        duration.seconds > 0;
+    const isLessThanOneMinute =
+      !duration.hours && !duration.minutes && duration.seconds > 0;
 
     // Check for true zero duration (no time elapsed)
-    const isZeroDuration = 
-        !duration.hours && 
-        !duration.minutes && 
-        !duration.seconds;
+    const isZeroDuration =
+      !duration.hours && !duration.minutes && !duration.seconds;
 
     if (isZeroDuration) {
-        return "0 min";
+      return "0 min";
     }
 
-  
     if (isLessThanOneMinute) {
-        return "< 1 min";
+      return "< 1 min";
     }
 
     // 3. Format the duration to display only hours and minutes
     // We use a custom format to ensure only hours and minutes are displayed.
-    return formatDuration(duration, { 
-        format: ['hours', 'minutes'] 
+    return formatDuration(duration, {
+      format: ["hours", "minutes"],
     });
-}
+  };
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-4xl">
@@ -689,20 +683,21 @@ const getScheduleDuration = (schedule: LearnerSchedule) => {
                               {schedule.status === "completed" && (
                                 <span className="ml-2 text-sm text-gray-600">
                                   [
-                                  {
-                                    schedule?.started_at 
-                                    ? format(new Date(schedule.started_at), "hh:mm")
-                                    : "N/A"
-                                  }
+                                  {schedule?.started_at
+                                    ? format(
+                                        new Date(schedule.started_at),
+                                        "hh:mm",
+                                      )
+                                    : "N/A"}
                                   &nbsp; - &nbsp;
-                                  {
-                                    schedule?.ended_at 
-                                    ? format(new Date(schedule.ended_at), "hh:mm")
-                                    : "N/A"
-                                  } 
-                                  ]
-                                  &nbsp; - &nbsp;
-                                  [{getScheduleDuration(schedule)}] &nbsp;
+                                  {schedule?.ended_at
+                                    ? format(
+                                        new Date(schedule.ended_at),
+                                        "hh:mm",
+                                      )
+                                    : "N/A"}
+                                  ] &nbsp; - &nbsp; [
+                                  {getScheduleDuration(schedule)}] &nbsp;
                                 </span>
                               )}
                             </div>
@@ -843,12 +838,12 @@ const getScheduleDuration = (schedule: LearnerSchedule) => {
                 <LearnerLLDisplay learnerPhone={learner.phone} />
               )}
               {/* Test date Section */}
-                <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
+              <div className="rounded-lg bg-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md">
                 <h3 className="mb-4 border-b pb-2 text-lg font-semibold text-primary">
                   Final Test Date
                 </h3>
-              {learner.DL_test_date || "N/A"}
-                </div>
+                {learner.DL_test_date || "N/A"}
+              </div>
               {/* Comments Section */}
               <CommentsEditor
                 initialValue={comments}

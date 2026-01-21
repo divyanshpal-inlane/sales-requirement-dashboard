@@ -11,7 +11,7 @@ const LoadingAndRedirect: React.FC = () => {
   const state = location.state as LocationState;
 
   // Use state passed via navigate to next page.
-  const targetPath = state?.next || '/';
+  const targetPath = state?.next || "/";
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -22,7 +22,7 @@ const LoadingAndRedirect: React.FC = () => {
   }, [navigate, targetPath]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white text-neutral-900 font-sans">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white font-sans text-neutral-900">
       <h1 className="mb-3 text-2xl font-bold">Loading...</h1>
     </div>
   );

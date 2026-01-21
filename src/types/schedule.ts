@@ -17,45 +17,46 @@ export interface SchedulePreference {
  * This class ensures type safety and easy import/reuse across the project.
  */
 export class SlotConfig {
-    // --- Core Time Slot Definitions ---
+  // --- Core Time Slot Definitions ---
 
-    /**
-     * The number of time slots available within a single hour (e.g., 2 for half-hour slots).
-     */
-    public static readonly numSlotsPerHour: number = 2;
+  /**
+   * The number of time slots available within a single hour (e.g., 2 for half-hour slots).
+   */
+  public static readonly numSlotsPerHour: number = 2;
 
-    /**
-     * The starting hour of the active day (using a 24-hour clock, e.g., 5 for 5 AM).
-     */
-    public static readonly startHourOfDay: number = 5;
+  /**
+   * The starting hour of the active day (using a 24-hour clock, e.g., 5 for 5 AM).
+   */
+  public static readonly startHourOfDay: number = 5;
 
-    /**
-     * The ending hour of the active day (using a 24-hour clock, e.g., 23 for 11 PM).
-     */
-    public static readonly endHourOfDay: number = 23;
+  /**
+   * The ending hour of the active day (using a 24-hour clock, e.g., 23 for 11 PM).
+   */
+  public static readonly endHourOfDay: number = 23;
 
-    // --- Derived Calculations ---
+  // --- Derived Calculations ---
 
-    /**
-     * The total number of hours in the active day range (endHourOfDay - startHourOfDay).
-     * (e.g., 23 - 5 = 18 hours).
-     */
-    public static readonly numHoursPerDay: number =
-        SlotConfig.endHourOfDay - SlotConfig.startHourOfDay;
+  /**
+   * The total number of hours in the active day range (endHourOfDay - startHourOfDay).
+   * (e.g., 23 - 5 = 18 hours).
+   */
+  public static readonly numHoursPerDay: number =
+    SlotConfig.endHourOfDay - SlotConfig.startHourOfDay;
 
-    /**
-     * The total number of time slots available in the active day range.
-     * Uses Math.ceil to ensure any partial final hour is counted as a full slot.
-     */
-    public static readonly numSlotsPerDay: number =
-        Math.ceil(SlotConfig.numSlotsPerHour * SlotConfig.numHoursPerDay);
+  /**
+   * The total number of time slots available in the active day range.
+   * Uses Math.ceil to ensure any partial final hour is counted as a full slot.
+   */
+  public static readonly numSlotsPerDay: number = Math.ceil(
+    SlotConfig.numSlotsPerHour * SlotConfig.numHoursPerDay,
+  );
 
-    /**
-     * The duration of a single time slot in minutes (60 / numSlotsPerHour).
-     * (e.g., 60 / 2 = 30 minutes).
-     */
-    public static readonly numMinutesPerSlot: number =
-        60 / SlotConfig.numSlotsPerHour;
+  /**
+   * The duration of a single time slot in minutes (60 / numSlotsPerHour).
+   * (e.g., 60 / 2 = 30 minutes).
+   */
+  public static readonly numMinutesPerSlot: number =
+    60 / SlotConfig.numSlotsPerHour;
 }
 
 export const TIME_SLOTS: TimeSlot[] = [

@@ -24,7 +24,13 @@ export function useLearner() {
         .maybeSingle();
 
       if (error) throw new Error("Supabase error");
-      console.log("Fetched learner:", Learner.onboarding_completed, Learner.dob);
+      if (Learner) {
+        console.log(
+          "Fetched learner:",
+          Learner.onboarding_completed,
+          Learner.dob,
+        );
+      }
       return Learner;
     },
     staleTime: Infinity,
@@ -125,7 +131,7 @@ export function useUpcomingLesson() {
         .neq("status", "completed")
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
-        // .limit(1);
+      // .limit(1);
 
       if (error) {
         throw new Error(`Supabase error: ${error.message}`);
@@ -194,10 +200,31 @@ export function useLearnerUpdate() {
   const queryClient = useQueryClient();
   const mutate = useMutation({
     mutationFn: async (data: PartialLearner) => {
-      const { error } = await supabase
+      if (!phone) throw new Error("Phone is required");
+
+      // Check if learner exists
+      const { data: existing } = await supabase
         .from("Learner")
-        .update(data)
-        .eq("phone", phone);
+        .select("id")
+        .eq("phone", phone)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        // Update existing record
+        const result = await supabase
+          .from("Learner")
+          .update(data)
+          .eq("phone", phone);
+        error = result.error;
+      } else {
+        // Insert new record
+        const result = await supabase
+          .from("Learner")
+          .insert({ ...data, phone });
+        error = result.error;
+      }
+
       if (error) throw new Error(error.message);
       return null;
     },

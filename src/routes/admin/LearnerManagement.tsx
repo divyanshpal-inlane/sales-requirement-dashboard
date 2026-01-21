@@ -104,13 +104,15 @@ export default function LearnerManagement() {
 
     // If the changed field is one of the license checkboxes, handle mutual exclusion
     if (name === "has_a_DL") {
-      setLearnerData(prevData => ({
+      setLearnerData((prevData) => ({
         ...prevData,
         [name]: checked,
-        has_two_wheeler_license: checked ? false : prevData.has_two_wheeler_license,
+        has_two_wheeler_license: checked
+          ? false
+          : prevData.has_two_wheeler_license,
       }));
     } else if (name === "has_two_wheeler_license") {
-      setLearnerData(prevData => ({
+      setLearnerData((prevData) => ({
         ...prevData,
         [name]: checked,
         has_a_DL: checked ? false : prevData.has_a_DL,
@@ -123,11 +125,9 @@ export default function LearnerManagement() {
         };
 
         if (name === "amount" || name === "installment1Amount") {
-          
-          const amount = name === "amount" 
-            ? Number(value) 
-            : Number(prev.amount);
-            
+          const amount =
+            name === "amount" ? Number(value) : Number(prev.amount);
+
           const installment1Amount =
             name === "installment1Amount"
               ? Number(value)
@@ -264,7 +264,6 @@ export default function LearnerManagement() {
           description: "Learner and enrollment created successfully!",
         });
 
-
         // Open payment dialog if enrollment was created
         if (enrollmentId) {
           // Store enrollment ID in state for use when sending payment link
@@ -300,20 +299,29 @@ export default function LearnerManagement() {
     }
     try {
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
-      console.log("Use edge function for email ", learner.email, learner.name, course.name, amount);
+      console.log(
+        "Use edge function for email ",
+        learner.email,
+        learner.name,
+        course.name,
+        amount,
+      );
 
       // Define the request body for email trigger.
       const bodyData = {
-          "learnerEmail": learner?.email,
-          "learnerName": learner?.name, 
-          "course": course?.name,
-          "amount": amount,
-          "paymentLink": paymentLink
+        learnerEmail: learner?.email,
+        learnerName: learner?.name,
+        course: course?.name,
+        amount: amount,
+        paymentLink: paymentLink,
       };
 
-      const { error: invokeError } = await supabase.functions.invoke("send-payment-link-email", {
+      const { error: invokeError } = await supabase.functions.invoke(
+        "send-payment-link-email",
+        {
           body: bodyData,
-      });
+        },
+      );
       if (invokeError) {
         console.error(invokeError);
         toast({
@@ -326,7 +334,6 @@ export default function LearnerManagement() {
           description: `Payment link sent to ${learner?.email} successfully!`,
         });
       }
-
 
       const { error } = await supabase.functions.invoke("send-message", {
         body: {
@@ -560,7 +567,7 @@ export default function LearnerManagement() {
                     name="has_a_DL"
                     checked={learnerData.has_a_DL}
                     onChange={handleInputChange}
-                    />
+                  />
                   <Label htmlFor="has_a_DL">Has a 4-wheeler license</Label>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -571,7 +578,9 @@ export default function LearnerManagement() {
                     checked={learnerData.has_two_wheeler_license}
                     onChange={handleInputChange}
                   />
-                  <Label htmlFor="has_a_DL">Has a 2-wheeler license, not 4-wheeler</Label>
+                  <Label htmlFor="has_a_DL">
+                    Has a 2-wheeler license, not 4-wheeler
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <input
@@ -581,7 +590,9 @@ export default function LearnerManagement() {
                     checked={learnerData.address_change_required}
                     onChange={handleInputChange}
                   />
-                  <Label htmlFor="address_change_required">License address change required</Label>
+                  <Label htmlFor="address_change_required">
+                    License address change required
+                  </Label>
                 </div>
                 <Button onClick={createLearnerAndEnrollment}>
                   Create Learner

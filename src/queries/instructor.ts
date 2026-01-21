@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { addDays, format, subDays } from "date-fns";
 
 const getCurrentDate = () => {
-  const date = subDays(new Date(),0);
+  const date = subDays(new Date(), 0);
   return date.toISOString().split("T")[0];
 };
 
@@ -179,17 +179,20 @@ export const useInstructorScheduleData = (phone: string) => {
       const endDate = addDays(new Date(), maxInstrScheduleWindow);
       const currentDate = getCurrentDate();
 
-      const startDateStr = format(startDate, 'yyyy-MM-dd');
-      const endDateStr = format(endDate, 'yyyy-MM-dd');
+      const startDateStr = format(startDate, "yyyy-MM-dd");
+      const endDateStr = format(endDate, "yyyy-MM-dd");
 
       // Fetch instructor info, with schedules
-      const { data: instructorSchedules, error: instructorError } = await supabase
-        .from("Schedule")
-        .select("*, Learner!inner(*), Instructor!inner(name, phone, email), Lesson!inner(*), Courses!inner(total_lessons)")
-        .eq("Instructor.phone", phone)
-        .gte("date", startDateStr)
-        .lte("date", endDateStr)
-        .order("date", { ascending: true })
+      const { data: instructorSchedules, error: instructorError } =
+        await supabase
+          .from("Schedule")
+          .select(
+            "*, Learner!inner(*), Instructor!inner(name, phone, email), Lesson!inner(*), Courses!inner(total_lessons)",
+          )
+          .eq("Instructor.phone", phone)
+          .gte("date", startDateStr)
+          .lte("date", endDateStr)
+          .order("date", { ascending: true })
           .order("start_time", { ascending: true });
 
       if (instructorError) {
@@ -198,8 +201,14 @@ export const useInstructorScheduleData = (phone: string) => {
       }
       if (!instructorSchedules) throw new Error("Instructor not found");
 
-      console.log("schedule data from", startDate, " to ", endDate, instructorSchedules);
-      
+      console.log(
+        "schedule data from",
+        startDate,
+        " to ",
+        endDate,
+        instructorSchedules,
+      );
+
       // Filter schedules for the current date
       const instructorScheduleDay = instructorSchedules.filter(
         (schedule) => schedule.date === currentDate,
@@ -211,12 +220,12 @@ export const useInstructorScheduleData = (phone: string) => {
           if (!scheduleData.isTentative) {
             return {
               learner: scheduleData.Learner,
-              lesson: scheduleData.Lesson
+              lesson: scheduleData.Lesson,
             };
           }
           return null; // Ensure the map always returns something
         }),
-      ).then(results => results.filter(item => item !== null)); // Filter out nulls
+      ).then((results) => results.filter((item) => item !== null)); // Filter out nulls
 
       // Fetch learner and lesson data for current day schedules
       const learnerLessonDay = await Promise.all(
@@ -224,15 +233,15 @@ export const useInstructorScheduleData = (phone: string) => {
           if (!scheduleData.isTentative) {
             return {
               learner: scheduleData.Learner,
-              lesson: scheduleData.Lesson
+              lesson: scheduleData.Lesson,
             };
           }
           return null; // Ensure the map always returns something
         }),
-      ).then(results => results.filter(item => item !== null)); // Filter out nulls
+      ).then((results) => results.filter((item) => item !== null)); // Filter out nulls
 
       console.log("T2_1 learnerLessonDay", learnerLessonDay);
-      
+
       // --- FIX APPLIED HERE ---
       const instructorData = instructorSchedules?.[0]?.Instructor;
 
@@ -358,13 +367,15 @@ export const useVerifyOtp = ({
       }
 
       const schedule = data as unknown as ScheduleWithOtp;
-      let isValid = ((schedule && isVerifyStartLesson) ? schedule.otp : schedule.otp_end) === otp;
+      let isValid =
+        (schedule && isVerifyStartLesson ? schedule.otp : schedule.otp_end) ===
+        otp;
       // Also handle end lesson otp null for lessons scheduled before the change
       if (!isVerifyStartLesson && !schedule.otp_end) {
         console.log("OTP end is null, allowing end lesson verification");
         isValid = true;
       }
-      console.log("Returning verification data", {isValid, schedule});
+      console.log("Returning verification data", { isValid, schedule });
       return {
         isValid,
         schedule,
@@ -416,14 +427,14 @@ export const useUpdateScheduleStatus = () => {
       ended_at: string;
     }) => {
       // Assuming it's required to update status AND either started_at OR ended_at
-    const updatePayload = {
+      const updatePayload = {
         status,
         ...(started_at && { started_at }), // Include started_at if it exists
-        ...(started_at ? { ended_at: null } : (ended_at && { ended_at })),     // Include ended_at if it exists
-    };
+        ...(started_at ? { ended_at: null } : ended_at && { ended_at }), // Include ended_at if it exists
+      };
       const { data, error } = await supabase
         .from("Schedule")
-        .update( updatePayload)
+        .update(updatePayload)
         .eq("id", scheduleId)
         .select()
         .single();
@@ -441,73 +452,86 @@ export const useUpdateScheduleStatus = () => {
 // Check the list of sorted schedules matches any of the instructor schedules or overlaps unavailability slots
 // returns a list of json, where key=> (slot time) and value => string (name of the learner blocking the schedule if not tentative
 // and name of the tentative_details if tentative schedule blocks the slot)
-export const checkInstructorAvailability = async (schedulesToCheck: any[], instructorId: string) => {
-    if (!schedulesToCheck.length || !instructorId) return {};
+export const checkInstructorAvailability = async (
+  schedulesToCheck: any[],
+  instructorId: string,
+) => {
+  if (!schedulesToCheck.length || !instructorId) return {};
 
-    console.group("🚀 Strict Instructor Availability Validation");
-    
-    const dates = schedulesToCheck.map(s => s.date);
-    const minDate = dates.reduce((a, b) => a < b ? a : b);
-    const maxDate = dates.reduce((a, b) => a > b ? a : b);
+  console.group("🚀 Strict Instructor Availability Validation");
 
-    console.log(`📅 Instructor ID: ${instructorId} | Range: ${minDate} to ${maxDate}`);
+  const dates = schedulesToCheck.map((s) => s.date);
+  const minDate = dates.reduce((a, b) => (a < b ? a : b));
+  const maxDate = dates.reduce((a, b) => (a > b ? a : b));
 
-    // QUERY FIX: We only fetch schedules for THIS specific instructor
-    // or tentative schedules that might create a global conflict
-    const { data: existingSchedules, error } = await supabase
-        .from("Schedule")
-        .select("id, date, start_time, end_time, isTentative, instructor_id, tentative_details")
-        .gte("date", minDate)
-        .lte("date", maxDate)
-        .eq("instructor_id", instructorId); // STRICT FILTER BY INSTRUCTOR
+  console.log(
+    `📅 Instructor ID: ${instructorId} | Range: ${minDate} to ${maxDate}`,
+  );
 
-    if (error) {
-        console.error("❌ DB Error:", error);
-        console.groupEnd();
-        throw error;
-    }
+  // QUERY FIX: We only fetch schedules for THIS specific instructor
+  // or tentative schedules that might create a global conflict
+  const { data: existingSchedules, error } = await supabase
+    .from("Schedule")
+    .select(
+      "id, date, start_time, end_time, isTentative, instructor_id, tentative_details",
+    )
+    .gte("date", minDate)
+    .lte("date", maxDate)
+    .eq("instructor_id", instructorId); // STRICT FILTER BY INSTRUCTOR
 
-    console.log("Schedules for this Instructor and tentative:", existingSchedules); 
+  if (error) {
+    console.error("❌ DB Error:", error);
+    console.groupEnd();
+    throw error;
+  }
 
-    const map: Record<string, { available: boolean; reason: string }> = {};
+  console.log(
+    "Schedules for this Instructor and tentative:",
+    existingSchedules,
+  );
 
-    schedulesToCheck.forEach((newSlot) => {
-        const key = `${newSlot.date}-${newSlot.start_time}`;
-        
-        const toMins = (t: string) => {
-            const [h, m] = t.split(':').map(Number);
-            return h * 60 + m;
-        };
+  const map: Record<string, { available: boolean; reason: string }> = {};
 
-        const newStart = toMins(newSlot.start_time);
-        const newEnd = toMins(newSlot.end_time);
+  schedulesToCheck.forEach((newSlot) => {
+    const key = `${newSlot.date}-${newSlot.start_time}`;
 
-        // Conflict check against instructor 377c's existing timeline
-        const conflict = existingSchedules?.find(dbRow => {
-            if (dbRow.date !== newSlot.date) return false;
+    const toMins = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
 
-            const dbStart = toMins(dbRow.start_time);
-            const dbEnd = toMins(dbRow.end_time);
+    const newStart = toMins(newSlot.start_time);
+    const newEnd = toMins(newSlot.end_time);
 
-            // Interval Overlap Logic
-            return newStart < dbEnd && newEnd > dbStart;
-        });
+    // Conflict check against instructor 377c's existing timeline
+    const conflict = existingSchedules?.find((dbRow) => {
+      if (dbRow.date !== newSlot.date) return false;
 
-        if (conflict) {
-            const blockerName = conflict.tentative_details?.name || "Confirmed Lesson";
-            const blockerTime = `${conflict.start_time.substring(0,5)} - ${conflict.end_time.substring(0,5)}`;
-            
-            map[key] = { 
-                available: false, 
-                reason: `Instructor Busy: ${blockerName} (${blockerTime})` 
-            };
-            console.warn(`⚠️ BLOCKED: ${key} overlaps with instructor's existing slot: ${blockerTime}`);
-        } else {
-            map[key] = { available: true, reason: "" };
-        }
+      const dbStart = toMins(dbRow.start_time);
+      const dbEnd = toMins(dbRow.end_time);
+
+      // Interval Overlap Logic
+      return newStart < dbEnd && newEnd > dbStart;
     });
 
-    console.log("🏁 Final Availability Map:", map);
-    console.groupEnd();
-    return map;
+    if (conflict) {
+      const blockerName =
+        conflict.tentative_details?.name || "Confirmed Lesson";
+      const blockerTime = `${conflict.start_time.substring(0, 5)} - ${conflict.end_time.substring(0, 5)}`;
+
+      map[key] = {
+        available: false,
+        reason: `Instructor Busy: ${blockerName} (${blockerTime})`,
+      };
+      console.warn(
+        `⚠️ BLOCKED: ${key} overlaps with instructor's existing slot: ${blockerTime}`,
+      );
+    } else {
+      map[key] = { available: true, reason: "" };
+    }
+  });
+
+  console.log("🏁 Final Availability Map:", map);
+  console.groupEnd();
+  return map;
 };

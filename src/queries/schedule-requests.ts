@@ -41,7 +41,7 @@ export function useRescheduleLearnerLessonRequests(learnerId: string) {
         .eq("learner_id", learnerId)
         .eq("type", "reschedule")
         .eq("status", "pending");
-        
+
       if (error) throw error;
       return data;
     },

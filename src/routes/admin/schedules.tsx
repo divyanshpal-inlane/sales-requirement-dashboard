@@ -1,13 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft,
-    Search, 
-    X, 
-    RefreshCcw, 
-    Loader2, 
-    Users,
-    MoreHorizontal,
+import {
+  ArrowLeft,
+  Search,
+  X,
+  RefreshCcw,
+  Loader2,
+  Users,
+  MoreHorizontal,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -27,7 +28,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -98,7 +98,6 @@ export default function AdminSchedules() {
 
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
-  
   useEffect(() => {
     if (!isRefetching) {
       setSelectedRequest(null);
@@ -139,7 +138,11 @@ export default function AdminSchedules() {
         if (!schedule?.otp || !schedule.otp_end) {
           console.error("No otp for schedule:", schedule);
         } else {
-          console.log("Auth of lesson are generated", schedule.otp, schedule.otp_end);
+          console.log(
+            "Auth of lesson are generated",
+            schedule.otp,
+            schedule.otp_end,
+          );
         }
       }
       // Create schedules
@@ -171,6 +174,42 @@ export default function AdminSchedules() {
         .select(); // Add .select() to get the created records
 
       if (error) throw error;
+
+      // Renumber lessons based on chronological order after schedule creation
+      // Fetch all schedules for this learner+course with Lesson data
+      const { data: allSchedules, error: fetchError } = await supabase
+        .from("Schedule")
+        .select("id, date, start_time, Lesson!inner(id, number)")
+        .eq("learner_id", learnerId)
+        .eq("course_id", courseId)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (fetchError) {
+        console.error("Error fetching schedules for renumbering:", fetchError);
+      } else if (allSchedules && allSchedules.length > 0) {
+        // Sort schedules by date and time
+        const sortedSchedules = [...allSchedules].sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+          return dateTimeA - dateTimeB;
+        });
+
+        // Update lesson numbers based on chronological order
+        for (let i = 0; i < sortedSchedules.length; i++) {
+          const schedule = sortedSchedules[i];
+          if (schedule.Lesson?.id) {
+            const { error: lessonError } = await supabase
+              .from("Lesson")
+              .update({ number: i + 1 })
+              .eq("id", schedule.Lesson.id);
+
+            if (lessonError) {
+              console.error("Error updating lesson number:", lessonError);
+            }
+          }
+        }
+      }
     },
     onSuccess: (_, variables) => {
       toast({
@@ -269,7 +308,6 @@ export default function AdminSchedules() {
   const handleRequestSelect = (request: SchedulingRequests[number]) => {
     // If this request is already selected, open the dialog
     if (selectedRequest?.id === request.id) {
-
       handleOpenLearnerInfo({
         id: request.Learner?.id || "",
         name: request.Learner?.name || "",
@@ -338,7 +376,6 @@ export default function AdminSchedules() {
       courseId,
       rescheduleLessonNumber,
     });
-
   };
 
   const newRequests = useMemo(
@@ -426,7 +463,6 @@ export default function AdminSchedules() {
         )
         .order("created_at", { ascending: false });
 
-
       if (learnersError) throw learnersError;
 
       // Filter out learners who don't have any schedules
@@ -440,7 +476,7 @@ export default function AdminSchedules() {
   });
 
   //useEffect(() => {
-    //console.log('Active Learners updated:', activeLearners);
+  //console.log('Active Learners updated:', activeLearners);
   //}, [activeLearners]);
 
   const handleTabChange = (value: string) => {
@@ -450,11 +486,16 @@ export default function AdminSchedules() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
-  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
+  const [selectedInstructorId, setSelectedInstructorId] = useState<
+    string | null
+  >(null);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(
+    null,
+  );
 
   // Inside your main Dashboard/Tabs component
-  const [selectedFilterInstructorId, setSelectedFilterInstructorId] = useState<string>("");
+  const [selectedFilterInstructorId, setSelectedFilterInstructorId] =
+    useState<string>("");
 
   // This handles the "Clearing" logic
   const handleInstructorChange = (id: string) => {
@@ -464,22 +505,21 @@ export default function AdminSchedules() {
   };
   console.log(activeLearners);
   const filteredLearners = activeLearners?.filter((learner) => {
-  const search = searchTerm.toLowerCase();
+    const search = searchTerm.toLowerCase();
 
-  // 1. Check Learner's own details
-  const learnerMatches = 
-    learner.name?.toLowerCase().includes(search) ||
-    learner.email?.toLowerCase().includes(search) ||
-    learner.phone?.includes(searchTerm);
+    // 1. Check Learner's own details
+    const learnerMatches =
+      learner.name?.toLowerCase().includes(search) ||
+      learner.email?.toLowerCase().includes(search) ||
+      learner.phone?.includes(searchTerm);
 
-  // 2. Check ALL instructors linked to this learner's schedules
-  // const instructorMatches = learner.schedules?.some((schedule) => 
-  //   schedule.Instructor?.name?.toLowerCase().includes(search)
-  // );
+    // 2. Check ALL instructors linked to this learner's schedules
+    // const instructorMatches = learner.schedules?.some((schedule) =>
+    //   schedule.Instructor?.name?.toLowerCase().includes(search)
+    // );
 
-  return learnerMatches ; // || instructorMatches;
-}
-);
+    return learnerMatches; // || instructorMatches;
+  });
 
   return (
     <div
@@ -584,14 +624,18 @@ export default function AdminSchedules() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {selectedRequest 
-                  ? (<p className="mb-4 mt-4 text-sm text-gray-500">
-                      Distance measured from Instructor's base location to the selected learner location
+                  {selectedRequest ? (
+                    <p className="mb-4 mt-4 text-sm text-gray-500">
+                      Distance measured from Instructor's base location to the
+                      selected learner location
                       <br />
-                      Click on a slot to measure distances from previous booking of Instructor to learner
-                    </p>)
-                  :""}
-                  
+                      Click on a slot to measure distances from previous booking
+                      of Instructor to learner
+                    </p>
+                  ) : (
+                    ""
+                  )}
+
                   {selectedRequest ? (
                     <CreateScheduleWithInstructor
                       learnerId={selectedRequest.Learner?.id || ""}
@@ -759,121 +803,133 @@ export default function AdminSchedules() {
             </div>
           </TabsContent>
 
-<TabsContent value="active" className="h-full space-y-4">
-  {/* TOP BAR: Instructor Filter */}
-  <div className="px-6 pt-4">
-    <div className="flex items-center gap-4 bg-white p-4 rounded-lg border shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        <Users size={18} className="text-indigo-600" />
-        <span>Filter by Instructor:</span>
-      </div>
-      <Select 
-        value={selectedFilterInstructorId || "all"} 
-        onValueChange={(val) => {
-          setSelectedFilterInstructorId(val === "all" ? "" : val);
-          setSelectedRequest(null); // Clear right bar when instructor changes
-        }}
-      >
-        <SelectTrigger className="w-[280px]">
-          <SelectValue placeholder="All Instructors" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Instructors</SelectItem>
-          {instructorData?.map((ins) => (
-            <SelectItem key={ins.id_instructor} value={ins.id_instructor}>
-              {ins.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-
-  {/* MAIN CONTENT: Left and Right Bars */}
-  <div className="grid h-full grid-cols-1 gap-4 p-6 pt-0 md:grid-cols-3">
-    
-    {/* LEFT BAR: Learners List */}
-    <Card className="md:col-span-1">
-      <CardHeader className="pb-3">
-        <CardTitle>Active Learners</CardTitle>
-        <div className="mt-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              placeholder="Search by name, email or phone..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[calc(100vh-380px)]">
-          {isLoadingActiveLearners ? (
-            <div className="flex items-center justify-center py-10 text-gray-500">
-              <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
-              Loading...
-            </div>
-          ) : filteredLearners?.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-gray-500">
-              No learners found matching "{searchTerm}"
-            </div>
-          ) : (
-            filteredLearners
-              // Filter learners locally if an instructor is selected
-              ?.filter(learner => {
-                if (!selectedFilterInstructorId) return true;
-                // Assumes learner object has a schedule join or instructor_id reference
-                return learner.schedules?.some(s => s.instructor_id === selectedFilterInstructorId);
-              })
-              .map((learner) => (
-                <div key={learner.id} className="mb-2">
-                  <LearnerInfoCard
-                    learner={{
-                      id: learner.id || "",
-                      name: learner.name || "",
-                    }}
-                    // Highlight the selected learner
-                    className={selectedRequest?.id === learner.id ? "border-indigo-500 bg-indigo-50" : ""}
-                    compact={true}
-                    onClick={() => handleActiveLearnerSelect(learner)}
-                  />
+          <TabsContent value="active" className="h-full space-y-4">
+            {/* TOP BAR: Instructor Filter */}
+            <div className="px-6 pt-4">
+              <div className="flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <Users size={18} className="text-indigo-600" />
+                  <span>Filter by Instructor:</span>
                 </div>
-              ))
-          )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
-
-    {/* RIGHT BAR: Schedule Management Integrated Component */}
-    <div className="md:col-span-2">
-      {selectedRequest ? (
-        <LearnerSchedulesManager 
-          key={selectedRequest.id} // Key ensures component re-mounts/refreshes for new learner
-          learnerId={selectedRequest.id} 
-          instructorData={instructorData} 
-        />
-      ) : (
-        <Card className="h-full border-dashed">
-          <CardHeader>
-            <CardTitle className="text-gray-400">Schedule Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-[calc(100vh-320px)] flex-col items-center justify-center text-center text-gray-400">
-              <div className="rounded-full bg-gray-50 p-6 mb-4">
-                <Users size={48} className="text-gray-200" />
+                <Select
+                  value={selectedFilterInstructorId || "all"}
+                  onValueChange={(val) => {
+                    setSelectedFilterInstructorId(val === "all" ? "" : val);
+                    setSelectedRequest(null); // Clear right bar when instructor changes
+                  }}
+                >
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="All Instructors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Instructors</SelectItem>
+                    {instructorData?.map((ins) => (
+                      <SelectItem
+                        key={ins.id_instructor}
+                        value={ins.id_instructor}
+                      >
+                        {ins.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <p className="max-w-[250px]">
-                Select a learner from the list to manage their schedule and instructor assignments.
-              </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  </div>
-</TabsContent>
+
+            {/* MAIN CONTENT: Left and Right Bars */}
+            <div className="grid h-full grid-cols-1 gap-4 p-6 pt-0 md:grid-cols-3">
+              {/* LEFT BAR: Learners List */}
+              <Card className="md:col-span-1">
+                <CardHeader className="pb-3">
+                  <CardTitle>Active Learners</CardTitle>
+                  <div className="mt-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                      <Input
+                        placeholder="Search by name, email or phone..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[calc(100vh-380px)]">
+                    {isLoadingActiveLearners ? (
+                      <div className="flex items-center justify-center py-10 text-gray-500">
+                        <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : filteredLearners?.length === 0 ? (
+                      <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                        No learners found matching "{searchTerm}"
+                      </div>
+                    ) : (
+                      filteredLearners
+                        // Filter learners locally if an instructor is selected
+                        ?.filter((learner) => {
+                          if (!selectedFilterInstructorId) return true;
+                          // Assumes learner object has a schedule join or instructor_id reference
+                          return learner.schedules?.some(
+                            (s) =>
+                              s.instructor_id === selectedFilterInstructorId,
+                          );
+                        })
+                        .map((learner) => (
+                          <div key={learner.id} className="mb-2">
+                            <LearnerInfoCard
+                              learner={{
+                                id: learner.id || "",
+                                name: learner.name || "",
+                              }}
+                              // Highlight the selected learner
+                              className={
+                                selectedRequest?.id === learner.id
+                                  ? "border-indigo-500 bg-indigo-50"
+                                  : ""
+                              }
+                              compact={true}
+                              onClick={() => handleActiveLearnerSelect(learner)}
+                            />
+                          </div>
+                        ))
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* RIGHT BAR: Schedule Management Integrated Component */}
+              <div className="md:col-span-2">
+                {selectedRequest ? (
+                  <LearnerSchedulesManager
+                    key={selectedRequest.id} // Key ensures component re-mounts/refreshes for new learner
+                    learnerId={selectedRequest.id}
+                    instructorData={instructorData}
+                  />
+                ) : (
+                  <Card className="h-full border-dashed">
+                    <CardHeader>
+                      <CardTitle className="text-gray-400">
+                        Schedule Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex h-[calc(100vh-320px)] flex-col items-center justify-center text-center text-gray-400">
+                        <div className="mb-4 rounded-full bg-gray-50 p-6">
+                          <Users size={48} className="text-gray-200" />
+                        </div>
+                        <p className="max-w-[250px]">
+                          Select a learner from the list to manage their
+                          schedule and instructor assignments.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
         </div>
       </Tabs>
       {selectedLearnerForDialog && (
@@ -893,15 +949,19 @@ interface InstructorFilterProps {
   onInstructorChange: (id: string) => void;
 }
 
-export const InstructorFilter = ({ instructors, selectedInstructorId, onInstructorChange }: InstructorFilterProps) => {
+export const InstructorFilter = ({
+  instructors,
+  selectedInstructorId,
+  onInstructorChange,
+}: InstructorFilterProps) => {
   return (
-    <div className="flex items-center gap-4 bg-white p-4 rounded-lg border mb-6 shadow-sm">
+    <div className="mb-6 flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
         <Users size={18} className="text-indigo-600" />
         <span>Filter by Instructor:</span>
       </div>
-      <Select 
-        value={selectedInstructorId || "all"} 
+      <Select
+        value={selectedInstructorId || "all"}
         onValueChange={(val) => onInstructorChange(val === "all" ? "" : val)}
       >
         <SelectTrigger className="w-[280px]">
@@ -925,15 +985,14 @@ export const InstructorFilter = ({ instructors, selectedInstructorId, onInstruct
   );
 };
 
-
 interface LearnerSchedulesManagerProps {
   learnerId: string;
   instructorData: any[];
 }
 
-export const LearnerSchedulesManager = ({ 
-  learnerId, 
-  instructorData 
+export const LearnerSchedulesManager = ({
+  learnerId,
+  instructorData,
 }: LearnerSchedulesManagerProps) => {
   const [learner, setLearner] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -942,7 +1001,8 @@ export const LearnerSchedulesManager = ({
 
   // Modal States
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
-  const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] = useState(false);
+  const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
+    useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
 
@@ -953,7 +1013,8 @@ export const LearnerSchedulesManager = ({
       setIsLoading(true);
       const { data, error } = await supabase
         .from("Learner")
-        .select(`
+        .select(
+          `
           id, name, area, phone, email,
           schedules:Schedule(
             id, date, start_time, end_time, instructor_id,
@@ -961,7 +1022,8 @@ export const LearnerSchedulesManager = ({
             Lesson!inner(id, number),
             Instructor(name)
           )
-        `)
+        `,
+        )
         .eq("id", learnerId)
         .single();
 
@@ -993,7 +1055,11 @@ export const LearnerSchedulesManager = ({
       await syncData();
       toast({ title: "Updated", description: "Instructor changed." });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -1009,33 +1075,111 @@ export const LearnerSchedulesManager = ({
 
       if (error) throw error;
       await syncData();
-      toast({ title: "Status Updated", description: `Lesson marked as ${newStatus}.` });
+      toast({
+        title: "Status Updated",
+        description: `Lesson marked as ${newStatus}.`,
+      });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleRescheduleSubmit = async () => {
-    if (!selectedSchedule) return;
+    if (!selectedSchedule || !learner) return;
     try {
       setIsProcessing(true);
-      const { error } = await supabase
+
+      // 1. Update the specific schedule with new date/time
+      const { error: updateError } = await supabase
         .from("Schedule")
         .update({
           date: selectedSchedule.date,
           start_time: selectedSchedule.start_time,
-          end_time: selectedSchedule.end_time
+          end_time: selectedSchedule.end_time,
         })
         .eq("id", selectedSchedule.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 2. Get the course_id from the schedule to fetch all related schedules
+      const { data: scheduleData, error: fetchScheduleError } = await supabase
+        .from("Schedule")
+        .select("course_id")
+        .eq("id", selectedSchedule.id)
+        .single();
+
+      if (fetchScheduleError) throw fetchScheduleError;
+
+      const courseId = scheduleData?.course_id;
+
+      if (courseId) {
+        // 3. Fetch all schedules for this learner+course with Lesson data
+        const { data: allSchedules, error: fetchError } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, Lesson!inner(id, number)")
+          .eq("learner_id", learner.id)
+          .eq("course_id", courseId)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (fetchError) throw fetchError;
+
+        // 4. Sort schedules by date and time (already sorted by query, but ensure consistency)
+        const sortedSchedules = [...(allSchedules || [])].sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+          return dateTimeA - dateTimeB;
+        });
+
+        // 5. Prepare lesson updates with new numbering based on chronological order
+        const lessonUpdates = sortedSchedules
+          .filter((schedule) => schedule.Lesson?.id)
+          .map((schedule, index) => ({
+            id: schedule.Lesson.id,
+            number: index + 1,
+          }));
+
+        // 6. Bulk update lessons with new numbers
+        if (lessonUpdates.length > 0) {
+          for (const update of lessonUpdates) {
+            const { error: lessonError } = await supabase
+              .from("Lesson")
+              .update({ number: update.number })
+              .eq("id", update.id);
+
+            if (lessonError) {
+              console.error("Error updating lesson number:", lessonError);
+            }
+          }
+        }
+      }
+
+      // 7. Send notification to customer about reschedule
+      await supabase.functions.invoke("send-message", {
+        body: {
+          message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+          learner_id: learner.id,
+        },
+      });
+
       setIsRescheduleModalOpen(false);
       await syncData();
-      toast({ title: "Rescheduled", description: "Lesson updated successfully." });
+      toast({
+        title: "Rescheduled",
+        description: "Lesson rescheduled and order updated. Customer notified.",
+      });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -1046,22 +1190,33 @@ export const LearnerSchedulesManager = ({
       <Card>
         <CardHeader>
           <CardTitle>
-            {isLoading ? "Updating..." : `${learner?.name ?? "Learner"}'s Schedule`}
+            {isLoading
+              ? "Updating..."
+              : `${learner?.name ?? "Learner"}'s Schedule`}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {learner?.schedules?.length > 0 ? (
               [...learner.schedules]
-                .sort((a, b) => new Date(`${a.date}T${a.start_time ?? "00:00"}`).getTime() - new Date(`${b.date}T${b.start_time ?? "00:00"}`).getTime())
+                .sort(
+                  (a, b) =>
+                    new Date(`${a.date}T${a.start_time ?? "00:00"}`).getTime() -
+                    new Date(`${b.date}T${b.start_time ?? "00:00"}`).getTime(),
+                )
                 .map((schedule) => (
-                  <div key={schedule.id} className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50">
+                  <div
+                    key={schedule.id}
+                    className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50"
+                  >
                     <div className="space-y-1">
-                      <div className="font-medium text-sm md:text-base">
-                        Lesson {schedule.Lesson?.number ?? "N/A"} — {schedule.date ?? "N/A"}
+                      <div className="text-sm font-medium md:text-base">
+                        Lesson {schedule.Lesson?.number ?? "N/A"} —{" "}
+                        {schedule.date ?? "N/A"}
                       </div>
-                      <div className="text-xs md:text-sm text-gray-500">
-                        {schedule.start_time?.substring(0, 5) ?? "N/A"} - {schedule.end_time?.substring(0, 5) ?? "N/A"}
+                      <div className="text-xs text-gray-500 md:text-sm">
+                        {schedule.start_time?.substring(0, 5) ?? "N/A"} -{" "}
+                        {schedule.end_time?.substring(0, 5) ?? "N/A"}
                         <span className="mx-2">|</span>
                         Instructor: {schedule.Instructor?.name ?? "Unassigned"}
                       </div>
@@ -1072,34 +1227,59 @@ export const LearnerSchedulesManager = ({
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" disabled={isProcessing}>Actions</Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isProcessing}
+                        >
+                          Actions
+                        </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onUpdateStatus(schedule.id, "completed")}>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            onUpdateStatus(schedule.id, "completed")
+                          }
+                        >
                           Mark as Completed
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setSelectedSchedule(schedule);
-                          setSelectedInstructorId(schedule.instructor_id);
-                          setIsInstructorChangeModalOpen(true);
-                        }}>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedSchedule(schedule);
+                            setSelectedInstructorId(schedule.instructor_id);
+                            setIsInstructorChangeModalOpen(true);
+                          }}
+                        >
                           Change Instructor
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setSelectedSchedule({ ...schedule });
-                          setIsRescheduleModalOpen(true);
-                        }}>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedSchedule({ ...schedule });
+                            setIsRescheduleModalOpen(true);
+                          }}
+                        >
                           Reschedule
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onUpdateStatus(schedule.id, schedule.status === "paused" ? "booked" : "paused")}>
-                          {schedule.status === "paused" ? "Resume Lesson" : "Pause Lesson"}
+                        <DropdownMenuItem
+                          onClick={() =>
+                            onUpdateStatus(
+                              schedule.id,
+                              schedule.status === "paused"
+                                ? "booked"
+                                : "paused",
+                            )
+                          }
+                        >
+                          {schedule.status === "paused"
+                            ? "Resume Lesson"
+                            : "Pause Lesson"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 ))
             ) : (
-              <div className="text-center py-10 text-gray-500">
+              <div className="py-10 text-center text-gray-500">
                 {isLoading ? "Fetching data..." : "No records found."}
               </div>
             )}
@@ -1108,21 +1288,40 @@ export const LearnerSchedulesManager = ({
       </Card>
 
       {/* Instructor Dialog */}
-      <Dialog open={isInstructorChangeModalOpen} onOpenChange={setIsInstructorChangeModalOpen}>
+      <Dialog
+        open={isInstructorChangeModalOpen}
+        onOpenChange={setIsInstructorChangeModalOpen}
+      >
         <DialogContent>
-          <DialogHeader><DialogTitle>Change Instructor</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4">
-            <Select value={selectedInstructorId} onValueChange={setSelectedInstructorId}>
-              <SelectTrigger><SelectValue placeholder="Select Instructor" /></SelectTrigger>
+          <DialogHeader>
+            <DialogTitle>Change Instructor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select
+              value={selectedInstructorId}
+              onValueChange={setSelectedInstructorId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Instructor" />
+              </SelectTrigger>
               <SelectContent>
                 {instructorData?.map((ins) => (
-                  <SelectItem key={ins.id_instructor} value={ins.id_instructor}>{ins.name}</SelectItem>
+                  <SelectItem key={ins.id_instructor} value={ins.id_instructor}>
+                    {ins.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsInstructorChangeModalOpen(false)}>Cancel</Button>
-              <Button onClick={onSaveInstructor} disabled={isProcessing}>Confirm</Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsInstructorChangeModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={onSaveInstructor} disabled={isProcessing}>
+                Confirm
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1140,20 +1339,20 @@ export const LearnerSchedulesManager = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reschedule Lesson</DialogTitle>
-            <DialogDescription>
-              Set reschedule date and time
-            </DialogDescription>
+            <DialogDescription>Set reschedule date and time</DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {selectedSchedule && (
               <div className="space-y-4">
                 {/* Date Field */}
                 <div className="flex items-center gap-2">
-                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Date
+                  </label>
                   <input
                     type="date"
-                    value={selectedSchedule.date || ""} 
+                    value={selectedSchedule.date || ""}
                     onChange={(e) =>
                       setSelectedSchedule((prev: any) => ({
                         ...prev,
@@ -1167,13 +1366,17 @@ export const LearnerSchedulesManager = ({
                 <div className="flex items-center gap-8">
                   {/* Start Time Field */}
                   <div className="flex flex-col">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Start Time
+                    </label>
                     <Select
                       value={selectedSchedule.start_time || ""}
                       onValueChange={(value) => {
                         const startTime = value;
-                        const [hours, minutes] = startTime.split(":").map(Number);
-                        
+                        const [hours, minutes] = startTime
+                          .split(":")
+                          .map(Number);
+
                         // Default end time to 1 hour later
                         const endHours = (hours + 1) % 24;
                         const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
@@ -1197,17 +1400,19 @@ export const LearnerSchedulesManager = ({
                                 {val.substring(0, 5)}
                               </SelectItem>
                             );
-                          })
+                          }),
                         )}
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <span className="text-gray-500 mt-6">to</span>
-                  
+
+                  <span className="mt-6 text-gray-500">to</span>
+
                   {/* End Time Field (Filtered) */}
                   <div className="flex flex-col">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      End Time
+                    </label>
                     <Select
                       value={selectedSchedule.end_time || ""}
                       onValueChange={(value) =>
@@ -1224,9 +1429,9 @@ export const LearnerSchedulesManager = ({
                         {Array.from({ length: 24 }).map((_, hour) =>
                           [0, 30].map((minute) => {
                             const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
-                            
-                            const isPastStart = selectedSchedule.start_time 
-                              ? val > selectedSchedule.start_time 
+
+                            const isPastStart = selectedSchedule.start_time
+                              ? val > selectedSchedule.start_time
                               : true;
 
                             if (!isPastStart) return null;
@@ -1236,7 +1441,7 @@ export const LearnerSchedulesManager = ({
                                 {val.substring(0, 5)}
                               </SelectItem>
                             );
-                          })
+                          }),
                         )}
                       </SelectContent>
                     </Select>
@@ -1244,8 +1449,16 @@ export const LearnerSchedulesManager = ({
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={() => setIsRescheduleModalOpen(false)}>Cancel</Button>
-                  <Button onClick={handleRescheduleSubmit} disabled={isProcessing}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsRescheduleModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleRescheduleSubmit}
+                    disabled={isProcessing}
+                  >
                     {isProcessing ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>

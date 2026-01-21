@@ -1,11 +1,10 @@
 import { CheckCircle2, XCircle } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/auth-context";
-import { stat } from "fs";
 
 function PaymentStatus() {
   const navigate = useNavigate();
@@ -14,34 +13,35 @@ function PaymentStatus() {
   const reference = searchParams.get("reference");
   const { user: loggedInUser } = useAuth();
   const isLoggedIn = !!loggedInUser;
-
-  useEffect(() => {
-    // If no status is provided or not logged in, redirect to home
-    console.log("status, loggedIn=", status, isLoggedIn);
-
-    // handle only empty sucess , and wait for user to click button
-    if (!status) {
-      // console.log(!status ? "status empty" : "no logged in");
-      // navigate("/login?active=signup");
-      navigate(isLoggedIn ? "/" : "/login?active=signup");
-    } 
-    // else {
-      // logged in and success
-      // navigate("/");
-    // }
-  }, [status, navigate]);
-
-  // useEffect(() => {
-  //   // If no status is provided, redirect to home
-  //     console.log("logedin,user=", isLoggedIn, loggedInUser);
-  // }, [isLoggedIn, loggedInUser, navigate]);
-
-  const isSuccess = status === "completed";
+  const [countdown, setCountdown] = useState(10);
 
   const returnToHomePage = () => {
-    // console.log("logedin,user=", isLoggedIn, loggedInUser);
     navigate(isLoggedIn ? "/home" : "/login?active=signup");
-  }
+  };
+
+  useEffect(() => {
+    // If no status is provided, redirect to home immediately
+    if (!status) {
+      navigate(isLoggedIn ? "/" : "/login?active=signup");
+      return;
+    }
+
+    // Auto-redirect countdown timer
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          returnToHomePage();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [status, navigate, isLoggedIn]);
+
+  const isSuccess = status === "completed";
   return (
     <div className="container mx-auto max-w-md py-8">
       <Card>
@@ -89,15 +89,13 @@ function PaymentStatus() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button
-              onClick={returnToHomePage} 
-              // {() =>
-              //   navigate(isLoggedIn ? "/home" : "/login?active=signup")
-              // }
-              variant="default"
-            >
+            <Button onClick={returnToHomePage} variant="default">
               Return to Home Page
             </Button>
+            <p className="text-center text-sm text-gray-500">
+              Redirecting automatically in {countdown} second
+              {countdown !== 1 ? "s" : ""}...
+            </p>
             {!isSuccess && (
               <Button onClick={() => navigate(-2)} variant="outline">
                 Try Again

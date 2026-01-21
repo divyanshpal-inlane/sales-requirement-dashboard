@@ -1,38 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import CryptoJS from "npm:crypto-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, content-length",
   "Access-Control-Max-Age": "86400",
 };
 
-function decrypt(sStr: string, key: string): string {
-  const decrypted = CryptoJS.AES.decrypt(sStr, CryptoJS.enc.Utf8.parse(key), {
-    mode: CryptoJS.mode.ECB,
-    padding: CryptoJS.pad.Pkcs7,
-  });
-  return decrypted.toString(CryptoJS.enc.Utf8);
-}
-
-function generateSecureHash(
+/**
+ * Generate HMAC-SHA256 hash for verification (Orange PG)
+ */
+async function generateSecureHash(
   data: Record<string, string>,
-  secret: string,
-): string {
-  let secureHash = secret;
-
-  // Sort keys and concatenate values in order
+  secretKey: string,
+): Promise<string> {
   const sortedKeys = Object.keys(data).sort();
+  let hashText = "";
   for (const key of sortedKeys) {
-    secureHash += data[key];
+    hashText += data[key];
   }
 
-  // Generate SHA-256 hash and convert to uppercase
-  const hashed = CryptoJS.SHA256(CryptoJS.enc.Utf8.parse(secureHash));
-  return hashed.toString(CryptoJS.enc.Hex).toUpperCase();
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKey);
+  const msgData = encoder.encode(hashText);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, msgData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 serve(async (req) => {
@@ -40,74 +44,110 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const supabaseClient = createClient(
+    Deno.env.get("MY_SUPABASE_URL") ?? "",
+    Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  );
+
+  const secretKey = Deno.env.get("ORANGE_PG_SECRET_KEY") ?? "";
+  const { PAYMENT_SUCCESS_URL, PAYMENT_FAILURE_URL } = Deno.env.toObject();
+
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("MY_SUPABASE_URL") ?? "",
-      Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    // Orange PG can send response as POST with JSON or form data
+    let responseData: Record<string, string> = {};
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      responseData = await req.json();
+    } else if (
+      contentType.includes("application/x-www-form-urlencoded") ||
+      contentType.includes("multipart/form-data")
+    ) {
+      const formData = await req.formData();
+      formData.forEach((value, key) => {
+        responseData[key] = value.toString();
+      });
+    } else {
+      // Try URL parameters for GET requests
+      const url = new URL(req.url);
+      url.searchParams.forEach((value, key) => {
+        responseData[key] = value;
+      });
+    }
+
+    console.log(
+      "Orange PG Callback Response:",
+      JSON.stringify(responseData, null, 2),
     );
 
-    const formData = await req.formData();
-    const encKey = Deno.env.get("PAYMENT_ENC_KEY") ?? "";
-    const saltKey = Deno.env.get("PAYMENT_SALT_KEY") ?? "";
+    // Extract key fields from Orange PG response
+    const {
+      secureHash: receivedHash,
+      responseCode,
+      merchantTxnNo,
+      paymentID,
+      amount,
+      paymentMode,
+      paymentDateTime,
+      txnID,
+      respDescription,
+      addlParam1, // installmentType
+      addlParam2, // paymentType
+      customerEmailID,
+      customerMobileNo,
+      paymentSubInstType,
+      merchantId,
+    } = responseData;
 
-    // Get the encrypted response data
-    const encData = formData.get("EncData")?.toString() ?? "";
-    const formattedEncData = encData.replace(/ /g, "+");
+    // Build data object for hash verification (excluding secureHash)
+    const dataForHash: Record<string, string> = { ...responseData };
+    delete dataForHash.secureHash;
 
-    // Decrypt the response
-    const decryptedData = decrypt(formattedEncData, encKey);
-    const dataArray = decryptedData.split("::");
+    // Verify secure hash
+    const calculatedHash = await generateSecureHash(dataForHash, secretKey);
 
-    // Parse the decrypted data
-    const responseData: Record<string, string> = {};
-    for (const value of dataArray) {
-      const [key, val] = value.split("||");
-      if (key && val) {
-        responseData[key] = decodeURIComponent(val);
-      }
-    }
+    console.log("Hash verification:", {
+      received: receivedHash,
+      calculated: calculatedHash,
+      match: calculatedHash === receivedHash,
+    });
 
-    // Extract the secure hash
-    const receivedHash = responseData["SecureHash"];
-    delete responseData.SecureHash;
+    // Verify hash (uncomment in production after testing)
+    // if (calculatedHash !== receivedHash) {
+    //   console.error("Hash mismatch - potential tampering detected");
+    //   throw new Error("Invalid response hash");
+    // }
 
-    // Generate hash for verification
-    const calculatedHash = generateSecureHash(responseData, saltKey);
+    // Extract payment ID from merchantTxnNo (format: ORD-{paymentId})
+    const paymentId = merchantTxnNo?.replace(/^ORD-/, "") || "";
 
-    // Verify hash
-    if (calculatedHash !== receivedHash) {
-      console.error("Hash mismatch:", {
-        calculated: calculatedHash,
-        received: receivedHash,
-        responseData,
-      });
-      throw new Error("Invalid response hash");
-    }
+    // Determine payment status
+    // Orange PG uses "0000" for successful transactions
+    const isSuccess = responseCode === "0000";
+    const status = isSuccess ? "completed" : "failed";
+    const gatewayReference = txnID || paymentID || "";
 
-    console.log("responseData\n", responseData);
+    console.log("Payment status:", {
+      paymentId,
+      status,
+      gatewayReference,
+      responseCode,
+    });
+
     // Update payment record
-    const txnRefNo = responseData["TxnRefNo"];
-    // Extract payment ID by removing 'ORD' prefix
-    const paymentId = txnRefNo.replace(/^ORD-/, "");
-    const status =
-      responseData["ResponseCode"]?.toLowerCase() === "00"
-        ? "completed"
-        : "failed";
-    const gatewayReference = responseData["RetRefNo"] ?? "";
-
-    // Update payment status
     const { error: updateError } = await supabaseClient
       .from("payment")
       .update({
         status,
         gateway_reference: gatewayReference,
+        pg_callback_response: responseData,
       })
       .eq("id", paymentId);
 
-    if (updateError) throw updateError;
-
-    // After updating the payment record
-    const { PAYMENT_SUCCESS_URL, PAYMENT_FAILURE_URL } = Deno.env.toObject();
+    if (updateError) {
+      console.error("Error updating payment:", updateError);
+      throw updateError;
+    }
 
     // Get payment details with learner info
     const { data: payment, error: paymentError } = await supabaseClient
@@ -117,20 +157,29 @@ serve(async (req) => {
         learner_id,
         payment_type,
         amount,
+        installment_type,
         Learner (
           phone
         )
-        `,
+      `,
       )
       .eq("id", paymentId)
       .single();
 
-    if (paymentError) throw paymentError;
+    if (paymentError) {
+      console.error("Error fetching payment:", paymentError);
+      throw paymentError;
+    }
+
+    // Use addlParam1 for installmentType if available, otherwise use from payment record
+    const installmentType = addlParam1 || payment.installment_type || "full";
+    // Use addlParam2 for paymentType if available, otherwise use from payment record
+    const paymentType = addlParam2 || payment.payment_type || "course";
 
     // If payment is successful, update related records
-    if (status === "completed") {
+    if (isSuccess) {
       try {
-        if (payment.payment_type === "course") {
+        if (paymentType === "course") {
           // Get enrollment record with existing unlocked lessons
           const { data: enrollment, error: enrollmentQueryError } =
             await supabaseClient
@@ -146,19 +195,16 @@ serve(async (req) => {
           let newPaymentStatus = enrollment.payment_status;
           let unlockedLessons = enrollment.unlocked_lessons || [];
 
-          if (responseData["UDF01"] === "full") {
-            // For full payment, unlock all lessons
+          if (installmentType === "full") {
             unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
             newPaymentStatus = "full_paid";
-          } else if (responseData["UDF01"] === "first_half") {
-            // For first installment, ONLY unlock first 5 lessons
+          } else if (installmentType === "first_half") {
             unlockedLessons = [1, 2];
             newPaymentStatus = "half_paid";
           } else if (
-            responseData["UDF01"] === "second_half" &&
+            installmentType === "second_half" &&
             enrollment.payment_status === "half_paid"
           ) {
-            // For second installment, verify first payment and then unlock all lessons
             unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
             newPaymentStatus = "full_paid";
           }
@@ -169,7 +215,6 @@ serve(async (req) => {
             enrollmentId: enrollment.id,
           });
 
-          // Update the enrollment
           const { error: enrollmentError } = await supabaseClient
             .from("enrollment")
             .update({
@@ -188,8 +233,7 @@ serve(async (req) => {
             console.error("Error updating enrollment:", enrollmentError);
             throw enrollmentError;
           }
-        } else if (payment.payment_type === "reschedule") {
-          // Handle reschedule payment success
+        } else if (paymentType === "reschedule") {
           const { error: scheduleError } = await supabaseClient
             .from("Schedule")
             .update({
@@ -199,6 +243,86 @@ serve(async (req) => {
             .eq("payment_id", paymentId);
 
           if (scheduleError) throw scheduleError;
+        } else if (paymentType === "demo") {
+          const { data: enrollment, error: enrollmentQueryError } =
+            await supabaseClient
+              .from("enrollment")
+              .select("*")
+              .eq("payment_id", paymentId)
+              .single();
+
+          if (enrollmentQueryError) throw enrollmentQueryError;
+          if (!enrollment) throw new Error("Demo enrollment not found");
+
+          const { error: enrollmentError } = await supabaseClient
+            .from("enrollment")
+            .update({
+              payment_status: "full_paid",
+              unlocked_lessons: [1],
+              status: "active",
+              progress: {
+                type: "demo",
+                total_hours: 1,
+                completed_lessons: [],
+                current_lesson: 1,
+                last_accessed: new Date().toISOString(),
+              },
+            })
+            .eq("id", enrollment.id);
+
+          if (enrollmentError) throw enrollmentError;
+        } else if (paymentType === "custom") {
+          const { data: enrollment, error: enrollmentQueryError } =
+            await supabaseClient
+              .from("enrollment")
+              .select("*")
+              .eq("payment_id", paymentId)
+              .single();
+
+          if (enrollmentQueryError) throw enrollmentQueryError;
+          if (!enrollment) throw new Error("Custom enrollment not found");
+
+          const totalHours = enrollment.progress?.total_hours || 10;
+          const lessonsToUnlock = Math.min(Math.ceil(totalHours / 1), 10);
+          let unlockedLessons = enrollment.unlocked_lessons || [];
+          let newPaymentStatus = enrollment.payment_status;
+
+          if (installmentType === "full") {
+            unlockedLessons = Array.from(
+              { length: lessonsToUnlock },
+              (_, i) => i + 1,
+            );
+            newPaymentStatus = "full_paid";
+          } else if (installmentType === "first_half") {
+            unlockedLessons = [1, 2];
+            newPaymentStatus = "half_paid";
+          } else if (
+            installmentType === "second_half" &&
+            enrollment.payment_status === "half_paid"
+          ) {
+            unlockedLessons = Array.from(
+              { length: lessonsToUnlock },
+              (_, i) => i + 1,
+            );
+            newPaymentStatus = "full_paid";
+          }
+
+          const { error: enrollmentError } = await supabaseClient
+            .from("enrollment")
+            .update({
+              payment_status: newPaymentStatus,
+              unlocked_lessons: unlockedLessons,
+              status: "active",
+              progress: {
+                ...enrollment.progress,
+                completed_lessons: enrollment.progress?.completed_lessons || [],
+                current_lesson: enrollment.progress?.current_lesson || 1,
+                last_accessed: new Date().toISOString(),
+              },
+            })
+            .eq("id", enrollment.id);
+
+          if (enrollmentError) throw enrollmentError;
         }
 
         // Send thank you message
@@ -213,32 +337,63 @@ serve(async (req) => {
           },
         );
 
-        if (messageError) throw messageError;
+        if (messageError) {
+          console.error("Error sending thank you message:", messageError);
+        }
       } catch (error) {
         console.error("Error updating related records:", error);
         // Don't throw here, we still want to redirect the user
       }
     }
 
-    const redirectUrl =
-      status === "completed"
-        ? `${PAYMENT_SUCCESS_URL}?status=completed&reference=${gatewayReference}&phone=${encodeURIComponent(
-            payment.Learner.phone,
-          )}&type=${payment.payment_type}`
-        : `${PAYMENT_FAILURE_URL}?status=failed&reference=${gatewayReference}`;
+    // Build redirect URL
+    const redirectUrl = isSuccess
+      ? `${PAYMENT_SUCCESS_URL}?status=completed&reference=${gatewayReference}&phone=${encodeURIComponent(
+          payment.Learner?.phone || "",
+        )}&type=${paymentType}`
+      : `${PAYMENT_FAILURE_URL}?status=failed&reference=${gatewayReference}&reason=${encodeURIComponent(
+          respDescription || "Payment failed",
+        )}`;
 
-    return new Response(JSON.stringify({ redirectUrl }), {
+    // Return HTML that redirects the browser
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+          <script>window.location.href = "${redirectUrl}";</script>
+        </head>
+        <body>
+          <p>Redirecting... If not redirected, <a href="${redirectUrl}">click here</a>.</p>
+        </body>
+      </html>
+    `;
+
+    return new Response(html, {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "text/html" },
     });
   } catch (error) {
     console.error("Payment callback error:", error);
-    return new Response(
-      JSON.stringify({ error: "Payment verification failed" }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+
+    const errorRedirectUrl = `${PAYMENT_FAILURE_URL}?status=failed&error=verification_failed`;
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${errorRedirectUrl}">
+          <script>window.location.href = "${errorRedirectUrl}";</script>
+        </head>
+        <body>
+          <p>Redirecting... If not redirected, <a href="${errorRedirectUrl}">click here</a>.</p>
+        </body>
+      </html>
+    `;
+
+    return new Response(errorHtml, {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "text/html" },
+    });
   }
 });

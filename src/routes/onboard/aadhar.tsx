@@ -20,7 +20,6 @@ export default function Aadhar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-
   const handleContinueClick = useCallback(() => {
     if (!selectedState) {
       alert("No selected state");
@@ -33,13 +32,13 @@ export default function Aadhar() {
       },
       {
         onSuccess: async () => {
-          await queryClient.refetchQueries({ queryKey: ['learner'] });
+          await queryClient.refetchQueries({ queryKey: ["learner"] });
 
-          //  navigate home as licence info already filled by admin 
+          //  navigate home as licence info already filled by admin
           localStorage.setItem("onboardingDone", "true");
 
           navigate("/home");
-        }
+        },
       },
     );
   }, [mutate, navigate, selectedState, queryClient]);

@@ -119,3 +119,58 @@ export const AREAS = [
   "TC Palya",
   "Others",
 ] as const;
+
+// Skill modules for custom course selection
+export interface SkillModule {
+  id: string;
+  key: string;
+  label: string;
+  hours: number;
+  courseId: string; // Maps to the standalone course for this module
+  description: string;
+}
+
+export const SKILL_MODULES: SkillModule[] = [
+  {
+    id: "flyover",
+    key: "FLYOVER",
+    label: "Flyover",
+    hours: 2,
+    courseId: "f60e5fdb-787a-4b40-844d-4e66416a6c8f",
+    description: "Learn to navigate flyovers and elevated roads",
+  },
+  {
+    id: "parking",
+    key: "PARKING",
+    label: "Parking",
+    hours: 2,
+    courseId: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27",
+    description: "Master parallel, perpendicular and reverse parking",
+  },
+  {
+    id: "slopes",
+    key: "SLOPES",
+    label: "Slopes",
+    hours: 2,
+    courseId: "cc5fb06a-419f-4766-a79b-221c81bf9826",
+    description: "Learn to drive on uphill and downhill slopes",
+  },
+  {
+    id: "traffic",
+    key: "TRAFFIC",
+    label: "Traffic",
+    hours: 4,
+    courseId: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f",
+    description: "Navigate busy traffic and intersections confidently",
+  },
+];
+
+// Demo course configuration
+export const DEMO_COURSE = {
+  id: "demo",
+  label: "Demo Lesson",
+  hours: 1,
+  price: 499,
+  description:
+    "Try a 1-hour introductory lesson before committing to a full course",
+};

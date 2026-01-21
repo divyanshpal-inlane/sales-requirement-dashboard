@@ -1,5 +1,14 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { addDays, formatDuration, intervalToDuration, isAfter, isBefore, max, set, subDays } from "date-fns";
+import {
+  addDays,
+  formatDuration,
+  intervalToDuration,
+  isAfter,
+  isBefore,
+  max,
+  set,
+  subDays,
+} from "date-fns";
 import {
   ArrowRight,
   BookOpen,
@@ -34,11 +43,15 @@ import {
   useLessonSchedule,
   useUpcomingLesson,
 } from "@/queries/learner";
-import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
+import { usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
-import { ReminderFullPayment } from "./reminder_full_payment";
-import PreferenceSelector from "@/components/lesson/PreferenceSelector";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useUpdateScheduleStatus } from "@/queries/instructor";
 import { toast } from "sonner";
@@ -61,25 +74,22 @@ const isLessonCompleted = (lesson) => {
 
 export default function Home() {
   const navigate = useNavigate();
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const { data: learner, isLoading, error } = useLearner();
   const { data: enrolledCourse, isLoading: isEnrolledCourseLoading } =
     useLearnerEnrollment({ learnerId: learner?.id });
 
-    const [showPolicyModal, setShowPolicyModal] = useState(false);
-    const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useLearnerRescheduleRequests(learner?.id);
   const {
     data: LessonData,
     isLoading: LessonIsLoading,
     error: LessonError,
   } = useUpcomingLesson();
-  // console.log("Schedule Requests", scheduleRequests);
-  // console.log("LessonData", LessonData);
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [showEndLessonDialog, setShowEndLessonDialog] = useState(false);
-const [isFinishingLesson, setIsFinishingLesson] = useState(false);
+  const [isFinishingLesson, setIsFinishingLesson] = useState(false);
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
@@ -88,20 +98,21 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
   });
-  const {mutateAsync: updateScheduleStatusAsync, isPending: isUpdateScheduleLoading} = useUpdateScheduleStatus();
+  const {
+    mutateAsync: updateScheduleStatusAsync,
+    isPending: isUpdateScheduleLoading,
+  } = useUpdateScheduleStatus();
+  const { mutate: updateLearner } = useLearnerUpdate();
   const queryClient = useQueryClient();
-  // Maximum number of lessons to unlock before full upgrade
   const maxNumLessonsOnHalfInstallment = 1;
   const numWaiveredLessonUnlocked = 1;
-  // console.log('scheduledLessons', scheduledLessons);
-  // Fetch all payments for the learner
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
     learner?.id,
   );
-  
+
   // Find the latest completed payment
   const completedPayment = Array.isArray(payments)
-  ? payments
+    ? payments
         .filter(
           (payment: { payment_type: string; status: string }) =>
             payment.payment_type === "course" && payment.status === "completed",
@@ -116,10 +127,9 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
     completedPayment && completedPayment?.status === "completed";
 
   if (paymentLoading || isLoading) {
-    console.log("Loading learner and payments info");
     return <div>Loading...</div>;
   }
-  
+
   if (!completedPayment && !isCompleted) {
     return (
       <div className="container mx-auto max-w-md py-8">
@@ -128,67 +138,59 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
     );
   }
 
-
   const localStorageInitOnce = (local_var_name: string) => {
-    // will inistialise the approriate value only if not exists on cache and learner's valid
     if (localStorage.getItem(local_var_name)) {
-      console.log(local_var_name, "already set to", localStorage.getItem(local_var_name), " not initialised"); 
       return;
     }
     if (!learner) return;
     switch (local_var_name) {
       case "onboardingDone":
-        console.log("learner onboarding", learner.onboarding_completed);
-        localStorage.setItem(local_var_name, (learner.onboarding_completed) ? "true" : "false");
+        localStorage.setItem(
+          local_var_name,
+          learner.onboarding_completed ? "true" : "false",
+        );
         break;
       case "schedulePreferencesUpdated":
-        // preferences are asked in 2 cases: during onboarding and reschduling
-        // the init's done based on onboarding, but during reschdule, it must be reset to false
-        console.log("learner preferred start", learner.preferred_start_date);
-        localStorage.setItem(local_var_name, (learner.preferred_start_date) ? "true" : "false");
+        localStorage.setItem(
+          local_var_name,
+          learner.preferred_start_date ? "true" : "false",
+        );
         break;
       default:
-        console.error("Invalid cache state name for init: ", local_var_name);
+        break;
     }
-  }
-  // local storage initialiasation - do only once if not exist
+  };
   localStorageInitOnce("onboardingDone");
   localStorageInitOnce("schedulePreferencesUpdated");
 
-  // local storage init ends
-
   const ls_onboarding_done = localStorage.getItem("onboardingDone");
-  if (!learner?.onboarding_completed
-      && (ls_onboarding_done != "true")) {
-    // learner does not get updated after onboarding page
-    // hence use local storage to ensure onboarding only redirect once
+  if (!learner?.onboarding_completed && ls_onboarding_done != "true") {
     return <Navigate to="/onboard/birthday" />;
   }
-  
+
   if (
     isLoading ||
     LessonIsLoading ||
     scheduleRequestsLoading ||
     isEnrolledCourseLoading
   ) {
-    console.log("Loading learner, lessons, schedule requests and enrollment");
     return <div>Loading...</div>;
   }
-  
+
   if (error || LessonError) {
     return <p>Error: {error?.message || LessonError?.message}</p>;
   }
-  
+
   // Show payment completion prompt for half-paid enrollments
   const showPaymentCompletion =
-  enrolledCourse?.payment_status === "half_paid" &&
-  scheduledLessons &&
-  scheduledLessons.some(
-    (scheduleItem) =>
-      // find the highest unlocked lesson number and check its status
-      scheduleItem.lesson?.number === maxNumLessonsOnHalfInstallment &&
-    scheduleItem.status?.toUpperCase() === "COMPLETED",
-  );
+    enrolledCourse?.payment_status === "half_paid" &&
+    scheduledLessons &&
+    scheduledLessons.some(
+      (scheduleItem) =>
+        // find the highest unlocked lesson number and check its status
+        scheduleItem.lesson?.number === maxNumLessonsOnHalfInstallment &&
+        scheduleItem.status?.toUpperCase() === "COMPLETED",
+    );
   // if (showPaymentCompletion) {
   //   return (
   //     <div className="mb-6">
@@ -197,25 +199,28 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
   //   );
   // }
   // For half installment,  locked lesson can be started
-  const enabledLessonForInstallmentStatus = (lessonNumber: number | null): boolean => {
+  const enabledLessonForInstallmentStatus = (
+    lessonNumber: number | null,
+  ): boolean => {
     if (!lessonNumber) return false;
-    if (enrolledCourse?.payment_status === "completed" 
-      || enrolledCourse?.payment_status === "full_paid") return true;
+    if (
+      enrolledCourse?.payment_status === "completed" ||
+      enrolledCourse?.payment_status === "full_paid"
+    )
+      return true;
     // Check that the lesson number is within unlocked + waivered range
     return (
       lessonNumber <= maxNumLessonsOnHalfInstallment + numWaiveredLessonUnlocked
     );
-  }
+  };
   const isWaiveredLesson = (lessonNumber: number | null | undefined) => {
     if (!lessonNumber) return false;
-      return (
-        (lessonNumber > maxNumLessonsOnHalfInstallment) && 
-        (enabledLessonForInstallmentStatus(lessonNumber))
-      );
-  }
-    
+    return (
+      lessonNumber > maxNumLessonsOnHalfInstallment &&
+      enabledLessonForInstallmentStatus(lessonNumber)
+    );
+  };
 
-  // Check if reschedule request is for the upcoming lesson
   const isRescheduleForUpcomingLesson =
     scheduleRequests &&
     scheduleRequests.length > 0 &&
@@ -224,7 +229,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
       (request) => request.lesson_id === LessonData.upcomingLesson.id,
     );
 
-    const renderLesson1ScheduleState = () => (
+  const renderLesson1ScheduleState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-md">
         <CardContent className="flex flex-col items-center gap-4 p-6">
@@ -258,7 +263,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
       </p>
     </div>
   );
-  
+
   const renderScheduleCreationState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-md">
@@ -293,7 +298,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
       </p>
 
       <h3
-        className="cursor-pointer text-center text-sm text-white rounded bg-primary py-2 **px-4**"
+        className="**px-4** cursor-pointer rounded bg-primary py-2 text-center text-sm text-white"
         onClick={() => setShowPolicyModal(true)}
       >
         Rescheduling Policy
@@ -336,9 +341,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
           }
         </h2>
         <Button
-          onClick={() =>
-            navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
-          }
+          onClick={() => navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)}
           variant="outline"
           className="grow"
         >
@@ -347,22 +350,16 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
       </div>
     );
   };
-  
+
   const renderUpcomingLesson = () => {
     return (
       <div className="flex flex-col gap-2 p-4 text-center text-xl">
-      <p>Here is your upcoming lesson!</p>
-        {/* {showPaymentCompletion && (
-            <div className="mb-6">
-              <ReminderFullPayment learner={learner} />
-            </div>
-          )
-        } */}
+        <p>Here is your upcoming lesson!</p>
         {enrolledCourse?.payment_status === "half_paid" && (
           <Alert className="mb-4 border-primary bg-white">
             <AlertDescription>
-              You have paid the first installment. Some lessons are locked
-              until you complete the payment.
+              You have paid the first installment. Some lessons are locked until
+              you complete the payment.
               <Button
                 variant="link"
                 className="h-auto p-0 text-primary"
@@ -372,184 +369,158 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
               </Button>
             </AlertDescription>
           </Alert>
-      )}
-      {
-        isWaiveredLesson(LessonData?.upcomingLesson?.number) && (
+        )}
+        {isWaiveredLesson(LessonData?.upcomingLesson?.number) && (
           <Alert className="mb-4 border-primary bg-white">
             <AlertDescription>
-              We're unlocking the current lesson, but make payment
-              before next lesson
+              We're unlocking the current lesson, but make payment before next
+              lesson
             </AlertDescription>
           </Alert>
-      )}
-      {LessonData?.upcomingSchedule &&
-        LessonData?.instructor &&
-        LessonData?.upcomingLesson && (
-          <SessionDetails
-          schedule={LessonData.upcomingSchedule}
-          instructor={LessonData.instructor}
-            lessonNumber={LessonData.upcomingLesson.number ?? 0}
+        )}
+        {LessonData?.upcomingSchedule &&
+          LessonData?.instructor &&
+          LessonData?.upcomingLesson && (
+            <SessionDetails
+              schedule={LessonData.upcomingSchedule}
+              instructor={LessonData.instructor}
+              lessonNumber={LessonData.upcomingLesson.number ?? 0}
             />
           )}
-      <h2 className="text-lg font-semibold">
-        {
-          LESSON_CONTENT[
-            LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
-          ].content.title
-        }
-      </h2>
+        <h2 className="text-lg font-semibold">
+          {
+            LESSON_CONTENT[
+              LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
+            ].content.title
+          }
+        </h2>
 
-      {/* Reschedule & Start Lesson button */}
-      <div className="mt-6 flex flex-col gap-4">
-        <div className="flex flex-row flex-wrap gap-4">
+        <div className="mt-6 flex flex-col gap-4">
+          <div className="flex flex-row flex-wrap gap-4">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={async () => {
+                      if (
+                        LessonData?.upcomingSchedule?.status?.toUpperCase() ===
+                        "ONGOING"
+                      ) {
+                        if (!learner) return;
+                        else {
+                          setShowEndLessonDialog(true);
+                        }
+                      } else if (
+                        LessonData?.upcomingSchedule?.status?.toUpperCase() ===
+                        "BOOKED"
+                      ) {
+                        setShowLessonDialog(true);
+                      }
+                    }}
+                    className="w-full"
+                    disabled={
+                      lessonSchedule?.status?.toUpperCase() === "COMPLETED" ||
+                      lessonSchedule?.status?.toUpperCase() === "PAUSED" ||
+                      !enabledLessonForInstallmentStatus(
+                        LessonData?.upcomingLesson?.number,
+                      ) ||
+                      isFinishingLesson
+                    }
+                  >
+                    {isFinishingLesson
+                      ? "Wait for end lesson"
+                      : lessonSchedule?.status?.toUpperCase() === "ONGOING"
+                        ? "End lesson"
+                        : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
+                          ? "Lesson Completed"
+                          : !enabledLessonForInstallmentStatus(
+                                LessonData?.upcomingLesson?.number,
+                              )
+                            ? "Lesson locked"
+                            : lessonSchedule?.status?.toUpperCase() === "PAUSED"
+                              ? "Lesson Paused"
+                              : "Start Lesson"}
+                  </Button>
+                </TooltipTrigger>
+                {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
+                  lessonSchedule?.status?.toUpperCase() === "COMPLETED") && (
+                  <TooltipContent>
+                    <p>
+                      {lessonSchedule.status.toUpperCase() === "ONGOING"
+                        ? "Session is already in progress"
+                        : "Session has been completed"}
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+            <Button
+              onClick={() => {
+                navigate(`/lesson/${LessonData?.upcomingLesson?.id}`);
+              }}
+              variant="outline"
+              className="grow"
+            >
+              Lesson Details
+            </Button>
+          </div>
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={async () =>
-                    { console.log("Start/end lesson", LessonData?.upcomingLesson?.number);
-                      // await sleep(1000); // 1 second
-                      // alert("Enter OTP to instructor " + LessonData?.upcomingSchedule?.otp);
-                      // navigate(
-                      // `/startLesson/${LessonData?.upcomingLesson?.number}`,
-                      // )
-                      if (LessonData?.upcomingSchedule?.status?.toUpperCase() === "ONGOING") {
-                        // end lesson
-                        // await endLesson();
-                        if (!learner) console.log("learner empty");
-                        else {
-                          setShowEndLessonDialog(true);
-                        }
-                      } else if (LessonData?.upcomingSchedule?.status?.toUpperCase() === "BOOKED") {
-                        // Start lesson
-                        setShowLessonDialog(true);
-                      }
-                   }
+                  onClick={() =>
+                    navigate(
+                      `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
+                    )
                   }
+                  variant="secondary"
                   className="w-full"
-                  disabled={
-                      lessonSchedule?.status?.toUpperCase() === "COMPLETED"
-                      || lessonSchedule?.status?.toUpperCase() === "PAUSED"
-                      || !enabledLessonForInstallmentStatus(
-                        LessonData?.upcomingLesson?.number,
-                      )
-                      || isFinishingLesson
-                  }
-                  >
-                  { isFinishingLesson ? "Wait for end lesson" :
-                  lessonSchedule?.status?.toUpperCase() === "ONGOING"
-                    ? "End lesson"
-                    : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
-                    ? "Lesson Completed"
-                        : !enabledLessonForInstallmentStatus(
-                              LessonData?.upcomingLesson?.number
-                          )
-                      ? "Lesson locked"
-                    : lessonSchedule?.status?.toUpperCase() === "PAUSED"
-                      ? "Lesson Paused"
-                      : "Start Lesson"
-                  }
+                  disabled={scheduleRequests && scheduleRequests.length > 0}
+                >
+                  Reschedule Lesson
                 </Button>
               </TooltipTrigger>
-              {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
-                lessonSchedule?.status?.toUpperCase() === "COMPLETED") && (
+              {scheduleRequests && scheduleRequests.length > 0 && (
                 <TooltipContent>
-                  <p>
-                    {lessonSchedule.status.toUpperCase() === "ONGOING"
-                      ? "Session is already in progress"
-                      : "Session has been completed"}
-                  </p>
+                  <p>You have a pending reschedule request</p>
                 </TooltipContent>
               )}
             </Tooltip>
           </TooltipProvider>
-          <Button
-            onClick={() => {
-
-                console.log(
-                  "Navigating to lesson details",
-                  LessonData?.upcomingLesson?.id,
-                );
-                navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)
-              }
-            }
-            variant="outline"
-            className="grow"
-            >
-            Lesson Details
-          </Button>
-        </div>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={() =>
-                  navigate(
-                    `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
-                  )
-                }
-                variant="secondary"
-                className="w-full"
-                disabled={scheduleRequests && scheduleRequests.length > 0}
-                >
-                Reschedule Lesson
-              </Button>
-            </TooltipTrigger>
-            {scheduleRequests && scheduleRequests.length > 0 && (
-              <TooltipContent>
-                <p>You have a pending reschedule request</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-        <h3
-          className="cursor-pointer text-center text-sm text-black"
-          onClick={() => setShowPolicyModal(true)}
+          <h3
+            className="cursor-pointer text-center text-sm text-black"
+            onClick={() => setShowPolicyModal(true)}
           >
-          Rescheduling Policy
-        </h3>
-        {showPolicyModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="w-11/12 max-w-md rounded-lg bg-white p-6 shadow-lg">
-              <h2 className="mb-2 text-lg font-bold">Rescheduling Policy</h2>
-              <ul className="mb-4 list-disc pl-5 text-sm text-gray-800">
-                <li>
-                  Rescheduling within 10 hours of lesson start time will incur a
-                  charge of ₹300.
-                </li>
-                <li>Rescheduling more than 10 hours in advance is free.</li>
-              </ul>
-              <button
-                className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
-                onClick={() => setShowPolicyModal(false)}
+            Rescheduling Policy
+          </h3>
+          {showPolicyModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="w-11/12 max-w-md rounded-lg bg-white p-6 shadow-lg">
+                <h2 className="mb-2 text-lg font-bold">Rescheduling Policy</h2>
+                <ul className="mb-4 list-disc pl-5 text-sm text-gray-800">
+                  <li>
+                    Rescheduling within 10 hours of lesson start time will incur
+                    a charge of ₹300.
+                  </li>
+                  <li>Rescheduling more than 10 hours in advance is free.</li>
+                </ul>
+                <button
+                  className="mt-2 rounded bg-black px-4 py-2 text-white hover:bg-gray-900"
+                  onClick={() => setShowPolicyModal(false)}
                 >
-                Close
-              </button>
+                  Close
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-
-        {/* {scheduleRequests && scheduleRequests.length > 0 && (
-          <p className="mt-2 text-sm text-muted-foreground">
-          Your reschedule request is being processed.
-          </p>
-          )} */}
-
-        {showLessonDialog && (
-          renderStartLessonDialog()
-        )
-        }
-        {
-          showEndLessonDialog && (
-          renderEndLessonDialog()
-        )
-        }
+          {showLessonDialog && renderStartLessonDialog()}
+          {showEndLessonDialog && renderEndLessonDialog()}
+        </div>
       </div>
-    </div>
     );
-}
+  };
 
   const renderCourseCompletionPage = () => (
     <div className="flex flex-col items-center gap-6 p-4 text-center">
@@ -625,171 +596,110 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
     scheduledLessons &&
     scheduledLessons.length === 10 &&
     scheduledLessons.every((lesson) => isLessonCompleted(lesson));
-  
+
   if (scheduleRequests?.length > 0 && !LessonData?.upcomingLesson) {
     // lesson 1 getting scheduled
     return (
-    <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col">
+        {/* Static header */}
+        <header className="sticky top-0 z-10 flex items-center justify-between p-4">
+          <h1 className="text-2xl font-medium">
+            Hi {learner?.name || "Learner"}!
+          </h1>
+          <Link to="/profile" className="rounded-full bg-white p-1">
+            <User size={24} className="hover:text-primary-dark text-primary" />
+          </Link>
+        </header>
 
-      {/* Static header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between p-4">
-        <h1 className="text-2xl font-medium">
-          Hi {learner?.name || "Learner"}!
-        </h1>
-        <Link to="/profile" className="rounded-full bg-white p-1">
-          <User size={24} className="hover:text-primary-dark text-primary" />
-        </Link>
-      </header>
-
-      {renderLesson1ScheduleState()}
+        {renderLesson1ScheduleState()}
       </div>
-    )
+    );
   }
-
-
-
 
   // Start lesson details
   const handleStartLessonDetailsClose = () => {
     setShowLessonDialog(false);
-  }
+  };
   const renderStartLessonDialog = () => {
     return (
-          <Dialog
-            open={showLessonDialog}
-            onOpenChange={setShowLessonDialog}
-          >
-            <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Start Lesson</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <h2 className="text-left text-lg font-medium col-span-4">
-                  Lesson {LessonData?.upcomingLesson?.number} - {LessonData?.course?.name}
-                  <br />
-                  Lesson OTP: {LessonData?.upcomingSchedule?.otp}
-                </h2>
-              </div>
+      <Dialog open={showLessonDialog} onOpenChange={setShowLessonDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Start Lesson</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <h2 className="col-span-4 text-left text-lg font-medium">
+                Lesson {LessonData?.upcomingLesson?.number} -{" "}
+                {LessonData?.course?.name}
+                <br />
+                Lesson OTP: {LessonData?.upcomingSchedule?.otp}
+              </h2>
             </div>
-            <DialogFooter>
-              <Button onClick={handleStartLessonDetailsClose} variant="secondary">
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-            
-          </Dialog>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleStartLessonDetailsClose} variant="secondary">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
-  }
+  };
 
-  const handleEndLessonDetailsSave = async (scheduleId: string, learnerId: string) => {
+  const handleEndLessonDetailsSave = async (
+    scheduleId: string,
+    learnerId: string,
+  ) => {
     // console.log("Ending lesson for scheduleId:", scheduleId, "learnerId:", learnerId);
     await handleFinishLesson(scheduleId, learnerId);
-  }
+  };
   const handleEndLessonDetailsClose = () => {
     console.log("schedule details ", LessonData?.upcomingSchedule);
     setShowEndLessonDialog(false);
-  }
+  };
   const renderEndLessonDialog = () => {
     return (
-          <Dialog
-            open={showEndLessonDialog}
-            onOpenChange={setShowEndLessonDialog}
-          >
-            <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>End Lesson</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <h2 className="text-left text-lg font-medium col-span-4">
-                  Lesson {LessonData?.upcomingLesson?.number} - {LessonData?.course?.name}
-                  <br />
-                  {/* Duration: {
-                    LessonData?.upcomingSchedule?.started_at 
-                      ? new Date(LessonData.upcomingSchedule.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-                      : 'N/A'
-                  } to {
-                    new Date(Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-                  } */}
-                {false && LessonData?.upcomingSchedule?.started_at && (() => {
-                    // Create a NEW Date object from the actual start time
-                    const actualStartTime = new Date(LessonData.upcomingSchedule.started_at);
-                    const actualEndTime = new Date(Date.now());
-                    
-                    // --- LIVE USAGE (Uncomment the lines below when not testing) ---
-                    const startTime = actualStartTime;
-                    const endTime = actualEndTime;
-
-                    const duration = intervalToDuration({
-                        start: startTime.getTime(),
-                        end: endTime.getTime()
-                    });
-                    
-                    if (!duration) return ('N/A');
-                    // Check if duration is null OR if all components are zero
-                    const isSecondsDuration = 
-                        duration && 
-                        ((!duration.hours) && (!duration.minutes));
-                    return isSecondsDuration
-                        ? ` (Less than 1 min)` 
-                        : ` (${formatDuration(duration, { format: ['hours', 'minutes'] })})`;
-                  })()}
-                  <br />
-                  Tell OTP {LessonData?.upcomingSchedule?.otp_end} to end lesson
-                  <br />
-                  {/* Lesson OTP: {LessonData?.upcomingSchedule?.otp} */}
-                </h2>
-              </div>
+      <Dialog open={showEndLessonDialog} onOpenChange={setShowEndLessonDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>End Lesson</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <h2 className="col-span-4 text-left text-lg font-medium">
+                Lesson {LessonData?.upcomingLesson?.number} -{" "}
+                {LessonData?.course?.name}
+                <br />
+                Tell OTP {LessonData?.upcomingSchedule?.otp_end} to end lesson
+              </h2>
             </div>
-            <DialogFooter>
-              <Button onClick={async () => {
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={async () => {
                 await handleEndLessonDetailsSave(
                   LessonData.upcomingSchedule?.id.toString(),
-                  learner.id);
-                  setShowEndLessonDialog(false);
-                  toast.success("Lesson ended successfully");
-                  window.location.reload();
-                }}
-               variant="secondary"
-               disabled={isFinishingLesson}>
-                { isFinishingLesson ? "Ending lesson..." : "Confirm" }
-              </Button>
-              <Button onClick={handleEndLessonDetailsClose} variant="secondary">
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-            
-          </Dialog>
+                  learner.id,
+                );
+                setShowEndLessonDialog(false);
+                toast.success("Lesson ended successfully");
+                window.location.reload();
+              }}
+              variant="secondary"
+              disabled={isFinishingLesson}
+            >
+              {isFinishingLesson ? "Ending lesson..." : "Confirm"}
+            </Button>
+            <Button onClick={handleEndLessonDetailsClose} variant="secondary">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
-  }
+  };
 
-  // End lesson
-  // const endLesson = async (schedule) => {
-  //   console.log("Ending lesson", LessonData?.upcomingLesson?.number);
-  //   if (!schedule) {
-  //     console.log("Schedule empty");
-  //     return;
-  //   }
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from("Schedule")
-  //       .update({ status: "COMPLETED" })
-  //       .eq("id", schedule?.id)
-  //       .select()
-  //       .single();
-  //     if (error) {
-  //       throw error;
-  //     }
-  //   } catch (err) {
-  //     console.error("Unexpected error ending lesson:", err);
-  //   } finally {
-  //     console.log("Lesson end process done");
-  //     // window.location.reload();
-  //   }
-  // };
   const handleFinishLesson = async (scheduleId: string, learnerId: string) => {
     setIsFinishingLesson(true);
     try {
@@ -797,7 +707,7 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
         scheduleId,
         status: "completed",
         started_at: "",
-        ended_at: `${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`
+        ended_at: `${String(new Date().getDate()).padStart(2, "0")}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}:${String(new Date().getSeconds()).padStart(2, "0")}`,
       });
 
       const { data: learnerSchedules, error: schedulesError } = await supabase
@@ -806,7 +716,6 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
         .eq("learner_id", learnerId);
 
       if (schedulesError) {
-        console.error("Error fetching learner schedules:", schedulesError);
         return;
       }
 
@@ -827,19 +736,15 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
         );
 
         if (error) {
-          console.error("Error sending review request message:", error);
           return;
         }
       }
 
       queryClient.invalidateQueries(["instructorSchedule"]);
-    } catch (error) {
-      console.error("Failed to update lesson status:", error);
-    }
+    } catch (error) {}
     setIsFinishingLesson(false);
   };
 
-  // navigate("/lesson-review");
   return (
     <div className="flex min-h-screen flex-col">
       {/* Static header */}
@@ -852,63 +757,35 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
         </Link>
       </header>
 
-      {/* Main content */}
       <main
         className="scrollbar-none flex h-[calc(100vh-50px)] flex-col overflow-y-auto p-4 pb-20"
         style={{ scrollbarWidth: "none" }}
       >
-        {/* {!allLessonsCompleted ? (
-          showPaymentCompletion ? (
-          
-          <div className="max-w-md text-center">
-          <h2 className="mb-2 text-2xl font-bold text-gray-800">
-            Lesson Locked
-          </h2>
-          <p className="mb-6 text-gray-600">
-            The lesson's locked because you've only completed the first
-            installment payment. Complete your payment to unlock all lessons.
-          </p>
-          <div className="space-y-3">
-            <Button
-              onClick={() => navigate(`/payment?phone=${learner.phone}`)}
-              className="w-full"
-            >
-              Complete Payment
-            </Button>
-          </div>
-        </div>
-          ) : (
-            <p className="text-center text-xl font-medium">
-              Let's start your journey!
-            </p>
-          )
-        ) : (
-          <></>
-        )} */}
-
-        {/* Show course completion page if all lessons are completed */}
         {allLessonsCompleted ? (
           renderCourseCompletionPage()
         ) : (
           <>
-            {/* Show upcoming lesson first if available */}
-            {/* {console.log(scheduleRequests, LessonData)} */}
             {scheduleRequests &&
             scheduleRequests.length > 0 &&
-            scheduleRequests.some(
-              (request) =>
-                request.lesson_ids.includes(LessonData.upcomingLesson?.id)
+            scheduleRequests.some((request) =>
+              request.lesson_ids.includes(LessonData.upcomingLesson?.id),
             ) ? (
               <>
-                <div className="mb-6">{renderUpcomingLessonReschedulePending()}</div>
+                <div className="mb-6">
+                  {renderUpcomingLessonReschedulePending()}
+                </div>
                 {renderScheduleCreationState()}
               </>
             ) : LessonData?.upcomingLesson ? (
               <div className="mb-6">{renderUpcomingLesson()}</div>
             ) : (
-              <p className="text-center"> { (learner?.LL_received && (scheduleRequests?.length > 0)) ? "No upcoming lesson" : "" }</p>
+              <p className="text-center">
+                {" "}
+                {learner?.LL_received && scheduleRequests?.length > 0
+                  ? "No upcoming lesson"
+                  : ""}
+              </p>
             )}
-            {/* If no upcoming lesson and no schedule requests, show appropriate content */}
             {!LessonData?.upcomingLesson &&
               !(scheduleRequests && scheduleRequests.length > 0) && (
                 <>
@@ -955,16 +832,15 @@ const [isFinishingLesson, setIsFinishingLesson] = useState(false);
                       </div>
                     ) : (
                       <div className="mt-24 text-center text-xl">
-                        {learner?.LL_received_date 
+                        {learner?.LL_received_date
                           ? `Your LL was issued on ${learner.LL_received_date}.\n`
-                          : ""
-                    }
+                          : ""}
                         You can apply for the Driver licence test after 30 days
-                        of LL date. 
+                        of LL date.
                         {!learner.DL_test_date
                           ? "Once the test date gets confirmed by you, the lesson 10 can be scheduled within 1 week of the driving test date."
-                          : "" }
-                          {/*  !learner.has_lesson10_booked ? " Book lesson 10"
+                          : ""}
+                        {/*  !learner.has_lesson10_booked ? " Book lesson 10"
                              : "You've booked it" */}
                         {scheduledLessons &&
                           scheduledLessons.length === 9 &&

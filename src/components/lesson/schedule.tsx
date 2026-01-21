@@ -227,25 +227,35 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
         ) {
           return false;
         }
-        
+
         return isInTimeRange;
       });
-      console.log("Relevant schedules for the current slots", relevantSchedules);
+      console.log(
+        "Relevant schedules for the current slots",
+        relevantSchedules,
+      );
 
-      console.log("Before filtering, available instructors", availableInstructors);
+      console.log(
+        "Before filtering, available instructors",
+        availableInstructors,
+      );
 
       // Find instructors which do not have any other confirmed booking, on the same slot
       // but include instructors who have tentative schedule
       const availableInstructors = instructors
         .filter((instructor) => {
           const instructorSchedules = relevantSchedules.filter(
-            (s) => (s.instructor_id === instructor.id_instructor) && (!s.isTentative),
+            (s) =>
+              s.instructor_id === instructor.id_instructor && !s.isTentative,
           );
           return instructorSchedules.length === 0;
         })
         .map((instructor) => instructor.id_instructor);
 
-      console.log("After filtering, available instructors", availableInstructors);
+      console.log(
+        "After filtering, available instructors",
+        availableInstructors,
+      );
       return {
         isAvailable: availableInstructors.length > 0,
         availableInstructors,
@@ -316,7 +326,6 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
   ]);
 
   const handleSlotClick = (clickedSlot: TimeSlot) => {
-
     if (!clickedSlot.isAvailable) return;
 
     const updatedSlots = selectedSlots.map((slot) => {

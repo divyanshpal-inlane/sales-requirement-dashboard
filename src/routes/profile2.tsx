@@ -16,6 +16,9 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/auth-context";
 import { useLearner, useLearnerUpdate } from "@/queries/learner";
 
+const CUST_SUPPORT_PHONE =
+  import.meta.env.VITE_CUST_SUPPORT_PHONE || "9876543210";
+
 export default function Profile2() {
   const { data: learner, isLoading, error } = useLearner();
   const { mutate: updateLearner, isLoading: isUpdating } = useLearnerUpdate();
@@ -85,9 +88,17 @@ export default function Profile2() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/login", { replace: true });
+      // Clear any local storage items that might be caching state
+      localStorage.clear();
+      sessionStorage.clear();
+      // Force navigation to login page
+      window.location.href = "/login";
     } catch (error) {
       console.error("Logout failed:", error);
+      // Even if logout fails, try to redirect
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "/login";
     }
   };
 
@@ -110,7 +121,11 @@ export default function Profile2() {
 
         {/* Chat with Support */}
         <a
-          href={"https://wa.me/+91" + CUST_SUPPORT_PHONE + "?text=Hello%20I%20need%20support"}
+          href={
+            "https://wa.me/+91" +
+            CUST_SUPPORT_PHONE +
+            "?text=Hello%20I%20need%20support"
+          }
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center space-x-2"

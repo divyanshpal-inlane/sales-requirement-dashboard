@@ -61,7 +61,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
-import { useInstructor, useInstructorScheduleData, useUpdateScheduleStatus } from "@/queries/instructor";
+import {
+  useInstructor,
+  useInstructorScheduleData,
+  useUpdateScheduleStatus,
+} from "@/queries/instructor";
 import Schedule from "@/routes/schedule";
 import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
 import { SlotConfig } from "@/types/schedule";
@@ -879,11 +883,14 @@ function Instructor() {
           //console.log("schedule update to", status);
           toast({
             title: "Success",
-            description: status === "completed" ? "Lesson ended successfully" : "Lesson started",
+            description:
+              status === "completed"
+                ? "Lesson ended successfully"
+                : "Lesson started",
             variant: "success",
           });
         },
-      }
+      },
     );
   };
 
@@ -922,7 +929,6 @@ function Instructor() {
         <div className="space-y-1">
           {/* Instructor Schedules */}
           {daySchedules.slice(0, 1).map((schedule, idx) => {
-
             return (
               <div
                 key={`schedule-${idx}`}
@@ -1045,133 +1051,157 @@ function Instructor() {
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-                const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
-                const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+              {Array.from({ length: SlotConfig.numSlotsPerDay }).map(
+                (_, timeIndex) => {
+                  const hour =
+                    Math.floor(timeIndex / SlotConfig.numSlotsPerHour) +
+                    SlotConfig.startHourOfDay;
+                  const minute =
+                    (SlotConfig.numMinutesPerSlot *
+                      (timeIndex % SlotConfig.numSlotsPerHour)) %
+                    60;
 
-                return (
-                  <tr key={timeIndex} className="h-12">
-                    <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
-                      <span className="text-xs">
-                        {format(new Date().setHours(hour, minute), "h:mm a")}
-                      </span>
-                    </td>
-                    {Array.from({ length: 7 }).map((_, dayIndex) => {
-                      const day = addDays(currentWeekStart, dayIndex);
+                  return (
+                    <tr key={timeIndex} className="h-12">
+                      <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
+                        <span className="text-xs">
+                          {format(new Date().setHours(hour, minute), "h:mm a")}
+                        </span>
+                      </td>
+                      {Array.from({ length: 7 }).map((_, dayIndex) => {
+                        const day = addDays(currentWeekStart, dayIndex);
 
-                      const schedule = instructorData?.instructorSchedules?.find(
-                        (s) => {
-                          const scheduleStart = new Date(`${s.date}T${s.start_time}`);
-                          const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                        const schedule =
+                          instructorData?.instructorSchedules?.find((s) => {
+                            const scheduleStart = new Date(
+                              `${s.date}T${s.start_time}`,
+                            );
+                            const scheduleEnd = new Date(
+                              `${s.date}T${s.end_time}`,
+                            );
+                            const currentTime = new Date(day);
+                            currentTime.setHours(hour, minute);
+
+                            return (
+                              isSameDay(new Date(s.date), day) &&
+                              currentTime >= scheduleStart &&
+                              currentTime < scheduleEnd
+                            );
+                          });
+
+                        const calendarEvent = calendarEvents.find((event) => {
+                          if (!event.start?.dateTime) return false;
+                          const eventStart = new Date(event.start.dateTime);
+                          const eventEnd = new Date(event.end.dateTime);
                           const currentTime = new Date(day);
                           currentTime.setHours(hour, minute);
 
                           return (
-                            isSameDay(new Date(s.date), day) &&
-                            currentTime >= scheduleStart &&
-                            currentTime < scheduleEnd
+                            isSameDay(eventStart, day) &&
+                            currentTime >= eventStart &&
+                            currentTime < eventEnd
                           );
-                        },
-                      );
+                        });
 
-                      const calendarEvent = calendarEvents.find((event) => {
-                        if (!event.start?.dateTime) return false;
-                        const eventStart = new Date(event.start.dateTime);
-                        const eventEnd = new Date(event.end.dateTime);
-                        const currentTime = new Date(day);
-                        currentTime.setHours(hour, minute);
+                        const isUnavailable = isTimeUnavailable(
+                          instructorData?.unavailability,
+                          day,
+                          hour,
+                          minute,
+                        );
+
+                        const learnerName = schedule?.Learner?.name ?? "";
+                        const learnerInfo = schedule?.Learner;
+
+                        const isScheduleStart =
+                          schedule &&
+                          parseInt(schedule.start_time.split(":")[0]) ===
+                            hour &&
+                          parseInt(schedule.start_time.split(":")[1]) ===
+                            minute;
+
+                        const isGoogleEventStart =
+                          calendarEvent &&
+                          new Date(calendarEvent.start.dateTime).getHours() ===
+                            hour &&
+                          new Date(
+                            calendarEvent.start.dateTime,
+                          ).getMinutes() === minute;
+
+                        const isEmpty =
+                          !schedule && !calendarEvent && !isUnavailable;
 
                         return (
-                          isSameDay(eventStart, day) &&
-                          currentTime >= eventStart &&
-                          currentTime < eventEnd
+                          <td
+                            key={dayIndex}
+                            className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
+                              schedule
+                                ? schedule.status === "completed"
+                                  ? "bg-green-200 text-green-800"
+                                  : schedule.status === "ongoing"
+                                    ? "bg-blue-200 text-blue-800"
+                                    : schedule.status === "paused"
+                                      ? "bg-amber-200 text-amber-800"
+                                      : "bg-primary text-white"
+                                : calendarEvent
+                                  ? "bg-orange-200 text-orange-800"
+                                  : isUnavailable
+                                    ? "bg-gray-400 text-red-800"
+                                    : isEmpty
+                                      ? "cursor-pointer hover:bg-blue-50"
+                                      : ""
+                            } ${schedule || calendarEvent ? "cursor-pointer hover:opacity-80" : ""}`}
+                            onClick={() => {
+                              if (schedule) {
+                                handleScheduleClick(schedule, learnerInfo);
+                              } else if (calendarEvent) {
+                                handleEventClick(calendarEvent);
+                              } else if (isEmpty) {
+                                handleEmptyCellClick(day, hour, minute);
+                              }
+                            }}
+                          >
+                            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-tight">
+                              {isScheduleStart ? (
+                                <>
+                                  <div className="truncate font-semibold">
+                                    {learnerName}
+                                  </div>
+                                  <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
+                                  <div className="font-bold uppercase tracking-tighter opacity-80">
+                                    {schedule.status}
+                                  </div>
+                                </>
+                              ) : isGoogleEventStart ? (
+                                <>
+                                  <div className="truncate font-semibold">
+                                    {calendarEvent.summary}
+                                  </div>
+                                  <div>
+                                    {format(
+                                      new Date(calendarEvent.start.dateTime),
+                                      "HH:mm",
+                                    )}{" "}
+                                    -{" "}
+                                    {format(
+                                      new Date(calendarEvent.end.dateTime),
+                                      "HH:mm",
+                                    )}
+                                  </div>
+                                </>
+                              ) : isEmpty ? (
+                                <div className="text-gray-400">
+                                  <Plus className="mx-auto h-3 w-3" />
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
                         );
-                      });
-
-                      const isUnavailable = isTimeUnavailable(
-                        instructorData?.unavailability,
-                        day,
-                        hour,
-                        minute,
-                      );
-
-                      const learnerName = schedule?.Learner?.name ?? "";
-                      const learnerInfo = schedule?.Learner;
-
-                      const isScheduleStart =
-                        schedule &&
-                        parseInt(schedule.start_time.split(":")[0]) === hour &&
-                        parseInt(schedule.start_time.split(":")[1]) === minute;
-
-                      const isGoogleEventStart =
-                        calendarEvent &&
-                        new Date(calendarEvent.start.dateTime).getHours() === hour &&
-                        new Date(calendarEvent.start.dateTime).getMinutes() === minute;
-
-                      const isEmpty = !schedule && !calendarEvent && !isUnavailable;
-
-                      return (
-                        <td
-                          key={dayIndex}
-                          className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
-                            schedule
-                              ? schedule.status === "completed"
-                                ? "bg-green-200 text-green-800"
-                                : schedule.status === "ongoing"
-                                  ? "bg-blue-200 text-blue-800"
-                                  : schedule.status === "paused"
-                                    ? "bg-amber-200 text-amber-800"
-                                    : "bg-primary text-white"
-                              : calendarEvent
-                                ? "bg-orange-200 text-orange-800"
-                                : isUnavailable
-                                  ? "bg-gray-400 text-red-800"
-                                  : isEmpty
-                                    ? "cursor-pointer hover:bg-blue-50"
-                                    : ""
-                          } ${schedule || calendarEvent ? "cursor-pointer hover:opacity-80" : ""}`}
-                          onClick={() => {
-                            if (schedule) {
-                              handleScheduleClick(schedule, learnerInfo);
-                            } else if (calendarEvent) {
-                              handleEventClick(calendarEvent);
-                            } else if (isEmpty) {
-                              handleEmptyCellClick(day, hour, minute);
-                            }
-                          }}
-                        >
-                          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-tight">
-                            {isScheduleStart ? (
-                              <>
-                                <div className="font-semibold truncate">
-                                  {learnerName}
-                                </div>
-                                <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
-                                <div className="uppercase opacity-80 font-bold tracking-tighter">
-                                  {schedule.status}
-                                </div>
-                              </>
-                            ) : isGoogleEventStart ? (
-                              <>
-                                <div className="font-semibold truncate">
-                                  {calendarEvent.summary}
-                                </div>
-                                <div>
-                                  {format(new Date(calendarEvent.start.dateTime), "HH:mm")} - {format(new Date(calendarEvent.end.dateTime), "HH:mm")}
-                                </div>
-                              </>
-                            ) : isEmpty ? (
-                              <div className="text-gray-400">
-                                <Plus className="mx-auto h-3 w-3" />
-                              </div>
-                            ) : null}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
+                      })}
+                    </tr>
+                  );
+                },
+              )}
             </tbody>
           </table>
         </div>
@@ -1181,103 +1211,131 @@ function Instructor() {
 
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
-  // 1. Create a helper for consistent colors
-  const getStatusStyles = (status) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-200 text-green-800 border-green-300";
-      case "ongoing":
-        return "bg-blue-200 text-blue-800 border-blue-300";
-      case "paused":
-        return "bg-amber-200 text-amber-900 border-amber-400"; // Specific Amber
-      default:
-        return "bg-primary text-white border-transparent";
-    }
-  };
+    // 1. Create a helper for consistent colors
+    const getStatusStyles = (status) => {
+      switch (status) {
+        case "completed":
+          return "bg-green-200 text-green-800 border-green-300";
+        case "ongoing":
+          return "bg-blue-200 text-blue-800 border-blue-300";
+        case "paused":
+          return "bg-amber-200 text-amber-900 border-amber-400"; // Specific Amber
+        default:
+          return "bg-primary text-white border-transparent";
+      }
+    };
 
-  const daySchedules = instructorData?.instructorSchedules.filter(
-    (schedule) => isSameDay(new Date(schedule?.date), currentDate)
-  ) || [];
+    const daySchedules =
+      instructorData?.instructorSchedules.filter((schedule) =>
+        isSameDay(new Date(schedule?.date), currentDate),
+      ) || [];
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto">
-        {Array.from({ length: SlotConfig.numSlotsPerDay }).map((_, timeIndex) => {
-          const hour = Math.floor(timeIndex / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
-          const minute = SlotConfig.numMinutesPerSlot * (timeIndex % SlotConfig.numSlotsPerHour) % 60;
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex-1 overflow-y-auto">
+          {Array.from({ length: SlotConfig.numSlotsPerDay }).map(
+            (_, timeIndex) => {
+              const hour =
+                Math.floor(timeIndex / SlotConfig.numSlotsPerHour) +
+                SlotConfig.startHourOfDay;
+              const minute =
+                (SlotConfig.numMinutesPerSlot *
+                  (timeIndex % SlotConfig.numSlotsPerHour)) %
+                60;
 
-          const timeSlotSchedules = daySchedules.filter((s) => {
-            const scheduleStart = new Date(`${s.date}T${s.start_time}`);
-            const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
-            const currentTime = new Date(currentDate);
-            currentTime.setHours(hour, minute);
-            return currentTime >= scheduleStart && currentTime < scheduleEnd;
-          });
+              const timeSlotSchedules = daySchedules.filter((s) => {
+                const scheduleStart = new Date(`${s.date}T${s.start_time}`);
+                const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
+                const currentTime = new Date(currentDate);
+                currentTime.setHours(hour, minute);
+                return (
+                  currentTime >= scheduleStart && currentTime < scheduleEnd
+                );
+              });
 
-          const isUnavailable = isTimeUnavailable(instructorData?.unavailability, currentDate, hour, minute);
-          const isEmpty = !timeSlotSchedules?.length && !isUnavailable;
+              const isUnavailable = isTimeUnavailable(
+                instructorData?.unavailability,
+                currentDate,
+                hour,
+                minute,
+              );
+              const isEmpty = !timeSlotSchedules?.length && !isUnavailable;
 
-          return (
-            <div key={timeIndex} className="flex min-h-[60px] border-b border-gray-100">
-              <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
-                {format(new Date().setHours(hour, minute), "HH:mm")}
-              </div>
-
-              {/* 2. Slot Container Background */}
-              <div
-                className={`relative flex-1 p-2 ${
-                  isUnavailable && !timeSlotSchedules.length
-                    ? "bg-gray-400"
-                    : timeSlotSchedules.length > 0
-                    ? getStatusStyles(timeSlotSchedules[0].status) // Applied here
-                    : isEmpty
-                    ? "cursor-pointer hover:bg-blue-50"
-                    : ""
-                }`}
-              >
-                {timeSlotSchedules.map((schedule, idx) => {
-                  const [startH, startM] = schedule.start_time.split(":").map(Number);
-                  const isExactStartSlot = startH === hour && startM === minute;
-
-                  if (!isExactStartSlot) return null;
-                  const isScheduleStart = parseInt(schedule.start_time.split(":")[0]) === hour;
-                  if (!isScheduleStart) return null;
-
-                  return (
-                    <div
-                      key={`schedule-${idx}`}
-                      className="mb-1 cursor-pointer p-0 text-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleScheduleClick(schedule, schedule?.Learner);
-                      }}
-                    >
-                      <div className="font-bold underline decoration-1 underline-offset-2">
-                        {schedule?.Learner?.name || "N/A"}
-                      </div>
-                      <div className="text-xs mt-1">
-                        {schedule?.start_time.substring(0, 5)} - {schedule?.end_time.substring(0, 5)}
-                      </div>
-                      <div className="text-[10px] mt-1 font-semibold uppercase tracking-wider">
-                        {schedule?.status}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {isEmpty && (
-                  <div className="flex h-full items-center justify-center text-gray-400" onClick={() => handleEmptyCellClick(currentDate, hour, minute)}>
-                    <Plus className="h-4 w-4" />
+              return (
+                <div
+                  key={timeIndex}
+                  className="flex min-h-[60px] border-b border-gray-100"
+                >
+                  <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
+                    {format(new Date().setHours(hour, minute), "HH:mm")}
                   </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+
+                  {/* 2. Slot Container Background */}
+                  <div
+                    className={`relative flex-1 p-2 ${
+                      isUnavailable && !timeSlotSchedules.length
+                        ? "bg-gray-400"
+                        : timeSlotSchedules.length > 0
+                          ? getStatusStyles(timeSlotSchedules[0].status) // Applied here
+                          : isEmpty
+                            ? "cursor-pointer hover:bg-blue-50"
+                            : ""
+                    }`}
+                  >
+                    {timeSlotSchedules.map((schedule, idx) => {
+                      const [startH, startM] = schedule.start_time
+                        .split(":")
+                        .map(Number);
+                      const isExactStartSlot =
+                        startH === hour && startM === minute;
+
+                      if (!isExactStartSlot) return null;
+                      const isScheduleStart =
+                        parseInt(schedule.start_time.split(":")[0]) === hour;
+                      if (!isScheduleStart) return null;
+
+                      return (
+                        <div
+                          key={`schedule-${idx}`}
+                          className="mb-1 cursor-pointer p-0 text-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleScheduleClick(schedule, schedule?.Learner);
+                          }}
+                        >
+                          <div className="font-bold underline decoration-1 underline-offset-2">
+                            {schedule?.Learner?.name || "N/A"}
+                          </div>
+                          <div className="mt-1 text-xs">
+                            {schedule?.start_time.substring(0, 5)} -{" "}
+                            {schedule?.end_time.substring(0, 5)}
+                          </div>
+                          <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider">
+                            {schedule?.status}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {isEmpty && (
+                      <div
+                        className="flex h-full items-center justify-center text-gray-400"
+                        onClick={() =>
+                          handleEmptyCellClick(currentDate, hour, minute)
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            },
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   const EnhancedCalendarView = () => {
     return (
@@ -1414,15 +1472,26 @@ function Instructor() {
   if (instructorLoading) return <div>Loading...</div>;
   if (instructorError)
     return <div>An error occurred: {instructorError.message}</div>;
-  
-  const handleLessonEndNavigation = async (learnerId: string, itemId: string) => {
+
+  const handleLessonEndNavigation = async (
+    learnerId: string,
+    itemId: string,
+  ) => {
     navigate(`/otp/end/${learnerId}/${itemId}`);
   };
 
-  const checkBoundarySchedule = (instructorSchedules, lessonSchedule, checkStart) => {
-    console.log(`[ENTRY] checkBoundarySchedule | checkStart: ${checkStart} | lessonSchedule: ${JSON.stringify(lessonSchedule)} | instructorSchedules: ${JSON.stringify(instructorSchedules)}`);
+  const checkBoundarySchedule = (
+    instructorSchedules,
+    lessonSchedule,
+    checkStart,
+  ) => {
+    console.log(
+      `[ENTRY] checkBoundarySchedule | checkStart: ${checkStart} | lessonSchedule: ${JSON.stringify(lessonSchedule)} | instructorSchedules: ${JSON.stringify(instructorSchedules)}`,
+    );
 
-    const currentIndex = instructorSchedules.findIndex(s => s.id === lessonSchedule.id);
+    const currentIndex = instructorSchedules.findIndex(
+      (s) => s.id === lessonSchedule.id,
+    );
     const lessonStartHM = lessonSchedule.start_time.substring(0, 5);
     const lessonEndHM = lessonSchedule.end_time.substring(0, 5);
 
@@ -1456,7 +1525,9 @@ function Instructor() {
       }
     }
 
-    console.log(`[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`);
+    console.log(
+      `[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`,
+    );
 
     return isBoundary;
   };
@@ -1471,123 +1542,149 @@ function Instructor() {
           {/* Rest of your existing TabsContent components remain the same... */}
           <TabsContent value="schedule" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
-              {instructorData?.instructorScheduleDay.length === 0
-              ? <div className="text-center text-gray-500"> No schedules today </div>
-              : instructorData?.instructorScheduleDay.map((scheduleData, index) => {
-                // to be fixed
-                // for every schedule
-                // const learnerLessonPair = 
-                
-                
-                
-                
-                // ?.learnerLessonDay.find(
-                //   (ll) => ll.lesson.id === schedule.lesson_id,
-                // );
+              {instructorData?.instructorScheduleDay.length === 0 ? (
+                <div className="text-center text-gray-500">
+                  {" "}
+                  No schedules today{" "}
+                </div>
+              ) : (
+                instructorData?.instructorScheduleDay.map(
+                  (scheduleData, index) => {
+                    // to be fixed
+                    // for every schedule
+                    // const learnerLessonPair =
 
-                // if (!learnerLessonPair) {
-                //   return null;
-                // }
+                    // ?.learnerLessonDay.find(
+                    //   (ll) => ll.lesson.id === schedule.lesson_id,
+                    // );
 
-                const { Learner: learner, Lesson: lesson } = scheduleData;
-                const isOngoing = scheduleData.status === "ongoing";
+                    // if (!learnerLessonPair) {
+                    //   return null;
+                    // }
 
-                return (
-                  <Card key={index}>
-                    <CardHeader>
-                      <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
-                        <div className="text-base">Lesson {lesson?.number}</div>
-                        <div className="text-sm">
-                          <div className="text-right text-base">
-                            {new Date(scheduleData.date).toLocaleDateString()}
-                          </div>
-                          {formatTimeRange(
-                            scheduleData.start_time,
-                            scheduleData.end_time,
-                          )}
-                        </div>
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        {lesson?.number &&
-                          LESSON_CONTENT[lesson.number]?.content.title}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-2 text-base">
-                        <div className="flex flex-row items-center gap-2">
-                          <p className="text-nowrap text-muted-foreground">
-                            Pick-up Location :
-                          </p>
-                          <a
-                            href={`https://www.google.com/maps?q=${learner?.address_lat},${learner?.address_lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
-                          >
-                            <span className="truncate">
-                              {learner?.pick_up_location}
-                            </span>
-                            <ExternalLinkIcon className="h-4 w-4 shrink-0" />
-                          </a>
-                        </div>
-                        <div className="flex flex-row gap-2">
-                          <p className="text-muted-foreground">
-                            Learner name :
-                          </p>
-                          <p>{learner?.name}</p>
-                        </div>
-                        <div className="flex flex-row items-center gap-2">
-                          <p className="text-muted-foreground">
-                            Contact Learner :{" "}
-                          </p>
-                          <p>{learner?.phone}</p>
-                          <div className="ml-1">
-                            <a href={`tel:+91${learner?.phone}`}>
-                              <PhoneOutgoing size={14} />
-                            </a>
-                          </div>
-                        </div>
+                    const { Learner: learner, Lesson: lesson } = scheduleData;
+                    const isOngoing = scheduleData.status === "ongoing";
 
-                        <Button
-                          onClick={() => handleOpenLessonPlan(lesson, learner)}
-                          size="sm"
-                          variant="outline"
-                          className="mt-2 w-full text-sm"
-                        >
-                          View Lesson Plan
-                        </Button>
-                      </div>
-                      <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
-                        <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
-                          <p>
-                            Lesson status : {scheduleData.status?.toUpperCase()}
-                          </p>
-                          <div className="flex flex-row items-center gap-24">
-                            {isOngoing ? (
-                              <div className="relative flex items-center justify-center">
-                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                                <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
+                    return (
+                      <Card key={index}>
+                        <CardHeader>
+                          <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
+                            <div className="text-base">
+                              Lesson {lesson?.number}
+                            </div>
+                            <div className="text-sm">
+                              <div className="text-right text-base">
+                                {new Date(
+                                  scheduleData.date,
+                                ).toLocaleDateString()}
                               </div>
-                            ) : null}
-                            {scheduleData.status === "completed" ? (
-                              <div className="flex items-center justify-center">
-                                <CircleCheckBig
-                                  className="rounded-full bg-green-500 text-white"
-                                  size={18}
-                                />
+                              {formatTimeRange(
+                                scheduleData.start_time,
+                                scheduleData.end_time,
+                              )}
+                            </div>
+                          </CardTitle>
+                          <CardDescription className="text-base">
+                            {lesson?.number &&
+                              LESSON_CONTENT[lesson.number]?.content.title}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-2 text-base">
+                            <div className="flex flex-row items-center gap-2">
+                              <p className="text-nowrap text-muted-foreground">
+                                Pick-up Location :
+                              </p>
+                              <a
+                                href={`https://www.google.com/maps?q=${learner?.address_lat},${learner?.address_lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
+                              >
+                                <span className="truncate">
+                                  {learner?.pick_up_location}
+                                </span>
+                                <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+                              </a>
+                            </div>
+                            <div className="flex flex-row gap-2">
+                              <p className="text-muted-foreground">
+                                Learner name :
+                              </p>
+                              <p>{learner?.name}</p>
+                            </div>
+                            <div className="flex flex-row items-center gap-2">
+                              <p className="text-muted-foreground">
+                                Contact Learner :{" "}
+                              </p>
+                              <p>{learner?.phone}</p>
+                              <div className="ml-1">
+                                <a href={`tel:+91${learner?.phone}`}>
+                                  <PhoneOutgoing size={14} />
+                                </a>
                               </div>
-                            ) : null}
-                          </div>
-                          {isOngoing && (
+                            </div>
+
                             <Button
-                              onClick={() => {
-                                  // alert("Lesson to be ended by customer");
-                                  console.log("before check", instructorData, instructorData?.instructorSchedules, scheduleData, false);
-                                      if (checkBoundarySchedule(instructorData?.instructorSchedules, scheduleData, false)) {
-                                        navigate(`/otp/end/${learner.id}/${scheduleData.id}`);
+                              onClick={() =>
+                                handleOpenLessonPlan(lesson, learner)
+                              }
+                              size="sm"
+                              variant="outline"
+                              className="mt-2 w-full text-sm"
+                            >
+                              View Lesson Plan
+                            </Button>
+                          </div>
+                          <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
+                            <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
+                              <p>
+                                Lesson status :{" "}
+                                {scheduleData.status?.toUpperCase()}
+                              </p>
+                              <div className="flex flex-row items-center gap-24">
+                                {isOngoing ? (
+                                  <div className="relative flex items-center justify-center">
+                                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                    <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
+                                  </div>
+                                ) : null}
+                                {scheduleData.status === "completed" ? (
+                                  <div className="flex items-center justify-center">
+                                    <CircleCheckBig
+                                      className="rounded-full bg-green-500 text-white"
+                                      size={18}
+                                    />
+                                  </div>
+                                ) : null}
+                              </div>
+                              {isOngoing && (
+                                <Button
+                                  onClick={
+                                    () => {
+                                      // alert("Lesson to be ended by customer");
+                                      console.log(
+                                        "before check",
+                                        instructorData,
+                                        instructorData?.instructorSchedules,
+                                        scheduleData,
+                                        false,
+                                      );
+                                      if (
+                                        checkBoundarySchedule(
+                                          instructorData?.instructorSchedules,
+                                          scheduleData,
+                                          false,
+                                        )
+                                      ) {
+                                        navigate(
+                                          `/otp/end/${learner.id}/${scheduleData.id}`,
+                                        );
                                       } else {
                                         // if not boundary, update schedule status without auth
-                                        console.log("update schedule without auth");
+                                        console.log(
+                                          "update schedule without auth",
+                                        );
                                         scheduleStatusUpdate({
                                           scheduleId: scheduleData.id,
                                           status: "completed",
@@ -1600,27 +1697,37 @@ function Instructor() {
                                           window.location.reload();
                                         }, 1000);
                                       }
-                                }
-                                // handleFinishLesson(
-                                //   schedule.id.toString(),
-                                //   learner.id,
-                                // )
-                              }
-                              size="sm"
-                              variant="secondary"
-                              className="text-sm"
-                            >
-                              Finish Lesson
-                            </Button>
-                          )}
-                          {scheduleData.status === "booked" && (
-                              <Button
-                                onClick={() => {
-                                  if (checkBoundarySchedule(instructorData.instructorSchedules, scheduleData, true)) {
-                                    navigate(`/otp/start/${learner?.id}/${scheduleData?.id}`);
-                                  } else {
+                                    }
+                                    // handleFinishLesson(
+                                    //   schedule.id.toString(),
+                                    //   learner.id,
+                                    // )
+                                  }
+                                  size="sm"
+                                  variant="secondary"
+                                  className="text-sm"
+                                >
+                                  Finish Lesson
+                                </Button>
+                              )}
+                              {scheduleData.status === "booked" && (
+                                <Button
+                                  onClick={() => {
+                                    if (
+                                      checkBoundarySchedule(
+                                        instructorData.instructorSchedules,
+                                        scheduleData,
+                                        true,
+                                      )
+                                    ) {
+                                      navigate(
+                                        `/otp/start/${learner?.id}/${scheduleData?.id}`,
+                                      );
+                                    } else {
                                       // if not boundary, update schedule status without auth
-                                      console.log("update schedule without auth");
+                                      console.log(
+                                        "update schedule without auth",
+                                      );
                                       scheduleStatusUpdate({
                                         scheduleId: scheduleData.id,
                                         status: "ongoing",
@@ -1633,196 +1740,237 @@ function Instructor() {
                                         window.location.reload();
                                       }, 1000);
                                     }
-                                }}
-                                size="sm"
-                                className="text-sm"
-                              >
-                                Start
-                              </Button>
-                            )}
-                        </div>
+                                  }}
+                                  size="sm"
+                                  className="text-sm"
+                                >
+                                  Start
+                                </Button>
+                              )}
+                            </div>
+                          </Card>
+                        </CardContent>
                       </Card>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                    );
+                  },
+                )
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="lesson" className="m-0 h-full overflow-y-auto">
             <div className="flex flex-col gap-2 pb-4">
-              { (!instructorData || !(instructorData.instructorSchedules)) && (
-                <div className="text-center text-gray-500"> No lessons scheduled </div>
-                )
-              }
+              {(!instructorData || !instructorData.instructorSchedules) && (
+                <div className="text-center text-gray-500">
+                  {" "}
+                  No lessons scheduled{" "}
+                </div>
+              )}
               {instructorData?.instructorSchedules?.map((item, index) => {
-                  if (!item) {
-                    console.warn(`Skipping null/undefined item at index ${index}.`);
-                    return null;
-                  }
+                if (!item) {
+                  console.warn(
+                    `Skipping null/undefined item at index ${index}.`,
+                  );
+                  return null;
+                }
 
-                  const { Learner: learner, Lesson: lesson } = item;
-                  const isOngoing = item.status === "ongoing";
+                const { Learner: learner, Lesson: lesson } = item;
+                const isOngoing = item.status === "ongoing";
 
+                if (!lesson || !lesson.id) {
+                  console.warn(
+                    `Skipping item at index ${index}: lesson or lesson ID is missing.`,
+                  );
+                  return null;
+                }
 
-                  if (!lesson || !lesson.id) {
-                    console.warn(`Skipping item at index ${index}: lesson or lesson ID is missing.`);
-                    return null;
-                  }
-                  
-                  const lessonSchedule = item;
+                const lessonSchedule = item;
 
-                  // Existing check for lessonSchedule
-                  if (!lessonSchedule) {
-                    console.error(`Missing schedule for lesson ID: ${lesson.id}`);
-                    return null;
-                  }
+                // Existing check for lessonSchedule
+                if (!lessonSchedule) {
+                  console.error(`Missing schedule for lesson ID: ${lesson.id}`);
+                  return null;
+                }
 
-                  return (
-                    <Card key={index}>
-                      <CardHeader>
-                        <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
-                          <div className="text-base">Lesson {lesson.number}</div>
-                          <div className="text-sm">
-                            <div className="text-right text-base">
-                              {lessonSchedule.date
-                                ? new Date(lessonSchedule.date).toLocaleDateString()
-                                : "No date"}
-                            </div>
-                            {formatTimeRange(
-                                lessonSchedule.start_time,
-                                lessonSchedule.end_time,
-                              )}
+                return (
+                  <Card key={index}>
+                    <CardHeader>
+                      <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-sm">
+                        <div className="text-base">Lesson {lesson.number}</div>
+                        <div className="text-sm">
+                          <div className="text-right text-base">
+                            {lessonSchedule.date
+                              ? new Date(
+                                  lessonSchedule.date,
+                                ).toLocaleDateString()
+                              : "No date"}
                           </div>
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          {lesson.number &&
-                            LESSON_CONTENT[lesson.number]?.content.title}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-1 text-lg">
-                          <div className="flex flex-row items-center gap-1">
-                            <p className="text-nowrap text-muted-foreground">
-                              Pick-up Location :
-                            </p>
-                            {/* Added defensive access for learner properties like address_lat/lng */}
-                            <a
-                              href={`https://www.google.com/maps?q=$$${learner?.address_lat},${learner?.address_lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
-                            >
-                              <span className="truncate">
-                                {learner?.pick_up_location}
-                              </span>
-                              <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+                          {formatTimeRange(
+                            lessonSchedule.start_time,
+                            lessonSchedule.end_time,
+                          )}
+                        </div>
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        {lesson.number &&
+                          LESSON_CONTENT[lesson.number]?.content.title}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1 text-lg">
+                        <div className="flex flex-row items-center gap-1">
+                          <p className="text-nowrap text-muted-foreground">
+                            Pick-up Location :
+                          </p>
+                          {/* Added defensive access for learner properties like address_lat/lng */}
+                          <a
+                            href={`https://www.google.com/maps?q=$$${learner?.address_lat},${learner?.address_lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 truncate text-base underline hover:text-blue-800"
+                          >
+                            <span className="truncate">
+                              {learner?.pick_up_location}
+                            </span>
+                            <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+                          </a>
+                        </div>
+                        <div className="flex flex-row gap-1">
+                          <p className="text-muted-foreground">
+                            Learner name :
+                          </p>
+                          <p>{learner?.name}</p>
+                        </div>
+                        <div className="flex flex-row items-center gap-1">
+                          <p className="text-muted-foreground">
+                            Contact Learner :{" "}
+                          </p>
+                          <p>{learner?.phone}</p>
+                          <div className="ml-1">
+                            <a href={`tel:+91${learner?.phone}`}>
+                              <PhoneOutgoing size={14} />
                             </a>
                           </div>
-                          <div className="flex flex-row gap-1">
-                            <p className="text-muted-foreground">
-                              Learner name :
-                            </p>
-                            <p>{learner?.name}</p>
-                          </div>
-                          <div className="flex flex-row items-center gap-1">
-                            <p className="text-muted-foreground">
-                              Contact Learner :{" "}
-                            </p>
-                            <p>{learner?.phone}</p>
-                            <div className="ml-1">
-                              <a href={`tel:+91${learner?.phone}`}>
-                                <PhoneOutgoing size={14} />
-                              </a>
-                            </div>
-                          </div>
+                        </div>
 
-                          {lessonSchedule.status && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <p className="text-muted-foreground">Status:</p>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs ${
-                                  lessonSchedule.status === "completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : lessonSchedule.status === "ongoing"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {lessonSchedule.status.toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                      <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
-                        <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
-                          <p>
-                            Lesson status : {lessonSchedule.status?.toUpperCase()}
-                          </p>
-                          <div className="flex flex-row items-center gap-24">
-                            {isOngoing ? (
-                              <div className="relative flex items-center justify-center">
-                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                                <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
-                              </div>
-                            ) : null}
-                            {lessonSchedule.status === "completed" ? (
-                              <div className="flex items-center justify-center">
-                                <CircleCheckBig
-                                  className="rounded-full bg-green-500 text-white"
-                                  size={18}
-                                />
-                              </div>
-                            ) : null}
+                        {lessonSchedule.status && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <p className="text-muted-foreground">Status:</p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs ${
+                                lessonSchedule.status === "completed"
+                                  ? "bg-green-100 text-green-800"
+                                  : lessonSchedule.status === "ongoing"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {lessonSchedule.status.toUpperCase()}
+                            </span>
                           </div>
-                          {isOngoing && (
-                            <div>
-                              <Button
-                                onClick={() => {
+                        )}
+                        <Card className="rounded-smb flex flex-row items-center justify-between gap-4 p-2 shadow-md">
+                          <div className="flex w-full flex-wrap items-center justify-between gap-2 p-1 text-sm">
+                            <p>
+                              Lesson status :{" "}
+                              {lessonSchedule.status?.toUpperCase()}
+                            </p>
+                            <div className="flex flex-row items-center gap-24">
+                              {isOngoing ? (
+                                <div className="relative flex items-center justify-center">
+                                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                  <div className="absolute h-3 w-3 animate-ping rounded-full bg-green-500"></div>
+                                </div>
+                              ) : null}
+                              {lessonSchedule.status === "completed" ? (
+                                <div className="flex items-center justify-center">
+                                  <CircleCheckBig
+                                    className="rounded-full bg-green-500 text-white"
+                                    size={18}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                            {isOngoing && (
+                              <div>
+                                <Button
+                                  onClick={() => {
                                     // alert("Lesson to be ended by customer");
-                                    if (lesson?.number == lessonSchedule?.Courses?.total_lessons) {
-                                      console.log("Last lesson of course", lesson?.number, lessonSchedule?.Courses?.total_lessons);
+                                    if (
+                                      lesson?.number ==
+                                      lessonSchedule?.Courses?.total_lessons
+                                    ) {
+                                      console.log(
+                                        "Last lesson of course",
+                                        lesson?.number,
+                                        lessonSchedule?.Courses?.total_lessons,
+                                      );
                                       setShowFeedbackDialog(true);
                                     } else {
-                                      console.log("Not last lesson of course, no feedback needed", lesson?.number, lessonSchedule?.Courses?.total_lessons);
-                                      if (checkBoundarySchedule(instructorData.instructorSchedules, lessonSchedule, false)) {
-                                        navigate(`/otp/end/${learner.id}/${item.id}`);
+                                      console.log(
+                                        "Not last lesson of course, no feedback needed",
+                                        lesson?.number,
+                                        lessonSchedule?.Courses?.total_lessons,
+                                      );
+                                      if (
+                                        checkBoundarySchedule(
+                                          instructorData.instructorSchedules,
+                                          lessonSchedule,
+                                          false,
+                                        )
+                                      ) {
+                                        navigate(
+                                          `/otp/end/${learner.id}/${item.id}`,
+                                        );
                                       }
                                     }
                                     // handleFinishLesson(
                                     //     schedule.id.toString(),
                                     //     learner.id,
                                     //   )
-                                  }
-                                }
-                                size="sm"
-                                variant="secondary"
-                                className="text-sm"
-                              >
-                                Finish Lesson
-                              </Button>
-
-                              {/* trigger feedback component */}
-                              <CourseFeedbackPage
-                                learnerId={learner?.id || ""}
-                                courseId={lesson?.course_id || ""}
-                                enrollmentId={item?.enrollment_id || ""}
-                                open={showFeedbackDialog}
-                                onOpenChange={setShowFeedbackDialog}
-                                onSuccess={async () => {
-                                    console.log("Feedback updated, success navigation");
-                                    setShowFeedbackDialog(false); 
-                                    await handleLessonEndNavigation(learner?.id, item?.id.toString());
-                                }}
-                              />;
-                            </div>
-                          )}
-                          {lessonSchedule.status === "booked" && (
+                                  }}
+                                  size="sm"
+                                  variant="secondary"
+                                  className="text-sm"
+                                >
+                                  Finish Lesson
+                                </Button>
+                                {/* trigger feedback component */}
+                                <CourseFeedbackPage
+                                  learnerId={learner?.id || ""}
+                                  courseId={lesson?.course_id || ""}
+                                  enrollmentId={item?.enrollment_id || ""}
+                                  open={showFeedbackDialog}
+                                  onOpenChange={setShowFeedbackDialog}
+                                  onSuccess={async () => {
+                                    console.log(
+                                      "Feedback updated, success navigation",
+                                    );
+                                    setShowFeedbackDialog(false);
+                                    await handleLessonEndNavigation(
+                                      learner?.id,
+                                      item?.id.toString(),
+                                    );
+                                  }}
+                                />
+                                ;
+                              </div>
+                            )}
+                            {lessonSchedule.status === "booked" && (
                               <Button
-                              onClick={() => {
+                                onClick={() => {
                                   // to reduce authorizing on continuous lessons
                                   // navigate to start auth only if no previous hour lesson of the same learner
-                                  if (checkBoundarySchedule(instructorData.instructorSchedules, lessonSchedule, checkStart=true)) {
-                                    navigate(`/otp/start/${learner.id}/${lessonSchedule.id}`);
+                                  if (
+                                    checkBoundarySchedule(
+                                      instructorData.instructorSchedules,
+                                      lessonSchedule,
+                                      (checkStart = true),
+                                    )
+                                  ) {
+                                    navigate(
+                                      `/otp/start/${learner.id}/${lessonSchedule.id}`,
+                                    );
                                   }
                                 }}
                                 size="sm"
@@ -1831,13 +1979,13 @@ function Instructor() {
                                 Start
                               </Button>
                             )}
-                        </div>
-                      </Card>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                          </div>
+                        </Card>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
         </div>
@@ -2193,7 +2341,7 @@ function Instructor() {
             </DialogTitle>
             <DialogDescription>
               {scheduleDetailDialog.learner?.name} - Lesson{" "}
-              {scheduleDetailDialog.schedule?.Lesson?.number} 
+              {scheduleDetailDialog.schedule?.Lesson?.number}
             </DialogDescription>
           </DialogHeader>
           {scheduleDetailDialog.schedule && (

@@ -14,12 +14,15 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
 import { useCourses } from "@/queries/payment";
+import { SKILL_MODULES, DEMO_COURSE } from "@/constants/courses";
+
+type CourseSelectionType = "predefined" | "custom" | "demo" | "test";
 
 interface PaymentDetails {
   amount: number;
   email: string;
   phone: string;
-  paymentType: "course" | "reschedule";
+  paymentType: "course" | "reschedule" | "demo" | "custom";
   courseId?: string;
   requestId?: string;
   name: string;
@@ -30,6 +33,10 @@ interface PaymentDetails {
   enrollmentId?: string;
   installment1Amount?: number;
   installment2Amount?: number;
+  selectedModules?: string[];
+  totalHours?: number;
+  isDemoUpgrade?: boolean;
+  demoPaymentId?: string;
 }
 
 function PaymentPage() {
@@ -42,6 +49,13 @@ function PaymentPage() {
     "full",
   );
 
+  // New state for course type selection
+  const [courseSelectionType, setCourseSelectionType] =
+    useState<CourseSelectionType>("predefined");
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [hasCompletedDemo, setHasCompletedDemo] = useState(false);
+  const [demoPaymentId, setDemoPaymentId] = useState<string | null>(null);
+
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
     amount: 0,
     email: "",
@@ -53,6 +67,8 @@ function PaymentPage() {
     learnerId: "",
     installmentType: "full",
     totalAmount: 0,
+    selectedModules: [],
+    totalHours: 0,
   });
 
   // Helper function to round prices to nearest integer
@@ -63,18 +79,18 @@ function PaymentPage() {
   useEffect(() => {
     const fetchLearnerDetails = async () => {
       const phone = searchParams.get("phone");
-      if (phone) {
+      if (phone && phone !== "undefined" && phone !== "null") {
         try {
           const { data: learner, error } = await supabase
             .from("Learner")
             .select("email, phone, name, id")
             .eq("phone", phone)
-            .order("created_at", {ascending: false})
+            .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
-            
 
-          if (error || !learner) throw new Error("Failed to fetch learner details");
+          if (error || !learner)
+            throw new Error("Failed to fetch learner details");
 
           // Check if there's an existing enrollment for this learner
           const { data: enrollments, error: enrollmentError } = await supabase
@@ -95,15 +111,18 @@ function PaymentPage() {
           const enrollmentId = enrollment?.id || "";
           const installmentMode = enrollment?.installment_mode || "full";
 
-          // Get course details
-          const { data: course, error: courseError } = await supabase
-            .from("Courses")
-            .select("price, id")
-            .eq("id", courseId)
-            .single();
+          // Get course details (only if courseId exists)
+          let course = null;
+          if (courseId) {
+            const { data: courseData, error: courseError } = await supabase
+              .from("Courses")
+              .select("price, id")
+              .eq("id", courseId)
+              .single();
 
-          if (courseError && courseId)
-            throw new Error("Failed to fetch course details");
+            if (courseError) throw new Error("Failed to fetch course details");
+            course = courseData;
+          }
 
           // Check if this is a second installment payment by looking for a completed first installment payment
           let isSecondInstallment = false;
@@ -174,19 +193,25 @@ function PaymentPage() {
             email: learner.email || "",
             phone: learner.phone || "",
             name: learner.name || "",
-            courseId: courseId,
-            enrollmentId: enrollmentId,
-            amount: paymentAmount,
             learnerId: learner.id,
-            installmentType: isSecondInstallment
-              ? "second_half"
-              : paymentOption === "full"
-                ? "full"
-                : "first_half",
-            totalAmount: totalAmount,
-            parentPaymentId: parentPaymentId,
-            installment1Amount: installment1Amount,
-            installment2Amount: installment2Amount,
+            // Only set course/payment fields if there's an actual enrollment
+            // This prevents overwriting amounts set by demo/test selection
+            ...(courseId
+              ? {
+                  courseId: courseId,
+                  enrollmentId: enrollmentId,
+                  amount: paymentAmount,
+                  installmentType: isSecondInstallment
+                    ? "second_half"
+                    : paymentOption === "full"
+                      ? "full"
+                      : "first_half",
+                  totalAmount: totalAmount,
+                  parentPaymentId: parentPaymentId,
+                  installment1Amount: installment1Amount,
+                  installment2Amount: installment2Amount,
+                }
+              : {}),
           }));
 
           // If it's a second installment, force the payment option
@@ -194,13 +219,32 @@ function PaymentPage() {
             setPaymentOption("installment");
           } else if (
             // possible values "full" | "installment" | "second_half" | "first_half"
-            installmentMode != "full" 
+            installmentMode != "full"
           ) {
             // If enrollment was created with installment mode, default to that
             setPaymentOption("installment");
           }
 
-          setIsPrefilled(true);
+          // Only mark as prefilled if there's an actual enrollment with a course
+          setIsPrefilled(!!courseId);
+
+          // Check if user has completed a demo payment (for upgrade pricing)
+          const { data: demoPayments, error: demoError } = await supabase
+            .from("payment")
+            .select("id, status, amount")
+            .eq("learner_id", learner.id)
+            .eq("payment_type", "demo")
+            .eq("status", "completed")
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          // Only set demo state if query succeeded (column exists)
+          if (!demoError && demoPayments && demoPayments.length > 0) {
+            setHasCompletedDemo(true);
+            setDemoPaymentId(demoPayments[0].id);
+          } else if (demoError) {
+            console.log("Demo payment check skipped:", demoError.message);
+          }
         } catch (err: unknown) {
           const errorMessage =
             err instanceof Error ? err.message : "An error occurred";
@@ -222,44 +266,160 @@ function PaymentPage() {
 
   // Update payment amount when payment option changes
   useEffect(() => {
-    if (paymentDetails.installmentType !== "second_half") {
-      const totalAmount = paymentDetails.totalAmount || paymentDetails.amount;
+    // Skip for demo and test - fixed price
+    if (courseSelectionType === "demo" || courseSelectionType === "test")
+      return;
 
-      if (totalAmount > 0) {
-        // Use custom installment amounts if available
-        const installment1Amount =
-          paymentDetails.installment1Amount || roundPrice(totalAmount / 2);
+    // Use functional update to get the latest state values
+    setPaymentDetails((prev) => {
+      // Skip if second installment
+      if (prev.installmentType === "second_half") return prev;
 
-        const amount =
-          paymentOption === "full" ? totalAmount : installment1Amount;
+      const totalAmount = prev.totalAmount;
+      if (!totalAmount || totalAmount <= 0) return prev;
 
-        setPaymentDetails((prev) => ({
-          ...prev,
-          amount: amount,
-          installmentType: paymentOption === "full" ? "full" : "first_half",
-        }));
+      const installment1Amount =
+        prev.installment1Amount || roundPrice(totalAmount / 2);
+
+      const newAmount =
+        paymentOption === "full" ? totalAmount : installment1Amount;
+
+      // Only update if amount actually changed to prevent loops
+      if (
+        prev.amount === newAmount &&
+        prev.installmentType ===
+          (paymentOption === "full" ? "full" : "first_half")
+      ) {
+        return prev;
       }
-    }
-  }, [
-    paymentOption,
-    paymentDetails.totalAmount,
-    paymentDetails.installment1Amount,
-  ]);
+
+      return {
+        ...prev,
+        amount: newAmount,
+        installmentType: paymentOption === "full" ? "full" : "first_half",
+      };
+    });
+  }, [paymentOption, courseSelectionType]);
 
   const handleCourseChange = (courseId: string) => {
     const selectedCourse = courses?.find((course) => course.id === courseId);
     const coursePrice = roundPrice(selectedCourse?.price || 0);
-    const installment1Amount = roundPrice(coursePrice / 2);
-    const installment2Amount = coursePrice - installment1Amount;
+
+    // Apply demo discount if user has completed demo
+    const finalPrice = hasCompletedDemo
+      ? Math.max(0, coursePrice - DEMO_COURSE.price)
+      : coursePrice;
+
+    const installment1Amount = roundPrice(finalPrice / 2);
+    const installment2Amount = finalPrice - installment1Amount;
 
     setPaymentDetails((prev) => ({
       ...prev,
       courseId,
-      amount: paymentOption === "full" ? coursePrice : installment1Amount,
-      totalAmount: coursePrice,
+      amount: paymentOption === "full" ? finalPrice : installment1Amount,
+      totalAmount: finalPrice,
       installmentType: paymentOption === "full" ? "full" : "first_half",
       installment1Amount: installment1Amount,
       installment2Amount: installment2Amount,
+      isDemoUpgrade: hasCompletedDemo,
+      demoPaymentId: hasCompletedDemo ? demoPaymentId : undefined,
+    }));
+  };
+
+  // Handle course type selection change
+  const handleCourseTypeChange = (type: CourseSelectionType) => {
+    setCourseSelectionType(type);
+    setSelectedModules([]);
+
+    if (type === "demo") {
+      // Set demo pricing
+      setPaymentDetails((prev) => ({
+        ...prev,
+        paymentType: "demo",
+        courseId: "",
+        amount: DEMO_COURSE.price,
+        totalAmount: DEMO_COURSE.price,
+        totalHours: DEMO_COURSE.hours,
+        selectedModules: [],
+      }));
+    } else if (type === "test") {
+      // Set test pricing (₹10 for testing)
+      setPaymentDetails((prev) => ({
+        ...prev,
+        paymentType: "demo", // Use demo type for backend processing
+        courseId: "",
+        amount: 10,
+        totalAmount: 10,
+        totalHours: 1,
+        selectedModules: [],
+      }));
+    } else if (type === "custom") {
+      // Reset for custom selection
+      setPaymentDetails((prev) => ({
+        ...prev,
+        paymentType: "custom",
+        courseId: "",
+        amount: 0,
+        totalAmount: 0,
+        totalHours: 0,
+        selectedModules: [],
+      }));
+    } else {
+      // Reset for predefined courses
+      setPaymentDetails((prev) => ({
+        ...prev,
+        paymentType: "course",
+        courseId: "",
+        amount: 0,
+        totalAmount: 0,
+        selectedModules: [],
+      }));
+    }
+  };
+
+  // Handle module selection for custom courses
+  const handleModuleToggle = (moduleId: string) => {
+    const newSelectedModules = selectedModules.includes(moduleId)
+      ? selectedModules.filter((m) => m !== moduleId)
+      : [...selectedModules, moduleId];
+
+    setSelectedModules(newSelectedModules);
+
+    // Calculate total hours and price based on selected modules
+    const totalHours = newSelectedModules.reduce((sum, modId) => {
+      const module = SKILL_MODULES.find((m) => m.id === modId);
+      return sum + (module?.hours || 0);
+    }, 0);
+
+    // Calculate price by summing up individual module course prices
+    let totalPrice = 0;
+    newSelectedModules.forEach((modId) => {
+      const module = SKILL_MODULES.find((m) => m.id === modId);
+      if (module && courses) {
+        const moduleCourse = courses.find((c) => c.id === module.courseId);
+        totalPrice += moduleCourse?.price || 0;
+      }
+    });
+
+    // Apply demo discount if user has completed demo
+    const finalPrice = hasCompletedDemo
+      ? Math.max(0, totalPrice - DEMO_COURSE.price)
+      : totalPrice;
+
+    const installment1Amount = roundPrice(finalPrice / 2);
+    const installment2Amount = finalPrice - installment1Amount;
+
+    setPaymentDetails((prev) => ({
+      ...prev,
+      paymentType: "custom",
+      amount: paymentOption === "full" ? finalPrice : installment1Amount,
+      totalAmount: finalPrice,
+      totalHours: totalHours,
+      selectedModules: newSelectedModules,
+      installment1Amount: installment1Amount,
+      installment2Amount: installment2Amount,
+      isDemoUpgrade: hasCompletedDemo,
+      demoPaymentId: hasCompletedDemo ? demoPaymentId : undefined,
     }));
   };
 
@@ -269,22 +429,55 @@ function PaymentPage() {
     setError(null);
 
     try {
+      // Calculate the correct amount based on current payment option
+      const totalAmount = paymentDetails.totalAmount || paymentDetails.amount;
+      const installment1Amount =
+        paymentDetails.installment1Amount || roundPrice(totalAmount / 2);
+      const installment2Amount =
+        paymentDetails.installment2Amount || totalAmount - installment1Amount;
+
+      // Determine the actual amount to charge based on payment option
+      let finalAmount = paymentDetails.amount;
+      let finalInstallmentType = paymentDetails.installmentType;
+
+      // For demo, always use the fixed demo price
+      if (courseSelectionType === "demo") {
+        finalAmount = DEMO_COURSE.price;
+        finalInstallmentType = "full";
+      } else if (courseSelectionType === "test") {
+        // For test, always use ₹10
+        finalAmount = 10;
+        finalInstallmentType = "full";
+      } else if (paymentDetails.installmentType !== "second_half") {
+        // For non-second-half payments, recalculate based on current paymentOption
+        finalAmount =
+          paymentOption === "full" ? totalAmount : installment1Amount;
+        finalInstallmentType = paymentOption === "full" ? "full" : "first_half";
+      }
+
       // Include the enrollmentId and installment amounts in the payment details
       const paymentData = {
         ...paymentDetails,
+        amount: finalAmount,
+        installmentType: finalInstallmentType,
         ...(paymentDetails.enrollmentId
           ? { enrollmentId: paymentDetails.enrollmentId }
           : {}),
-        installment1Amount:
-          paymentDetails.installment1Amount ||
-          Math.round((paymentDetails.totalAmount || paymentDetails.amount) / 2),
-        installment2Amount:
-          paymentDetails.installment2Amount ||
-          (paymentDetails.totalAmount || paymentDetails.amount) -
-            (paymentDetails.installment1Amount ||
-              Math.round(
-                (paymentDetails.totalAmount || paymentDetails.amount) / 2,
-              )),
+        installment1Amount: installment1Amount,
+        installment2Amount: installment2Amount,
+        // Include custom course data
+        selectedModules:
+          courseSelectionType === "custom" ? selectedModules : undefined,
+        totalHours:
+          courseSelectionType === "custom"
+            ? paymentDetails.totalHours
+            : undefined,
+        isDemoUpgrade: hasCompletedDemo && courseSelectionType !== "demo",
+        demoPaymentId:
+          hasCompletedDemo && courseSelectionType !== "demo"
+            ? demoPaymentId
+            : undefined,
+        courseSelectionType: courseSelectionType,
       };
 
       console.log("Sending payment data:", paymentData);
@@ -311,69 +504,48 @@ function PaymentPage() {
         throw error;
       }
 
-      // const { error: messageError } = await supabase.functions.invoke(
-      //   "send-message",
-      //   {
-      //     body: {
-      //       message_type: "THANK_YOU_PAYMENT",
-      //       learner_id: paymentDetails.learnerId,
-      //       payment_amount: paymentDetails.amount,
-      //     },
-      //   },
-      // );
+      // Orange PG returns a redirect URL directly
+      if (data.redirectUrl) {
+        console.log("Redirecting to Orange PG:", data.redirectUrl);
+        window.location.href = data.redirectUrl;
+        return;
+      }
 
-      // if (messageError) throw messageError;
+      // Fallback for legacy response format (form submission)
+      if (data.gatewayURL && data.formData) {
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = data.gatewayURL;
 
-      // const { error: messageError2 } = await supabase.functions.invoke(
-      //   "send-message",
-      //   {
-      //     body: {
-      //       message_type: "SIGN_UP_REMINDER",
-      //       learner_id: paymentDetails.learnerId,
-      //     },
-      //   },
-      // );
+        console.log("Submitting to payment gateway:", {
+          gatewayURL: data.gatewayURL,
+          formData: data.formData,
+        });
 
-      // if (messageError2) throw messageError2;
+        Object.entries(data.formData).forEach(([key, value]) => {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        });
 
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = data.gatewayURL;
+        form.setAttribute("target", "_self");
+        form.style.display = "none";
+        document.body.appendChild(form);
 
-      // Add debug logging
-      console.log("Submitting to payment gateway:", {
-        gatewayURL: data.gatewayURL,
-        formData: data.formData,
-      });
-
-      // Ensure all form fields are properly set
-      Object.entries(data.formData).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = String(value);
-        form.appendChild(input);
-        console.log(`Added form field: ${key}=${value}`);
-      });
-
-      // Set form attributes for proper submission
-      form.setAttribute("target", "_self");
-      form.style.display = "none";
-
-      // Append form to body, submit it, and then remove it
-      document.body.appendChild(form);
-
-      // Add a small delay before submitting the form
-      setTimeout(() => {
-        console.log("Submitting payment form...");
-        form.submit();
-        // Don't remove the form immediately to ensure it submits properly
         setTimeout(() => {
-          if (document.body.contains(form)) {
-            document.body.removeChild(form);
-          }
-        }, 2000);
-      }, 100);
+          form.submit();
+          setTimeout(() => {
+            if (document.body.contains(form)) {
+              document.body.removeChild(form);
+            }
+          }, 2000);
+        }, 100);
+        return;
+      }
+
+      throw new Error("Invalid payment gateway response");
     } catch (err: unknown) {
       console.error("Payment initiation failed:", err);
       setError(
@@ -420,13 +592,253 @@ function PaymentPage() {
             </Alert>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {type === "course" && (
+            {type === "course" && !isPrefilled && (
+              <>
+                {/* Course Type Selection */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">
+                    Choose Course Type
+                  </label>
+                  <div className="space-y-2">
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "predefined"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("predefined")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "predefined"}
+                        onChange={() => handleCourseTypeChange("predefined")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Select a Course</p>
+                        <p className="text-xs text-gray-500">
+                          Choose from our predefined course packages
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "custom"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("custom")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "custom"}
+                        onChange={() => handleCourseTypeChange("custom")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Build Your Own Course</p>
+                        <p className="text-xs text-gray-500">
+                          Select individual skill modules you want to learn
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "demo"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("demo")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "demo"}
+                        onChange={() => handleCourseTypeChange("demo")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">
+                          Demo Lesson - ₹{DEMO_COURSE.price}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {DEMO_COURSE.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "test"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("test")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "test"}
+                        onChange={() => handleCourseTypeChange("test")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Test Payment - ₹10</p>
+                        <p className="text-xs text-gray-500">
+                          For testing purposes only
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Predefined Course Dropdown */}
+                {courseSelectionType === "predefined" && (
+                  <div>
+                    <label
+                      htmlFor="courseId"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      Select Course
+                    </label>
+                    <Select
+                      value={paymentDetails.courseId}
+                      onValueChange={handleCourseChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses?.map((course) => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.name} - {course.total_lessons} Lessons
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {hasCompletedDemo && (
+                      <p className="mt-1 text-xs text-green-600">
+                        ₹{DEMO_COURSE.price} will be deducted from your course
+                        price (demo upgrade)
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Course Module Selection */}
+                {courseSelectionType === "custom" && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">
+                      Select Skill Modules
+                    </label>
+                    <div className="space-y-2">
+                      {SKILL_MODULES.map((module) => {
+                        const moduleCourse = courses?.find(
+                          (c) => c.id === module.courseId,
+                        );
+                        const modulePrice = moduleCourse?.price || 0;
+                        const isSelected = selectedModules.includes(module.id);
+
+                        return (
+                          <div
+                            key={module.id}
+                            className={`flex cursor-pointer items-start space-x-3 rounded-lg border p-3 ${
+                              isSelected
+                                ? "border-primary bg-primary/5"
+                                : "border-gray-200"
+                            }`}
+                            onClick={() => handleModuleToggle(module.id)}
+                          >
+                            <div
+                              className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                                isSelected
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-gray-300"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg
+                                  className="h-3 w-3"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="cursor-pointer font-medium">
+                                  {module.label}
+                                </span>
+                                <span className="text-sm font-semibold">
+                                  ₹{modulePrice}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                {module.hours} hours - {module.description}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {selectedModules.length > 0 && (
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Hours:</span>
+                          <span className="font-medium">
+                            {paymentDetails.totalHours} hours
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Price:</span>
+                          <span className="font-medium">
+                            ₹{paymentDetails.totalAmount}
+                          </span>
+                        </div>
+                        {hasCompletedDemo && (
+                          <p className="mt-1 text-xs text-green-600">
+                            Demo discount of ₹{DEMO_COURSE.price} applied!
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Demo Course Info */}
+                {courseSelectionType === "demo" && (
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertDescription>
+                      <strong>Demo Lesson</strong> - Try a {DEMO_COURSE.hours}
+                      -hour introductory lesson for just ₹{DEMO_COURSE.price}.
+                      If you decide to purchase a full course later, this amount
+                      will be deducted from your course price!
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
+
+            {/* Show simple course dropdown if already enrolled (prefilled) */}
+            {type === "course" && isPrefilled && (
               <div>
                 <label
                   htmlFor="courseId"
                   className="mb-1 block text-sm font-medium"
                 >
-                  Select Course
+                  Selected Course
                 </label>
                 <Select
                   value={paymentDetails.courseId}
@@ -523,43 +935,50 @@ function PaymentPage() {
                 </div>
               </>
             )}
-            {!isSecondInstallment && (
-              <div className="space-y-2">
-                <label htmlFor="paymentOption" className="text-sm font-medium">
-                  Payment Option
-                </label>
-                <Select
-                  value={paymentOption}
-                  defaultValue={
-                    paymentDetails.installmentType === "full" ? "full" : "installment"
-                  }
-                  onValueChange={(value: "full" | "installment") =>
-                    setPaymentOption(value)
-                  }
-                  disabled={isPrefilled || isSecondInstallment}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">
-                      Pay full amount (₹{displayAmount})
-                    </SelectItem>
-                    <SelectItem value="installment">
-                      Pay in installments (₹{firstInstallmentAmount} now + ₹
-                      {secondInstallmentAmount} later)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {paymentOption === "installment" && (
-                  <p className="text-xs text-gray-500">
-                    Note: Only 1 lesson will be unlocked.
-                    You&apos;ll need to pay the remaining amount to unlock all
-                    lessons.
-                  </p>
-                )}
-              </div>
-            )}
+            {!isSecondInstallment &&
+              displayAmount > 0 &&
+              courseSelectionType !== "demo" &&
+              courseSelectionType !== "test" && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor="paymentOption"
+                    className="text-sm font-medium"
+                  >
+                    Payment Option
+                  </label>
+                  <Select
+                    value={paymentOption}
+                    defaultValue={
+                      paymentDetails.installmentType === "full"
+                        ? "full"
+                        : "installment"
+                    }
+                    onValueChange={(value: "full" | "installment") =>
+                      setPaymentOption(value)
+                    }
+                    disabled={isPrefilled || isSecondInstallment}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">
+                        Pay full amount (₹{displayAmount})
+                      </SelectItem>
+                      <SelectItem value="installment">
+                        Pay in installments (₹{firstInstallmentAmount} now + ₹
+                        {secondInstallmentAmount} later)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {paymentOption === "installment" && (
+                    <p className="text-xs text-gray-500">
+                      Note: Only 1 lesson will be unlocked. You&apos;ll need to
+                      pay the remaining amount to unlock all lessons.
+                    </p>
+                  )}
+                </div>
+              )}
             {isSecondInstallment && (
               <Alert className="border-blue-200 bg-blue-50">
                 <AlertDescription>
@@ -574,11 +993,16 @@ function PaymentPage() {
               className="w-full"
               disabled={
                 isLoading ||
-                (!paymentDetails.courseId && type === "course") ||
+                (type === "course" &&
+                  courseSelectionType === "predefined" &&
+                  !paymentDetails.courseId) ||
+                (type === "course" &&
+                  courseSelectionType === "custom" &&
+                  selectedModules.length === 0) ||
                 (!paymentDetails.requestId && type === "reschedule")
               }
             >
-              {isLoading ? "Processing..." : "Proceed to Pay"}
+              {isLoading ? "Processing..." : `Pay ₹${paymentDetails.amount}`}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">

@@ -1,8 +1,21 @@
-import { Delete, Filter, RefreshCcw, Search, Send, UserPlus } from "lucide-react";
+import {
+  Delete,
+  Filter,
+  RefreshCcw,
+  Search,
+  Send,
+  UserPlus,
+} from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +42,6 @@ import { addDays, format, formatDate, parse, subDays } from "date-fns";
 import Schedule from "../schedule";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-
 function TentativeSchedules() {
   const [learnerData, setLearnerData] = useState({
     name: "",
@@ -49,7 +61,6 @@ function TentativeSchedules() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const navigate = useNavigate();
-
 
   return (
     <div
@@ -108,9 +119,10 @@ function LearnerNotificationCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schedulesList, setSchedulesList] = useState([]);
-  const [reschduleFinalTimeSetDialogOpen, setReschduleFinalTimeSetDialogOpen] = useState(false);
+  const [reschduleFinalTimeSetDialogOpen, setReschduleFinalTimeSetDialogOpen] =
+    useState(false);
   const [rescheduleFinalTime, setRescheduleFinalTime] = useState("");
-  
+
   const maxDaysWindowToFetch = 1;
   // Array of status of each sending event
   // Each state corresponsds to reminder type
@@ -152,7 +164,7 @@ function LearnerNotificationCard() {
 
       console.log(data);
       if (error) throw error;
-      
+
       setSchedulesList(data);
       return data;
     } catch (err) {
@@ -180,47 +192,45 @@ function LearnerNotificationCard() {
         backgroundSize: "cover",
       }}
     >
-    <Card className="mt-6 transition-all hover:shadow-lg">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-xl">Tentative schedules from today</CardTitle>
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={fetchSchedulesForReminder}
-          disabled={loading}
-        >
-          <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {
-
-        }
-        {schedulesList.length === 0 ? (
-          <p className="py-4 text-center text-muted-foreground">
-            {loading 
-              ? "Loading schedules..." 
-              : `No tentative schedules found`
-            }
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-2 py-2 text-left">Learner</th>
-                  <th className="px-2 py-2 text-left">Phone</th>
-                  <th className="px-2 py-2 text-right">Date</th>
-                  <th className="px-2 py-2 text-center">Booked time</th>
-                  <th className="px-2 py-2 text-left">Lead Name</th>
-                  <th className="px-2 py-2 text-left">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedulesList
-                  .map((scheduleData) => (
+      <Card className="mt-6 transition-all hover:shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-xl">
+              Tentative schedules from today
+            </CardTitle>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchSchedulesForReminder}
+            disabled={loading}
+          >
+            <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {}
+          {schedulesList.length === 0 ? (
+            <p className="py-4 text-center text-muted-foreground">
+              {loading
+                ? "Loading schedules..."
+                : `No tentative schedules found`}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="px-2 py-2 text-left">Learner</th>
+                    <th className="px-2 py-2 text-left">Phone</th>
+                    <th className="px-2 py-2 text-right">Date</th>
+                    <th className="px-2 py-2 text-center">Booked time</th>
+                    <th className="px-2 py-2 text-left">Lead Name</th>
+                    <th className="px-2 py-2 text-left">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedulesList.map((scheduleData) => (
                     <tr
                       key={scheduleData.id}
                       className="border-b hover:bg-muted/50"
@@ -232,7 +242,8 @@ function LearnerNotificationCard() {
                       </td>
                       <td className="px-2 py-2">
                         <>
-                          {(scheduleData.tentative_details?.phone || "Unknown Course")}
+                          {scheduleData.tentative_details?.phone ||
+                            "Unknown Course"}
                         </>
                       </td>
                       <td className="px-2 py-2 text-right">
@@ -241,42 +252,50 @@ function LearnerNotificationCard() {
                       <td className="px-2 py-2 text-center">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium`}
-                          >
+                        >
                           {
-                              // Check if start_time exists before processing
-                              scheduleData.start_time 
-                                  // Split by colon, take the first two elements (HH and MM), and rejoin.
-                                  ? scheduleData.start_time.split(':').slice(0, 2).join(':') 
-                                  : "Unknown"
+                            // Check if start_time exists before processing
+                            scheduleData.start_time
+                              ? // Split by colon, take the first two elements (HH and MM), and rejoin.
+                                scheduleData.start_time
+                                  .split(":")
+                                  .slice(0, 2)
+                                  .join(":")
+                              : "Unknown"
                           }
                           -
                           {
-                              // Check if start_time exists before processing
-                              scheduleData.end_time 
-                                  // Split by colon, take the first two elements (HH and MM), and rejoin.
-                                  ? scheduleData.end_time.split(':').slice(0, 2).join(':') 
-                                  : "Unknown"
+                            // Check if start_time exists before processing
+                            scheduleData.end_time
+                              ? // Split by colon, take the first two elements (HH and MM), and rejoin.
+                                scheduleData.end_time
+                                  .split(":")
+                                  .slice(0, 2)
+                                  .join(":")
+                              : "Unknown"
                           }
                         </span>
                       </td>
                       <td className="px-2 py-2">
                         <div className="font-medium">
-                          {scheduleData.tentative_details?.leadName || "Unknown"}
+                          {scheduleData.tentative_details?.leadName ||
+                            "Unknown"}
                         </div>
                       </td>
                       <td className="px-2 py-2">
                         <div className="font-medium">
-                          {scheduleData.tentative_details?.description || "Unknown"}
+                          {scheduleData.tentative_details?.description ||
+                            "Unknown"}
                         </div>
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -289,13 +308,15 @@ export default function TentativeScheduleInfo2() {
   );
   const [dialogOpen, setDialogOpen] = useState(false);
 
-
   // Fetch all learners whose payment status is completed
   // in descending order of signup time
-  let { data: tentativeSchedulesByLearners, isLoadingTentativeSchedulesByLearners} = useQuery({
+  let {
+    data: tentativeSchedulesByLearners,
+    isLoadingTentativeSchedulesByLearners,
+  } = useQuery({
     queryKey: ["learnersWithTentative"],
     queryFn: async () => {
-      const startDate = subDays(new Date(),30);
+      const startDate = subDays(new Date(), 30);
       // const endDate = addDays(startDate, maxDaysWindowToFetch);
       // since number's required field we can group by phone number
       const { data, error } = await supabase
@@ -307,7 +328,7 @@ export default function TentativeScheduleInfo2() {
         .order("start_time", { ascending: true });
       if (error) throw error;
       console.log("tentativeSchedulesByLearners:", data);
-      return data ; //as LearnerInfo[];
+      return data; //as LearnerInfo[];
     },
   });
 
@@ -342,7 +363,6 @@ export default function TentativeScheduleInfo2() {
     return Array.from(groupsMap.values());
   }
 
-
   // Group the fetched tentative schedules
   const schedulesGrouped = useMemo(() => {
     if (!tentativeSchedulesByLearners) {
@@ -352,8 +372,6 @@ export default function TentativeScheduleInfo2() {
     console.log("The grouped schedules are", groupedData);
     return groupedData;
   }, [tentativeSchedulesByLearners]);
-
-
 
   const filteredScheduleGroups = useMemo(() => {
     // If the initial data isn't ready or the search query is empty, return the original data
@@ -378,7 +396,7 @@ export default function TentativeScheduleInfo2() {
           details.pickup_location?.toLowerCase().includes(lowerCaseQuery) ||
           details.leadName?.toLowerCase().includes(lowerCaseQuery) ||
           // Assuming date or time might be searched (useful if formatted search is implemented)
-          schedule.date.includes(searchQuery) || 
+          schedule.date.includes(searchQuery) ||
           schedule.start_time.includes(searchQuery)
         );
       });
@@ -387,8 +405,6 @@ export default function TentativeScheduleInfo2() {
       return groupIdMatch || scheduleMatch;
     });
   }, [schedulesGrouped, searchQuery]);
-
-
 
   // Filter learners based on search query
   // const filteredLearners = groupSchedules?.filter(
@@ -400,7 +416,6 @@ export default function TentativeScheduleInfo2() {
   // );
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
-    
     setSelectedLearner(learner);
     setDialogOpen(true);
   };
@@ -409,7 +424,6 @@ export default function TentativeScheduleInfo2() {
     if (!dateString) return "N/A";
     return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
-
 
   // rendeing helpers
   const getDueAmount = (learner) => {
@@ -421,15 +435,20 @@ export default function TentativeScheduleInfo2() {
       learner.enrollment.amount == null ||
       learner.enrollment.installment1_amount == null
     ) {
-      console.log("Insufficient data to calculate due amount.", learner?.enrollement);
+      console.log(
+        "Insufficient data to calculate due amount.",
+        learner?.enrollement,
+      );
       return "N/A";
     }
     if (learner.enrollment.installment_mode != "first_half") {
       return "0";
     }
-    const dueAmount = Number(learner.enrollment.amount) - Number(learner.enrollment.installment1_amount);
+    const dueAmount =
+      Number(learner.enrollment.amount) -
+      Number(learner.enrollment.installment1_amount);
     return String(dueAmount);
-  }
+  };
 
   return (
     <div
@@ -500,117 +519,129 @@ export default function TentativeScheduleInfo2() {
                   No customers found matching your search
                 </div>
               ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {filteredScheduleGroups?.map((schedulesGroup) => {
-                  // 1. Safely access the first schedule and its details
-                  const firstSchedule = schedulesGroup.schedules?.[0];
-                  const details = firstSchedule?.tentative_details;
-                  
-                  // 2. Use the dedicated groupId property, defaulting to a safe string
-                  const groupId = schedulesGroup.groupId || 'Unknown Group ID';
+                <div className="grid grid-cols-1 gap-4">
+                  {filteredScheduleGroups?.map((schedulesGroup) => {
+                    // 1. Safely access the first schedule and its details
+                    const firstSchedule = schedulesGroup.schedules?.[0];
+                    const details = firstSchedule?.tentative_details;
 
-                  // Skip rendering if essential details are missing
-                  if (!details) return null; 
+                    // 2. Use the dedicated groupId property, defaulting to a safe string
+                    const groupId =
+                      schedulesGroup.groupId || "Unknown Group ID";
 
-                  return (
-                    <div
-                      // Use the safe groupId property for the key
-                      key={groupId} 
-                      className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
-                      onClick={() => handleTentativeShow(schedulesGroup.schedules)}
-                    >
-                      <div className="flex items-start gap-4">
-                        
-                        {/* Use groupId for getInitials */}
-                        <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-4">
-                          
-                          {/* Column 1: Learner Contact Info (Displaying the GroupId/Name) */}
-                          <div>
-                            <h3 className="text-lg font-medium">
-                              {groupId} 
-                            </h3>
-                            <p className="text-sm">
-                              {details.name || "N/A"} 
-                            </p>
-                            <p className="text-sm">
-                              <span className="font-medium">Email:</span>{" "}
-                              {details.email || "N/A"} 
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {details.pickup_location || "No area specified"}
-                            </p>
-                          </div>
-                          
-                          {/* Column 2: Schedules list and Start Date */}
-                          <div>
-                              <p className="text-sm font-semibold">
-                                  {schedulesGroup.schedules.length} Tentative Slot{schedulesGroup.schedules.length > 1 ? 's' : ''}
+                    // Skip rendering if essential details are missing
+                    if (!details) return null;
+
+                    return (
+                      <div
+                        // Use the safe groupId property for the key
+                        key={groupId}
+                        className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
+                        onClick={() =>
+                          handleTentativeShow(schedulesGroup.schedules)
+                        }
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* Use groupId for getInitials */}
+                          <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-4">
+                            {/* Column 1: Learner Contact Info (Displaying the GroupId/Name) */}
+                            <div>
+                              <h3 className="text-lg font-medium">{groupId}</h3>
+                              <p className="text-sm">{details.name || "N/A"}</p>
+                              <p className="text-sm">
+                                <span className="font-medium">Email:</span>{" "}
+                                {details.email || "N/A"}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                  Starting from: {schedulesGroup.schedulesStartDate} {schedulesGroup.schedulesStartTime.slice(0, 5)}
+                                {details.pickup_location || "No area specified"}
+                              </p>
+                            </div>
+
+                            {/* Column 2: Schedules list and Start Date */}
+                            <div>
+                              <p className="text-sm font-semibold">
+                                {schedulesGroup.schedules.length} Tentative Slot
+                                {schedulesGroup.schedules.length > 1 ? "s" : ""}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Starting from:{" "}
+                                {schedulesGroup.schedulesStartDate}{" "}
+                                {schedulesGroup.schedulesStartTime.slice(0, 5)}
                               </p>
                               <p className="text-muted-foreground">
                                 Lead Name:{" "}
-                                {schedulesGroup.schedules[0].tentative_details.leadName || 'N/A'}
+                                {schedulesGroup.schedules[0].tentative_details
+                                  .leadName || "N/A"}
                               </p>
-                          </div>
-                          
-                          <div className="md:col-span-2 space-y-2"> 
-                            <p className="text-sm font-semibold border-b pb-1">Tentative Slots</p>
-                            
-                            {schedulesGroup.schedules.map((schedule) => {
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                              <p className="border-b pb-1 text-sm font-semibold">
+                                Tentative Slots
+                              </p>
+
+                              {schedulesGroup.schedules.map((schedule) => {
                                 const startTimeDate = parse(
-                                    schedule.start_time.slice(0, 5), // Directly use the sliced 'HH:mm' string
-                                    'HH:mm', 
-                                    new Date() // Base date for parsing the time
+                                  schedule.start_time.slice(0, 5), // Directly use the sliced 'HH:mm' string
+                                  "HH:mm",
+                                  new Date(), // Base date for parsing the time
                                 );
-                                const displayStartTime = format(startTimeDate, 'h:mm a'); // e.g., "2:30 PM"
+                                const displayStartTime = format(
+                                  startTimeDate,
+                                  "h:mm a",
+                                ); // e.g., "2:30 PM"
 
                                 // 2. Convert End Time (24h string -> 12h formatted string)
                                 const endTimeDate = parse(
-                                    schedule.end_time.slice(0, 5), // Directly use the sliced 'HH:mm' string
-                                    'HH:mm', 
-                                    new Date()
+                                  schedule.end_time.slice(0, 5), // Directly use the sliced 'HH:mm' string
+                                  "HH:mm",
+                                  new Date(),
                                 );
-                                const displayEndTime = format(endTimeDate, 'h:mm a'); // e.g., "3:45 PM"
+                                const displayEndTime = format(
+                                  endTimeDate,
+                                  "h:mm a",
+                                ); // e.g., "3:45 PM"
 
-                                const displayDate = format(schedule.date, 'dd MMM yyyy');
+                                const displayDate = format(
+                                  schedule.date,
+                                  "dd MMM yyyy",
+                                );
                                 return (
-
-                                    <div key={schedule.id} className="text-xs bg-gray-100 p-2 rounded-md">
-                                      <p>
-                                        {/* The schedule description and date are now broken into parts to match the new template */}
-                                        <span className="font-medium">
-                                          {schedule.tentative_details.description || 'N/A'}
-                                        </span>
-                                        
-                                        {/* 2. Time Range: "from <start> PM to <end> PM" (Assuming your displayStartTime/EndTime already includes the AM/PM suffix) */}
-                                        {/* NOTE: If your 'displayStartTime' already includes 'AM/PM', you would remove the hardcoded 'PM' below. */}
-                                        &nbsp; from &nbsp;
-                                        {displayStartTime} &nbsp; 
-                                        to &nbsp;
-                                        {displayEndTime}
-                                        
-                                        {/* 3. Date: "on DD <month 3 char> Year" */}
-                                        &nbsp; on &nbsp;
-                                        {displayDate}
-                                      </p>
-                                        {/* <p className="text-muted-foreground">
+                                  <div
+                                    key={schedule.id}
+                                    className="rounded-md bg-gray-100 p-2 text-xs"
+                                  >
+                                    <p>
+                                      {/* The schedule description and date are now broken into parts to match the new template */}
+                                      <span className="font-medium">
+                                        {schedule.tentative_details
+                                          .description || "N/A"}
+                                      </span>
+                                      {/* 2. Time Range: "from <start> PM to <end> PM" (Assuming your displayStartTime/EndTime already includes the AM/PM suffix) */}
+                                      {/* NOTE: If your 'displayStartTime' already includes 'AM/PM', you would remove the hardcoded 'PM' below. */}
+                                      &nbsp; from &nbsp;
+                                      {displayStartTime} &nbsp; to &nbsp;
+                                      {displayEndTime}
+                                      {/* 3. Date: "on DD <month 3 char> Year" */}
+                                      &nbsp; on &nbsp;
+                                      {displayDate}
+                                    </p>
+                                    {/* <p className="text-muted-foreground">
                                             Location: {schedule.tentative_details.pickup_location || 'Not set'}
                                         </p> */}
-                                        {/* <p className="text-muted-foreground">
+                                    {/* <p className="text-muted-foreground">
                                             Description: {schedule.tentative_details.description || 'N/A'}
                                         </p> */}
-                                    </div>
+                                  </div>
                                 );
-                            })}
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -620,133 +651,130 @@ export default function TentativeScheduleInfo2() {
   );
 }
 
+// <AnimatePresence>
+//   <motion.div
+//     key="session-details"
+//     initial={false}
+//     animate={{
+//       height: isSessionDetailsMinimized ? "auto" : "auto",
+//       opacity: 1,
+//     }}
+//     exit={{ height: 0, opacity: 0 }}
+//     transition={{ type: "spring", stiffness: 300, damping: 30 }}
+//     className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0] p-4"
+//   >
+//     <div className="mb-2 flex items-center justify-between">
+//       <h3 className="text-lg font-semibold">Session Details</h3>
+//       <Button
+//         size="sm"
+//         variant="ghost"
+//         onClick={() =>
+//           setIsSessionDetailsMinimized(!isSessionDetailsMinimized)
+//         }
+//       >
+//         {isSessionDetailsMinimized ? <ChevronDown /> : <ChevronUp />}
+//       </Button>
+//     </div>
+//     <motion.div
+//       initial={false}
+//       animate={{
+//         height: isSessionDetailsMinimized ? 0 : "auto",
+//         opacity: isSessionDetailsMinimized ? 0 : 1,
+//       }}
+//       transition={{ duration: 0.3 }}
+//       className="overflow-hidden"
+//     >
+//       <div className="grid grid-cols-2 gap-4">
+//         {/* Row 1 */}
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Date</p>
+//           <p className="text-base">
+//             {schedule
+//               ? format(new Date(schedule.date), "EEE, do MMM")
+//               : "Not available"}
+//           </p>
+//         </div>
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Time</p>
+//           <p className="text-base">{timeString}</p>
+//         </div>
 
+//         {/* Row 2 */}
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Instructor Name</p>
+//           <p className="text-base">
+//             {schedule?.Instructor?.name
+//               ? schedule?.Instructor?.name
+//               : "Not available"}
+//           </p>
+//         </div>
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Mobile number</p>
+//           <p className="text-base">
+//             {schedule?.Instructor?.phone
+//               ? schedule?.Instructor?.phone
+//               : "Not available"}
+//           </p>
+//         </div>
 
+//         {/* Row 3 */}
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Car Model</p>
+//           <p className="text-base">
+//             {schedule?.Instructor?.car_make
+//               ? schedule?.Instructor?.car_make
+//               : "Not available"}
+//           </p>
+//         </div>
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Car Number</p>
+//           <p className="text-base">
+//             {schedule?.Instructor?.car_number
+//               ? schedule?.Instructor?.car_number
+//               : "Not available"}
+//           </p>
+//         </div>
+//         <div className="flex flex-col gap-0">
+//           <p className="text-sm font-light">Pick Up location</p>
 
-          // <AnimatePresence>
-          //   <motion.div
-          //     key="session-details"
-          //     initial={false}
-          //     animate={{
-          //       height: isSessionDetailsMinimized ? "auto" : "auto",
-          //       opacity: 1,
-          //     }}
-          //     exit={{ height: 0, opacity: 0 }}
-          //     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          //     className="mx-4 mb-4 rounded-3xl bg-[#FFFFF0] p-4"
-          //   >
-          //     <div className="mb-2 flex items-center justify-between">
-          //       <h3 className="text-lg font-semibold">Session Details</h3>
-          //       <Button
-          //         size="sm"
-          //         variant="ghost"
-          //         onClick={() =>
-          //           setIsSessionDetailsMinimized(!isSessionDetailsMinimized)
-          //         }
-          //       >
-          //         {isSessionDetailsMinimized ? <ChevronDown /> : <ChevronUp />}
-          //       </Button>
-          //     </div>
-          //     <motion.div
-          //       initial={false}
-          //       animate={{
-          //         height: isSessionDetailsMinimized ? 0 : "auto",
-          //         opacity: isSessionDetailsMinimized ? 0 : 1,
-          //       }}
-          //       transition={{ duration: 0.3 }}
-          //       className="overflow-hidden"
-          //     >
-          //       <div className="grid grid-cols-2 gap-4">
-          //         {/* Row 1 */}
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Date</p>
-          //           <p className="text-base">
-          //             {schedule
-          //               ? format(new Date(schedule.date), "EEE, do MMM")
-          //               : "Not available"}
-          //           </p>
-          //         </div>
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Time</p>
-          //           <p className="text-base">{timeString}</p>
-          //         </div>
-
-          //         {/* Row 2 */}
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Instructor Name</p>
-          //           <p className="text-base">
-          //             {schedule?.Instructor?.name
-          //               ? schedule?.Instructor?.name
-          //               : "Not available"}
-          //           </p>
-          //         </div>
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Mobile number</p>
-          //           <p className="text-base">
-          //             {schedule?.Instructor?.phone
-          //               ? schedule?.Instructor?.phone
-          //               : "Not available"}
-          //           </p>
-          //         </div>
-
-          //         {/* Row 3 */}
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Car Model</p>
-          //           <p className="text-base">
-          //             {schedule?.Instructor?.car_make
-          //               ? schedule?.Instructor?.car_make
-          //               : "Not available"}
-          //           </p>
-          //         </div>
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Car Number</p>
-          //           <p className="text-base">
-          //             {schedule?.Instructor?.car_number
-          //               ? schedule?.Instructor?.car_number
-          //               : "Not available"}
-          //           </p>
-          //         </div>
-          //         <div className="flex flex-col gap-0">
-          //           <p className="text-sm font-light">Pick Up location</p>
-
-          //           <Popover>
-          //             <PopoverTrigger>
-          //               <p className="truncate text-base">
-          //                 {learner?.pick_up_location
-          //                   ? learner?.pick_up_location
-          //                   : "Not available"}
-          //               </p>
-          //             </PopoverTrigger>
-          //             <PopoverContent>
-          //               {learner?.pick_up_location}
-          //             </PopoverContent>
-          //           </Popover>
-          //         </div>
-          //       </div>
-          //     </motion.div>
-          //     {isSessionDetailsMinimized && (
-          //       <div className="flex flex-col gap-1">
-          //         <motion.p
-          //           initial={{ opacity: 0 }}
-          //           animate={{ opacity: 1 }}
-          //           exit={{ opacity: 0 }}
-          //           className="text-base font-light"
-          //         >
-          //           <span className="font-medium">Date:</span>{" "}
-          //           {schedule
-          //             ? format(new Date(schedule.date), "EEE, do MMM")
-          //             : "Not available"}
-          //         </motion.p>
-          //         <motion.p
-          //           initial={{ opacity: 0 }}
-          //           animate={{ opacity: 1 }}
-          //           exit={{ opacity: 0 }}
-          //           className="text-base font-light"
-          //         >
-          //           <span className="font-medium">Time: </span>
-          //           {timeString}
-          //         </motion.p>
-          //       </div>
-          //     )}
-          //   </motion.div>
-          // </AnimatePresence>
+//           <Popover>
+//             <PopoverTrigger>
+//               <p className="truncate text-base">
+//                 {learner?.pick_up_location
+//                   ? learner?.pick_up_location
+//                   : "Not available"}
+//               </p>
+//             </PopoverTrigger>
+//             <PopoverContent>
+//               {learner?.pick_up_location}
+//             </PopoverContent>
+//           </Popover>
+//         </div>
+//       </div>
+//     </motion.div>
+//     {isSessionDetailsMinimized && (
+//       <div className="flex flex-col gap-1">
+//         <motion.p
+//           initial={{ opacity: 0 }}
+//           animate={{ opacity: 1 }}
+//           exit={{ opacity: 0 }}
+//           className="text-base font-light"
+//         >
+//           <span className="font-medium">Date:</span>{" "}
+//           {schedule
+//             ? format(new Date(schedule.date), "EEE, do MMM")
+//             : "Not available"}
+//         </motion.p>
+//         <motion.p
+//           initial={{ opacity: 0 }}
+//           animate={{ opacity: 1 }}
+//           exit={{ opacity: 0 }}
+//           className="text-base font-light"
+//         >
+//           <span className="font-medium">Time: </span>
+//           {timeString}
+//         </motion.p>
+//       </div>
+//     )}
+//   </motion.div>
+// </AnimatePresence>

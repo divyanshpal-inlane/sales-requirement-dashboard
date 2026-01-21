@@ -16,11 +16,6 @@ export default function Login() {
     verifyOtpAndResetPassword,
   } = useAuth();
 
-  // Password restrictions checked by useAuth (explicitly stated):
-  // - Minimum length: 6 characters
-  // - Should not be empty
-  // - (If there are additional restrictions such as requiring numbers, special characters, or uppercase letters,
-  //   please refer to the useAuth implementation. The above are the most common checks.)
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active") || "login";
   const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
@@ -58,14 +53,13 @@ export default function Login() {
     if (isRequestingOtp) return; // Prevent multiple clicks
 
     try {
-      setIsRequestingOtp(true); // Disable button
+      setIsRequestingOtp(true);
       await requestPasswordReset(phone);
       setResetRequested(true);
-      setTimer(30); // Start 30-second timer
+      setTimer(30);
     } catch (error) {
-      console.error("Failed to send OTP:", error);
     } finally {
-      setIsRequestingOtp(false); // Re-enable button after request
+      setIsRequestingOtp(false);
     }
   };
 
@@ -73,9 +67,7 @@ export default function Login() {
     try {
       await verifyOtpAndResetPassword(phone, otp, null);
       setOtpVerified(true);
-    } catch (error) {
-      console.error("Failed to verify OTP:", error);
-    }
+    } catch (error) {}
   };
 
   const onSubmitHandler = async (e: React.FormEvent) => {
@@ -132,7 +124,6 @@ export default function Login() {
     } catch (error) {
       setSuccessMessage("");
       setErrorMessage(error?.message || "An error occurred. Please try again.");
-      console.error("Action failed:", error);
     }
   };
 
@@ -156,7 +147,7 @@ export default function Login() {
 
   const handleTncAgree = (event) => {
     setAgreedTnc(event.target.checked);
-  }
+  };
 
   return (
     <div className="flex h-screen items-center justify-center font-glancyr">
@@ -231,7 +222,7 @@ export default function Login() {
                         )}
                       </button>
                       <p className="text-sm text-muted-foreground">
-                      Password should be minimum 6 characters
+                        Password should be minimum 6 characters
                       </p>
                     </div>
                   </div>
@@ -432,40 +423,37 @@ export default function Login() {
               </div>
             </form>
 
-            {
-            active != "signup" && (
+            {active != "signup" && (
               <footer className="mt-auto flex flex-col text-center text-sm">
-              <div className="flex items-center justify-center gap-2 py-4">
-                <span>Made in</span>
-                <img
-                  src="/assets/india-flag-xs.png"
-                  alt="Indian Flag"
-                  className="h-4 w-6"
-                />
-              </div>
-              By continuing, you agree to our
-              <nav className="flex flex-row justify-center gap-4">
-                <a
-                  target="_blank"
-                  href="https://inlane.in/terms-and-conditions"
-                  className="text-muted-foreground hover:text-blue-500 hover:underline"
-                  rel="noreferrer"
-                >
-                  Terms of Service
-                </a>
-                <a
-                  target="_blank"
-                  href="https://inlane.in/privacy-policy"
-                  className="text-muted-foreground hover:text-blue-500 hover:underline"
-                  rel="noreferrer"
-                >
-                  Privacy Policies
-                </a>
-              </nav>
-              </footer>  
-              )
-            }
-
+                <div className="flex items-center justify-center gap-2 py-4">
+                  <span>Made in</span>
+                  <img
+                    src="/assets/india-flag-xs.png"
+                    alt="Indian Flag"
+                    className="h-4 w-6"
+                  />
+                </div>
+                By continuing, you agree to our
+                <nav className="flex flex-row justify-center gap-4">
+                  <a
+                    target="_blank"
+                    href="https://inlane.in/terms-and-conditions"
+                    className="text-muted-foreground hover:text-blue-500 hover:underline"
+                    rel="noreferrer"
+                  >
+                    Terms of Service
+                  </a>
+                  <a
+                    target="_blank"
+                    href="https://inlane.in/privacy-policy"
+                    className="text-muted-foreground hover:text-blue-500 hover:underline"
+                    rel="noreferrer"
+                  >
+                    Privacy Policies
+                  </a>
+                </nav>
+              </footer>
+            )}
           </div>
         </div>
       </div>
