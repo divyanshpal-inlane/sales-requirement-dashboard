@@ -6,7 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,19 +22,25 @@ export function IncompletePaymentsCard() {
   const [loading, setLoading] = useState(true);
   const [sendingPaymentLink, setSendingPaymentLink] = useState({});
   const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
-  const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState({});
-  const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] = useState({});
+  const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState(
+    {},
+  );
+  const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] =
+    useState({});
   const [updatingPaidInfo, setUpdatingPaidInfo] = useState({});
   const [addingPaidInfo, setAddingPaidInfo] = useState({});
   const [paidInfoDialogOpen, setPaidInfoDialogOpen] = useState(false);
   const [paidInfoDialogData, setPaidInfoDialogData] = useState(null);
   const [manualAmount, setManualAmount] = useState<number>(0);
-  const [manualInstallment1 , setManualInstallment1] = useState<number | null>(null);
-  const [manualInstallment2 , setManualInstallment2] = useState<number | null>(null);
+  const [manualInstallment1, setManualInstallment1] = useState<number | null>(
+    null,
+  );
+  const [manualInstallment2, setManualInstallment2] = useState<number | null>(
+    null,
+  );
   // const installmentType = manualInstallment1 && manualInstallment2 ? "full"
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
 
   const fetchIncompletePayments = async () => {
     setLoading(true);
@@ -61,11 +73,13 @@ export function IncompletePaymentsCard() {
           ),
           payment (
             id,
+            amount,
             installment_type,
             total_amount,
             status,
             updated_at,
-            created_at
+            created_at,
+            payment_type
           )
         `,
         )
@@ -92,7 +106,6 @@ export function IncompletePaymentsCard() {
         (e) => e.installment_mode === "second_half",
       );
 
-      
       // Get the first_half payment dates for learners with second_half installments
       if (secondHalfEnrollments.length > 0) {
         const learnerIds = secondHalfEnrollments.map((e) => e.learner_id);
@@ -152,6 +165,22 @@ export function IncompletePaymentsCard() {
     fetchIncompletePayments();
   }, []);
 
+  // Helper function to get course name - handles demo/custom enrollments
+  const getCourseName = (enrollment) => {
+    if (enrollment.Courses?.name) {
+      return enrollment.Courses.name;
+    }
+    // Check payment_type for demo/custom enrollments
+    const paymentType = enrollment.payment?.payment_type;
+    if (paymentType === "demo") {
+      return "Demo Class";
+    }
+    if (paymentType === "custom") {
+      return "Custom Course";
+    }
+    return "Unknown";
+  };
+
   // Helper function to determine payment status
   const getPaymentStatus = (enrollment) => {
     // console.log("Determining payment status for enrollment:", enrollment);
@@ -184,22 +213,27 @@ export function IncompletePaymentsCard() {
     //   enrollment.installment1_amount,
     //   enrollment.installment2_amount,
     // );
+
+    // For demo/custom enrollments, amount may not be in enrollment record
+    // Fall back to payment record amount
+    const paymentAmount =
+      enrollment.payment?.total_amount || enrollment.payment?.amount;
+
     if (enrollment.installment_mode === "full") {
       // when enrolment mode is full, installment1 and installment2 field might be 0
-      // return amount directly
-      // return enrollment.installment1_amount + enrollment.installment2_amount;
-      return enrollment.amount;
+      // return amount directly, or fall back to payment amount
+      return enrollment.amount || paymentAmount || 0;
     } else if (
       enrollment.installment_mode === "first_half" ||
       enrollment.installment_mode === "installment"
     ) {
-      return enrollment.installment1_amount;
+      return enrollment.installment1_amount || paymentAmount || 0;
     } else if (enrollment.installment_mode === "second_half") {
-      return enrollment.installment2_amount;
+      return enrollment.installment2_amount || paymentAmount || 0;
     } else {
-      console.error("Invalid installment mode");
+      // For enrollments without installment_mode (e.g., demo), use payment amount
+      return paymentAmount || enrollment.amount || 0;
     }
-    return 0;
   };
 
   // Helper function to get the appropriate date based on installment type
@@ -216,8 +250,8 @@ export function IncompletePaymentsCard() {
   // Function to send payment link - based on LearnerManagement.tsx implementation
   const sendPaymentLink = async (enrollment) => {
     setSendingPaymentLink((prev) => ({ ...prev, [enrollment.id]: true }));
-console.log("Called send email");
-    
+    console.log("Called send email");
+
     try {
       // Get the payment amount based on installment mode
       const paymentAmount = getPayableAmount(enrollment);
@@ -232,30 +266,36 @@ console.log("Called send email");
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${enrollment.Learner.phone}`;
 
       // Define the request body for email trigger.
+      const courseName = getCourseName(enrollment);
       const bodyData = {
-          "learnerEmail": enrollment.Learner.email,
-          "learnerName": enrollment.Learner.name, 
-          "course": enrollment.Courses.name,
-          "amount": paymentAmount,
-          "paymentLink": paymentLink
+        learnerEmail: enrollment.Learner.email,
+        learnerName: enrollment.Learner.name,
+        course: courseName,
+        amount: paymentAmount,
+        paymentLink: paymentLink,
       };
 
-      const { error: invokeError } = await supabase.functions.invoke("send-payment-link-email", {
+      const { error: invokeError } = await supabase.functions.invoke(
+        "send-payment-link-email",
+        {
           body: bodyData,
-      });
-
-      
-      const { error: invokeError2 } = await supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "PAYMENT_LINK",
-          learner_id: enrollment.Learner.id,
-          enrollment_id: enrollment.id,
-          course_name: enrollment.Courses.name,
-          payment_amount: paymentAmount,
-          duration: enrollment.Courses.duration,
-          payment_link: paymentLink,
         },
-      });
+      );
+
+      const { error: invokeError2 } = await supabase.functions.invoke(
+        "send-message",
+        {
+          body: {
+            message_type: "PAYMENT_LINK",
+            learner_id: enrollment.Learner.id,
+            enrollment_id: enrollment.id,
+            course_name: courseName,
+            payment_amount: paymentAmount,
+            duration: enrollment.Courses?.duration || 1,
+            payment_link: paymentLink,
+          },
+        },
+      );
 
       if (invokeError) {
         console.error(invokeError);
@@ -283,7 +323,6 @@ console.log("Called send email");
         });
       }
 
-
       // Refresh the list after sending
       fetchIncompletePayments();
     } catch (err) {
@@ -304,7 +343,7 @@ console.log("Called send email");
   //     return;
   //   }
   //   setUpdatingPaidInfo((prev) => ({ ...prev, [paidInfoDialogData.id]: true }));
-    
+
   //   setManualAmount(0);
   //   setPaidInfoDialogOpen(true);
   // };
@@ -315,64 +354,73 @@ console.log("Called send email");
       return;
     }
     console.log("Closing paid info dialog for enrollment:", paidInfoDialogData);
-    setUpdatingPaidInfo((prev) => ({ ...prev, [paidInfoDialogData?.id]: false }));
+    setUpdatingPaidInfo((prev) => ({
+      ...prev,
+      [paidInfoDialogData?.id]: false,
+    }));
     setPaidInfoDialogOpen(false);
     // setPaidInfoDialogData(null);
     // setManualAmount(0);
-    console.log("updatingPaidInfo" , updatingPaidInfo);
+    console.log("updatingPaidInfo", updatingPaidInfo);
   };
 
   const useUpdateEnrollmentMutation = useMutation({
-        mutationFn: async ({ 
-          enrollmentId, 
-          updates 
-        }: {
-          enrollmentId: string;
-          updates: Partial<any>;
-        }) => {
-            const { data, error } = await supabase
-                .from('enrollment')
-                .update(updates)
-                .eq('id', enrollmentId)
-            if (error) throw error;
-            console.log("Updated installment info");
-        },
-        
-        // Invalidate relevant queries upon successful completion
-        onSuccess: (data, variables) => {
-            // Invalidate the specific enrollment query to force a fresh fetch
-            queryClient.invalidateQueries({ queryKey: ['enrollment', variables.enrollmentId] });
-            
-            // Invalidate the generic list of enrollments if necessary
-            queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    mutationFn: async ({
+      enrollmentId,
+      updates,
+    }: {
+      enrollmentId: string;
+      updates: Partial<any>;
+    }) => {
+      const { data, error } = await supabase
+        .from("enrollment")
+        .update(updates)
+        .eq("id", enrollmentId);
+      if (error) throw error;
+      console.log("Updated installment info");
+    },
 
-            // Note: The original send-message and toast logic is triggered 
-            // via the onSuccess callback passed when calling .mutate() 
-            // in the component's handleUpdatePaidInfoSave function.
-        },
-        
-        onError: (error) => {
-            // Optional: Log or handle global mutation errors here
-            console.error("Mutation failed:", error);
-        }
-    });
+    // Invalidate relevant queries upon successful completion
+    onSuccess: (data, variables) => {
+      // Invalidate the specific enrollment query to force a fresh fetch
+      queryClient.invalidateQueries({
+        queryKey: ["enrollment", variables.enrollmentId],
+      });
+
+      // Invalidate the generic list of enrollments if necessary
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+
+      // Note: The original send-message and toast logic is triggered
+      // via the onSuccess callback passed when calling .mutate()
+      // in the component's handleUpdatePaidInfoSave function.
+    },
+
+    onError: (error) => {
+      // Optional: Log or handle global mutation errors here
+      console.error("Mutation failed:", error);
+    },
+  });
   const handleUpdatePaidInfoSave = async () => {
-      // The steps should be same as process-payment
-      // learner and enrollment are added, 
-      // payment to be added and enrollment to be updated
-      if (!paidInfoDialogData) {
-        toast({
-          title: "Error",
-          description: "No enrollment data available",
-          variant: "destructive",
-        });
-        return;
-      }
-      try {
-        console.log(`Saving amount for learner: ${paidInfoDialogData?.Learner?.name}`);
+    // The steps should be same as process-payment
+    // learner and enrollment are added,
+    // payment to be added and enrollment to be updated
+    if (!paidInfoDialogData) {
+      toast({
+        title: "Error",
+        description: "No enrollment data available",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      console.log(
+        `Saving amount for learner: ${paidInfoDialogData?.Learner?.name}`,
+      );
 
-        // 1. Make payment record
-        const { data: paymentRecord, error: dbError } = await supabase.from("payment").insert([
+      // 1. Make payment record
+      const { data: paymentRecord, error: dbError } = await supabase
+        .from("payment")
+        .insert([
           {
             learner_id: paidInfoDialogData?.Learner?.id,
             amount: manualAmount,
@@ -383,149 +431,155 @@ console.log("Called send email");
             name: paidInfoDialogData?.Learner?.name,
             installment_type: paidInfoDialogData?.installment_type,
             installment1_amount: paidInfoDialogData?.installment1_amount,
-            installment2_amount: paidInfoDialogData?.installment2_amount
-          }
-        ]).select().single();
-
-        if (dbError) throw new Error("Failed to record payment.");
-        
-        // 2. Update Enrollment status using the mutation asynchronously
-        // Note: We use mutateAsync to block and wait for completion.
-        await useUpdateEnrollmentMutation.mutateAsync(
-          {
-            enrollmentId: paidInfoDialogData.id,
-            updates: {
-              amount: manualAmount,
-              payment_id: paymentRecord.id,
-              status: "active",
-              installment_mode: paidInfoDialogData?.installmentType,
-              installment1_amount: paidInfoDialogData?.installment1Amount,
-              installment2_amount: paidInfoDialogData?.installment2Amount
-            },
-          }
-        );
-        
-        // 3. Send message
-        await supabase.functions.invoke("send-message", {
-          body: {
-            message_type: "LL_APPLICATION_UPDATE",
-            learner_id: paidInfoDialogData?.Learner?.id,
+            installment2_amount: paidInfoDialogData?.installment2_amount,
           },
-        });
+        ])
+        .select()
+        .single();
 
-        // Todo: send different email for LL received
-        // await sendAdminEmail(...)
-    
-        // 4. Show success toast
-        toast({
-          title: "Success",
-          description: "Enrollment updated and notifications sent.",
-        });
+      if (dbError) throw new Error("Failed to record payment.");
 
-        // 5. Close dialog/reset state
-        // handleUpdatePaidInfoClose(); 
-        // setLearnerId("");
-        
-      } catch(error) {
-        console.error("Payment and Enrollment Save Error:", error);
-        toast({
-          title: "Error Saving Data",
-          description: error.message || "An unexpected error occurred during the save process.",
-          variant: "destructive",
-        });
-      }
+      // 2. Update Enrollment status using the mutation asynchronously
+      // Note: We use mutateAsync to block and wait for completion.
+      await useUpdateEnrollmentMutation.mutateAsync({
+        enrollmentId: paidInfoDialogData.id,
+        updates: {
+          amount: manualAmount,
+          payment_id: paymentRecord.id,
+          status: "active",
+          installment_mode: paidInfoDialogData?.installmentType,
+          installment1_amount: paidInfoDialogData?.installment1Amount,
+          installment2_amount: paidInfoDialogData?.installment2Amount,
+        },
+      });
+
+      // 3. Send message
+      await supabase.functions.invoke("send-message", {
+        body: {
+          message_type: "LL_APPLICATION_UPDATE",
+          learner_id: paidInfoDialogData?.Learner?.id,
+        },
+      });
+
+      // Todo: send different email for LL received
+      // await sendAdminEmail(...)
+
+      // 4. Show success toast
+      toast({
+        title: "Success",
+        description: "Enrollment updated and notifications sent.",
+      });
+
+      // 5. Close dialog/reset state
+      // handleUpdatePaidInfoClose();
+      // setLearnerId("");
+    } catch (error) {
+      console.error("Payment and Enrollment Save Error:", error);
+      toast({
+        title: "Error Saving Data",
+        description:
+          error.message ||
+          "An unexpected error occurred during the save process.",
+        variant: "destructive",
+      });
     }
+  };
 
-  // Delete button 
+  // Delete button
   // Defined at top, here for ref
   // const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
   // const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState({});
   // const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] = useState({});
-  
-  
+
   // type DeleteRequestIdToFlagsMap = Record<string, boolean>;
   // const [isDeleteRequestedList, setIsDeleteRequestedList] = useState<DeleteRequestIdToFlagsMap>({});
   // const [isDeleteRequestedList, setIsDeleteRequestedList] = useState({});
 
-
-    // UseMutation hook for the delete operation
+  // UseMutation hook for the delete operation
   const deleteLearnerMutation = useMutation({
-    mutationFn: async ({learner_id, phone}) => {
+    mutationFn: async ({ learner_id, phone }) => {
       // remove from auth before regular tables
       // call edge function as auth cannot be accessed from frontend
 
-      // auth requires phone , but only learner_id available 
-      
+      // auth requires phone , but only learner_id available
+
       // remove from dependent tables
       // remove from enrollment
       const { error: enrollmentDeleteerror } = await supabase
-      .from('enrollment') 
-      .delete()
-      .eq('learner_id', learner_id);
-      
+        .from("enrollment")
+        .delete()
+        .eq("learner_id", learner_id);
+
       if (enrollmentDeleteerror) {
-        throw new Error('Failed to delete the enrollment record.');
+        throw new Error("Failed to delete the enrollment record.");
       }
       console.log("Deleted enrollment records for learner ", learner_id);
       // remove from learner
       // remove from payment
       const { error: paymentDeleteerror } = await supabase
-      .from('payment') 
-      .delete()
-      .eq('learner_id', learner_id);
-      
+        .from("payment")
+        .delete()
+        .eq("learner_id", learner_id);
+
       if (paymentDeleteerror) {
-        throw new Error('Failed to delete the payment record.');
+        throw new Error("Failed to delete the payment record.");
       }
       console.log("Deleted payment records for learner ", learner_id);
       const { error: learnerDeleteError } = await supabase
-        .from('Learner') 
+        .from("Learner")
         .delete()
-        .eq('id', learner_id);
+        .eq("id", learner_id);
 
       if (learnerDeleteError) {
-        throw new Error('Failed to delete the learner record.');
+        throw new Error("Failed to delete the learner record.");
       }
       console.log("Deleted learner records for learner ", learner_id);
-      
+
       // Optional: remove from Admin, should not be required if learner does not get added
       // to Admin after signup
       if (phone) {
         const { error: adminDeleteerror } = await supabase
-        .from('Admin') 
-        .delete()
-        .eq('phone', phone);
+          .from("Admin")
+          .delete()
+          .eq("phone", phone);
         if (adminDeleteerror) {
-          throw new Error('Failed to delete the Admin record.');
+          throw new Error("Failed to delete the Admin record.");
         }
         console.log("Deleted Admin records for learner ", phone);
       }
-      
     },
     onSuccess: () => {
-      toast ({
-        'title': "Success",
-        'description': "Deleted learner. Hit refresh ↻ to delete the learner",
+      toast({
+        title: "Success",
+        description: "Deleted learner. Hit refresh ↻ to delete the learner",
       });
       // setItems(prevItems => prevItems.filter(item => item.id !== variables));
       // queryClient.invalidateQueries({ queryKey: ['items'] });
     },
     onSettled: () => {
       // Remove the ID from the set when the mutation is complete
-      setDeleteLearnerProcessingList({ ...deleteLearnerProcessingList, [learner_id]: false });
-      setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
-    }
+      setDeleteLearnerProcessingList({
+        ...deleteLearnerProcessingList,
+        [learner_id]: false,
+      });
+      setDeleteLearnerRequests({
+        ...deleteLearnerRequests,
+        [learner_id]: false,
+      });
+    },
   });
 
   const handleDeleteLearnerRequest = (learner_id: string) => {
     setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: true });
-    console.log("Request", learner_id, deleteLearnerRequests[learner_id] );
-    
+    console.log("Request", learner_id, deleteLearnerRequests[learner_id]);
   };
-  
-  const handleDeleteLearnerConfirm = async (learner_id: string, phone: string) => {
+
+  const handleDeleteLearnerConfirm = async (
+    learner_id: string,
+    phone: string,
+  ) => {
     console.log("Removing learner", learner_id, phone);
-    
+
     if (!learner_id || !phone) {
       console.error("Learner ID cannot be empty.");
       return;
@@ -535,19 +589,25 @@ console.log("Called send email");
       console.error(learner_id + "not requested for delete but it's confirmed");
       return;
     }
-    console.log("Confirm", learner_id, deleteLearnerRequests[learner_id] );
-    setDeleteLearnerProcessingList({...deleteLearnerProcessingList, [learner_id]: true});
-    
-    await deleteLearnerMutation.mutate({learner_id, phone}); // Note that mutationFn only accepts single arg
+    console.log("Confirm", learner_id, deleteLearnerRequests[learner_id]);
+    setDeleteLearnerProcessingList({
+      ...deleteLearnerProcessingList,
+      [learner_id]: true,
+    });
 
-    setDeleteLearnerProcessingList({...deleteLearnerProcessingList, [learner_id]: false});
+    await deleteLearnerMutation.mutate({ learner_id, phone }); // Note that mutationFn only accepts single arg
+
+    setDeleteLearnerProcessingList({
+      ...deleteLearnerProcessingList,
+      [learner_id]: false,
+    });
     setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
-    return ;
+    return;
   };
-  
+
   const handleDeleteLearnerCancel = (learner_id: string) => {
     setDeleteLearnerRequests({ ...deleteLearnerRequests, [learner_id]: false });
-    console.log("Cancel", learner_id, deleteLearnerRequests[learner_id] );
+    console.log("Cancel", learner_id, deleteLearnerRequests[learner_id]);
   };
 
   return (
@@ -610,9 +670,7 @@ console.log("Called send email");
                           {enrollment.Learner?.phone}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        {enrollment.Courses?.name || "Unknown"}
-                      </td>
+                      <td className="px-2 py-2">{getCourseName(enrollment)}</td>
                       <td className="px-2 py-2">
                         {enrollment.installment_mode === "installment"
                           ? "first_half"
@@ -661,61 +719,82 @@ console.log("Called send email");
                           ) : (
                             <Send size={14} className="mr-1" />
                           )}
-                          Send Payment Link 
+                          Send Payment Link
                         </Button>
-                        {
-                          deleteLearnerRequests[enrollment.learner_id] 
-                          ? (  
+                        {deleteLearnerRequests[enrollment.learner_id] ? (
                           <>
-                          {/* Request phase confirmation pending */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            // onClick={() => setShowDeleteDialog(true); enrollment.learner_id)}
-                            onClick= {() => handleDeleteLearnerConfirm(enrollment.learner_id, enrollment.Learner.phone)}
-                            disabled={deleteLearnerProcessingList[enrollment.learner_id]}
-                            className="whitespace-nowrap"
-                          >
-                            {deleteLearnerProcessingList[enrollment.learner_id] ? (
-                              <RefreshCcw
-                                size={14}
-                                className="mr-1 animate-spin"
-                              />
-                            ) : (
-                              <Delete size={14} className="mr-1" />
-                            )}
-                            Confirm
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick= {() => handleDeleteLearnerCancel(enrollment.learner_id)}
-                            disabled={deleteLearnerProcessingList[enrollment.learner_id]}
-                            className="whitespace-nowrap"
-                          >
-                            {deleteLearnerProcessingList[enrollment.learner_id] ? (
-                              <RefreshCcw
-                                size={14}
-                                className="mr-1 animate-spin"
-                              />
-                            ) : (
-                              <ArrowBigLeft size={14} className="mr-1" />
-                            )}
-                            Cancel
-                          </Button>
-                          
+                            {/* Request phase confirmation pending */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              // onClick={() => setShowDeleteDialog(true); enrollment.learner_id)}
+                              onClick={() =>
+                                handleDeleteLearnerConfirm(
+                                  enrollment.learner_id,
+                                  enrollment.Learner.phone,
+                                )
+                              }
+                              disabled={
+                                deleteLearnerProcessingList[
+                                  enrollment.learner_id
+                                ]
+                              }
+                              className="whitespace-nowrap"
+                            >
+                              {deleteLearnerProcessingList[
+                                enrollment.learner_id
+                              ] ? (
+                                <RefreshCcw
+                                  size={14}
+                                  className="mr-1 animate-spin"
+                                />
+                              ) : (
+                                <Delete size={14} className="mr-1" />
+                              )}
+                              Confirm
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleDeleteLearnerCancel(enrollment.learner_id)
+                              }
+                              disabled={
+                                deleteLearnerProcessingList[
+                                  enrollment.learner_id
+                                ]
+                              }
+                              className="whitespace-nowrap"
+                            >
+                              {deleteLearnerProcessingList[
+                                enrollment.learner_id
+                              ] ? (
+                                <RefreshCcw
+                                  size={14}
+                                  className="mr-1 animate-spin"
+                                />
+                              ) : (
+                                <ArrowBigLeft size={14} className="mr-1" />
+                              )}
+                              Cancel
+                            </Button>
                           </>
-                          )
-                          :(
+                        ) : (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick= {() => handleDeleteLearnerRequest(enrollment.learner_id)}
-                            disabled={deleteLearnerProcessingList[enrollment.learner_id]}
+                            onClick={() =>
+                              handleDeleteLearnerRequest(enrollment.learner_id)
+                            }
+                            disabled={
+                              deleteLearnerProcessingList[enrollment.learner_id]
+                            }
                             className="whitespace-nowrap"
                           >
-                            {deleteLearnerProcessingList[enrollment.learner_id] ? (
+                            {deleteLearnerProcessingList[
+                              enrollment.learner_id
+                            ] ? (
                               <RefreshCcw
                                 size={14}
                                 className="mr-1 animate-spin"
@@ -725,8 +804,7 @@ console.log("Called send email");
                             )}
                             Delete
                           </Button>
-                          )
-                        }
+                        )}
 
                         <Button
                           variant="outline"
@@ -734,13 +812,11 @@ console.log("Called send email");
                           onClick={() => {
                             setPaidInfoDialogData(enrollment);
                             setPaidInfoDialogOpen(true);
-                          }
-                        }
+                          }}
                           disabled={updatingPaidInfo[enrollment?.id]}
                           className="whitespace-nowrap"
                         >
-                          { 
-                          updatingPaidInfo[enrollment?.id] ? (
+                          {updatingPaidInfo[enrollment?.id] ? (
                             <RefreshCcw
                               size={14}
                               className="mr-1 animate-spin"
@@ -757,67 +833,68 @@ console.log("Called send email");
             </table>
           </div>
         )}
-    <Dialog
-      open={paidInfoDialogOpen}
-      onOpenChange={setPaidInfoDialogOpen}
-    >
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Enter Paid Installments</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="installment1-paid"
-              // The checkbox is checked if manualInstallment1 is truthy (contains the amount)
-              checked={!!manualInstallment1} 
-              onChange={(e) => {
-                const checked = e.target.checked;
-                // If checked is true, set the amount; otherwise set to null.
-                setManualInstallment1(checked ? paidInfoDialogData?.installment1_amount : null);
-              }}
-            />
-            {/* Using the provided 'Label' component */}
-            <Label htmlFor="installment1-paid">
-              Installment 1 (Amount: {paidInfoDialogData?.installment1_amount ?? 0})
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="installment2-paid"
-              // FIX: Disable this checkbox if manualInstallment1 is not yet set (null/0/false)
-              disabled={!manualInstallment1} 
-              // The checkbox is checked if manualInstallment2 is truthy (contains the amount)
-              checked={!!manualInstallment2} 
-              onChange={(e) => {
-                const checked = e.target.checked;
-                // If checked is true, set the amount; otherwise set to null.
-                setManualInstallment2(checked ? paidInfoDialogData?.installment2_amount : null);
-              }}
-            />
-            {/* Using the provided 'Label' component */}
-            <Label 
-              htmlFor="installment2-paid"
-              // Optional: Add a class to visually indicate disabled state on the label (e.g., lower opacity)
-              className={!manualInstallment1 ? "opacity-50" : ""}
-            >
-              Installment 2 (Amount: {paidInfoDialogData?.installment2_amount ?? 0})
-            </Label>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleUpdatePaidInfoClose} variant="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleUpdatePaidInfoSave}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <Dialog open={paidInfoDialogOpen} onOpenChange={setPaidInfoDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Enter Paid Installments</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="installment1-paid"
+                  // The checkbox is checked if manualInstallment1 is truthy (contains the amount)
+                  checked={!!manualInstallment1}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    // If checked is true, set the amount; otherwise set to null.
+                    setManualInstallment1(
+                      checked ? paidInfoDialogData?.installment1_amount : null,
+                    );
+                  }}
+                />
+                {/* Using the provided 'Label' component */}
+                <Label htmlFor="installment1-paid">
+                  Installment 1 (Amount:{" "}
+                  {paidInfoDialogData?.installment1_amount ?? 0})
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="installment2-paid"
+                  // FIX: Disable this checkbox if manualInstallment1 is not yet set (null/0/false)
+                  disabled={!manualInstallment1}
+                  // The checkbox is checked if manualInstallment2 is truthy (contains the amount)
+                  checked={!!manualInstallment2}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    // If checked is true, set the amount; otherwise set to null.
+                    setManualInstallment2(
+                      checked ? paidInfoDialogData?.installment2_amount : null,
+                    );
+                  }}
+                />
+                {/* Using the provided 'Label' component */}
+                <Label
+                  htmlFor="installment2-paid"
+                  // Optional: Add a class to visually indicate disabled state on the label (e.g., lower opacity)
+                  className={!manualInstallment1 ? "opacity-50" : ""}
+                >
+                  Installment 2 (Amount:{" "}
+                  {paidInfoDialogData?.installment2_amount ?? 0})
+                </Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleUpdatePaidInfoClose} variant="secondary">
+                Cancel
+              </Button>
+              <Button onClick={handleUpdatePaidInfoSave}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
-
   );
 }
-

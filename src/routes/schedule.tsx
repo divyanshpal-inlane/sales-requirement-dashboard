@@ -60,7 +60,7 @@ export default function Schedule() {
     courseId: enrollment?.course_id,
   });
   const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
-  useRescheduleLearnerLessonRequests(learner?.id);
+    useRescheduleLearnerLessonRequests(learner?.id);
 
   useEffect(() => {
     if (scheduledLessons) {
@@ -78,38 +78,39 @@ export default function Schedule() {
     if (lessonsForDay.length === 0) {
       return <div className="h-8 w-8 p-0">{date.getDate()}</div>;
     }
-    
+
     // Determine if the day contains a lesson that can be rescheduled
     // Collect all lesson_ids from scheduleRequests into a Set for fast lookup
     const requestLessonIds = new Set(
-      (scheduleRequests ?? []).flatMap(req => req.lesson_ids || [])
+      (scheduleRequests ?? []).flatMap((req) => req.lesson_ids || []),
     );
 
     // Store the boolean directly
-    const isRescheduleDay: boolean = (lessonsForDay ?? []).some(lesson =>
-      requestLessonIds.has(lesson.lessonId)
+    const isRescheduleDay: boolean = (lessonsForDay ?? []).some((lesson) =>
+      requestLessonIds.has(lesson.lessonId),
     );
 
     // console.log("lessonsForDay", lessonsForDay);
     // console.log("Schedule requests", scheduleRequests);
     const isPast = date < startOfDay(subDays(new Date(), 30));
-    console.log("date < ", isPast, date, startOfDay(subDays(new Date(), 30)) );
+    console.log("date < ", isPast, date, startOfDay(subDays(new Date(), 30)));
     let dayColorClasses = "";
 
     if (isPast) {
       // Gray for past days
-       dayColorClasses = "bg-gray-300 text-gray-600";
-   } else if (isRescheduleDay) {
-        // High priority: Yellow color for reschedule status
-        dayColorClasses = "bg-yellow-500 hover:bg-yellow-500 focus:bg-yellow-500 text-gray-800";
+      dayColorClasses = "bg-gray-300 text-gray-600";
+    } else if (isRescheduleDay) {
+      // High priority: Yellow color for reschedule status
+      dayColorClasses =
+        "bg-yellow-500 hover:bg-yellow-500 focus:bg-yellow-500 text-gray-800";
     } else {
-        // Default: Primary color for future days
-        dayColorClasses = "bg-primary text-primary-foreground";
+      // Default: Primary color for future days
+      dayColorClasses = "bg-primary text-primary-foreground";
     }
-    
+
     if (scheduleRequestsLoading) {
       console.log("Loading reschedule requests");
-      return <div>Loading ... </div>
+      return <div>Loading ... </div>;
     }
     return (
       <Popover>
@@ -131,7 +132,7 @@ export default function Schedule() {
               const now = new Date();
               const isLessonPast =
                 new Date(`${lesson.date}T${lesson.startTime}`) < now;
-                return (
+              return (
                 <p
                   key={lesson.id}
                   className={`flex flex-col gap-1 text-xs ${isLessonPast ? "text-gray-400 line-through" : ""}`}
@@ -150,22 +151,23 @@ export default function Schedule() {
                     className={`${isLessonPast ? "text-gray-400" : "text-accent-purple"}`}
                   >
                     Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
-                  <Button
-                    variant="link"
-                    onClick={() => {
-                      if (lesson.status && lesson.status != "completed") {
-                        navigate(
-                          `/reschedule/${lesson?.lesson?.id}`,
-                        )
-
-                      } else {
-                        alert("Lesson already completed")
+                    <Button
+                      variant="link"
+                      onClick={() => {
+                        if (lesson.status && lesson.status != "completed") {
+                          navigate(`/reschedule/${lesson?.lesson?.id}`);
+                        } else {
+                          alert("Lesson already completed");
+                        }
+                      }}
+                      disabled={
+                        !lesson ||
+                        !lesson.lesson ||
+                        lesson.status === "completed"
                       }
-                    }}
-                    disabled={!lesson || !lesson.lesson || (lesson.status==="completed")}
-                      >
-                        Reschedule
-                      </Button>
+                    >
+                      Reschedule
+                    </Button>
                   </span>
                 </p>
               );
@@ -224,12 +226,14 @@ export default function Schedule() {
                 {enrollment?.payment_status === "half_paid" && (
                   <Alert className="mb-4 border-primary bg-white">
                     <AlertDescription>
-                      You have paid the first installment. Some lessons are locked
-                      until you complete the payment.
+                      You have paid the first installment. Some lessons are
+                      locked until you complete the payment.
                       <Button
                         variant="link"
                         className="h-auto p-0 text-primary"
-                        onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+                        onClick={() =>
+                          navigate(`/payment?phone=${learner?.phone}`)
+                        }
                       >
                         Pay remaining amount
                       </Button>
@@ -244,22 +248,22 @@ export default function Schedule() {
                     Day: CustomDay,
                   }}
                 />
-                
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4 text-sm flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded bg-yellow-500" />
-                <span>Reschedule Requests</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded bg-primary" />
-                <span>Scheduled Lessons</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500"></div>
-            </div>
-          </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded bg-yellow-500" />
+                      <span>Reschedule Requests</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded bg-primary" />
+                      <span>Scheduled Lessons</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-gray-500"></div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -303,15 +307,15 @@ export default function Schedule() {
                       <div className="absolute bottom-0 flex w-full flex-row items-center justify-center gap-1 rounded-sm bg-white px-1.5 py-1 shadow-md">
                         <Link
                           to={`/lesson/${nextLesson.lesson.id}`}
-                          className="font-medium text-primary flex items-center space-x-1"
+                          className="flex items-center space-x-1 font-medium text-primary"
                         >
                           More details
-                        <ChevronRight
-                          color="white"
-                          className="rounded-full bg-primary"
-                          size={20}
+                          <ChevronRight
+                            color="white"
+                            className="rounded-full bg-primary"
+                            size={20}
                           />
-                          </Link>
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -383,10 +387,10 @@ export default function Schedule() {
                             onClick={(e) => isLocked && e.preventDefault()}
                           >
                             More details
-                          <ChevronRight
-                            color={isLocked ? "gray" : "white"}
-                            className={`rounded-full ${isLocked ? "bg-gray-400" : "bg-primary"}`}
-                            size={16}
+                            <ChevronRight
+                              color={isLocked ? "gray" : "white"}
+                              className={`rounded-full ${isLocked ? "bg-gray-400" : "bg-primary"}`}
+                              size={16}
                             />
                           </Link>
                         </div>

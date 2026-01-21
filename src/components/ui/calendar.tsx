@@ -69,7 +69,11 @@ function Calendar({
         ),
         day_range_start: "day-range-start",
         day_range_end: "day-range-end",
-        day_selected: cn(dayVariants({ variant: variant === 'reschedule' ? 'reschedule' : 'default' })), 
+        day_selected: cn(
+          dayVariants({
+            variant: variant === "reschedule" ? "reschedule" : "default",
+          }),
+        ),
         day_today: "bg-accent text-accent-foreground",
         day_outside:
           "day-outside text-muted-foreground opacity-50  aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",

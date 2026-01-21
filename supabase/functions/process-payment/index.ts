@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
-import CryptoJS from "npm:crypto-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,46 +13,64 @@ interface PaymentDetails {
   amount: number;
   email: string;
   phone: string;
-  paymentType: "course";
+  paymentType: "course" | "demo" | "custom";
   courseId?: string;
   name: string;
   installmentType?: "full" | "installment" | "second_half" | "first_half";
   installment1Amount?: number;
   installment2Amount?: number;
+  selectedModules?: string[];
+  totalHours?: number;
+  isDemoUpgrade?: boolean;
+  demoPaymentId?: string;
+  courseSelectionType?: "predefined" | "custom" | "demo";
 }
 
-// Utility functions for encryption and hash generation
-function encrypt(input: string, key: string): string {
-  const cipher = CryptoJS.AES.encrypt(
-    CryptoJS.enc.Utf8.parse(input),
-    CryptoJS.enc.Utf8.parse(key),
-    {
-      mode: CryptoJS.mode.ECB,
-      padding: CryptoJS.pad.Pkcs7,
-    },
-  );
-  return cipher.toString();
-}
-
-function generateSecureHash(
-  sortedData: Record<string, string>,
-  secret: string,
-): string {
-  let secureHash = secret;
-
-  if (sortedData) {
-    for (const val of Object.values(sortedData)) {
-      secureHash += val;
-    }
+/**
+ * Generate HMAC-SHA256 hash for Orange PG
+ * Per ICICI documentation: Sort fields alphabetically, concatenate VALUES only, then HMAC-SHA256
+ */
+async function generateSecureHash(
+  data: Record<string, string>,
+  secretKey: string,
+): Promise<string> {
+  const sortedKeys = Object.keys(data).sort();
+  let hashText = "";
+  for (const key of sortedKeys) {
+    hashText += data[key];
   }
 
-  // Generate SHA-256 hash
-  const hashed = CryptoJS.SHA256(CryptoJS.enc.Utf8.parse(secureHash));
-  return hashed.toString(CryptoJS.enc.Hex);
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKey);
+  const msgData = encoder.encode(hashText);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, msgData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// TODO: if the user with the same phone number already has an active enrolled course
-// then don't allow them to make this payment, return the error message and show it on the UI with a a way to go back to login page or automatically incorrect
+/**
+ * Format date as required by Orange PG: YYYYMMDDHHmmss
+ */
+function formatTxnDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+  return `${year}${month}${day}${hours}${minutes}${seconds}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -75,6 +92,11 @@ serve(async (req) => {
       installmentType,
       installment1Amount,
       installment2Amount,
+      selectedModules,
+      totalHours,
+      isDemoUpgrade,
+      demoPaymentId,
+      courseSelectionType,
     } = (await req.json()) as PaymentDetails;
 
     // 1. Find or create learner
@@ -133,6 +155,14 @@ serve(async (req) => {
     console.log("paymentRecord ---> ", paymentRecord, dbError);
     if (dbError) throw dbError;
 
+    // Handle demo upgrade - mark the demo payment as used
+    if (isDemoUpgrade && demoPaymentId) {
+      await supabaseClient
+        .from("payment")
+        .update({ status: "upgraded" })
+        .eq("id", demoPaymentId);
+    }
+
     // 3. Update related records based on payment type
     if (paymentType === "course" && courseId) {
       // Check for existing enrollment
@@ -149,7 +179,6 @@ serve(async (req) => {
       if (enrollmentQueryError) throw enrollmentQueryError;
 
       if (existingEnrollment) {
-        // If enrollment exists, update it with new payment details
         if (existingEnrollment.payment_status === "full_paid") {
           throw new Error("This course is already fully paid for");
         }
@@ -163,7 +192,6 @@ serve(async (req) => {
           );
         }
 
-        // Update the existing enrollment
         const { error: updateError } = await supabaseClient
           .from("enrollment")
           .update({
@@ -183,7 +211,6 @@ serve(async (req) => {
 
         if (updateError) throw updateError;
       } else {
-        // Only create new enrollment if one doesn't exist
         const { error: courseError } = await supabaseClient
           .from("enrollment")
           .insert([
@@ -197,8 +224,7 @@ serve(async (req) => {
               installment_mode: installmentType,
               installment1_amount: installment1Amount,
               installment2_amount: installment2Amount,
-              unlocked_lessons:
-                installmentType === "first_half" ? [1, 2] : [],
+              unlocked_lessons: installmentType === "first_half" ? [1, 2] : [],
             },
           ]);
 
@@ -206,84 +232,161 @@ serve(async (req) => {
       }
     }
 
-    // 4. Get payment gateway parameters from environment
-    const merchantId = Deno.env.get("PAYMENT_MERCHANT_ID") ?? "";
-    const terminalId = Deno.env.get("PAYMENT_TERMINAL_ID") ?? "";
-    const bankId = Deno.env.get("PAYMENT_BANK_ID") ?? "";
-    const passCode = Deno.env.get("PAYMENT_PASS_CODE") ?? "";
-    const mcc = Deno.env.get("PAYMENT_MCC") ?? "";
-    const encKey = Deno.env.get("PAYMENT_ENC_KEY") ?? "";
-    const saltKey = Deno.env.get("PAYMENT_SALT_KEY") ?? "";
+    // 3b. Handle demo payment
+    if (paymentType === "demo") {
+      const { error: demoError } = await supabaseClient
+        .from("enrollment")
+        .insert([
+          {
+            learner_id: learnerId,
+            course_id: null,
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: "full",
+            unlocked_lessons: [1],
+            progress: {
+              type: "demo",
+              total_hours: 1,
+            },
+          },
+        ]);
+
+      if (demoError) throw demoError;
+    }
+
+    // 3c. Handle custom course payment
+    if (
+      paymentType === "custom" &&
+      selectedModules &&
+      selectedModules.length > 0
+    ) {
+      const lessonsToUnlock = Math.min(Math.ceil((totalHours || 0) / 1), 10);
+      const unlockedLessons = Array.from(
+        { length: lessonsToUnlock },
+        (_, i) => i + 1,
+      );
+
+      const { error: customError } = await supabaseClient
+        .from("enrollment")
+        .insert([
+          {
+            learner_id: learnerId,
+            course_id: null,
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: installmentType || "full",
+            installment1_amount: installment1Amount,
+            installment2_amount: installment2Amount,
+            unlocked_lessons:
+              installmentType === "first_half" ? [1, 2] : unlockedLessons,
+            progress: {
+              type: "custom",
+              selected_modules: selectedModules,
+              total_hours: totalHours,
+              is_demo_upgrade: isDemoUpgrade || false,
+            },
+          },
+        ]);
+
+      if (customError) throw customError;
+    }
+
+    // 4. Get Orange PG configuration from environment
+    const merchantId = Deno.env.get("ORANGE_PG_MERCHANT_ID") ?? "";
+    const aggregatorId = Deno.env.get("ORANGE_PG_AGGREGATOR_ID") ?? "";
+    const secretKey = Deno.env.get("ORANGE_PG_SECRET_KEY") ?? "";
+    const initiateSaleUrl =
+      Deno.env.get("ORANGE_PG_INITIATE_SALE_URL") ??
+      "https://pgpay.icicibank.com/tsp/pg/api/v2/initiateSale";
     const returnURL = Deno.env.get("PAYMENT_RETURN_URL") ?? "";
-    const gatewayURL = Deno.env.get("PAYMENT_GATEWAY_URL") ?? "";
 
-    // 5. Prepare payment data
-    const txnRefNo = `ORD-${paymentRecord.id}`;
-    const txnType = "Pay";
-    const currency = "356";
-    const amountInPaise = Math.round(amount * 100).toString();
+    // 5. Prepare Orange PG request data
+    const merchantTxnNo = `ORD-${paymentRecord.id}`;
+    const txnDate = formatTxnDate();
 
-    // 6. Create data object in required format
-    const data = {
-      BankId: bankId,
-      MerchantId: merchantId,
-      TerminalId: terminalId,
-      TxnRefNo: txnRefNo,
-      MCC: mcc,
-      PassCode: passCode,
-      TxnType: txnType,
-      Currency: currency,
-      Amount: amountInPaise,
-      CurrencyCode: "356",
-      ReturnURL: returnURL,
-      gatewayURL: gatewayURL,
-      OrderInfo: txnRefNo,
-      Email: email,
-      Phone: phone,
-      UDF01: installmentType || "",
-      UDF02: installment1Amount?.toString() || "",
-      UDF03: installment2Amount?.toString() || "",
-      UDF04: "",
-      UDF05: "",
-      UDF06: "",
-      UDF07: "",
-      UDF08: "",
-      UDF09: "",
-      UDF10: "",
+    // Build request data (fields used for hash calculation)
+    const requestData: Record<string, string> = {
+      merchantId: merchantId,
+      aggregatorID: aggregatorId,
+      merchantTxnNo: merchantTxnNo,
+      amount: amount.toFixed(2),
+      currencyCode: "356",
+      payType: "0",
+      customerEmailID: email,
+      transactionType: "SALE",
+      returnURL: returnURL,
+      txnDate: txnDate,
+      customerMobileNo: phone.startsWith("91") ? phone : `91${phone}`,
+      customerName: name,
+      // Additional params for our use
+      addlParam1: installmentType || "full",
+      addlParam2: paymentType || "course",
     };
 
-    // 7. Sort data alphabetically
-    const sortedData = Object.fromEntries(Object.entries(data).sort());
+    console.log(
+      "Orange PG Request data:",
+      JSON.stringify(requestData, null, 2),
+    );
 
-    // 8. Generate data string for encryption
-    let dataToPostToPG = "";
-    Object.entries(sortedData).forEach(([key, value]) => {
-      dataToPostToPG += `${key}||${value}::`;
+    // 6. Generate secure hash using HMAC-SHA256
+    const secureHash = await generateSecureHash(requestData, secretKey);
+    console.log("Generated secureHash:", secureHash);
+
+    // 7. Add secureHash to request
+    const finalRequest = {
+      ...requestData,
+      secureHash: secureHash,
+    };
+
+    // 8. Call Orange PG InitiateSale API
+    const response = await fetch(initiateSaleUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(finalRequest),
     });
 
-    console.log("dataToPostToPG ---> \n", dataToPostToPG);
+    const responseText = await response.text();
+    console.log("Orange PG Response Status:", response.status);
+    console.log("Orange PG Response:", responseText);
 
-    // 9. Generate secure hash
-    const secureHash = generateSecureHash(sortedData, saltKey);
-    console.log("secureHash ---> ", secureHash);
-    // 10. Add secure hash to data string
-    dataToPostToPG = `SecureHash||${secureHash}::${dataToPostToPG}`;
-    dataToPostToPG = dataToPostToPG.slice(0, -2); // Remove last '::'
-    console.log("dataToPostToPG ---> ", dataToPostToPG);
-    // 11. Encrypt the final data
-    const encData = encrypt(dataToPostToPG, encKey);
+    let pgResponse;
+    try {
+      pgResponse = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Invalid response from payment gateway: ${responseText}`);
+    }
 
-    console.log("encData ---> \n", encData);
-    // 12. Return the form data and gateway URL
+    // 9. Check if InitiateSale was successful
+    if (pgResponse.responseCode !== "R1000") {
+      throw new Error(
+        `Payment initiation failed: ${pgResponse.respDescription || pgResponse.responseCode}`,
+      );
+    }
+
+    // 10. Build redirect URL
+    const redirectUrl = `${pgResponse.redirectURI}?tranCtx=${pgResponse.tranCtx}`;
+
+    // 11. Update payment record with transaction context
+    await supabaseClient
+      .from("payment")
+      .update({
+        gateway_reference: pgResponse.tranCtx,
+        pg_request: finalRequest,
+        pg_response: pgResponse,
+      })
+      .eq("id", paymentRecord.id);
+
+    // 12. Return redirect URL for frontend
     return new Response(
       JSON.stringify({
-        gatewayURL,
-        formData: {
-          EncData: encData,
-          MerchantId: merchantId,
-          BankId: bankId,
-          TerminalId: terminalId,
-        },
+        success: true,
+        redirectUrl: redirectUrl,
+        merchantTxnNo: merchantTxnNo,
+        tranCtx: pgResponse.tranCtx,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

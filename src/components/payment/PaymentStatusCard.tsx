@@ -1,10 +1,10 @@
-import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLearner } from "@/queries/learner";
-import { useLatestPayment, usePaymentsByLearner } from "@/queries/payment";
+import { usePaymentsByLearner } from "@/queries/payment";
 
 function PaymentStatusCard() {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ function PaymentStatusCard() {
   // Fetch all payments for the learner
   const { data: payments, isLoading } = usePaymentsByLearner(learner?.id);
 
-  // Find the latest completed payment
+  // Find the latest completed course payment
   const completedPayment = Array.isArray(payments)
     ? payments
         .filter(
@@ -25,12 +25,6 @@ function PaymentStatusCard() {
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         )[0]
     : null;
-
-  // Find the latest payment (completed or not)
-  const latestPayment = payments?.sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  )[0];
 
   if (isLoading) {
     return (
@@ -58,6 +52,7 @@ function PaymentStatusCard() {
           <Button
             onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
             className="w-full"
+            disabled={!learner?.phone}
           >
             Make Payment
           </Button>
@@ -68,48 +63,60 @@ function PaymentStatusCard() {
 
   const isCompleted =
     completedPayment && completedPayment?.status === "completed";
-  const payment = isCompleted ? completedPayment : latestPayment;
+
+  // If no completed course payment, show "Choose a Course" prompt
+  if (!isCompleted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-6 w-6 text-yellow-500" />
+            Payment Pending
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-4 text-sm text-gray-500">
+            Please choose a course and complete payment to get started.
+          </p>
+          <Button
+            onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+            className="w-full"
+            disabled={!learner?.phone}
+          >
+            Choose a Course
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {isCompleted ? (
-            <>
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
-              Payment Completed
-            </>
-          ) : (
-            <>
-              <XCircle className="h-6 w-6 text-red-500" />
-              Payment {payment.status}
-            </>
-          )}
+          <CheckCircle2 className="h-6 w-6 text-green-500" />
+          Payment Completed
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-500">Amount</p>
-            <p className="font-medium">₹{payment.amount}</p>
+            <p className="font-medium">₹{completedPayment.amount}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Type</p>
-            <p className="font-medium capitalize">{payment.payment_type}</p>
+            <p className="font-medium capitalize">
+              {completedPayment.payment_type}
+            </p>
           </div>
-          {payment.gateway_reference && (
+          {completedPayment.gateway_reference && (
             <div>
               <p className="text-sm text-gray-500">Reference Number</p>
-              <p className="font-medium">{payment.gateway_reference}</p>
+              <p className="font-medium">
+                {completedPayment.gateway_reference}
+              </p>
             </div>
-          )}
-          {!isCompleted && (
-            <Button
-              onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
-              className="w-full"
-            >
-              Retry Payment
-            </Button>
           )}
         </div>
       </CardContent>

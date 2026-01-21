@@ -12,15 +12,15 @@ import LLFillForm from "./LLFillForm";
 export default function LLAppointmentBooking() {
   const learner = useLearner();
   const { mutate: updateLearner } = useLearnerUpdate();
-  
+
   const [showFillFormBanner, setShowFillFormBanner] = useState<boolean>(false);
   const handleFillForm = () => {
     setShowFillFormBanner(true);
   };
-  
+
   if (!learner) {
     // This assumes useLearner() returns undefined or null while loading.
-    return <div>Loading data...</div>; 
+    return <div>Loading data...</div>;
   }
 
   useEffect(() => {
@@ -49,15 +49,16 @@ export default function LLAppointmentBooking() {
   //   console.log("updated learner", JSON.stringify(learner.data, null, 2));
   // }, [learner]);
 
-return (
+  return (
     <div className="flex w-full grow flex-col">
       {showFillFormBanner ? (
-        <LLFillForm 
+        <LLFillForm
           learnerName={learner.data.name}
           learnerPhone={learner.data.phone}
           learnerEmail={learner.data.email}
         />
-      ) : ( // The colon is followed by a valid JSX expression
+      ) : (
+        // The colon is followed by a valid JSX expression
         <>
           <Card className="mx-auto mt-4 max-w-2xl">
             <CardHeader className="rounded-t-xl bg-primary text-white">
@@ -67,12 +68,10 @@ return (
             </CardHeader>
             <CardContent className="space-y-6 p-6">
               <p className="text-lg font-semibold">
-                Before booking your appointment, please fill out the Google form:
+                Before booking your appointment, please fill out the Google
+                form:
               </p>
-              <Button
-                className="w-full py-3 text-lg"
-                onClick={handleFillForm}
-              >
+              <Button className="w-full py-3 text-lg" onClick={handleFillForm}>
                 Fill google form
               </Button>
               <p className="text-base">

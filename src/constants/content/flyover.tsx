@@ -153,10 +153,10 @@ export const FLYOVER_LESSON_CONTENT: LessonContent = {
         },
       ],
       signature: {
-          title: "autograph please",
-          icon: "✍️",
-          color: "bg-[#00CE84]",
-        },
+        title: "autograph please",
+        icon: "✍️",
+        color: "bg-[#00CE84]",
+      },
     },
     content: {
       remember: [

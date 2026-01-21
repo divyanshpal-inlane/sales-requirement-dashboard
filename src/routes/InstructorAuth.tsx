@@ -48,21 +48,20 @@ export default function InstructorAuth() {
   }, [timer]);
 
   const handleSendOtp = async () => {
-    if (isRequestingOtp) return; // Prevent multiple clicks
+    if (isRequestingOtp) return;
 
     try {
-      setIsRequestingOtp(true); // Disable button
+      setIsRequestingOtp(true);
       await requestPasswordReset(phone);
       setResetRequested(true);
-      setTimer(30); // Start 30-second timer
+      setTimer(30);
       setSuccessMessage(
         "OTP sent to your WhatsApp. Please check and enter below.",
       );
     } catch (error) {
-      console.error("Failed to send OTP:", error);
       setErrorMessage("Failed to send OTP. Please try again.");
     } finally {
-      setIsRequestingOtp(false); // Re-enable button after request
+      setIsRequestingOtp(false);
     }
   };
 
@@ -72,14 +71,13 @@ export default function InstructorAuth() {
       setOtpVerified(true);
       setSuccessMessage("OTP verified successfully. Set your new password.");
     } catch (error) {
-      console.error("Failed to verify OTP:", error);
       setErrorMessage("Invalid OTP. Please try again.");
     }
   };
 
   const onSubmitHandler = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(""); // Clear any previous errors
+    setErrorMessage("");
     try {
       if (active === "login") {
         await login(phone, password, "instructor");
@@ -87,19 +85,16 @@ export default function InstructorAuth() {
         await signUp(phone, password, "instructor");
       } else if (active === "forgot-password") {
         if (!resetRequested) {
-          // Step 1: Request password reset OTP
           if (!phone || phone.trim().length < 10) {
             throw new Error("Please enter a valid phone number");
           }
           await handleSendOtp();
         } else if (!otpVerified) {
-          // Step 2: Verify OTP
           if (!otp || otp.trim().length < 4) {
             throw new Error("Please enter the OTP sent to your WhatsApp");
           }
           await handleVerifyOtp();
         } else {
-          // Step 3: Reset password
           if (!newPassword || newPassword.length < 6) {
             throw new Error("Password must be at least 6 characters long");
           }
@@ -111,7 +106,6 @@ export default function InstructorAuth() {
             "Password reset successfully! You can now login with your new password.",
           );
 
-          // Reset states and redirect to login
           setTimeout(() => {
             setActive("login");
             setResetRequested(false);
@@ -123,7 +117,6 @@ export default function InstructorAuth() {
     } catch (error) {
       setSuccessMessage("");
       setErrorMessage(error?.message || "An error occurred. Please try again.");
-      console.error("Action failed:", error);
     }
   };
 
@@ -149,7 +142,6 @@ export default function InstructorAuth() {
 
             <form onSubmit={onSubmitHandler}>
               <div className="space-y-4">
-                {/* Phone input */}
                 <div className="flex h-fit rounded-md shadow-md">
                   <span className="flex items-center rounded-l-md border border-r-0 bg-gray-100 px-3 text-gray-500">
                     +91
@@ -163,7 +155,6 @@ export default function InstructorAuth() {
                   />
                 </div>
 
-                {/* Password input */}
                 {active !== "forgot-password" && (
                   <div className="relative w-full">
                     <Input
@@ -184,7 +175,6 @@ export default function InstructorAuth() {
                   </div>
                 )}
 
-                {/* OTP input */}
                 {active === "forgot-password" && resetRequested && (
                   <div className="space-y-1">
                     <Input
@@ -198,7 +188,6 @@ export default function InstructorAuth() {
                   </div>
                 )}
 
-                {/* New password input */}
                 {active === "forgot-password" && otpVerified && (
                   <>
                     <div className="space-y-1">
@@ -230,7 +219,6 @@ export default function InstructorAuth() {
                   </>
                 )}
 
-                {/* Error and success messages */}
                 {errorMessage && (
                   <p className="text-sm text-destructive" role="alert">
                     {errorMessage}
@@ -242,7 +230,6 @@ export default function InstructorAuth() {
                   </p>
                 )}
 
-                {/* Action buttons */}
                 <div className="flex flex-col items-center gap-1">
                   {active === "login" ? (
                     <>

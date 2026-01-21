@@ -14,13 +14,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { differenceInDays, addDays, format, subDays, isBefore, set, setYear, setMonth, getYear, getMonth } from "date-fns";
+import {
+  differenceInDays,
+  addDays,
+  format,
+  subDays,
+  isBefore,
+  set,
+  setYear,
+  setMonth,
+  getYear,
+  getMonth,
+} from "date-fns";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { SelectValue } from "@radix-ui/react-select";
 import { Dialog } from "@radix-ui/react-dialog";
-import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // Animated Search Bar Component
@@ -85,14 +106,13 @@ const LearnerDetails = () => {
   const queryClient = useQueryClient();
   const [dialogOpenTestDate, setDialogOpenTestDate] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isBookedTestDateDialogOpen, setIsBookedTestDateDialogOpen] = useState(false);
+  const [isBookedTestDateDialogOpen, setIsBookedTestDateDialogOpen] =
+    useState(false);
   const [bookedTest, setBookedTest] = useState("");
   const [selectedLearner, setSelectedLearner] = useState<LearnerInfo | null>(
     null,
   );
   const [dialogOpen, setDialogOpen] = useState(false);
-  
-
 
   // Query for past LL approved applications
   const {
@@ -110,7 +130,7 @@ const LearnerDetails = () => {
         .is("LL_application_approved", true)
         .is("LL_received", true)
         .order("has_a_DL");
-        if (error) throw error;
+      if (error) throw error;
       return data;
     },
   });
@@ -175,37 +195,36 @@ const LearnerDetails = () => {
     }
   };
 
-
-    const updateLearnerPostLLMutation = useMutation({
-      mutationFn: async ({
-        learnerId,
-        updates,
-      }: {
-        learnerId: string;
-        updates: Partial<any>;
-      }) => {
-        const { error } = await supabase
-          .from("Learner")
-          .update(updates)
-          .eq("id", learnerId);
-        if (error) throw error;
-      },
-      onSuccess: () => {
-        toast({
-          title: "Success",
-          description: "Learner LL details updated successfully.",
-        });
-        queryClient.invalidateQueries(["learners", "llDetails"]);
-        queryClient.invalidateQueries(["learners", "pastLLApplications"]);
-      },
-      onError: (error) => {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      },
-    });
+  const updateLearnerPostLLMutation = useMutation({
+    mutationFn: async ({
+      learnerId,
+      updates,
+    }: {
+      learnerId: string;
+      updates: Partial<any>;
+    }) => {
+      const { error } = await supabase
+        .from("Learner")
+        .update(updates)
+        .eq("id", learnerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Learner LL details updated successfully.",
+      });
+      queryClient.invalidateQueries(["learners", "llDetails"]);
+      queryClient.invalidateQueries(["learners", "pastLLApplications"]);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
     setSelectedLearner(learner);
@@ -220,7 +239,6 @@ const LearnerDetails = () => {
   };
   const handleSaveBookedTestDate = (learnerId: string) => {
     // console.log("learnerId", learnerId);
-
 
     updateLearnerPostLLMutation.mutate(
       {
@@ -248,16 +266,9 @@ const LearnerDetails = () => {
             variant: "destructive",
           });
         },
-      }
+      },
     );
-        
-
-
-
-    
-
-  
-  }
+  };
 
   const calculateLesson10Start = (learner) => {
     if (!learner.DL_test_date) {
@@ -268,92 +279,91 @@ const LearnerDetails = () => {
 
   const handleCloseBookedTestDate = () => {
     setIsBookedTestDateDialogOpen(false);
-  }
-  
-  const isLesson10ButtonDisabled = (learner): boolean => {
-      const calculatedStartDate = calculateLesson10Start (learner);
-      
-      if (!calculatedStartDate) {
-        return true;
-      }
+  };
 
-      // Disabled if the current date is before the calculated start date
-      return isBefore(new Date(), calculatedStartDate);
+  const isLesson10ButtonDisabled = (learner): boolean => {
+    const calculatedStartDate = calculateLesson10Start(learner);
+
+    if (!calculatedStartDate) {
+      return true;
+    }
+
+    // Disabled if the current date is before the calculated start date
+    return isBefore(new Date(), calculatedStartDate);
   };
 
   const handleLesson10Click = (learner) => {
     if (!learner) return;
-      supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "WEBAPP_SCHEDULE_LESSON_10",
-          learner_id: learner.id,
-        },
-      });
-      toast({
-        title: "Success",
-          description: "Lesson 10 booking notification sent.",
-      });
-  }
-
+    supabase.functions.invoke("send-message", {
+      body: {
+        message_type: "WEBAPP_SCHEDULE_LESSON_10",
+        learner_id: learner.id,
+      },
+    });
+    toast({
+      title: "Success",
+      description: "Lesson 10 booking notification sent.",
+    });
+  };
 
   const handleTestPass = (learner, isPass) => {
     if (!learner) return;
     // console.log("handleTestPass called with learner:", learner);
-    
+
     updateLearnerMutation.mutate(
-    {
-      learnerId: learner.id,
-      updates: {
-        DL_result: isPass,
+      {
+        learnerId: learner.id,
+        updates: {
+          DL_result: isPass,
+        },
       },
-    },
-    {
-      onSuccess: async () => {
-        toast({
-          title: "Success",
+      {
+        onSuccess: async () => {
+          toast({
+            title: "Success",
             description: "Driving test information updated.",
-        });
+          });
+        },
       },
-    },
-  );
+    );
   };
 
   const handleProcessFinish = (learner) => {
-  if (!learner) return;
-  updateLearnerMutation.mutate(
-    {
-      learnerId: learner.id,
-      updates: {
-        // TODO: set licenceid to argument appointmentId2,
-        has_postLL_done: true,
-        has_a_DL: true,
-        DL_received_date: new Date().toISOString(),
+    if (!learner) return;
+    updateLearnerMutation.mutate(
+      {
+        learnerId: learner.id,
+        updates: {
+          // TODO: set licenceid to argument appointmentId2,
+          has_postLL_done: true,
+          has_a_DL: true,
+          DL_received_date: new Date().toISOString(),
+        },
       },
-    },
-    {
-      onSuccess: async () => {
-        // await supabase.functions.invoke("send-message", {
-        //   body: {
-        //     // message_type: "LL_APPLICATION_UPDATE",
-        //     learner_id: learner.id,
-        //   },
-        // });
-        // Todo send final message
-        // await sendAdminEmail(
-        //   "Schedule DL Test Date - LL Approved",
-        //   `Learner's License has been approved for ${selectedLearner.name} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
-        // );
-        toast({
-          title: "Success",
+      {
+        onSuccess: async () => {
+          // await supabase.functions.invoke("send-message", {
+          //   body: {
+          //     // message_type: "LL_APPLICATION_UPDATE",
+          //     learner_id: learner.id,
+          //   },
+          // });
+          // Todo send final message
+          // await sendAdminEmail(
+          //   "Schedule DL Test Date - LL Approved",
+          //   `Learner's License has been approved for ${selectedLearner.name} (Phone: ${selectedLearner.phone}).Please schedule a driving test date for this learner in the DL Test Dates section.`,
+          // );
+          toast({
+            title: "Success",
             // TODO
             // description: "Learner record closed and notifications sent.",
             description: "Learner record closed.",
-        });
+          });
+        },
       },
-    },
-  );
+    );
   };
-    
+
   return (
     <div
       className="min-h-screen bg-gray-50"
@@ -422,140 +432,162 @@ const LearnerDetails = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      Name
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      Mobile
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      LL Application ID
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      LL licence number
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      Schedule Preferences given ?
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      Date of LL issued
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      Start day of DL test (after 30 days from LL)
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      Booked Test date
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      10th lesson booking start (before 7 days of test)
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      10th lesson booked ?
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
-                      DL test Pass/Fail
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                <table className="w-full">
+                  <thead className="border-b bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Mobile
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        LL Application ID
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        LL licence number
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Schedule Preferences given ?
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Date of LL issued
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Start day of DL test (after 30 days from LL)
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        Booked Test date
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        10th lesson booking start (before 7 days of test)
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        10th lesson booked ?
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
+                        DL test Pass/Fail
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-700">
                         DL Issued ?
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {filteredPastApplications?.map((learner, index) => (
-                    <tr
-                      key={learner.id}
-                      className={`transition-colors duration-150 hover:bg-gray-50 ${
-                        index % 2 === 0 ? "bg-white" : "bg-gray-25"
-                      }`}
-                    >
-                      {/* 🛠️ FIX APPLIED HERE: The entire clickable section is now inside a <td> */}
-                      <td
-                        className="whitespace-nowrap px-6 py-4 cursor-pointer" 
-                        onClick={() => handleLearnerSelect({
-                          id: learner.id || "",
-                          name: learner.name || "",
-                          phone: learner.phone || "",
-                          email: learner.email || "",
-                          area: learner.area || "",
-                          pick_up_location: learner.pick_up_location,
-                          pincode: learner.pincode,
-                          signed_up: learner.signed_up,
-                          created_at: learner.created_at,
-                          address_lat: learner.address_lat,
-                          address_lng: learner.address_lng,
-                          preferred_start_date: learner.preferred_start_date,
-                          preferred_completion_days: learner.preferred_completion_days,
-                          prefers_two_hour_classes: learner.prefers_two_hour_classes,
-                          preferred_two_hour_days: learner.two_hour_days,
-                          DL_test_date: learner.DL_test_date,
-                        })}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {filteredPastApplications?.map((learner, index) => (
+                      <tr
+                        key={learner.id}
+                        className={`transition-colors duration-150 hover:bg-gray-50 ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-25"
+                        }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-12 w-12">
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {getInitials(learner.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="font-medium text-gray-900">{learner.name}</div>
-                        </div>
-                      </td>
-                      {/* End of Name/Avatar cell */}
-
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className="text-gray-700">{learner.phone}</div>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                          {learner.LL_application_id || "N/A"}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          learner.LL_id ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {learner.LL_id || "N/A"}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {
-                                                      <div
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
-                            ${
-                              learner?.schedule_preferences?.length > 0
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }
-                          `}
-                        >
-                          {learner?.schedule_preferences?.length > 0
-                            ? "Yes"
-                            : "No" }
-                        </div>
-                        }
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {learner.LL_received_date || "N/A"}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          learner.LL_received_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {learner.LL_received_date
-                            ? format(addDays(new Date(learner.LL_received_date), 30), 'yyyy-MM-dd')
-                            : "N/A"
+                        {/* 🛠️ FIX APPLIED HERE: The entire clickable section is now inside a <td> */}
+                        <td
+                          className="cursor-pointer whitespace-nowrap px-6 py-4"
+                          onClick={() =>
+                            handleLearnerSelect({
+                              id: learner.id || "",
+                              name: learner.name || "",
+                              phone: learner.phone || "",
+                              email: learner.email || "",
+                              area: learner.area || "",
+                              pick_up_location: learner.pick_up_location,
+                              pincode: learner.pincode,
+                              signed_up: learner.signed_up,
+                              created_at: learner.created_at,
+                              address_lat: learner.address_lat,
+                              address_lng: learner.address_lng,
+                              preferred_start_date:
+                                learner.preferred_start_date,
+                              preferred_completion_days:
+                                learner.preferred_completion_days,
+                              prefers_two_hour_classes:
+                                learner.prefers_two_hour_classes,
+                              preferred_two_hour_days: learner.two_hour_days,
+                              DL_test_date: learner.DL_test_date,
+                            })
                           }
-                        </div>
-                      </td>
-                      
-                      {/* Schedule Preferences cell (fixed from your previous query) */}
-                      {/* <td className="whitespace-nowrap px-6 py-4">
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-12 w-12">
+                              <AvatarFallback className="bg-primary/10 text-primary">
+                                {getInitials(learner.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="font-medium text-gray-900">
+                              {learner.name}
+                            </div>
+                          </div>
+                        </td>
+                        {/* End of Name/Avatar cell */}
+
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="text-gray-700">{learner.phone}</div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                            {learner.LL_application_id || "N/A"}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              learner.LL_id
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {learner.LL_id || "N/A"}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {
+                            <div
+                              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                                learner?.schedule_preferences?.length > 0
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              } `}
+                            >
+                              {learner?.schedule_preferences?.length > 0
+                                ? "Yes"
+                                : "No"}
+                            </div>
+                          }
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              learner.LL_received_date
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {learner.LL_received_date || "N/A"}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              learner.LL_received_date
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {learner.LL_received_date
+                              ? format(
+                                  addDays(
+                                    new Date(learner.LL_received_date),
+                                    30,
+                                  ),
+                                  "yyyy-MM-dd",
+                                )
+                              : "N/A"}
+                          </div>
+                        </td>
+
+                        {/* Schedule Preferences cell (fixed from your previous query) */}
+                        {/* <td className="whitespace-nowrap px-6 py-4">
                         <div
                           className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
                             ${
@@ -572,158 +604,190 @@ const LearnerDetails = () => {
                         </div>
                       </td> */}
 
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          learner.DL_test_date ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {learner.DL_test_date ? learner.DL_test_date : "N/A"}
-                        </div>
-                        <div className="mt-2">
-                          <button
-                            onClick={() => setIsBookedTestDateDialogOpen(true)}
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium focus:outline-none"
-                            title="Update Test Date"
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              learner.DL_test_date
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
                           >
-                            {learner.DL_test_date ? "Change test date" : "Add test date"}
-                          </button>
-                        </div>
-                        {/* Dialog components remain valid here */}
-                        <Dialog
-                          open={isBookedTestDateDialogOpen}
-                          onOpenChange={setIsBookedTestDateDialogOpen}
-                        >
-                          <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                              <DialogTitle>Enter Booked test date</DialogTitle>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label
-                                  htmlFor="app-booked_test"
-                                  className="text-right"
-                                >
-                                  Test Date
-                                </Label>
-                                <Input
-                                  id="booked_test-date"
-                                  type="date"
-                                  value={bookedTest|| ''}
-                                  onChange={(e) => {
-                                    setBookedTest(e.target.value);
-                                  }}
-                                  disabled={updateLearnerPostLLMutation.isPending}
-                                  className="col-span-3"
-                                />
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button onClick={handleCloseBookedTestDate} variant="secondary">
-                                Close
-                              </Button>
-                              <Button onClick={() => handleSaveBookedTestDate(learner.id)}>Save</Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </td>
-
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          calculateLesson10Start(learner) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {calculateLesson10Start(learner) || "N/A" }
-                        </div>
-
-                        {!isLesson10ButtonDisabled(learner) && (
-                          <button
-                          onClick={() => { handleLesson10Click(learner);}}
-                          className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            {learner.DL_test_date
+                              ? learner.DL_test_date
+                              : "N/A"}
+                          </div>
+                          <div className="mt-2">
+                            <button
+                              onClick={() =>
+                                setIsBookedTestDateDialogOpen(true)
+                              }
+                              className="text-sm font-medium text-indigo-600 hover:text-indigo-900 focus:outline-none"
+                              title="Update Test Date"
+                            >
+                              {learner.DL_test_date
+                                ? "Change test date"
+                                : "Add test date"}
+                            </button>
+                          </div>
+                          {/* Dialog components remain valid here */}
+                          <Dialog
+                            open={isBookedTestDateDialogOpen}
+                            onOpenChange={setIsBookedTestDateDialogOpen}
                           >
-                            Send notification
-                          </button>
-                        )}
-                      </td>
-
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          learner.has_lesson10_booked === true
-                            ? "bg-green-100 text-green-800"
-                            : learner.has_lesson10_booked === false
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {learner.has_lesson10_booked === true
-                            ? "Yes"
-                            : learner.has_lesson10_booked === false
-                            ? "No"
-                            : "N/A"
-                          }
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                          learner.DL_result === true
-                            ? "bg-green-100 text-green-800"
-                            : learner.DL_result === false
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {learner.DL_result === true
-                            ? "PASS"
-                            : learner.DL_result === false
-                            ? "FAIL"
-                            : "N/A"
-                          }
-                        </div>
-                          {
-                            !learner.DL_result && (
-                              <button
-                              onClick={() => { handleTestPass(learner, true);} }
-                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                              >
-                                Yes
-                              </button>
-                            )
-                          }
-                        {
-                            (!(learner.DL_result && learner.DL_result===false)) && (
-                              <button
-                              onClick={() => { handleTestPass(learner, false);} }
-                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                              >
-                                No
-                              </button>
-                            )
-                          }
-                      </td>
-                       <td className="whitespace-nowrap px-6 py-4">
-                          <button
-                            onClick={() => { handleProcessFinish(learner);
-                                            // resetSelectedLearnerState();
-                                           } 
+                            <DialogContent className="sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Enter Booked test date
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label
+                                    htmlFor="app-booked_test"
+                                    className="text-right"
+                                  >
+                                    Test Date
+                                  </Label>
+                                  <Input
+                                    id="booked_test-date"
+                                    type="date"
+                                    value={bookedTest || ""}
+                                    onChange={(e) => {
+                                      setBookedTest(e.target.value);
+                                    }}
+                                    disabled={
+                                      updateLearnerPostLLMutation.isPending
                                     }
-                            className={
-                                learner.has_postLL_done
-                                    ? "inline-flex items-center rounded-full bg-gray-400 px-3 py-1 text-sm font-medium text-white shadow cursor-not-allowed"
-                                    : "inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                            }
-                                    disabled={learner.has_a_DL}
+                                    className="col-span-3"
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  onClick={handleCloseBookedTestDate}
+                                  variant="secondary"
+                                >
+                                  Close
+                                </Button>
+                                <Button
+                                  onClick={() =>
+                                    handleSaveBookedTestDate(learner.id)
+                                  }
+                                >
+                                  Save
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </td>
+
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              calculateLesson10Start(learner)
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
                           >
-                            {(learner?.has_a_DL && learner?.has_postLL_done )
-                            ? "Done"
-                            : "Yes (Click here)"
-                          }
+                            {calculateLesson10Start(learner) || "N/A"}
+                          </div>
+
+                          {!isLesson10ButtonDisabled(learner) && (
+                            <button
+                              onClick={() => {
+                                handleLesson10Click(learner);
+                              }}
+                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow transition-colors hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            >
+                              Send notification
+                            </button>
+                          )}
+                        </td>
+
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              learner.has_lesson10_booked === true
+                                ? "bg-green-100 text-green-800"
+                                : learner.has_lesson10_booked === false
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {learner.has_lesson10_booked === true
+                              ? "Yes"
+                              : learner.has_lesson10_booked === false
+                                ? "No"
+                                : "N/A"}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                              learner.DL_result === true
+                                ? "bg-green-100 text-green-800"
+                                : learner.DL_result === false
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {learner.DL_result === true
+                              ? "PASS"
+                              : learner.DL_result === false
+                                ? "FAIL"
+                                : "N/A"}
+                          </div>
+                          {!learner.DL_result && (
+                            <button
+                              onClick={() => {
+                                handleTestPass(learner, true);
+                              }}
+                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow transition-colors hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            >
+                              Yes
+                            </button>
+                          )}
+                          {!(
+                            learner.DL_result && learner.DL_result === false
+                          ) && (
+                            <button
+                              onClick={() => {
+                                handleTestPass(learner, false);
+                              }}
+                              className="inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow transition-colors hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            >
+                              No
+                            </button>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <button
+                            onClick={() => {
+                              handleProcessFinish(learner);
+                              // resetSelectedLearnerState();
+                            }}
+                            className={
+                              learner.has_postLL_done
+                                ? "inline-flex cursor-not-allowed items-center rounded-full bg-gray-400 px-3 py-1 text-sm font-medium text-white shadow"
+                                : "inline-flex items-center rounded-full bg-blue-500 px-3 py-1 text-sm font-medium text-white shadow transition-colors hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            }
+                            disabled={learner.has_a_DL}
+                          >
+                            {learner?.has_a_DL && learner?.has_postLL_done
+                              ? "Done"
+                              : "Yes (Click here)"}
                           </button>
                         </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
-      
+
       {selectedLearner && (
         <LearnerInfoDialog
           learner={selectedLearner}
@@ -743,12 +807,17 @@ const BookedTestDateInputDialog = ({
   onClose,
   // onSave,
 }) => {
-  console.log('%c ~ file: \src\routes\admin\LearnerDetails.tsx:543 : ', 'color: #d83349', ({ learnerId, currentTestDate, onClose }));
+  console.log(
+    "%c ~ file: src\routesadminLearnerDetails.tsx:543 : ",
+    "color: #d83349",
+    { learnerId, currentTestDate, onClose },
+  );
 
   const [date, setDate] = useState<Date>();
-  
+
   const [currentDate, setCurrentDate] = useState(setYear(new Date(), 2010));
-  const { mutate: learnerMutate, isPending: isUpdatePending } = useLearnerUpdateById(learnerId);
+  const { mutate: learnerMutate, isPending: isUpdatePending } =
+    useLearnerUpdateById(learnerId);
 
   const years = Array.from(
     { length: 61 },
@@ -770,9 +839,6 @@ const BookedTestDateInputDialog = ({
     "December",
   ];
 
-
-
-
   const handleYearChange = (year: string) => {
     setCurrentDate(setYear(currentDate, parseInt(year)));
   };
@@ -781,89 +847,90 @@ const BookedTestDateInputDialog = ({
     setCurrentDate(setMonth(currentDate, months.indexOf(month)));
   };
 
-  const handleBookedDateSave = useCallback(() => {
+  const handleBookedDateSave = useCallback(
+    () => {
       learnerMutate(
         {
           DL_test_date: format(date, "yyyy-MM-dd"),
         },
         {
           onSuccess: () => {
-          toast({
-            title: 'Success',
-            description: 'Booked test date of the user updated',
-            variant: 'destructive',
-          });
-          onClose();
-
+            toast({
+              title: "Success",
+              description: "Booked test date of the user updated",
+              variant: "destructive",
+            });
+            onClose();
           },
           onError: (error) => {
             toast({
-              title: 'Failed to set booked test date',
-              description: error instanceof Error ? error.message : "An error occurred",
+              title: "Failed to set booked test date",
+              description:
+                error instanceof Error ? error.message : "An error occurred",
               variant: "destructive",
             }); // toast ends
           }, // on Error ends
-        }
-      ); // learn mutate ends 
+        },
+      ); // learn mutate ends
     }, // call back func arg ends
-    [date, learnerMutate] // callback dependency arr
+    [date, learnerMutate], // callback dependency arr
   ); // callback hook ends
 
   return (
     <div className="mt-8 flex grow flex-col justify-between bg-white p-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <Select
-              onValueChange={handleYearChange}
-              value={getYear(currentDate).toString()}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {years.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              onValueChange={handleMonthChange}
-              value={months[getMonth(currentDate)]}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {months.map((month) => (
-                  <SelectItem key={month} value={month}>
-                    {month}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={setDate}
-            month={currentDate}
-            onMonthChange={setCurrentDate}
-            className="rounded-lg border border-border p-4"
-            initialFocus
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <Select
+            onValueChange={handleYearChange}
+            value={getYear(currentDate).toString()}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            onValueChange={handleMonthChange}
+            value={months[getMonth(currentDate)]}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((month) => (
+                <SelectItem key={month} value={month}>
+                  {month}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Button
-          onClick={handleBookedDateSave}
-          className="w-full"
-          disabled={isUpdatePending}
-        >
-          Continue
-        </Button>
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+          month={currentDate}
+          onMonthChange={setCurrentDate}
+          className="rounded-lg border border-border p-4"
+          initialFocus
+        />
       </div>
-  )
-}
+      <Button
+        onClick={handleBookedDateSave}
+        className="w-full"
+        disabled={isUpdatePending}
+      >
+        Continue
+      </Button>
+    </div>
+  );
+};
 
 function useLearnerUpdateById(learnerId: string) {
   const queryClient = useQueryClient();
@@ -884,5 +951,3 @@ function useLearnerUpdateById(learnerId: string) {
   });
   return mutate;
 }
-
-

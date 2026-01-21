@@ -25,42 +25,75 @@ export default function StartLesson() {
   });
 
   // 1) useParams
-  console.log("[step] about to call useParams - previous lessonNumber:", prev.current.lessonNumber);
+  console.log(
+    "[step] about to call useParams - previous lessonNumber:",
+    prev.current.lessonNumber,
+  );
   const params = useParams();
   const { lessonNumber } = params;
   console.log("[step] after useParams - lessonNumber:", lessonNumber);
   prev.current.lessonNumber = lessonNumber;
 
   // 2) useUpcomingLesson (hook) - log before, track changes with useEffect
-  console.log("[step] about to call useUpcomingLesson - previous upcomingData:", prev.current.upcomingData);
+  console.log(
+    "[step] about to call useUpcomingLesson - previous upcomingData:",
+    prev.current.upcomingData,
+  );
   const { data, isLoading, error } = useUpcomingLesson();
-  console.log("[step] just after calling useUpcomingLesson (sync) - immediate data/isLoading/error:", {
-    data,
-    isLoading,
-    error,
-  });
+  console.log(
+    "[step] just after calling useUpcomingLesson (sync) - immediate data/isLoading/error:",
+    {
+      data,
+      isLoading,
+      error,
+    },
+  );
 
   useEffect(() => {
-    console.log("[effect] useUpcomingLesson changed - previous:", prev.current.upcomingData, "current:", data);
+    console.log(
+      "[effect] useUpcomingLesson changed - previous:",
+      prev.current.upcomingData,
+      "current:",
+      data,
+    );
     prev.current.upcomingData = data;
   }, [data]);
 
   useEffect(() => {
-    console.log("[effect] isLoading/error changed - previous:", { prevLoading: prev.current.isLoading, prevError: prev.current.error }, "current:", { isLoading, error });
+    console.log(
+      "[effect] isLoading/error changed - previous:",
+      { prevLoading: prev.current.isLoading, prevError: prev.current.error },
+      "current:",
+      { isLoading, error },
+    );
     prev.current.isLoading = isLoading;
     prev.current.error = error;
   }, [isLoading, error]);
 
   // 3) useQueryClient
-  console.log("[step] about to call useQueryClient - previous queryClient:", prev.current.queryClient);
+  console.log(
+    "[step] about to call useQueryClient - previous queryClient:",
+    prev.current.queryClient,
+  );
   const queryClient = useQueryClient();
-  console.log("[step] after useQueryClient - queryClient obtained:", !!queryClient);
+  console.log(
+    "[step] after useQueryClient - queryClient obtained:",
+    !!queryClient,
+  );
   prev.current.queryClient = queryClient;
 
   // 4) compute scheduleData from cache
   const upcomingLessonId = data?.upcomingLesson?.id;
-  console.log("[step] about to call queryClient.getQueryData - previous scheduleData:", prev.current.scheduleData, "next key lesson id:", upcomingLessonId);
-  const scheduleData = queryClient.getQueryData(["lessonSchedule", upcomingLessonId]);
+  console.log(
+    "[step] about to call queryClient.getQueryData - previous scheduleData:",
+    prev.current.scheduleData,
+    "next key lesson id:",
+    upcomingLessonId,
+  );
+  const scheduleData = queryClient.getQueryData([
+    "lessonSchedule",
+    upcomingLessonId,
+  ]);
   console.log("[step] after getQueryData - scheduleData:", scheduleData);
   prev.current.scheduleData = scheduleData;
 
@@ -70,27 +103,48 @@ export default function StartLesson() {
     scheduleData?.status && scheduleData.status.toUpperCase() === "BOOKED"
       ? 10 * 1000
       : undefined;
-  console.log("[step] computed refetchInterval - previous:", prevRefetch, "current:", refetchInterval);
+  console.log(
+    "[step] computed refetchInterval - previous:",
+    prevRefetch,
+    "current:",
+    refetchInterval,
+  );
   prev.current.refetchInterval = refetchInterval;
 
   // 6) useLessonSchedule (hook) - log before, track with useEffect
-  console.log("[step] about to call useLessonSchedule - previous lessonSchedule:", prev.current.lessonSchedule, "args:", {
-    lessonId: upcomingLessonId,
-    refetchInterval,
-  });
+  console.log(
+    "[step] about to call useLessonSchedule - previous lessonSchedule:",
+    prev.current.lessonSchedule,
+    "args:",
+    {
+      lessonId: upcomingLessonId,
+      refetchInterval,
+    },
+  );
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: upcomingLessonId,
     refetchInterval,
   });
-  console.log("[step] just after calling useLessonSchedule (sync) - immediate lessonSchedule:", lessonSchedule);
+  console.log(
+    "[step] just after calling useLessonSchedule (sync) - immediate lessonSchedule:",
+    lessonSchedule,
+  );
 
   useEffect(() => {
-    console.log("[effect] lessonSchedule changed - previous:", prev.current.lessonSchedule, "current:", lessonSchedule);
+    console.log(
+      "[effect] lessonSchedule changed - previous:",
+      prev.current.lessonSchedule,
+      "current:",
+      lessonSchedule,
+    );
     prev.current.lessonSchedule = lessonSchedule;
   }, [lessonSchedule]);
 
   // 7) useNavigate
-  console.log("[step] about to call useNavigate - previous navigate:", !!prev.current.navigate);
+  console.log(
+    "[step] about to call useNavigate - previous navigate:",
+    !!prev.current.navigate,
+  );
   const navigate = useNavigate();
   console.log("[step] after useNavigate - navigate ready:", !!navigate);
   prev.current.navigate = navigate;
@@ -103,7 +157,10 @@ export default function StartLesson() {
   });
 
   if (isLoading || !lessonNumber) {
-    console.log("[step] returning Loading... - reason:", { isLoading, lessonNumberMissing: !lessonNumber });
+    console.log("[step] returning Loading... - reason:", {
+      isLoading,
+      lessonNumberMissing: !lessonNumber,
+    });
     return <div>Loading...</div>;
   }
   if (error) {

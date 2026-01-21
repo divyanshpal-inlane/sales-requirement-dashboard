@@ -1,0 +1,383 @@
+INLANE WEB APP - COMPREHENSIVE FLOW ANALYSIS
+Generated: January 10 2026
+,,,,,,
+
+================================================================================
+SECTION 1: EXECUTIVE SUMMARY
+================================================================================
+,,,,,,
+
+Flow,Overall Score,Security,Code Quality,Error Handling,Performance,Risk Level
+Admin,5.5/10,4/10,4/10,5/10,5/10,HIGH
+Learner,6.5/10,4/10,6/10,5/10,6/10,MEDIUM-HIGH
+Instructor,6/10,3/10,5/10,5/10,6/10,HIGH
+,,,,,,
+
+================================================================================
+SECTION 2: FILE INVENTORY
+================================================================================
+,,,,,,
+
+ADMIN FILES,,,,,,
+File Path,Lines,Type,Issue Level,Notes,
+src/routes/admin-login.tsx,158,Authentication,MEDIUM,Unsecured signup allowed,
+src/routes/admin/AdminHome.tsx,142,Dashboard,LOW,Clean structure,
+src/routes/admin/instructors.tsx,4948,Management,CRITICAL,Extremely monolithic - needs immediate refactor,
+src/routes/admin/schedules.tsx,1258,Management,HIGH,Too large - should be split,
+src/routes/admin/CustomerInfo.tsx,1223,Management,HIGH,Too large - should be split,
+src/routes/admin/LearnerDetails.tsx,888,Management,MEDIUM,Large but manageable,
+src/routes/admin/IncompletePaymentsCard.tsx,823,Payments,MEDIUM,Large but manageable,
+src/routes/admin/LearnerLLDetails.tsx,783,LL Flow,MEDIUM,Large but manageable,
+src/routes/admin/TentativeManagement.tsx,752,Schedules,MEDIUM,Large but manageable,
+src/routes/admin/NotificationManagement.tsx,647,Notifications,LOW,Acceptable size,
+src/routes/admin/LearnerManagement.tsx,643,Management,LOW,Acceptable size,
+src/routes/admin/DLTestDates.tsx,264,Test Dates,LOW,Good size,
+src/components/admin/LearnerInfoCard.tsx,~200,Component,LOW,Reusable component,
+src/components/admin/InstructorScheduleInfo.tsx,~200,Component,LOW,Reusable component,
+src/components/admin/TentativeScheduleCard.tsx,~200,Component,LOW,Reusable component,
+src/components/admin/LLDisplay.tsx,~200,Component,LOW,Reusable component,
+,,,,,,
+
+LEARNER FILES,,,,,,
+File Path,Lines,Type,Issue Level,Notes,
+src/routes/login.tsx,~300,Authentication,MEDIUM,Silent error handling,
+src/routes/home.tsx,~500,Dashboard,MEDIUM,Complex but manageable,
+src/routes/profile2.tsx,~200,Profile,LOW,Clean structure,
+src/routes/schedule.tsx,~300,Schedules,LOW,Good implementation,
+src/routes/startLesson.tsx,~250,Lessons,LOW,Hardcoded emergency phone,
+src/routes/preferences.tsx,~200,Preferences,LOW,Clean structure,
+src/routes/onboard/birthday.tsx,~150,Onboarding,LOW,Good implementation,
+src/routes/onboard/aadhar.tsx,~150,Onboarding,LOW,Good implementation,
+src/routes/onboard/DL.tsx,~150,Onboarding,LOW,Good implementation,
+src/queries/learner.ts,~200,Queries,MEDIUM,Console.logs in production,
+src/queries/preferences.ts,~150,Queries,LOW,Clean implementation,
+src/queries/payment.ts,~150,Queries,LOW,Clean implementation,
+src/queries/schedule-requests.ts,~100,Queries,LOW,Clean implementation,
+src/components/ll_flow/*,~500,Components,LOW,Well organized,
+src/components/lesson/*,~300,Components,LOW,Well organized,
+src/components/payment/*,~200,Components,LOW,Well organized,
+,,,,,,
+
+INSTRUCTOR FILES,,,,,,
+File Path,Lines,Type,Issue Level,Notes,
+src/routes/InstructorAuth.tsx,~300,Authentication,MEDIUM,OTP in memory,
+src/app/instructor/Instructor.tsx,2349,Dashboard,CRITICAL,Extremely monolithic - needs immediate refactor,
+src/app/instructor/InstructorProfile.tsx,~200,Profile,LOW,Clean structure,
+src/app/instructor/OTP.tsx,~200,OTP Flow,LOW,Good implementation,
+src/app/instructor/CourseFeedback.tsx,~150,Feedback,LOW,Clean structure,
+src/queries/instructor.ts,513,Queries,MEDIUM,Large but organized,
+src/components/instructor/EnhancedCalendarView.tsx,~300,Calendar,LOW,Good abstraction,
+src/components/instructor/MonthView.tsx,~200,Calendar,LOW,Clean implementation,
+src/components/instructor/WeekView.tsx,~200,Calendar,LOW,Clean implementation,
+src/components/instructor/DayView.tsx,~200,Calendar,LOW,Clean implementation,
+src/components/instructor/ScheduleList.tsx,~150,Schedules,LOW,Clean implementation,
+src/components/instructor/LessonList.tsx,~150,Lessons,LOW,Clean implementation,
+src/components/instructor/ScheduleDetailDialog.tsx,~150,Dialog,LOW,Clean implementation,
+src/components/instructor/EventModal.tsx,~100,Modal,LOW,Clean implementation,
+src/components/instructor/LessonPlanDialog.tsx,~100,Dialog,LOW,Clean implementation,
+,,,,,,
+
+================================================================================
+SECTION 3: CRITICAL ISSUES
+================================================================================
+,,,,,,
+
+Issue ID,Flow,Category,Severity,Issue Title,Description,Impact,Recommendation
+CRIT-001,Admin,Architecture,CRITICAL,Monolithic instructors.tsx,File has 4948 lines - impossible to maintain,Cannot maintain or test effectively,Split into 10-15 smaller components
+CRIT-002,Admin,Security,CRITICAL,Unsecured admin signup,Anyone can create admin accounts via public form,Complete unauthorized access to all data,Implement invitation-only admin creation
+CRIT-003,Instructor,Architecture,CRITICAL,Monolithic Instructor.tsx,File has 2349 lines - very difficult to maintain,Hard to debug and extend,Split into 5-6 smaller components
+CRIT-004,All,Security,CRITICAL,Service role key in frontend,Supabase service key exposed in browser context,Full database access if key leaked,Move all admin operations to Edge Functions
+CRIT-005,All,Security,CRITICAL,OTP stored in memory,OTPs stored in frontend Map - lost on refresh,Insecure authentication flow,Move OTP to server-side storage
+CRIT-006,All,Security,HIGH,No rate limiting,No limits on login/OTP attempts,Brute force attacks possible,Implement rate limiting on auth endpoints
+CRIT-007,All,Security,HIGH,No audit logging,Admin actions not tracked anywhere,Cannot investigate incidents or ensure compliance,Create audit_log table and log all actions
+CRIT-008,Admin,Validation,HIGH,Missing input validation,Forms submit without validation,Invalid/malicious data in database,Implement Zod/Yup schema validation
+CRIT-009,All,Error Handling,HIGH,Silent function failures,Supabase function calls ignore errors,Users think actions succeeded when they failed,Always await and handle function invocation errors
+CRIT-010,Learner,Code Quality,MEDIUM,Console.logs in production,Debug statements left in queries/learner.ts,Exposes internal logic - unprofessional,Remove all console.log statements
+,,,,,,
+
+================================================================================
+SECTION 4: SECURITY ISSUES
+================================================================================
+,,,,,,
+
+Issue ID,Flow,Severity,Issue,Current State,Risk,Recommendation,Priority
+SEC-001,Admin,CRITICAL,Open admin registration,Anyone can sign up as admin,Unauthorized full system access,Invitation-only with email verification,P0
+SEC-002,All,CRITICAL,Service key exposed,VITE_SUPABASE_SERVICE_ROLE_KEY in frontend,Complete DB compromise if leaked,Move to backend Edge Functions only,P0
+SEC-003,All,CRITICAL,In-memory OTP,OTP stored in browser Map,Insecure - can be inspected in DevTools,Server-side OTP with encryption,P0
+SEC-004,Admin,HIGH,Obfuscated login path,/admin-byser-secu7 as security,Path visible in source code,Proper auth + 2FA instead,P1
+SEC-005,All,HIGH,No rate limiting,Unlimited auth attempts allowed,Brute force attacks possible,Max 5 attempts per 15 minutes,P1
+SEC-006,All,HIGH,No session timeout,Sessions never expire,Token hijacking risk,Auto-logout after 30 min inactivity,P1
+SEC-007,Admin,HIGH,No permission levels,All admins have equal access,No separation of duties,Implement Super Admin/Admin/Viewer roles,P1
+SEC-008,All,MEDIUM,Sensitive data exposure,Phone numbers and addresses visible,Privacy concerns,Implement data masking,P2
+SEC-009,Instructor,MEDIUM,Google token not refreshed,OAuth token stored without refresh,Will expire causing failures,Implement token rotation,P2
+SEC-010,All,MEDIUM,No CSRF protection,No CSRF tokens on mutations,Cross-site request forgery possible,Add CSRF tokens,P2
+,,,,,,
+
+================================================================================
+SECTION 5: CODE QUALITY ISSUES
+================================================================================
+,,,,,,
+
+Issue ID,Flow,Category,Severity,Issue,Location,Recommendation,Priority
+CQ-001,Admin,File Size,CRITICAL,4948 line file,instructors.tsx,Split into 10-15 components,P0
+CQ-002,Instructor,File Size,CRITICAL,2349 line file,Instructor.tsx,Split into 5-6 components,P0
+CQ-003,Admin,File Size,HIGH,1258 line file,schedules.tsx,Split into smaller components,P1
+CQ-004,Admin,File Size,HIGH,1223 line file,CustomerInfo.tsx,Split into smaller components,P1
+CQ-005,All,Debug Code,MEDIUM,Console.logs in production,Multiple files,Remove all debug statements,P1
+CQ-006,All,Dead Code,MEDIUM,Commented-out code,Multiple files,Remove or version control,P2
+CQ-007,All,Naming,MEDIUM,Inconsistent conventions,learner_id vs learnerId,Standardize to camelCase in frontend,P2
+CQ-008,All,Hardcoding,MEDIUM,Magic numbers/strings,Multiple locations,Create constants file,P2
+CQ-009,All,Types,MEDIUM,any types used,Multiple useState hooks,Define proper interfaces,P2
+CQ-010,All,TODO Comments,LOW,Incomplete TODO items,8+ found across codebase,Complete or remove,P3
+CQ-011,Learner,Duplication,MEDIUM,Duplicate password reset,Two implementations exist,Consolidate into one,P2
+CQ-012,All,Testing,HIGH,No tests,No test files found,Add unit and E2E tests,P1
+,,,,,,
+
+================================================================================
+SECTION 6: ERROR HANDLING ISSUES
+================================================================================
+,,,,,,
+
+Issue ID,Flow,Severity,Issue,Example Location,Current Behavior,Recommendation,Priority
+ERR-001,All,HIGH,Silent function invocations,supabase.functions.invoke(),Not awaited - errors ignored,Always await and handle errors,P0
+ERR-002,Learner,HIGH,Silent catch blocks,login.tsx lines 60-63,Errors caught but not displayed,Show user-friendly error messages,P1
+ERR-003,All,MEDIUM,Generic error messages,onError callbacks,Raw database errors shown,Map to user-friendly messages,P1
+ERR-004,All,MEDIUM,No network failure handling,All API calls,No offline detection or retry,Implement retry with backoff,P2
+ERR-005,All,MEDIUM,No error boundaries,React components,Single error crashes whole page,Add Error Boundary components,P1
+ERR-006,Instructor,MEDIUM,Alert() for errors,Instructor.tsx,Browser alerts instead of toasts,Use toast notifications,P2
+ERR-007,All,LOW,Inconsistent error logging,console.error usage,Some errors logged - some not,Centralize error logging,P3
+,,,,,,
+
+================================================================================
+SECTION 7: STATE MANAGEMENT ISSUES
+================================================================================
+,,,,,,
+
+Issue ID,Flow,Severity,Issue,Description,Recommendation,Priority
+SM-001,Admin,MEDIUM,No global admin context,Each page manages own state,Create AdminContext for shared state,P2
+SM-002,All,MEDIUM,Inconsistent query keys,Different formats used,Create query key factory with constants,P2
+SM-003,Learner,MEDIUM,Aggressive caching,staleTime: Infinity causes stale data,Review and adjust staleTime values,P2
+SM-004,All,LOW,No optimistic updates,All mutations wait for server,Implement optimistic updates for common ops,P3
+SM-005,Instructor,MEDIUM,Excessive local state,17+ useState in Instructor.tsx,Extract to custom hooks or context,P2
+SM-006,Instructor,LOW,Duplicate calendar state,State in multiple components,Centralize calendar state,P3
+SM-007,All,LOW,localStorage without wrapper,Direct access throughout,Create storage abstraction layer,P3
+,,,,,,
+
+================================================================================
+SECTION 8: UX/UI ISSUES
+================================================================================
+,,,,,,
+
+Issue ID,Flow,Severity,Issue,Description,Recommendation,Priority
+UX-001,Admin,MEDIUM,No confirmation dialogs,Destructive actions execute immediately,Add confirmation for delete/cancel ops,P1
+UX-002,Admin,MEDIUM,No bulk operations,Actions must be done one by one,Implement multi-select and bulk actions,P2
+UX-003,Admin,MEDIUM,No pagination,All records loaded at once,Implement cursor-based pagination,P2
+UX-004,All,LOW,Generic loading text,Just shows Loading...,Add skeleton loaders,P3
+UX-005,Admin,LOW,Limited search/filtering,Basic text search only,Add advanced search with filters,P3
+UX-006,Admin,LOW,Limited data export,Only partial export available,Add CSV export for all views,P3
+UX-007,Instructor,LOW,No edit unavailability,Cannot modify after creation,Allow editing/deleting unavailability,P3
+UX-008,Instructor,LOW,No conflict visualization,Calendar doesnt show conflicts,Highlight scheduling conflicts,P3
+UX-009,Learner,LOW,Hardcoded emergency phone,startLesson.tsx line 204,Move to environment variable,P3
+,,,,,,
+
+================================================================================
+SECTION 9: AUTHENTICATION FLOW ANALYSIS
+================================================================================
+,,,,,,
+
+Flow,Auth Method,Storage,Session Handling,Password Reset,Issues
+Admin,Phone + Password,Supabase Auth JWT,No explicit timeout,OTP via WhatsApp,Open signup - anyone can become admin
+Learner,Phone + Password,Supabase Auth JWT,No explicit timeout,OTP via WhatsApp,Silent error handling on failures
+Instructor,Phone + Password,Supabase Auth JWT,No explicit timeout,OTP via WhatsApp,OTP stored in browser memory
+,,,,,,
+
+Role Verification Flow,,,,,,
+Step,Admin,Learner,Instructor,Notes,
+1,Navigate to /admin-byser-secu7,Navigate to /login,Navigate to /instructor-login,Different entry points,
+2,Enter phone + password,Enter phone + password,Enter phone + password,Same auth mechanism,
+3,Supabase validates credentials,Supabase validates credentials,Supabase validates credentials,JWT issued,
+4,Check user_metadata.user_role === admin,Check user_metadata.user_role === learner,Check user_metadata.user_role === instructor,Role in JWT metadata,
+5,If mismatch - sign out and error,If mismatch - sign out and error,If mismatch - sign out and error,Prevents cross-role access,
+6,Redirect to /admin,Redirect to /home or /onboard,Redirect to /instructor,Role-specific dashboard,
+,,,,,,
+
+================================================================================
+SECTION 10: DATABASE TABLES USAGE
+================================================================================
+,,,,,,
+
+Table Name,Admin Access,Learner Access,Instructor Access,Notes
+Admin,Read (self),None,None,Admin profiles
+Learner,Full CRUD,Read/Update (self),Read (assigned),Learner profiles
+Instructor,Full CRUD,Read (assigned),Read/Update (self),Instructor profiles
+Schedule,Full CRUD,Read (own),Read/Update (assigned),Lesson schedules
+Lesson,Read,Read,Read,Lesson content
+Courses,Read,Read,Read,Course definitions
+enrollment,Read/Update,Read (own),None,Course enrollments
+payment,Read,Read (own),None,Payment records
+schedule_preferences,Read/Update,CRUD (own),None,Time slot preferences
+reschedule_requests,Read/Update,CRUD (own),None,Reschedule requests
+Serviceable_Areas,Read,Read,Read,Service locations
+,,,,,,
+
+================================================================================
+SECTION 11: API PATTERNS ANALYSIS
+================================================================================
+,,,,,,
+
+Pattern,Usage,Issues,Recommendation
+Direct Supabase queries,All flows,No abstraction layer,Create service layer
+React Query for caching,All flows,Inconsistent query keys,Standardize key factory
+Supabase Functions,Messaging/Email,Often not awaited,Always await and handle errors
+No API gateway,All flows,No centralized error handling,Consider API abstraction
+No request validation,All flows,Invalid data can reach DB,Add Zod schemas
+No request logging,All flows,Cannot debug issues,Add logging middleware
+,,,,,,
+
+================================================================================
+SECTION 12: PRIORITY MATRIX
+================================================================================
+,,,,,,
+
+Priority,Category,Issues,Effort,Timeline Recommendation
+P0 - Critical,Security,SEC-001 to SEC-003,Medium,Immediate
+P0 - Critical,Architecture,CQ-001 CQ-002,High,Immediate
+P0 - Critical,Error Handling,ERR-001,Low,Immediate
+P1 - High,Security,SEC-004 to SEC-007,Medium,Week 1-2
+P1 - High,Code Quality,CQ-003 CQ-004 CQ-012,High,Week 1-2
+P1 - High,Error Handling,ERR-002 to ERR-005,Medium,Week 1-2
+P1 - High,UX,UX-001,Low,Week 1-2
+P2 - Medium,Security,SEC-008 to SEC-010,Medium,Month 1
+P2 - Medium,Code Quality,CQ-005 to CQ-009 CQ-011,Medium,Month 1
+P2 - Medium,State Management,SM-001 to SM-005,Medium,Month 1
+P2 - Medium,UX,UX-002 UX-003,Medium,Month 1
+P3 - Low,Code Quality,CQ-010,Low,Backlog
+P3 - Low,State Management,SM-006 SM-007,Low,Backlog
+P3 - Low,UX,UX-004 to UX-009,Low,Backlog
+,,,,,,
+
+================================================================================
+SECTION 13: RECOMMENDATIONS BY FLOW
+================================================================================
+,,,,,,
+
+ADMIN FLOW RECOMMENDATIONS,,,,,,
+Priority,Action Item,Category,Effort,Impact,Dependencies
+P0,Remove public admin signup - implement invitation system,Security,Medium,Critical,None
+P0,Split instructors.tsx into 10-15 smaller components,Architecture,High,Critical,None
+P0,Add error handling for all function invocations,Error Handling,Low,High,None
+P1,Implement audit logging for all admin actions,Security,Medium,High,Database migration
+P1,Add input validation with Zod schemas,Validation,Medium,High,None
+P1,Add confirmation dialogs for destructive actions,UX,Low,Medium,None
+P1,Split schedules.tsx and CustomerInfo.tsx,Architecture,Medium,Medium,None
+P2,Implement role-based access (Super Admin/Admin/Viewer),Security,High,High,Database migration
+P2,Add pagination for large lists,Performance,Medium,Medium,None
+P2,Standardize query key management,State Management,Low,Medium,None
+P3,Add data export functionality,UX,Medium,Low,None
+P3,Implement advanced search and filters,UX,Medium,Low,None
+,,,,,,
+
+LEARNER FLOW RECOMMENDATIONS,,,,,,
+Priority,Action Item,Category,Effort,Impact,Dependencies
+P0,Move OTP storage to server-side,Security,Medium,Critical,Backend changes
+P0,Remove service key from frontend context,Security,Medium,Critical,Edge Functions
+P1,Fix silent error handling in login flow,Error Handling,Low,High,None
+P1,Remove console.log statements from queries,Code Quality,Low,Medium,None
+P1,Add error boundary components,Error Handling,Medium,Medium,None
+P1,Review and adjust staleTime values,State Management,Low,Medium,None
+P2,Consolidate duplicate password reset logic,Code Quality,Low,Medium,None
+P2,Add proper input validation on forms,Validation,Medium,Medium,None
+P2,Move emergency phone to environment variable,Configuration,Low,Low,None
+P3,Add skeleton loaders for better UX,UX,Medium,Low,None
+P3,Implement retry logic for failed requests,Error Handling,Medium,Medium,None
+,,,,,,
+
+INSTRUCTOR FLOW RECOMMENDATIONS,,,,,,
+Priority,Action Item,Category,Effort,Impact,Dependencies
+P0,Split Instructor.tsx into 5-6 smaller components,Architecture,High,Critical,None
+P0,Move OTP storage to server-side,Security,Medium,Critical,Backend changes
+P0,Remove service key from frontend context,Security,Medium,Critical,Edge Functions
+P1,Remove 49+ console.log statements,Code Quality,Low,Medium,None
+P1,Replace alert() with toast notifications,UX,Low,Medium,None
+P1,Implement Google OAuth token refresh,Security,Medium,Medium,None
+P1,Add error boundaries,Error Handling,Medium,Medium,None
+P2,Create instructor-specific context,State Management,Medium,Medium,None
+P2,Extract excessive useState into custom hooks,Code Quality,Medium,Medium,None
+P2,Add proper loading states everywhere,UX,Medium,Low,None
+P3,Allow editing/deleting unavailability blocks,UX,Medium,Low,None
+P3,Add calendar conflict visualization,UX,Medium,Low,None
+,,,,,,
+
+================================================================================
+SECTION 14: ROUTE STRUCTURE COMPARISON
+================================================================================
+,,,,,,
+
+ADMIN ROUTES,,,,,,
+Route,Component,Purpose,Protected,Notes
+/admin-byser-secu7,admin-login.tsx,Admin login,No,Obfuscated path - weak security
+/admin,AdminHome.tsx,Dashboard,Yes,9 feature cards
+/admin/schedules,schedules.tsx,Schedule management,Yes,1258 lines - needs split
+/admin/instructors,instructors.tsx,Instructor management,Yes,4948 lines - critical
+/admin/instructors/:id,instructors.tsx,Instructor details,Yes,Part of monolith
+/admin/learner-management,LearnerManagement.tsx,Create learners,Yes,Good size
+/admin/learner-ll-details,LearnerLLDetails.tsx,LL applications,Yes,Acceptable
+/admin/learner-details,LearnerDetails.tsx,Post-LL tracking,Yes,Large but manageable
+/admin/customer-info,CustomerInfo.tsx,Payment info,Yes,1223 lines - needs split
+/admin/notification-management,NotificationManagement.tsx,Notifications,Yes,Good size
+/admin/tentative-schedules-info,TentativeManagement.tsx,Tentative schedules,Yes,Acceptable
+/admin/dl-test-dates,DLTestDates.tsx,DL test dates,Yes,Good size
+,,,,,,
+
+LEARNER ROUTES,,,,,,
+Route,Component,Purpose,Protected,Notes
+/login,login.tsx,Learner login/signup,No,Silent error handling issue
+/onboard/birthday,birthday.tsx,DOB collection,Yes,Clean implementation
+/onboard/aadhar,aadhar.tsx,Aadhar collection,Yes,Clean implementation
+/onboard/DL,DL.tsx,DL info collection,Yes,Clean implementation
+/home,home.tsx,Main dashboard,Yes,Complex but manageable
+/schedule,schedule.tsx,View schedules,Yes,Good implementation
+/preferences,preferences.tsx,Time preferences,Yes,Clean structure
+/startLesson,startLesson.tsx,Lesson details,Yes,Hardcoded phone issue
+/profile,profile2.tsx,Profile management,Yes,Clean structure
+/help,help.tsx,Help & support,Yes,Good implementation
+/createSchedule/*,Various,Schedule creation,Yes,Multi-step flow
+,,,,,,
+
+INSTRUCTOR ROUTES,,,,,,
+Route,Component,Purpose,Protected,Notes
+/instructor-login,InstructorAuth.tsx,Instructor login,No,OTP in memory issue
+/instructor,Instructor.tsx,Main dashboard,Yes,2349 lines - critical
+/instructor-profile,InstructorProfile.tsx,Profile management,Yes,Clean structure
+/otp/start/:learnerId/:scheduleId,OTP.tsx,Start lesson OTP,Yes,Good implementation
+/otp/end/:learnerId/:scheduleId,OTP.tsx,End lesson OTP,Yes,Good implementation
+/course-feedback,CourseFeedback.tsx,Course feedback,Yes,Clean structure
+,,,,,,
+
+================================================================================
+SECTION 15: TESTING REQUIREMENTS
+================================================================================
+,,,,,,
+
+Test Type,Admin Coverage,Learner Coverage,Instructor Coverage,Priority
+Unit Tests - Auth,None,None,None,P1
+Unit Tests - Queries,None,None,None,P1
+Unit Tests - Utils,None,None,None,P2
+Integration Tests,None,None,None,P1
+E2E Tests - Login,None,None,None,P1
+E2E Tests - Core Flows,None,None,None,P1
+E2E Tests - Edge Cases,None,None,None,P2
+,,,,,,
+
+Recommended Test Coverage Targets,,,,,,
+Category,Target Coverage,Current Coverage,Gap,Priority
+Authentication flows,90%,0%,90%,P1
+Core business logic,80%,0%,80%,P1
+API interactions,70%,0%,70%,P1
+UI components,60%,0%,60%,P2
+Error handling,80%,0%,80%,P1
+,,,,,,
+
+================================================================================
+END OF ANALYSIS
+================================================================================

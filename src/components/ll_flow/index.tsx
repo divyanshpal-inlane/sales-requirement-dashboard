@@ -41,9 +41,9 @@ function LLFlow() {
   }
 
   if (!learner.LL_received) {
-    return <LLWaitVerification />
+    return <LLWaitVerification />;
   }
-  
+
   return <Home />;
 }
 

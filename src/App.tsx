@@ -34,7 +34,9 @@ import {
 import AdminHome from "@/routes/admin/AdminHome";
 import CustomerInfo from "@/routes/admin/CustomerInfo";
 import DLTestDates from "@/routes/admin/DLTestDates";
-import InstructorsManagement, { InstructorSchedulePage } from "@/routes/admin/instructors";
+import InstructorsManagement, {
+  InstructorSchedulePage,
+} from "@/routes/admin/instructors";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
@@ -49,9 +51,7 @@ import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
 import DLQuestion from "@/routes/onboard/DL";
 import Preferences from "@/routes/preferences";
-// import Prep from "@/routes/prep";
 import Profile2 from "@/routes/profile2";
-// import Schedule from "@/routes/schedule";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 import LoadingAndRedirect from "@/routes/LoadingandRedirect";
@@ -60,7 +60,7 @@ import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
-import {AddTentativeSchedule} from "@/routes/admin/instructors"
+import { AddTentativeSchedule } from "@/routes/admin/instructors";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,7 +70,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Dynamic import for large components (Lazy loading)
 const Schedule = React.lazy(() => import("@/routes/schedule"));
 const Prep = React.lazy(() => import("@/routes/prep"));
 
@@ -106,28 +105,24 @@ export default function App() {
             >
               <Route index element={<Navigate to="/home" replace />} />
               <Route path="home" element={<Home />} />
-              {/* <Route path="prep" element={<Prep />} /> */}
               <Route
-                path="prep" 
+                path="prep"
                 element={
                   <Suspense fallback={<div>Loading prep...</div>}>
-                    <Prep /> 
+                    <Prep />
                   </Suspense>
                 }
               />
               <Route
-                path="schedule" 
+                path="schedule"
                 element={
                   <Suspense fallback={<div>Loading schedule...</div>}>
-                    <Schedule /> 
+                    <Schedule />
                   </Suspense>
                 }
               />
-                {/* <Route path="schedule" element={<Schedule />} /> */}
-                <Route path="help" element={<HelpSupport />} />
-                <Route path="profile" element={<Profile2 />} />
-                {/* <Route path="preferences" element={<Preferences />} /> */}
-                
+              <Route path="help" element={<HelpSupport />} />
+              <Route path="profile" element={<Profile2 />} />
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
             <Route
@@ -148,7 +143,6 @@ export default function App() {
                   </APIProvider>
                 }
               />
-              {/* <Route path="slots" element={<ScheduleSlots />} /> */}
               <Route path="preferences" element={<Preferences />} />
               <Route path="uploadLL" element={<UploadLL />} />
               <Route
@@ -211,7 +205,7 @@ export default function App() {
                 </ProtectedInstructorRoute>
               }
             />
-             <Route
+            <Route
               path="/otp/end/:learnerId/:scheduleId"
               element={
                 <ProtectedInstructorRoute>
@@ -239,9 +233,10 @@ export default function App() {
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructors" element={<InstructorsManagement />} />
-              
-              {/* Added the New Route Here */}
-              <Route path="instructors/:id" element={<InstructorSchedulePage />} />
+              <Route
+                path="instructors/:id"
+                element={<InstructorSchedulePage />}
+              />
 
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
@@ -255,8 +250,14 @@ export default function App() {
                 path="notification-management"
                 element={<NotificationManagement />}
               />
-              <Route path="tentative-schedules-info" element={<TentativeSchedules2 />} />
-              <Route path="tentative-add/:instructorId/:date/:startTime" element={<AddTentativeSchedule />} />
+              <Route
+                path="tentative-schedules-info"
+                element={<TentativeSchedules2 />}
+              />
+              <Route
+                path="tentative-add/:instructorId/:date/:startTime"
+                element={<AddTentativeSchedule />}
+              />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

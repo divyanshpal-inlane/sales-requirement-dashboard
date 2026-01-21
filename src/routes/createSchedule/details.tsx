@@ -182,7 +182,8 @@ export default function ScheduleDetails() {
     if (address && (!addressLat || !addressLng)) {
       toast({
         title: "Pickup location required",
-        description: "Please select a valid address or the nearest landmark from the search bar",
+        description:
+          "Please select a valid address or the nearest landmark from the search bar",
         variant: "destructive",
       });
       setAddress("");

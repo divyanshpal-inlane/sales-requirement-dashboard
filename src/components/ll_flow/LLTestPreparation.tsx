@@ -139,9 +139,7 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
   }
 
   if (testStatus === "passed") {
-    return (
-      <LLWaitVerification />
-    )
+    return <LLWaitVerification />;
   }
   return (
     <>
@@ -204,7 +202,8 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
                 No problem! Take your time to prepare well for the test.
               </p>
               <div className="flex w-full flex-col gap-4 border-t p-4">
-                <Button onClick={() => handleTestCompletion(true)}
+                <Button
+                  onClick={() => handleTestCompletion(true)}
                   className="w-full whitespace-normal"
                 >
                   I&apos;ve passed my test now
@@ -219,7 +218,6 @@ export function LLTestPreparation({ learnerId }: { learnerId: string }) {
               </div>
             </div>
           )}
-
         </CardContent>
       </Card>
     </>

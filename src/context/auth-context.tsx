@@ -81,22 +81,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) throw error;
 
-    // Fetch the newly created user details
-    const { data: userData, error: userError } = await supabase
+    // Check if learner record already exists
+    const { data: existingLearner } = await supabase
       .from("Learner")
-      .select("*")
+      .select("id")
       .eq("phone", phone)
-      .single();
+      .maybeSingle();
 
-    if (userError) throw userError;
+    // Create learner record if it doesn't exist
+    if (!existingLearner) {
+      const { error: insertError } = await supabase.from("Learner").insert({
+        phone,
+        onboarding_completed: false,
+      });
 
-    // Send the sign-up done message
-    // await supabase.functions.invoke("send-message", {
-    //   body: {
-    //     message_type: "SIGN_UP_DONE_NEED_SCHEDULE",
-    //     learner_id: userData.id,
-    //   },
-    // });
+      if (insertError) throw insertError;
+    }
   };
 
   const logout = async () => {
@@ -104,11 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  // Function to request a password reset OTP
   const requestPasswordReset = async (phone: string) => {
-    // Instead of querying auth tables directly (which requires special permissions),
-    // we'll check if a user exists by attempting admin retrieval
-    console.log("get learner details");
     const { data, error } = await supabase.auth.admin.listUsers({
       filters: { phone },
     });
@@ -120,14 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Generate a 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Store OTP in memory with timestamp (expires in 10 minutes)
     otpStore.set(phone, {
       otp,
-      timestamp: Date.now() + 10 * 60 * 1000, // 10 minutes expiry
+      timestamp: Date.now() + 10 * 60 * 1000,
     });
 
-    console.log("Get user details:");
-    // Get user details to send OTP
     const { data: userData, error: userError } = await supabase
       .from("Learner")
       .select("*")
@@ -150,9 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return;
   };
 
-  // Alternative implementation if admin API is not available
   const requestPasswordResetAlternative = async (phone: string) => {
-    // Check if a user exists with this phone in the Learner table
     const { data: userData, error: userError } = await supabase
       .from("Learner")
       .select("id")
@@ -162,20 +153,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (userError || !userData) {
-      console.log("Failed");
-      console.error("No account or multiple accounts found with this phone number");
+      return;
     }
 
-    // Generate a 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Store OTP in memory with timestamp (expires in 10 minutes)
     otpStore.set(phone, {
       otp,
-      timestamp: Date.now() + 10 * 60 * 1000, // 10 minutes expiry
+      timestamp: Date.now() + 10 * 60 * 1000,
     });
 
-    // Send OTP via WhatsApp using your existing function
     await supabase.functions.invoke("send-message", {
       body: {
         message_type: "PASSWORD_RESET_OTP",
@@ -187,13 +174,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return;
   };
 
-  // Function to verify OTP and reset password
   const verifyOtpAndResetPassword = async (
     phone: string,
     otp: string,
     newPassword: string | null,
   ) => {
-    // Check if OTP exists and is valid
     const storedOTPData = otpStore.get(phone);
 
     if (!storedOTPData) {
@@ -203,7 +188,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (Date.now() > storedOTPData.timestamp) {
-      // OTP expired
       otpStore.delete(phone);
       throw new Error("OTP expired. Please request a new OTP.");
     }
@@ -212,13 +196,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Invalid OTP. Please try again.");
     }
 
-    // If newPassword is null, this is just an OTP verification step
     if (!newPassword) {
       return;
     }
 
     try {
-      // Use the Admin API to retrieve the user by phone number
       const { data: users, error: userError } =
         await supabaseAdmin.auth.admin.listUsers();
 
@@ -226,7 +208,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Failed to retrieve users from the auth.users table.");
       }
 
-      // Find the user with the matching phone number
       const authUser = users.users.find((user) => user.phone === phone);
 
       if (!authUser) {
@@ -235,7 +216,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const authUserId = authUser.id;
 
-      // Use the Admin API to update the user's password
       const { error: updateError } =
         await supabaseAdmin.auth.admin.updateUserById(authUserId, {
           password: newPassword,
@@ -250,7 +230,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
-    // Clear the OTP from storage
     otpStore.delete(phone);
 
     return;

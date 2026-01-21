@@ -1,7 +1,6 @@
 import { Phone, Mail, MessageCircle, HelpCircle } from "lucide-react";
 
 export default function HelpSupport() {
-
   const CUST_SUPPORT_PHONE = import.meta.env.VITE_CUST_SUPPORT_PHONE;
   const handleCall = () => {
     window.location.href = "tel:+91" + CUST_SUPPORT_PHONE;
@@ -37,7 +36,9 @@ export default function HelpSupport() {
                 <Phone size={24} />
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">Call Us</span>
-                  <span className="text-base opacity-90">+91 {CUST_SUPPORT_PHONE}</span>
+                  <span className="text-base opacity-90">
+                    +91 {CUST_SUPPORT_PHONE}
+                  </span>
                 </div>
               </button>
 

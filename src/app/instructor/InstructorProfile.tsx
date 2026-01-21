@@ -242,7 +242,9 @@ const InstructorProfile = () => {
                 <Phone size={24} />
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">Call Us</span>
-                  <span className="text-base opacity-90">+91 {CUST_SUPPORT_PHONE}</span>
+                  <span className="text-base opacity-90">
+                    +91 {CUST_SUPPORT_PHONE}
+                  </span>
                 </div>
               </button>
 
