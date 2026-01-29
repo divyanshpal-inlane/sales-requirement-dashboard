@@ -299,7 +299,7 @@ serve(async (req) => {
     const secretKey = Deno.env.get("ORANGE_PG_SECRET_KEY") ?? "";
     const initiateSaleUrl =
       Deno.env.get("ORANGE_PG_INITIATE_SALE_URL") ??
-      "https://pgpay.icicibank.com/tsp/pg/api/v2/initiateSale";
+      "https://pgpay.icicibank.com/pg/api/v2/initiateSale";
     // Trim returnURL to remove any trailing whitespace
     const returnURL = (Deno.env.get("PAYMENT_RETURN_URL") ?? "").trim();
 
@@ -308,11 +308,12 @@ serve(async (req) => {
     const txnDate = formatTxnDate();
     const customerMobileNo = phone.startsWith("91") ? phone : `91${phone}`;
 
-    // Build hash data - ONLY these fields are used for hash calculation per ICICI docs
-    // aggregatorID is NOT included in hash calculation
+    // Build hash data - ALL fields sent in request (except secureHash) must be included
+    // Fields sorted alphabetically, values concatenated, then HMAC-SHA256
     const hashData: Record<string, string> = {
       addlParam1: installmentType || "full",
       addlParam2: paymentType || "course",
+      aggregatorID: aggregatorId,
       amount: amount.toFixed(2),
       currencyCode: "356",
       customerEmailID: email,
@@ -386,15 +387,23 @@ serve(async (req) => {
     // 10. Build redirect URL
     const redirectUrl = `${pgResponse.redirectURI}?tranCtx=${pgResponse.tranCtx}`;
 
-    // 11. Update payment record with transaction context
-    await supabaseClient
+    // 11. Update payment record with transaction context (only gateway_reference exists in table)
+    const { error: updateError } = await supabaseClient
       .from("payment")
       .update({
         gateway_reference: pgResponse.tranCtx,
-        pg_request: finalRequest,
-        pg_response: pgResponse,
       })
       .eq("id", paymentRecord.id);
+
+    if (updateError) {
+      console.error("Error updating payment with tranCtx:", updateError);
+    }
+
+    console.log("Payment initiated successfully:", {
+      paymentId: paymentRecord.id,
+      merchantTxnNo,
+      tranCtx: pgResponse.tranCtx,
+    });
 
     // 12. Return redirect URL for frontend
     return new Response(

@@ -144,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const requestPasswordResetAlternative = async (phone: string) => {
+    // First check if user exists in Learner table
     const { data: userData, error: userError } = await supabase
       .from("Learner")
       .select("id")
@@ -153,7 +154,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (userError || !userData) {
-      return;
+      throw new Error("No account found with this phone number");
+    }
+
+    // Also verify user exists in auth.users before sending OTP
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const phoneVariants = [
+      normalizedPhone,
+      `+91${normalizedPhone}`,
+      `91${normalizedPhone}`,
+      normalizedPhone.replace(/^91/, ""),
+    ];
+
+    const { data: users, error: authError } =
+      await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+
+    if (authError) {
+      throw new Error("Failed to verify account. Please try again.");
+    }
+
+    const authUser = users?.users.find((user) => {
+      if (!user.phone) return false;
+      const userPhoneNormalized = user.phone.replace(/\D/g, "");
+      return phoneVariants.some(
+        (variant) =>
+          variant === user.phone ||
+          variant === userPhoneNormalized ||
+          userPhoneNormalized.endsWith(normalizedPhone) ||
+          normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, ""))
+      );
+    });
+
+    if (!authUser) {
+      throw new Error("No account found with this phone number. Please sign up first.");
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -201,23 +234,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const { data: users, error: userError } =
-        await supabaseAdmin.auth.admin.listUsers();
+      // Normalize phone number - remove any non-digit characters and ensure consistent format
+      const normalizedPhone = phone.replace(/\D/g, "");
 
-      if (userError || !users) {
-        throw new Error("Failed to retrieve users from the auth.users table.");
+      // Try multiple phone formats to find the user
+      const phoneVariants = [
+        normalizedPhone,                    // e.g., "9876543210"
+        `+91${normalizedPhone}`,           // e.g., "+919876543210"
+        `91${normalizedPhone}`,            // e.g., "919876543210"
+        normalizedPhone.replace(/^91/, ""), // Remove 91 prefix if present
+      ];
+
+      let authUser = null;
+      let page = 1;
+      const perPage = 1000; // Increase page size to reduce pagination issues
+
+      // Paginate through all users to find the matching phone
+      while (!authUser) {
+        const { data: users, error: userError } =
+          await supabaseAdmin.auth.admin.listUsers({
+            page,
+            perPage,
+          });
+
+        if (userError) {
+          throw new Error("Failed to retrieve users: " + userError.message);
+        }
+
+        if (!users || users.users.length === 0) {
+          break; // No more users to check
+        }
+
+        // Try to find user with any of the phone variants
+        authUser = users.users.find((user) => {
+          if (!user.phone) return false;
+          const userPhoneNormalized = user.phone.replace(/\D/g, "");
+          return phoneVariants.some(
+            (variant) =>
+              variant === user.phone ||
+              variant === userPhoneNormalized ||
+              userPhoneNormalized.endsWith(normalizedPhone) ||
+              normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, ""))
+          );
+        });
+
+        if (authUser || users.users.length < perPage) {
+          break; // Found user or no more pages
+        }
+        page++;
       }
-
-      const authUser = users.users.find((user) => user.phone === phone);
 
       if (!authUser) {
-        throw new Error("User not found in the auth.users table.");
+        throw new Error(
+          "No account found with this phone number. Please sign up first."
+        );
       }
 
-      const authUserId = authUser.id;
-
       const { error: updateError } =
-        await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+        await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
           password: newPassword,
         });
 
@@ -226,7 +300,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       throw new Error(
-        "Authentication failed during password reset: " + error.message,
+        "Password reset failed: " + error.message,
       );
     }
 
