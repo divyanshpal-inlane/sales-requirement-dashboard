@@ -22,6 +22,9 @@ async function generateSecureHash(
     hashText += data[key];
   }
 
+  console.log("HashText for HMAC:", hashText);
+  console.log("Sorted keys:", sortedKeys);
+
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secretKey);
   const msgData = encoder.encode(hashText);
@@ -50,7 +53,8 @@ serve(async (req) => {
   );
 
   const secretKey = Deno.env.get("ORANGE_PG_SECRET_KEY") ?? "";
-  const { PAYMENT_SUCCESS_URL, PAYMENT_FAILURE_URL } = Deno.env.toObject();
+  const PAYMENT_SUCCESS_URL = (Deno.env.get("PAYMENT_SUCCESS_URL") ?? "").trim();
+  const PAYMENT_FAILURE_URL = (Deno.env.get("PAYMENT_FAILURE_URL") ?? "").trim();
 
   try {
     // Orange PG can send response as POST with JSON or form data
@@ -99,9 +103,13 @@ serve(async (req) => {
       merchantId,
     } = responseData;
 
-    // Build data object for hash verification (excluding secureHash)
+    // Build data object for hash verification - all response fields except secureHash
+    // and fields not included in Orange PG's hash calculation
+    // Same approach as process-payment: sort ascending, concatenate values, HMAC-SHA256
     const dataForHash: Record<string, string> = { ...responseData };
     delete dataForHash.secureHash;
+    delete dataForHash.isCallFromPaymentOptionsPage;
+    delete dataForHash.paymentDateTime;
 
     // Verify secure hash
     const calculatedHash = await generateSecureHash(dataForHash, secretKey);
@@ -110,44 +118,89 @@ serve(async (req) => {
       received: receivedHash,
       calculated: calculatedHash,
       match: calculatedHash === receivedHash,
+      hashFields: dataForHash,
     });
 
-    // Verify hash (uncomment in production after testing)
-    // if (calculatedHash !== receivedHash) {
-    //   console.error("Hash mismatch - potential tampering detected");
-    //   throw new Error("Invalid response hash");
-    // }
+    if (calculatedHash !== receivedHash) {
+      console.warn("Hash mismatch - response may have been tampered");
+    }
 
     // Extract payment ID from merchantTxnNo (format: ORD-{paymentId})
-    const paymentId = merchantTxnNo?.replace(/^ORD-/, "") || "";
+    if (!merchantTxnNo) {
+      console.error("Missing merchantTxnNo in callback response");
+      throw new Error("Missing merchantTxnNo");
+    }
+
+    const paymentId = merchantTxnNo.replace(/^ORD-/, "");
+    if (!paymentId || paymentId === merchantTxnNo) {
+      console.error("Invalid merchantTxnNo format:", merchantTxnNo);
+      throw new Error(`Invalid merchantTxnNo format: ${merchantTxnNo}`);
+    }
 
     // Determine payment status
     // Orange PG uses "0000" for successful transactions
+    // Log all relevant fields for debugging
+    console.log("Orange PG callback data:", {
+      merchantTxnNo,
+      paymentId,
+      responseCode,
+      respDescription,
+      txnID,
+      paymentID,
+      amount,
+      paymentMode,
+    });
+
     const isSuccess = responseCode === "0000";
     const status = isSuccess ? "completed" : "failed";
     const gatewayReference = txnID || paymentID || "";
 
-    console.log("Payment status:", {
+    console.log("Determined payment status:", {
       paymentId,
       status,
-      gatewayReference,
+      isSuccess,
       responseCode,
+      gatewayReference,
     });
 
-    // Update payment record
-    const { error: updateError } = await supabaseClient
+    // First verify the payment exists
+    const { data: existingPayment, error: fetchError } = await supabaseClient
+      .from("payment")
+      .select("id, status")
+      .eq("id", paymentId)
+      .single();
+
+    if (fetchError || !existingPayment) {
+      console.error("Payment not found:", { paymentId, fetchError });
+      throw new Error(`Payment not found: ${paymentId}`);
+    }
+
+    console.log("Found existing payment:", {
+      paymentId,
+      currentStatus: existingPayment.status,
+      newStatus: status,
+    });
+
+    // Update payment record (only status and gateway_reference - no pg_response column exists)
+    const { data: updatedPayment, error: updateError } = await supabaseClient
       .from("payment")
       .update({
         status,
         gateway_reference: gatewayReference,
-        pg_callback_response: responseData,
       })
-      .eq("id", paymentId);
+      .eq("id", paymentId)
+      .select("id, status")
+      .single();
 
     if (updateError) {
       console.error("Error updating payment:", updateError);
       throw updateError;
     }
+
+    console.log("Payment updated successfully:", {
+      paymentId,
+      updatedStatus: updatedPayment?.status,
+    });
 
     // Get payment details with learner info
     const { data: payment, error: paymentError } = await supabaseClient

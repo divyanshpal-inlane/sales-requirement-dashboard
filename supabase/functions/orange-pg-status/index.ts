@@ -10,14 +10,14 @@ const corsHeaders = {
 
 // Orange PG Configuration
 const ORANGE_PG_CONFIG = {
-  merchantId: Deno.env.get("ORANGE_PG_MERCHANT_ID") || "100000000007164",
-  aggregatorId: Deno.env.get("ORANGE_PG_AGGREGATOR_ID") || "A100000000007164",
+  merchantId: Deno.env.get("ORANGE_PG_MERCHANT_ID") || "100000000382695",
+  aggregatorId: Deno.env.get("ORANGE_PG_AGGREGATOR_ID") || "100000000382694",
   secretKey:
     Deno.env.get("ORANGE_PG_SECRET_KEY") ||
-    "db06cca0-838b-4e01-8b20-6ac446ffb6bd",
+    "d6891d57-895e-405d-91ff-f5f8f12a721d",
   commandUrl:
     Deno.env.get("ORANGE_PG_STATUS_CHECK_URL") ||
-    "https://pgpay.icicibank.com/tsp/pg/api/command",
+    "https://pgpay.icicibank.com/pg/api/command",
 };
 
 /**
