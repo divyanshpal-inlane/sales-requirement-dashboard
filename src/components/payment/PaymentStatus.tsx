@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -8,6 +9,7 @@ import { useAuth } from "@/context/auth-context";
 
 function PaymentStatus() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
   const reference = searchParams.get("reference");
@@ -16,6 +18,11 @@ function PaymentStatus() {
   const [countdown, setCountdown] = useState(10);
 
   const returnToHomePage = () => {
+    // Invalidate payment and enrollment queries to fetch fresh data
+    queryClient.invalidateQueries({ queryKey: ["payments"] });
+    queryClient.invalidateQueries({ queryKey: ["enrollment"] });
+    queryClient.invalidateQueries({ queryKey: ["payment"] });
+
     navigate(isLoggedIn ? "/home" : "/login?active=signup");
   };
 

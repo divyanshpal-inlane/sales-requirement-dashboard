@@ -38,7 +38,7 @@ export const usePaymentsByLearner = (learnerId?: string) => {
       return data.length > 0 ? data : null;
     },
     enabled: !!learnerId,
-    staleTime: Infinity,
+    staleTime: 0, // Always refetch to get latest payment status
   });
 };
 
