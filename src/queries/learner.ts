@@ -526,7 +526,7 @@ export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
       // if (data.length === 0) throw new Error("User has no enrollment");
       return data.length > 0 ? data[0] : null;
     },
-    staleTime: Infinity,
+    staleTime: 0, // Always refetch to get latest enrollment status
     enabled: !!learnerId,
   });
 }

@@ -110,12 +110,13 @@ export default function Home() {
     learner?.id,
   );
 
-  // Find the latest completed payment
+  // Find the latest completed payment (course, custom, or demo)
   const completedPayment = Array.isArray(payments)
     ? payments
         .filter(
           (payment: { payment_type: string; status: string }) =>
-            payment.payment_type === "course" && payment.status === "completed",
+            ["course", "custom", "demo"].includes(payment.payment_type) &&
+            payment.status === "completed",
         )
         .sort(
           (a: { created_at: string }, b: { created_at: string }) =>
