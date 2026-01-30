@@ -173,18 +173,26 @@ function PreferenceSelector({
                 );
               }
 
-              rescheduleRequest(
-                {
-                  learnerId,
-                  lessonIds: lessons,
-                  type: requestType,
-                },
-                {
-                  onError: (error) => {
-                    console.error("Error with reschedule request:", error);
-                  },
-                },
+              // Only create reschedule request if lessons are real UUIDs (not virtual)
+              // Virtual lessons (for demo/custom courses) start with "virtual-"
+              const realLessonIds = lessons.filter(
+                (id) => !id.startsWith("virtual-"),
               );
+
+              if (realLessonIds.length > 0) {
+                rescheduleRequest(
+                  {
+                    learnerId,
+                    lessonIds: realLessonIds,
+                    type: requestType,
+                  },
+                  {
+                    onError: (error) => {
+                      console.error("Error with reschedule request:", error);
+                    },
+                  },
+                );
+              }
             } else {
               supabase.functions
                 .invoke("send-message", {
