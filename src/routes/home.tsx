@@ -1,4 +1,5 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
   formatDuration,
@@ -18,15 +19,24 @@ import {
   ThumbsUp,
   User,
 } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
 import React, { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import LLFlow from "@/components/ll_flow";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
 import { SessionDetails } from "@/components/SessionDetails";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Tooltip,
   TooltipContent,
@@ -35,6 +45,7 @@ import {
 } from "@/components/ui/tooltip";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase } from "@/lib/supabaseClient";
+import { useUpdateScheduleStatus } from "@/queries/instructor";
 import {
   useLearner,
   useLearnerEnrollment,
@@ -45,17 +56,6 @@ import {
 } from "@/queries/learner";
 import { usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { useUpdateScheduleStatus } from "@/queries/instructor";
-import { toast } from "sonner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -135,6 +135,63 @@ export default function Home() {
     return (
       <div className="container mx-auto max-w-md py-8">
         <PaymentStatusCard />
+      </div>
+    );
+  }
+
+  // After payment is complete, check if DL question has been answered
+  const handleDLResponse = (hasDL: boolean) => {
+    if (hasDL) {
+      // User has a DL - they already have LL
+      updateLearner({
+        LL_result: true,
+        has_a_DL: true,
+        LL_received: true,
+      });
+    } else {
+      // User does not have a DL - needs to go through LL flow
+      updateLearner({
+        LL_result: null,
+        has_a_DL: false,
+      });
+    }
+  };
+
+  // Show DL question if not answered yet (has_a_DL is null/undefined)
+  if (learner?.has_a_DL === null || learner?.has_a_DL === undefined) {
+    return (
+      <div className="flex h-full w-full flex-col">
+        <header className="relative h-[300px]">
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+            <img
+              src="/assets/lesson1.png"
+              alt="Four-wheeler with driver"
+              className="h-full w-full object-fill"
+            />
+          </div>
+        </header>
+        <div className="flex h-full flex-col gap-6 p-6">
+          <div className="flex flex-col items-center">
+            <h2 className="text-center text-2xl font-semibold">
+              Do you have a Driving License for a Four Wheeler?
+            </h2>
+            <p className="mt-2 text-center text-muted-foreground">
+              Let us know to proceed with scheduling your lessons
+            </p>
+          </div>
+          <div className="flex flex-col gap-4">
+            <Button className="w-full" onClick={() => handleDLResponse(true)}>
+              Yes, I have a DL
+            </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => handleDLResponse(false)}
+            >
+              No, I need to get LL first
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
