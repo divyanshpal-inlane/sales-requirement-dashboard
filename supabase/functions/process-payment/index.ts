@@ -119,6 +119,23 @@ serve(async (req) => {
         throw new Error("Invalid learner ID");
       }
       learnerId = providedLearnerId;
+
+      // Update learner's name and email if provided (they may be missing from signup)
+      if (name || email) {
+        const updateData: { name?: string; email?: string } = {};
+        if (name) updateData.name = name;
+        if (email) updateData.email = email;
+
+        const { error: updateLearnerError } = await supabaseClient
+          .from("Learner")
+          .update(updateData)
+          .eq("id", learnerId);
+
+        if (updateLearnerError) {
+          console.error("Error updating learner details:", updateLearnerError);
+          // Don't throw - continue with payment even if update fails
+        }
+      }
     } else {
       // Fallback: lookup by phone only (consistent with frontend useLearner hook)
       const { data: existingLearners, error: learnerQueryError } =
