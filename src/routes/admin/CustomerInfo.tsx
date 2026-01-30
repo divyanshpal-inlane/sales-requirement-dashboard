@@ -382,7 +382,7 @@ export default function CustomerInfo() {
       learner.area?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   useEffect(() => {
-    console.log("filteredLearners", filteredLearners[0]);
+    console.log("filteredLearners", filteredLearners?.[0]);
   }, [filteredLearners]);
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
@@ -390,7 +390,8 @@ export default function CustomerInfo() {
     setDialogOpen(true);
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return "?";
     return name
       .split(" ")
       .map((part) => part[0])
@@ -771,7 +772,7 @@ export default function CustomerInfo() {
                           {/* Column 1: Learner Contact Info (Name, Email, Phone, Area) */}
                           <div>
                             <h3 className="text-lg font-medium">
-                              {learner.name}
+                              {learner.name || "Unknown"}
                             </h3>
                             <p className="text-sm">
                               <span className="font-medium">Email:</span>{" "}
@@ -779,7 +780,7 @@ export default function CustomerInfo() {
                             </p>
                             <p className="text-sm">
                               <span className="font-medium">Phone:</span>{" "}
-                              {learner.phone}
+                              {learner.phone || "N/A"}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {learner.area || "No area specified"}
