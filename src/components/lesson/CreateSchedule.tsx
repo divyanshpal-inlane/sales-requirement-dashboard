@@ -2566,11 +2566,14 @@ function CreateSchedule({
     const isStartSlot = minute === 0;
 
     setSelectedSlots((prev) => {
+      // Generate truly unique ID using timestamp + random + date/hour to prevent collisions
+      // This fixes the bug where selecting slots quickly would cause them to merge
+      const dateStr = selectedDate.toISOString().split("T")[0];
+      const slotGroupId = `${dateStr}-${hour}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
       // When selecting, add both slots that make up the full hour
       if (isStartSlot) {
         // If selecting a XX:00 slot, also select the XX:30 slot
-        // Mark them as the same slot group
-        const slotGroupId = Date.now().toString(); // Unique ID for this hour selection
         return [
           ...prev,
           {
@@ -2578,19 +2581,18 @@ function CreateSchedule({
             hour,
             minutes: 0,
             instructorId,
-            slotGroupId, // Add this to group related 30-min slots
+            slotGroupId,
           },
           {
             date: selectedDate,
             hour,
             minutes: 30,
             instructorId,
-            slotGroupId, // Same group ID for the second 30 min slot
+            slotGroupId,
           },
         ];
       } else {
         // If selecting a XX:30 slot, also select the (XX+1):00 slot
-        const slotGroupId = Date.now().toString();
         return [
           ...prev,
           {
@@ -2676,6 +2678,12 @@ function CreateSchedule({
       (slot) => slot.slotGroupId || "",
     );
 
+    // DEBUG: Log slot grouping details
+    console.log("=== SLOT GROUPING DEBUG ===");
+    console.log("Total selectedSlots entries:", selectedSlots.length);
+    console.log("Unique slotGroupIds:", Object.keys(selectedSlotGroups).length);
+    console.log("===========================");
+
     // Convert each pair of 30-minute slots into a single hour entry
     // We'll use the first slot in each group as the starting point
     const newSlots = Object.values(selectedSlotGroups).map((group) => {
@@ -2696,6 +2704,8 @@ function CreateSchedule({
         isNew: true as const,
       };
     });
+
+    console.log("newSlots count after grouping:", newSlots.length);
 
     // Get upcoming slots
     const upcomingSlots = [
@@ -2741,9 +2751,17 @@ function CreateSchedule({
     );
 
     // Get available lessons for upcoming slots (lessons after the completed ones)
-    const availableLessons = courseLessons.filter(
-      (l) => (l.number ?? 0) > maxCompletedLessonNumber,
-    );
+    // Fix: When no lessons are completed (maxCompletedLessonNumber = 0), include ALL lessons
+    // This handles both 0-indexed (0,1,2...) and 1-indexed (1,2,3...) lesson numbering
+    const availableLessons = courseLessons.filter((l) => {
+      const lessonNumber = l.number ?? 0;
+      // If no completed lessons, include all lessons
+      if (maxCompletedLessonNumber === 0) {
+        return true;
+      }
+      // Otherwise, include only lessons after the last completed one
+      return lessonNumber > maxCompletedLessonNumber;
+    });
 
     // Check if a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
@@ -2785,20 +2803,63 @@ function CreateSchedule({
       }
     });
 
+    // Sort available lessons by number for sequential assignment
+    const sortedAvailableLessons = [...availableLessons].sort(
+      (a, b) => (a.number ?? 0) - (b.number ?? 0),
+    );
+
+    // Count only NEW slots for proper lesson assignment
+    const newSlotsOnly = chronologicallySortedUpcomingSlots.filter(
+      (s) => s.isNew,
+    );
+    const totalNewSlots = newSlotsOnly.length;
+
+    // Debug logging for scheduling
+    console.log("=== SCHEDULING DEBUG ===");
+    console.log("Total course lessons:", courseLessons.length);
+    console.log("Max completed lesson number:", maxCompletedLessonNumber);
+    console.log("Available lessons count:", availableLessons.length);
+    console.log(
+      "Available lesson numbers:",
+      sortedAvailableLessons.map((l) => l.number),
+    );
+    console.log("Total NEW slots to schedule:", totalNewSlots);
+    console.log("========================");
+
+    // Track which new slot index we're at
+    let newSlotCounter = 0;
+
     const schedulesWithIds = chronologicallySortedUpcomingSlots.map(
       (slot, index) => {
-        // For 9+1 courses, handle lesson 10 specially (keep this logic as is)
+        // For existing slots (not new), preserve their existing lesson assignment
+        if (!slot.isNew && "lessonId" in slot && slot.lessonId) {
+          const existingLesson = courseLessons.find(
+            (l) => l.id === slot.lessonId,
+          );
+          return {
+            date: slot.date,
+            hour: slot.hour,
+            minutes: slot.minutes,
+            instructorId: slot.instructorId,
+            lessonId: slot.lessonId,
+            lessonNumber: existingLesson?.number ?? 0,
+            isNew: slot.isNew,
+          };
+        }
+
+        // Get the current new slot index and increment for next iteration
+        const currentNewSlotIndex = newSlotCounter;
+        newSlotCounter++;
+
+        // For 9+1 courses, handle lesson 10 specially
         if (isNinePlusOneCourse) {
           // Check if this slot is for lesson 10 (which should always be the last lesson)
           const isLesson10Slot = request.lesson_ids.some(
             (id) => courseLessons.find((l) => l.id === id)?.number === 10,
           );
 
-          if (
-            isLesson10Slot &&
-            index === chronologicallySortedUpcomingSlots.length - 1
-          ) {
-            // If this is lesson 10 in a 9+1 course and it's the last slot, use lesson 10
+          if (isLesson10Slot && currentNewSlotIndex === totalNewSlots - 1) {
+            // If this is lesson 10 in a 9+1 course and it's the last NEW slot, use lesson 10
             const lesson10 = availableLessons.find((l) => l.number === 10);
             return {
               date: slot.date,
@@ -2812,10 +2873,16 @@ function CreateSchedule({
           }
         }
 
-        // For all other cases, assign lesson numbers sequentially
-        const lessonNumber = maxCompletedLessonNumber + index + 1;
-        // console.log("available lessons", availableLessons);
-        const lesson = availableLessons.find((l) => l.number === lessonNumber);
+        // For all other cases, assign lessons by position in the sorted available lessons list
+        // This handles both sequential (1,2,3...) and non-sequential lesson numbering
+        const lesson = sortedAvailableLessons[currentNewSlotIndex];
+
+        if (!lesson) {
+          console.error(
+            `No available lesson found for new slot index ${currentNewSlotIndex}. ` +
+              `Available lessons: ${sortedAvailableLessons.length}, Total new slots: ${totalNewSlots}`,
+          );
+        }
 
         return {
           date: slot.date,
@@ -2823,7 +2890,7 @@ function CreateSchedule({
           minutes: slot.minutes,
           instructorId: slot.instructorId,
           lessonId: lesson?.id ?? "",
-          lessonNumber: lessonNumber,
+          lessonNumber: lesson?.number ?? 0,
           isNew: slot.isNew,
         };
       },
