@@ -1,10 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { useLearnerUpdate } from "@/queries/learner";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function DLQuestion() {
   const { mutate, isPending } = useLearnerUpdate();
@@ -67,11 +67,12 @@ export default function DLQuestion() {
   const handleDLResponse = async (response: boolean) => {
     try {
       if (response) {
-        // User has a DL
+        // User has a DL - they already have LL, so set LL_received to true
         mutate(
           {
             LL_result: true,
             has_a_DL: true,
+            LL_received: true,
             onboarding_completed: true,
           },
           {
