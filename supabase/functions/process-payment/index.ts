@@ -16,6 +16,7 @@ interface PaymentDetails {
   paymentType: "course" | "demo" | "custom";
   courseId?: string;
   name: string;
+  learnerId?: string;
   installmentType?: "full" | "installment" | "second_half" | "first_half";
   installment1Amount?: number;
   installment2Amount?: number;
@@ -89,6 +90,7 @@ serve(async (req) => {
       paymentType,
       courseId,
       name,
+      learnerId: providedLearnerId,
       installmentType,
       installment1Amount,
       installment2Amount,
@@ -100,37 +102,56 @@ serve(async (req) => {
     } = (await req.json()) as PaymentDetails;
 
     // 1. Find or create learner
-    const { data: existingLearners, error: learnerQueryError } =
-      await supabaseClient
-        .from("Learner")
-        .select()
-        .eq("email", email)
-        .eq("phone", phone)
-        .eq("name", name)
-        .limit(1);
-
-    if (learnerQueryError) throw learnerQueryError;
-
+    // Use provided learnerId if available (from frontend), otherwise lookup by phone
     let learnerId: string;
-    if (existingLearners?.length) {
-      learnerId = existingLearners[0].id;
-    } else {
-      const { data: newLearner, error: learnerCreateError } =
+
+    if (providedLearnerId) {
+      // Verify the provided learnerId exists
+      const { data: existingLearner, error: learnerVerifyError } =
         await supabaseClient
           .from("Learner")
-          .insert([
-            {
-              email,
-              phone,
-              name,
-              onboarding_completed: false,
-            },
-          ])
-          .select()
+          .select("id")
+          .eq("id", providedLearnerId)
           .single();
 
-      if (learnerCreateError) throw learnerCreateError;
-      learnerId = newLearner.id;
+      if (learnerVerifyError || !existingLearner) {
+        console.error("Provided learnerId not found:", providedLearnerId);
+        throw new Error("Invalid learner ID");
+      }
+      learnerId = providedLearnerId;
+    } else {
+      // Fallback: lookup by phone only (consistent with frontend useLearner hook)
+      const { data: existingLearners, error: learnerQueryError } =
+        await supabaseClient
+          .from("Learner")
+          .select()
+          .eq("phone", phone)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+      if (learnerQueryError) throw learnerQueryError;
+
+      if (existingLearners?.length) {
+        learnerId = existingLearners[0].id;
+      } else {
+        // Create new learner only if not found by phone
+        const { data: newLearner, error: learnerCreateError } =
+          await supabaseClient
+            .from("Learner")
+            .insert([
+              {
+                email,
+                phone,
+                name,
+                onboarding_completed: false,
+              },
+            ])
+            .select()
+            .single();
+
+        if (learnerCreateError) throw learnerCreateError;
+        learnerId = newLearner.id;
+      }
     }
 
     // 2. Create a payment record
