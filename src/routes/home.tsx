@@ -850,7 +850,28 @@ export default function Home() {
                   {learner && !learner.LL_received ? (
                     <LLFlow />
                   ) : learner && learner.LL_received ? (
-                    scheduledLessons && scheduledLessons.length === 0 ? (
+                    // Check if this is a demo/custom course
+                    (enrolledCourse?.progress?.type === "demo" ||
+                      enrolledCourse?.progress?.type === "custom" ||
+                      !enrolledCourse?.course_id) &&
+                    learner.preferred_start_date ? (
+                      // Demo/custom course with preferences already submitted
+                      <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">
+                        <img
+                          src="/assets/clocks.png"
+                          alt="Schedule"
+                          className="w-48 rounded-lg"
+                        />
+                        <h2 className="text-xl font-semibold">
+                          Your Schedule is Being Created
+                        </h2>
+                        <p className="text-muted-foreground">
+                          Our team is working on crafting your perfect learning
+                          schedule. We&apos;ll notify you once your schedule is
+                          ready.
+                        </p>
+                      </div>
+                    ) : scheduledLessons && scheduledLessons.length === 0 ? (
                       <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
                         <img
                           src="/assets/clocks.png"
