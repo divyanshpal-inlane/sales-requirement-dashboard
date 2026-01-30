@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import React, { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import PreferenceSelector from "@/components/lesson/PreferenceSelector";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ function Preferences() {
   const [searchParams] = useSearchParams();
   const type = searchParams.get("type") as "new" | "reschedule" | "lesson10";
   const [isFlexible, setIsFlexible] = useState(false);
-  const { data: learner, isLoading } = useLearner();
+  const { data: learner } = useLearner();
   const { data: enrolledCourse, isLoading: enrolledCourseLoading } =
     useLearnerEnrollmentCourse({
       learnerId: learner?.id ?? "",
@@ -51,8 +51,9 @@ function Preferences() {
       );
     } else {
       // Fallback: create virtual lessons based on total_hours
-      lessonsToSchedule = Array.from({ length: totalHours }, (_, i) =>
-        `virtual-lesson-${i + 1}`,
+      lessonsToSchedule = Array.from(
+        { length: totalHours },
+        (_, i) => `virtual-lesson-${i + 1}`,
       );
     }
   } else if (lessons) {

@@ -17,9 +17,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabaseClient";
-import { formatDate, generateRandomOTP } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -27,8 +24,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabaseClient";
+import { formatDate, generateRandomOTP } from "@/lib/utils";
 
 export default function CustomerInfo() {
   const navigate = useNavigate();
@@ -376,8 +376,8 @@ export default function CustomerInfo() {
   // Filter learners based on search query
   const filteredLearners = learners?.filter(
     (learner) =>
-      learner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      learner.phone.includes(searchQuery) ||
+      learner.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      learner.phone?.includes(searchQuery) ||
       learner.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       learner.area?.toLowerCase().includes(searchQuery.toLowerCase()),
   );

@@ -173,26 +173,27 @@ function PreferenceSelector({
                 );
               }
 
-              // Only create reschedule request if lessons are real UUIDs (not virtual)
+              // Create reschedule request for all types (including demo/custom)
               // Virtual lessons (for demo/custom courses) start with "virtual-"
+              // Filter them out since they're not valid UUIDs, use empty array for demo/custom
               const realLessonIds = lessons.filter(
                 (id) => !id.startsWith("virtual-"),
               );
 
-              if (realLessonIds.length > 0) {
-                rescheduleRequest(
-                  {
-                    learnerId,
-                    lessonIds: realLessonIds,
-                    type: requestType,
+              // Always create reschedule request - admin will handle demo/custom cases
+              // by checking the learner's enrollment type
+              rescheduleRequest(
+                {
+                  learnerId,
+                  lessonIds: realLessonIds, // Empty array for demo/custom is OK
+                  type: requestType,
+                },
+                {
+                  onError: (error) => {
+                    console.error("Error with reschedule request:", error);
                   },
-                  {
-                    onError: (error) => {
-                      console.error("Error with reschedule request:", error);
-                    },
-                  },
-                );
-              }
+                },
+              );
             } else {
               supabase.functions
                 .invoke("send-message", {
