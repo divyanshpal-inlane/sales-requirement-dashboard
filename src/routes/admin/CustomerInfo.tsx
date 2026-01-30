@@ -382,7 +382,7 @@ export default function CustomerInfo() {
       learner.area?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   useEffect(() => {
-    console.log("filteredLearners", filteredLearners[0]);
+    console.log("filteredLearners", filteredLearners?.[0]);
   }, [filteredLearners]);
 
   const handleLearnerSelect = (learner: LearnerInfo) => {
