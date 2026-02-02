@@ -1,14 +1,15 @@
+import { Loader2 } from "lucide-react";
+
+import MapWithRoute from "@/components/mapWithRoute";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
-import MapWithRoute from "@/components/mapWithRoute";
 import { useInstructorLocation } from "@/hooks/useInstructorLocation";
 
 interface InstructorSelectionDialogProps {

@@ -1,12 +1,13 @@
+import { Clock, MapPin } from "lucide-react";
 import { useEffect } from "react";
-import { MapPin, Clock } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DistanceInfo } from "@/types/schedule";
 
 interface LocationModalProps {

@@ -1,43 +1,42 @@
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 import { useQueryClient } from "@tanstack/react-query";
-
 import {
   addDays,
+  addMonths,
+  endOfMonth,
   endOfWeek,
   format,
   getDay,
   isSameDay,
-  parse,
-  startOfWeek,
   isSameMonth,
+  parse,
   startOfMonth,
-  endOfMonth,
-  addMonths,
+  startOfWeek,
   subMonths,
 } from "date-fns";
 import enUS from "date-fns/locale/en-US";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
+  BookOpen,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   CircleCheckBig,
-  ExternalLinkIcon,
-  PhoneOutgoing,
-  User,
-  Calendar,
   Clock,
-  BookOpen,
+  ExternalLinkIcon,
   Link,
-  Unlink,
+  PhoneOutgoing,
   Plus,
   Save,
+  Unlink,
+  User,
   X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar";
 import { useNavigate } from "react-router-dom";
 
+import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
 import { LessonPlan } from "@/components/lesson/plan";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +46,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -57,8 +57,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
 import {
@@ -67,7 +67,6 @@ import {
   useUpdateScheduleStatus,
 } from "@/queries/instructor";
 import Schedule from "@/routes/schedule";
-import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
 import { SlotConfig } from "@/types/schedule";
 
 const locales = {

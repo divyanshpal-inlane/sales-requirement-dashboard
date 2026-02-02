@@ -1,4 +1,6 @@
+import { format } from "date-fns";
 import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/utils/supabase";
-import { format } from "date-fns";
+
 import MapWithRoute from "./mapWithRoute";
 
 interface Instructor {

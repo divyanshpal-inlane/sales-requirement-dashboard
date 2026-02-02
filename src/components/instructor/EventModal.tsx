@@ -1,14 +1,15 @@
+import { format } from "date-fns";
+import { BookOpen, Calendar, ExternalLinkIcon, User } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import { Calendar, BookOpen, ExternalLinkIcon, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
 
 interface EventModalProps {
   open: boolean;

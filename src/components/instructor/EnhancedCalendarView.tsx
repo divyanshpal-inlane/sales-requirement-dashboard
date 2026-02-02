@@ -1,21 +1,23 @@
-import { useState, useEffect } from "react";
 import {
-  format,
-  startOfWeek,
-  endOfWeek,
-  addMonths,
-  subMonths,
   addDays,
+  addMonths,
+  endOfWeek,
+  format,
   isSameDay,
+  startOfWeek,
+  subMonths,
 } from "date-fns";
-import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, User } from "lucide-react";
-import MonthView from "./MonthView";
-import WeekView from "./WeekView";
-import DayView from "./DayView";
-import useGoogleCalendar from "@/hooks/useGoogleCalendar";
+import { useEffect, useState } from "react";
 // import { useRouter } from "next/navigation";
 import { useNavigate } from "react-router-dom";
+
+import { Button } from "@/components/ui/button";
+import useGoogleCalendar from "@/hooks/useGoogleCalendar";
+
+import DayView from "./DayView";
+import MonthView from "./MonthView";
+import WeekView from "./WeekView";
 
 interface EnhancedCalendarViewProps {
   instructorData: any;

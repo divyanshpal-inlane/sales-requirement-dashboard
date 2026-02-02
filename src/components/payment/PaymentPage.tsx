@@ -12,9 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DEMO_COURSE, SKILL_MODULES } from "@/constants/courses";
 import { supabase } from "@/lib/supabaseClient";
 import { useCourses } from "@/queries/payment";
-import { SKILL_MODULES, DEMO_COURSE } from "@/constants/courses";
 
 type CourseSelectionType = "predefined" | "custom" | "demo" | "test";
 

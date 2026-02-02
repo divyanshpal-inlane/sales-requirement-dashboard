@@ -1,3 +1,5 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { addDays, format, formatDate, parse, subDays } from "date-fns";
 import {
   Delete,
   Filter,
@@ -6,8 +8,11 @@ import {
   Send,
   UserPlus,
 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,13 +39,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { addDays, format, formatDate, parse, subDays } from "date-fns";
+
 import Schedule from "../schedule";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 
 function TentativeSchedules() {
   const [learnerData, setLearnerData] = useState({
@@ -310,7 +311,7 @@ export default function TentativeScheduleInfo2() {
 
   // Fetch all learners whose payment status is completed
   // in descending order of signup time
-  let {
+  const {
     data: tentativeSchedulesByLearners,
     isLoadingTentativeSchedulesByLearners,
   } = useQuery({

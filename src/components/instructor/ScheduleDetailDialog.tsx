@@ -1,19 +1,20 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
   Calendar,
   Clock,
-  User,
   ExternalLinkIcon,
   PhoneOutgoing,
+  User,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ScheduleDetailDialogProps {
   open: boolean;

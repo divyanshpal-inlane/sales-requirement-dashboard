@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { addHours, formatDistanceToNow, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { ArrowLeft, Filter, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
+
 import { Badge } from "../ui/badge";
 
 type ScheduleInfoData = {

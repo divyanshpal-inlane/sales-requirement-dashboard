@@ -1,7 +1,8 @@
+import { describe } from "node:test";
+
 import { Loader } from "@googlemaps/js-api-loader";
 import { useQuery } from "@tanstack/react-query";
-import MapWithRoute from "@/components/mapWithRoute";
-
+import { ControlPosition } from "@vis.gl/react-google-maps";
 import {
   addDays,
   addMinutes,
@@ -28,6 +29,8 @@ import {
   LearnerInfo,
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
+import MapWithRoute from "@/components/mapWithRoute";
+import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,20 +48,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
+import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
-import { TIME_SLOTS, TimeSlot, SlotConfig } from "@/types/schedule";
-import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
-import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
-import LearnerScheduleSelector from "./schedule";
-import { useTentativeScheduleData } from "@/hooks/useScheduleData";
+import { SlotConfig, TIME_SLOTS, TimeSlot } from "@/types/schedule";
+
 import { TentativeScheduleDialog } from "../admin/TentativeScheduleCard";
-import { useToast } from "@/components/ui/use-toast";
-import { ControlPosition } from "@vis.gl/react-google-maps";
-import { describe } from "node:test";
+import LearnerScheduleSelector from "./schedule";
 
 interface TimeSlotState {
   isAvailable: boolean;

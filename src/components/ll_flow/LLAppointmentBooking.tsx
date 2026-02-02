@@ -1,12 +1,13 @@
 import { getCalApi } from "@calcom/embed-react";
 import { useEffect, useState } from "react";
-import { useLearner } from "@/queries/learner";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
+import { useLearner } from "@/queries/learner";
 import { useLearnerUpdate } from "@/queries/learner";
-import { useNavigate } from "react-router-dom";
+
 import LLFillForm from "./LLFillForm";
 
 export default function LLAppointmentBooking() {

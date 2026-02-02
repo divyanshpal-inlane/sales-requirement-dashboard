@@ -1,4 +1,4 @@
-import { Calendar, HomeIcon, Library, HelpCircle } from "lucide-react";
+import { Calendar, HelpCircle, HomeIcon, Library } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import GreenGradient from "@/components/layout/greenGradient";

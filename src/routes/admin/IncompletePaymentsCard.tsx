@@ -1,11 +1,10 @@
-import { RefreshCcw, Send, Delete, ArrowBigLeft } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowBigLeft, Delete, RefreshCcw, Send } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabaseClient";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -13,9 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabaseClient";
 
 export function IncompletePaymentsCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
@@ -417,19 +417,40 @@ export function IncompletePaymentsCard() {
         `Saving amount for learner: ${paidInfoDialogData?.Learner?.name}`,
       );
 
-      // 1. Make payment record
+      // Determine payment status based on which installments are paid
+      // If both installments paid OR if it's full payment mode -> full_paid
+      // If only first installment paid -> half_paid
+      const isFullPayment = paidInfoDialogData?.installment_mode === "full";
+      const bothInstallmentsPaid = manualInstallment1 && manualInstallment2;
+      const paymentStatus = (isFullPayment || bothInstallmentsPaid) ? "full_paid" : "half_paid";
+
+      // Calculate the amount being paid
+      const paidAmount = (manualInstallment1 || 0) + (manualInstallment2 || 0);
+
+      // Determine installment_type for payment record
+      let installmentType = "full";
+      if (!isFullPayment) {
+        if (manualInstallment1 && !manualInstallment2) {
+          installmentType = "first_half";
+        } else if (manualInstallment1 && manualInstallment2) {
+          installmentType = "full";
+        }
+      }
+
+      // 1. Make payment record with correct status (full_paid or half_paid)
       const { data: paymentRecord, error: dbError } = await supabase
         .from("payment")
         .insert([
           {
             learner_id: paidInfoDialogData?.Learner?.id,
-            amount: manualAmount,
+            amount: paidAmount,
+            total_amount: paidInfoDialogData?.amount || paidAmount,
             email: paidInfoDialogData?.Learner?.email,
             phone: paidInfoDialogData?.Learner?.phone,
             payment_type: "course",
-            status: "completed",
+            status: paymentStatus,
             name: paidInfoDialogData?.Learner?.name,
-            installment_type: paidInfoDialogData?.installment_type,
+            installment_type: installmentType,
             installment1_amount: paidInfoDialogData?.installment1_amount,
             installment2_amount: paidInfoDialogData?.installment2_amount,
           },
@@ -439,17 +460,17 @@ export function IncompletePaymentsCard() {
 
       if (dbError) throw new Error("Failed to record payment.");
 
-      // 2. Update Enrollment status using the mutation asynchronously
-      // Note: We use mutateAsync to block and wait for completion.
+      // 2. Update Enrollment status - IMPORTANT: Also update payment_status
       await useUpdateEnrollmentMutation.mutateAsync({
         enrollmentId: paidInfoDialogData.id,
         updates: {
-          amount: manualAmount,
+          amount: paidInfoDialogData?.amount || paidAmount,
           payment_id: paymentRecord.id,
           status: "active",
-          installment_mode: paidInfoDialogData?.installmentType,
-          installment1_amount: paidInfoDialogData?.installment1Amount,
-          installment2_amount: paidInfoDialogData?.installment2Amount,
+          payment_status: paymentStatus, // This was missing!
+          installment_mode: paymentStatus === "full_paid" ? "full" : "first_half",
+          installment1_amount: paidInfoDialogData?.installment1_amount,
+          installment2_amount: paidInfoDialogData?.installment2_amount,
         },
       });
 
@@ -467,12 +488,14 @@ export function IncompletePaymentsCard() {
       // 4. Show success toast
       toast({
         title: "Success",
-        description: "Enrollment updated and notifications sent.",
+        description: `Payment marked as ${paymentStatus}. Enrollment updated.`,
       });
 
-      // 5. Close dialog/reset state
-      // handleUpdatePaidInfoClose();
-      // setLearnerId("");
+      // 5. Close dialog and refresh list
+      handleUpdatePaidInfoClose();
+      setManualInstallment1(null);
+      setManualInstallment2(null);
+      fetchIncompletePayments();
     } catch (error) {
       console.error("Payment and Enrollment Save Error:", error);
       toast({

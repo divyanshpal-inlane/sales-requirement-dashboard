@@ -523,16 +523,16 @@ export default function AdminSchedules() {
 
   return (
     <div
-      className="h-flex flex min-h-screen flex-col bg-white p-8"
+      className="h-flex flex min-h-screen flex-col bg-white p-4"
       style={{
         backgroundImage: 'url("/assets/bg_pattern.svg")',
         backgroundRepeat: "repeat",
         backgroundSize: "cover",
       }}
     >
-      <div className="border-b bg-white px-6 py-4">
+      <div className="border-b bg-white px-4 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
@@ -551,7 +551,7 @@ export default function AdminSchedules() {
         className="flex h-[calc(100%-73px)] flex-col"
         onValueChange={handleTabChange}
       >
-        <div className="border-b px-6">
+        <div className="border-b px-4">
           <TabsList>
             <TabsTrigger value="new">
               New Schedules {newRequests?.length || 0}
@@ -570,14 +570,14 @@ export default function AdminSchedules() {
 
         <div className="flex-1 overflow-hidden">
           <TabsContent value="new" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6">
+            <div className="grid h-full grid-cols-12 gap-2 p-4">
               {/* Learners List */}
               <Card className="col-span-2">
-                <CardHeader>
-                  <CardTitle>Learners Needing Schedule</CardTitle>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm">Learners Needing Schedule</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[calc(100vh-280px)]">
+                <CardContent className="p-3 pt-0">
+                  <ScrollArea className="h-[calc(100vh-240px)]">
                     {newRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
                         <LearnerInfoCard
@@ -616,16 +616,16 @@ export default function AdminSchedules() {
 
               {/* Schedule Creation */}
               <Card className="col-span-10">
-                <CardHeader>
-                  <CardTitle>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm">
                     {selectedRequest
                       ? `${selectedRequest.Learner?.name}'s Schedule`
                       : "Select a Learner"}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 pt-0">
                   {selectedRequest ? (
-                    <p className="mb-4 mt-4 text-sm text-gray-500">
+                    <p className="mb-2 text-sm text-gray-500">
                       Distance measured from Instructor's base location to the
                       selected learner location
                       <br />
@@ -656,14 +656,14 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="reschedule" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6">
+            <div className="grid h-full grid-cols-12 gap-2 p-4">
               {/* Learners List */}
               <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle>Reschedule Requests</CardTitle>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm">Reschedule Requests</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[calc(100vh-280px)]">
+                <CardContent className="p-3 pt-0">
+                  <ScrollArea className="h-[calc(100vh-240px)]">
                     {rescheduleRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
                         <LearnerInfoCard
@@ -702,14 +702,14 @@ export default function AdminSchedules() {
 
               {/* Schedule Creation */}
               <Card className="md:col-span-10">
-                <CardHeader>
-                  <CardTitle>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm">
                     {selectedRequest
                       ? `${selectedRequest.Learner?.name}'s Schedule`
                       : "Select a Learner"}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 pt-0">
                   {selectedRequest ? (
                     <CreateSchedule
                       request={selectedRequest}
@@ -720,7 +720,7 @@ export default function AdminSchedules() {
                       onScheduleCreate={handleScheduleCreate}
                     />
                   ) : (
-                    <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
+                    <div className="flex h-[calc(100vh-240px)] items-center justify-center text-gray-500">
                       Select a learner to create their schedule
                     </div>
                   )}
@@ -730,14 +730,14 @@ export default function AdminSchedules() {
           </TabsContent>
 
           <TabsContent value="lesson10" className="h-full">
-            <div className="grid h-full grid-cols-12 gap-4 p-6">
+            <div className="grid h-full grid-cols-12 gap-2 p-4">
               {/* Learners List */}
               <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle>10th Lesson Requests</CardTitle>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm">10th Lesson Requests</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[calc(100vh-280px)]">
+                <CardContent className="p-3 pt-0">
+                  <ScrollArea className="h-[calc(100vh-240px)]">
                     {tenthLessonRequests?.map((request) => (
                       <div key={request.id} className="mb-2">
                         <LearnerInfoCard
@@ -776,14 +776,14 @@ export default function AdminSchedules() {
 
               {/* Schedule Creation */}
               <Card className="md:col-span-10">
-                <CardHeader>
-                  <CardTitle>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm">
                     {selectedRequest
                       ? `${selectedRequest.Learner?.name}'s Schedule`
                       : "Select a Learner"}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 pt-0">
                   {selectedRequest ? (
                     <CreateSchedule
                       request={selectedRequest}
@@ -794,7 +794,7 @@ export default function AdminSchedules() {
                       onScheduleCreate={handleScheduleCreate}
                     />
                   ) : (
-                    <div className="flex h-[calc(100vh-280px)] items-center justify-center text-gray-500">
+                    <div className="flex h-[calc(100vh-240px)] items-center justify-center text-gray-500">
                       Select a learner to create their schedule
                     </div>
                   )}
@@ -803,10 +803,10 @@ export default function AdminSchedules() {
             </div>
           </TabsContent>
 
-          <TabsContent value="active" className="h-full space-y-4">
+          <TabsContent value="active" className="h-full space-y-2">
             {/* TOP BAR: Instructor Filter */}
-            <div className="px-6 pt-4">
-              <div className="flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm">
+            <div className="px-4 pt-2">
+              <div className="flex items-center gap-3 rounded-lg border bg-white p-3 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
                   <Users size={18} className="text-indigo-600" />
                   <span>Filter by Instructor:</span>
@@ -837,25 +837,25 @@ export default function AdminSchedules() {
             </div>
 
             {/* MAIN CONTENT: Left and Right Bars */}
-            <div className="grid h-full grid-cols-1 gap-4 p-6 pt-0 md:grid-cols-3">
+            <div className="grid h-full grid-cols-1 gap-2 p-4 pt-0 md:grid-cols-3">
               {/* LEFT BAR: Learners List */}
               <Card className="md:col-span-1">
-                <CardHeader className="pb-3">
-                  <CardTitle>Active Learners</CardTitle>
-                  <div className="mt-2">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm">Active Learners</CardTitle>
+                  <div className="mt-1">
                     <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                      <Search className="absolute left-2 top-2 h-4 w-4 text-gray-500" />
                       <Input
-                        placeholder="Search by name, email or phone..."
-                        className="pl-8"
+                        placeholder="Search..."
+                        className="h-8 pl-8 text-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[calc(100vh-380px)]">
+                <CardContent className="p-3 pt-0">
+                  <ScrollArea className="h-[calc(100vh-320px)]">
                     {isLoadingActiveLearners ? (
                       <div className="flex items-center justify-center py-10 text-gray-500">
                         <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
@@ -909,17 +909,17 @@ export default function AdminSchedules() {
                   />
                 ) : (
                   <Card className="h-full border-dashed">
-                    <CardHeader>
-                      <CardTitle className="text-gray-400">
+                    <CardHeader className="p-3">
+                      <CardTitle className="text-sm text-gray-400">
                         Schedule Details
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex h-[calc(100vh-320px)] flex-col items-center justify-center text-center text-gray-400">
-                        <div className="mb-4 rounded-full bg-gray-50 p-6">
-                          <Users size={48} className="text-gray-200" />
+                    <CardContent className="p-3 pt-0">
+                      <div className="flex h-[calc(100vh-280px)] flex-col items-center justify-center text-center text-gray-400">
+                        <div className="mb-3 rounded-full bg-gray-50 p-4">
+                          <Users size={36} className="text-gray-200" />
                         </div>
-                        <p className="max-w-[250px]">
+                        <p className="max-w-[250px] text-sm">
                           Select a learner from the list to manage their
                           schedule and instructor assignments.
                         </p>
@@ -1186,17 +1186,17 @@ export const LearnerSchedulesManager = ({
   };
 
   return (
-    <div className="space-y-4 md:col-span-2">
+    <div className="space-y-2 md:col-span-2">
       <Card>
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="p-3">
+          <CardTitle className="text-sm">
             {isLoading
               ? "Updating..."
               : `${learner?.name ?? "Learner"}'s Schedule`}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-3 pt-0">
+          <div className="space-y-2">
             {learner?.schedules?.length > 0 ? (
               [...learner.schedules]
                 .sort(
@@ -1207,10 +1207,10 @@ export const LearnerSchedulesManager = ({
                 .map((schedule) => (
                   <div
                     key={schedule.id}
-                    className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50"
+                    className="flex items-center justify-between rounded-md border p-2 hover:bg-gray-50"
                   >
-                    <div className="space-y-1">
-                      <div className="text-sm font-medium md:text-base">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-medium md:text-sm">
                         Lesson {schedule.Lesson?.number ?? "N/A"} —{" "}
                         {schedule.date ?? "N/A"}
                       </div>

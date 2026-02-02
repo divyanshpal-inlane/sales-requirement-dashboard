@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";

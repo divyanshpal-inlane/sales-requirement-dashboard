@@ -4,8 +4,8 @@ import { Navigate, useSearchParams } from "react-router-dom"; // Fixed import
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/context/auth-context";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/auth-context";
 
 export default function Login() {
   const {

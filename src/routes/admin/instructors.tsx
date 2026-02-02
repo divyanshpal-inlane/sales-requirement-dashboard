@@ -1,47 +1,50 @@
+import { describe } from "node:test";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays,
-  addMinutes,
   addHours,
+  addMinutes,
+  addWeeks,
+  differenceInMinutes,
   endOfWeek,
   format,
   isSameDay,
-  startOfWeek,
+  parse,
   parseISO,
   startOfDay,
-  parse,
-  subWeeks,
-  addWeeks,
-  differenceInMinutes,
+  startOfWeek,
   subDays,
+  subWeeks,
 } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertCircle,
   ArrowLeft,
+  Badge,
   Calendar,
   CalendarIcon,
   Check,
-  ChevronsUpDown,
-  Clock,
-  Copy,
-  Plus,
-  PlusCircle,
-  Trash2,
-  X,
-  Info,
-  Badge,
-  Search,
   ChevronLeft,
-  Loader2,
-  AlertCircle,
-  User,
-  Phone,
-  MapPin,
-  ExternalLink,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Wrench,
+  ChevronsUpDown,
+  Clock,
+  Copy,
   CreditCard,
+  ExternalLink,
+  Info,
+  Loader2,
+  MapPin,
+  Phone,
+  Plus,
+  PlusCircle,
+  Search,
+  Trash2,
+  User,
+  Wrench,
+  X,
 } from "lucide-react";
 import {
   Fragment,
@@ -53,15 +56,11 @@ import {
   useState,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
+import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -84,15 +83,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { Schedule } from "./schedules";
-import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo";
-import { SlotConfig } from "@/types/schedule";
-import { describe } from "node:test";
-import { checkInstructorAvailability } from "@/queries/instructor";
 import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
+import { checkInstructorAvailability } from "@/queries/instructor";
+import { SlotConfig } from "@/types/schedule";
+
+import { Schedule } from "./schedules";
 
 // Define a type for the instructor data that comes from the database
 interface Unavailability {
@@ -1920,6 +1923,7 @@ function WeeklyScheduleView({
       schedule.tentative_details,
     );
     setTentativeSchedule({
+      id: schedule.id,
       date: schedule.date,
       start_time: schedule.start_time,
       end_time: schedule.end_time,
@@ -1929,9 +1933,12 @@ function WeeklyScheduleView({
       tentative_details: {
         name: schedule?.tentative_details?.name || "",
         phone: schedule?.tentative_details?.phone || "",
-        paid_info: schedule?.tentative_details?.phone || "",
+        paid_info: schedule?.tentative_details?.paid_info || "",
         pickup_location: schedule?.tentative_details?.pickup_location || "",
         description: schedule?.tentative_details?.description || "",
+        leadName: schedule?.tentative_details?.leadName || "",
+        latitude: schedule?.tentative_details?.latitude || "",
+        longitude: schedule?.tentative_details?.longitude || "",
       },
     });
   };
@@ -2361,20 +2368,38 @@ function WeeklyScheduleView({
     console.log("Occupied schedule details:", schedule);
   };
   const handleTentativeSlotClick = (schedule, day, hour, minute) => {
-    // alert("The slot is not available for booking.");
     console.log("Tentative slot clicked:", {
-      tentativeSchedule,
+      schedule,
       day,
       hour,
       minute,
     });
 
-    if (tentativeSchedule?.tentative_details.length > 0) {
-      // existing schedule
+    // Check if this is an existing tentative schedule (has id and tentative_details with data)
+    if (schedule && schedule.id && schedule.isTentative) {
+      // Editing existing tentative schedule
       setFormMode("edit");
-      // setTentativeSchedule(schedule); // Not working
-      // console.log("Tentative schedule of slot and formMode ", schedule, tentativeSchedule, formMode);
+      setTentativeSchedule({
+        id: schedule.id,
+        date: schedule.date,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+        enabled: schedule.enabled,
+        isTentative: true,
+        instructor_id: instructorId,
+        tentative_details: {
+          name: schedule.tentative_details?.name || "",
+          phone: schedule.tentative_details?.phone || "",
+          paid_info: schedule.tentative_details?.paid_info || "",
+          pickup_location: schedule.tentative_details?.pickup_location || "",
+          description: schedule.tentative_details?.description || "",
+          leadName: schedule.tentative_details?.leadName || "",
+          latitude: schedule.tentative_details?.latitude || "",
+          longitude: schedule.tentative_details?.longitude || "",
+        },
+      });
     } else {
+      // Creating new tentative schedule
       const tentativeStart = new Date(
         day.getFullYear(),
         day.getMonth(),
@@ -2384,10 +2409,11 @@ function WeeklyScheduleView({
       );
       const tentativeEnd = addMinutes(tentativeStart, 60);
       setTentativeSchedule({
-        ...tentativeSchedule,
-        date: tentativeStart, // Use the new date object
+        ...initialTentativeSchedule,
+        date: format(tentativeStart, "yyyy-MM-dd"),
         start_time: `${String(tentativeStart.getHours()).padStart(2, "0")}:${String(tentativeStart.getMinutes()).padStart(2, "0")}`,
         end_time: `${String(tentativeEnd.getHours()).padStart(2, "0")}:${String(tentativeEnd.getMinutes()).padStart(2, "0")}`,
+        instructor_id: instructorId,
       });
       setFormMode("add");
     }
@@ -2594,7 +2620,7 @@ function WeeklyScheduleView({
             phoneMatch = tentativeDetails?.phone
               ?.toLowerCase()
               .includes(searchQuery.toLowerCase());
-            let descriptionMatch = tentativeDetails?.description
+            const descriptionMatch = tentativeDetails?.description
               ?.toLowerCase()
               .includes(searchQuery.toLowerCase());
             return nameMatch || phoneMatch || descriptionMatch;
@@ -2868,40 +2894,19 @@ function WeeklyScheduleView({
                                     : ""
                               } ${schedule ? "cursor-pointer" : ""} `}
                               onClick={() => {
-                                setIsTentativeDialogOpen(false);
                                 if (schedule && !schedule.isTentative) {
+                                  // Confirmed booking - just show info
                                   handleOccupiedSlotClick(schedule);
-                                } else {
-                                  // if (unavailable) {
-                                  //   toast({
-                                  //     title: "Error",
-                                  //     description: "Not available instructor",
-                                  //     variant: "destructive",
-                                  //   });
-                                  //   return;
-                                  // }
-                                  // if (schedule) setScheduleHelper(schedule);
-                                  if (schedule && schedule.isTentative) {
-                                    // handleViewTentativeSlotClick();
-                                    console.log(
-                                      "Setting tentative schedule",
-                                      schedule,
-                                    );
-                                    console.log(
-                                      "Now tentative schedule",
-                                      tentativeSchedule,
-                                    );
-                                  }
+                                } else if (schedule && schedule.isTentative) {
+                                  // Existing tentative schedule - open dialog for editing
+                                  handleTentativeSlotClick(schedule, day, hour, minute);
+                                } else if (!unavailable) {
+                                  // Empty slot - navigate to add page
                                   const dateParam = format(day, "yyyy-MM-dd");
                                   const timeParam = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-
-                                  // Ensure 'instructorId'
                                   navigate(
                                     `/admin/tentative-add/${instructorId}/${dateParam}/${timeParam}`,
                                   );
-
-                                  // can be enabled when navigation fails
-                                  // handleTentativeSlotClick(schedule, day, hour, minute);
                                 }
                               }}
                             >
@@ -3370,9 +3375,10 @@ function WeeklyScheduleView({
               <input
                 id="tentative_details-date"
                 type="date"
-                defaultValue={formatDateForInput(tentativeSchedule.date)}
+                value={formatDateForInput(tentativeSchedule.date)}
                 className="col-span-3 cursor-not-allowed rounded-md border border-gray-300 bg-gray-100 px-3 py-2 focus:outline-none"
                 readOnly
+                onChange={() => {}} // Required for controlled input
               />
             </div>
             <div className="mt-4 grid grid-cols-4 items-center gap-4">
@@ -3821,7 +3827,7 @@ export const AddTentativeSchedule = ({
 
   const handleApplyBulkSchedules = () => {
     const baseDateObj = parseISO(newSlotDate);
-    let newSlotsList = [...slots];
+    const newSlotsList = [...slots];
     const count = bulkType === "single" ? 1 : repeatCount;
 
     // Start loop from 0 for "single", but if bulk,
