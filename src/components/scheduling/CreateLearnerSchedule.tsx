@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import InstructorSelectionDialog from "./InstructorSelectionDialog";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+import InstructorSelectionDialog from "./InstructorSelectionDialog";
 
 // Your existing component imports...
 

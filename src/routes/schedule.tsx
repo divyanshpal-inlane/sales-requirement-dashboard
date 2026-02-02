@@ -4,6 +4,7 @@ import { ChevronRight, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -20,7 +21,6 @@ import {
   useLearnerEnrollment,
   useLearnerSchedule,
 } from "@/queries/learner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRescheduleLearnerLessonRequests } from "@/queries/schedule-requests";
 
 type CustomDayProps = {

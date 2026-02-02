@@ -1,5 +1,6 @@
-import { format, addDays, isSameDay } from "date-fns";
+import { addDays, format, isSameDay } from "date-fns";
 import { Plus } from "lucide-react";
+
 import { isTimeUnavailable } from "@/utils/time";
 
 interface WeekViewProps {

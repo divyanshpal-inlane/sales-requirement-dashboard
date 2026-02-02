@@ -1,8 +1,10 @@
+import { format } from "date-fns";
+import { ArrowLeft, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MoreVertical } from "lucide-react";
-import { format } from "date-fns";
 
+import { CalendarModal } from "@/components/modals/CalendarModal";
+import { LocationModal } from "@/components/modals/LocationModal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -12,12 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
-
-import { LocationModal } from "@/components/modals/LocationModal";
-import { CalendarModal } from "@/components/modals/CalendarModal";
-import { useScheduleData } from "@/hooks/useScheduleData";
-import { useLocationServices } from "@/hooks/useLocationServices";
 import { useCalendarServices } from "@/hooks/useCalendarServices";
+import { useLocationServices } from "@/hooks/useLocationServices";
+import { useScheduleData } from "@/hooks/useScheduleData";
 import { Schedule } from "@/types/schedule";
 
 export default function AdminSchedules() {

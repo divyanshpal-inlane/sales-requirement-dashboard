@@ -1,7 +1,7 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import React, { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { APIProvider } from "@vis.gl/react-google-maps";
+import React, { Suspense } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -37,8 +37,10 @@ import DLTestDates from "@/routes/admin/DLTestDates";
 import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
-import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
+import { AddTentativeSchedule } from "@/routes/admin/instructors";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
+import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
+import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminLogin from "@/routes/admin-login";
@@ -46,6 +48,7 @@ import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
 import Home from "@/routes/home";
 import InstructorAuth from "@/routes/InstructorAuth";
+import LoadingAndRedirect from "@/routes/LoadingandRedirect";
 import Login from "@/routes/login";
 import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
@@ -54,13 +57,11 @@ import Preferences from "@/routes/preferences";
 import Profile2 from "@/routes/profile2";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
-import LoadingAndRedirect from "@/routes/LoadingandRedirect";
 
-import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
-import HelpSupport from "./routes/help";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
-import { AddTentativeSchedule } from "@/routes/admin/instructors";
+import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
+import HelpSupport from "./routes/help";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -257,6 +258,10 @@ export default function App() {
               <Route
                 path="tentative-add/:instructorId/:date/:startTime"
                 element={<AddTentativeSchedule />}
+              />
+              <Route
+                path="learner-issue-fixer"
+                element={<LearnerIssueFixer />}
               />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />

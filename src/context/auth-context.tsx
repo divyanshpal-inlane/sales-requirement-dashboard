@@ -181,12 +181,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           variant === user.phone ||
           variant === userPhoneNormalized ||
           userPhoneNormalized.endsWith(normalizedPhone) ||
-          normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, ""))
+          normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, "")),
       );
     });
 
     if (!authUser) {
-      throw new Error("No account found with this phone number. Please sign up first.");
+      throw new Error(
+        "No account found with this phone number. Please sign up first.",
+      );
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -239,9 +241,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Try multiple phone formats to find the user
       const phoneVariants = [
-        normalizedPhone,                    // e.g., "9876543210"
-        `+91${normalizedPhone}`,           // e.g., "+919876543210"
-        `91${normalizedPhone}`,            // e.g., "919876543210"
+        normalizedPhone, // e.g., "9876543210"
+        `+91${normalizedPhone}`, // e.g., "+919876543210"
+        `91${normalizedPhone}`, // e.g., "919876543210"
         normalizedPhone.replace(/^91/, ""), // Remove 91 prefix if present
       ];
 
@@ -274,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               variant === user.phone ||
               variant === userPhoneNormalized ||
               userPhoneNormalized.endsWith(normalizedPhone) ||
-              normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, ""))
+              normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, "")),
           );
         });
 
@@ -286,7 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!authUser) {
         throw new Error(
-          "No account found with this phone number. Please sign up first."
+          "No account found with this phone number. Please sign up first.",
         );
       }
 
@@ -299,9 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Failed to update password: " + updateError.message);
       }
     } catch (error) {
-      throw new Error(
-        "Password reset failed: " + error.message,
-      );
+      throw new Error("Password reset failed: " + error.message);
     }
 
     otpStore.delete(phone);

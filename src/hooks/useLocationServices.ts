@@ -1,8 +1,9 @@
 import { useState } from "react";
+
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { calculateDistance, estimateTravelTime } from "@/utils/locationUtils";
 import { DistanceInfo, LocationData, Schedule } from "@/types/schedule";
+import { calculateDistance, estimateTravelTime } from "@/utils/locationUtils";
 
 export const useLocationServices = () => {
   const [distanceInfo, setDistanceInfo] = useState<DistanceInfo | null>(null);

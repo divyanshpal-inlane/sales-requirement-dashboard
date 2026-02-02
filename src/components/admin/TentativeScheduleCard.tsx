@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   BookOpen,
@@ -13,7 +14,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { LearnerLLDisplay } from "./LLDisplay";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,16 +21,17 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { TIME_SLOT_LABELS } from "@/types/schedule";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+
+import { LearnerLLDisplay } from "./LLDisplay";
 
 export interface TentativeScheduleInfo {
   id: number;

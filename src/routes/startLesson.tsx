@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Home, Phone } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import invariant from "tiny-invariant";
 
@@ -9,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLessonSchedule, useUpcomingLesson } from "@/queries/learner";
-import { useEffect, useRef } from "react";
 
 export default function StartLesson() {
   // debug refs to keep previous values

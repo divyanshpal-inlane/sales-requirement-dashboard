@@ -1,4 +1,4 @@
-import { Phone, Mail, MessageCircle, HelpCircle } from "lucide-react";
+import { HelpCircle, Mail, MessageCircle, Phone } from "lucide-react";
 
 export default function HelpSupport() {
   const CUST_SUPPORT_PHONE = import.meta.env.VITE_CUST_SUPPORT_PHONE;

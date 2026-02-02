@@ -2,10 +2,11 @@ import {
   Calendar,
   Calendar as CalendarIcon,
   ClipboardList,
+  PhoneCall,
+  UserCircle,
   UserPlus,
   Users,
-  UserCircle,
-  PhoneCall,
+  Wrench,
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -85,6 +86,13 @@ export default function AdminHome() {
       icon: Calendar,
       link: "/admin/tentative-schedules-info",
       color: "text-orange-500",
+    },
+    {
+      title: "Learner Issue Fixer",
+      description: "Diagnose and fix learner app, payment, and scheduling issues",
+      icon: Wrench,
+      link: "/admin/learner-issue-fixer",
+      color: "text-red-500",
     },
   ];
 

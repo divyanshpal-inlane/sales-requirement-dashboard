@@ -53,8 +53,12 @@ serve(async (req) => {
   );
 
   const secretKey = Deno.env.get("ORANGE_PG_SECRET_KEY") ?? "";
-  const PAYMENT_SUCCESS_URL = (Deno.env.get("PAYMENT_SUCCESS_URL") ?? "").trim();
-  const PAYMENT_FAILURE_URL = (Deno.env.get("PAYMENT_FAILURE_URL") ?? "").trim();
+  const PAYMENT_SUCCESS_URL = (
+    Deno.env.get("PAYMENT_SUCCESS_URL") ?? ""
+  ).trim();
+  const PAYMENT_FAILURE_URL = (
+    Deno.env.get("PAYMENT_FAILURE_URL") ?? ""
+  ).trim();
 
   try {
     // Orange PG can send response as POST with JSON or form data

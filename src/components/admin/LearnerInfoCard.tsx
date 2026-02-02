@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { LearnerLLDisplay } from "./LLDisplay";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,8 +25,10 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
-import { TIME_SLOT_LABELS } from "@/types/schedule";
 import { Schedule } from "@/queries/learner";
+import { TIME_SLOT_LABELS } from "@/types/schedule";
+
+import { LearnerLLDisplay } from "./LLDisplay";
 
 export interface LearnerInfo {
   id: string;

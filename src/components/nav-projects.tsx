@@ -1,7 +1,6 @@
+import { type LucideIcon, MoreHorizontal, PlusSquare } from "lucide-react";
 import Link from "next/link";
-import { MoreHorizontal, PlusSquare, type LucideIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 export function NavProjects({
   projects,

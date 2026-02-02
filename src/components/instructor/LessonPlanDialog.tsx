@@ -1,14 +1,15 @@
+import { BookOpen } from "lucide-react";
+
+import { LessonPlan } from "@/components/lesson/plan";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { BookOpen } from "lucide-react";
-import { LessonPlan } from "@/components/lesson/plan";
 
 interface LessonPlanDialogProps {
   open: boolean;

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLearnerUpdate } from "@/queries/learner";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function Aadhar() {
   const [selectedState, setSelectedState] = useState<string>("");

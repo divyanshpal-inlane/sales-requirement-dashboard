@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { Button } from "@/components/ui/button";
 import {
-  ImageOff,
-  RefreshCw,
-  Download,
   ArrowUpLeft,
   ArrowUpRight,
+  Download,
+  ImageOff,
+  RefreshCw,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabaseClient";
 
 interface LearnerLLDisplayProps {
   learnerPhone: string;

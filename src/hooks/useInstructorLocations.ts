@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { subHours } from "date-fns";
+
 import { supabase } from "@/lib/supabaseClient";
 
 interface LocationData {

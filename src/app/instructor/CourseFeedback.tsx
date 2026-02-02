@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquarePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -10,9 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/context/auth-context";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/context/auth-context";
 
 const MAX_CHAR_LIMIT = 1024;
 

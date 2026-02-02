@@ -530,3 +530,240 @@ export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
     enabled: !!learnerId,
   });
 }
+
+// ==================== ADMIN ISSUE FIXER QUERIES ====================
+
+// Fetch all learners with their enrollment and payment data for issue diagnosis
+export function useLearnersWithIssues() {
+  return useQuery({
+    queryKey: ["learners-with-issues"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Learner")
+        .select(
+          `
+          *,
+          enrollment (*, Courses(*)),
+          payment (*)
+        `,
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+// Fetch schedules for a specific learner
+export function useLearnerSchedulesAdmin({ learnerId }: { learnerId?: string }) {
+  return useQuery({
+    queryKey: ["learner-schedules-admin", learnerId],
+    queryFn: async () => {
+      if (!learnerId) return [];
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select(
+          `
+          *,
+          Lesson (*),
+          Instructor (id_instructor, name)
+        `,
+        )
+        .eq("learner_id", learnerId)
+        .order("date", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!learnerId,
+  });
+}
+
+// Update learner data (admin version)
+export function useUpdateLearnerAdmin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Database["public"]["Tables"]["Learner"]["Update"]>;
+    }) => {
+      const { data, error } = await supabase
+        .from("Learner")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learners-with-issues"] });
+    },
+  });
+}
+
+// Update enrollment data
+export function useUpdateEnrollmentAdmin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Database["public"]["Tables"]["enrollment"]["Update"]>;
+    }) => {
+      const { data, error } = await supabase
+        .from("enrollment")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learners-with-issues"] });
+    },
+  });
+}
+
+// Create enrollment
+export function useCreateEnrollmentAdmin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      enrollment: Database["public"]["Tables"]["enrollment"]["Insert"],
+    ) => {
+      const { data, error } = await supabase
+        .from("enrollment")
+        .insert(enrollment)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learners-with-issues"] });
+    },
+  });
+}
+
+// Update payment data
+export function useUpdatePaymentAdmin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Database["public"]["Tables"]["payment"]["Update"]>;
+    }) => {
+      const { data, error } = await supabase
+        .from("payment")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learners-with-issues"] });
+    },
+  });
+}
+
+// Create payment
+export function useCreatePaymentAdmin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      payment: Database["public"]["Tables"]["payment"]["Insert"],
+    ) => {
+      const { data, error } = await supabase
+        .from("payment")
+        .insert(payment)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learners-with-issues"] });
+    },
+  });
+}
+
+// Bulk delete all learner data (schedules, enrollments, payments, learner)
+// Order matters due to foreign key constraints:
+// - Schedules reference learner_id
+// - Enrollments reference payment_id (so enrollments must be deleted before payments)
+// - Payments reference learner_id
+// - Learner is deleted last
+export function useDeleteLearnerAllData() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      learnerId,
+      counts,
+    }: {
+      learnerId: string;
+      counts: { schedules: number; enrollments: number; payments: number };
+    }) => {
+      // 1. Delete all schedules for this learner
+      const { error: scheduleError } = await supabase
+        .from("Schedule")
+        .delete()
+        .eq("learner_id", learnerId);
+
+      if (scheduleError) throw new Error(`Failed to delete schedules: ${scheduleError.message}`);
+
+      // 2. Delete all enrollments for this learner (must be before payments due to FK)
+      const { error: enrollmentError } = await supabase
+        .from("enrollment")
+        .delete()
+        .eq("learner_id", learnerId);
+
+      if (enrollmentError) throw new Error(`Failed to delete enrollments: ${enrollmentError.message}`);
+
+      // 3. Delete all payments for this learner (after enrollments)
+      const { error: paymentError } = await supabase
+        .from("payment")
+        .delete()
+        .eq("learner_id", learnerId);
+
+      if (paymentError) throw new Error(`Failed to delete payments: ${paymentError.message}`);
+
+      // 4. Delete the learner record
+      const { error: learnerError } = await supabase
+        .from("Learner")
+        .delete()
+        .eq("id", learnerId);
+
+      if (learnerError) throw new Error(`Failed to delete learner: ${learnerError.message}`);
+
+      // Return the counts that were passed in (we know them from the UI)
+      return {
+        schedules: counts.schedules,
+        enrollments: counts.enrollments,
+        payments: counts.payments,
+        learner: true,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learners-with-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["learner-schedules-admin"] });
+    },
+  });
+}
