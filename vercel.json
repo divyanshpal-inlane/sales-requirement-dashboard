@@ -1,20 +1,20 @@
 {
   "rewrites": [
     {
-      "source": "/games/d2faprkm3jkt4j/:path*",
-      "destination": "https://staging.d2faprkm3jkt4j.amplifyapp.com/:path*"
+      "source": "/games/d1p2nu8lfeelfo/:path*",
+      "destination": "https://staging.d1p2nu8lfeelfo.amplifyapp.com/:path*"
     },
     {
-      "source": "/games/dlv8h2fl9238x/:path*",
-      "destination": "https://staging.dlv8h2fl9238x.amplifyapp.com/:path*"
+      "source": "/games/d220l9t4enoyw1/:path*",
+      "destination": "https://staging.d220l9t4enoyw1.amplifyapp.com/:path*"
     },
     {
-      "source": "/games/d3dib7h5q2vkq4/:path*",
-      "destination": "https://staging.d3dib7h5q2vkq4.amplifyapp.com/:path*"
+      "source": "/games/d2kmwf5a99pa71/:path*",
+      "destination": "https://staging.d2kmwf5a99pa71.amplifyapp.com/:path*"
     },
     {
-      "source": "/games/d2hisid6yp5sd9/:path*",
-      "destination": "https://staging.d2hisid6yp5sd9.amplifyapp.com/:path*"
+      "source": "/games/dho5r9sclfwnb/:path*",
+      "destination": "https://staging.dho5r9sclfwnb.amplifyapp.com/:path*"
     },
     {
       "source": "/(.*)",

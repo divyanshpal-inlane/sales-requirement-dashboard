@@ -10,26 +10,25 @@ export default function Prep() {
       image: "/assets/master-the-roads.png",
       title: "Master the roads:",
       description: "Ace real-life driving scenarios",
-      link: "https://staging.d2faprkm3jkt4j.amplifyapp.com/",
+      link: "https://staging.d1p2nu8lfeelfo.amplifyapp.com/",
     },
     {
       image: "/assets/crush-it.jpg",
       title: "Crush it:",
       description: "Know your road signs",
-      link: "https://staging.dlv8h2fl9238x.amplifyapp.com/",
+      link: "https://staging.d220l9t4enoyw1.amplifyapp.com/",
     },
     {
       image: "/assets/hazard-hero.png",
       title: "Sharpen your reflexes:",
       description: "Spot hazards while driving",
-      link: "https://staging.d3dib7h5q2vkq4.amplifyapp.com/",
-      // link: "https://staging.d2faprkm3jkt4j.amplifyapp.com/",
+      link: "https://staging.d2kmwf5a99pa71.amplifyapp.com/",
     },
     {
       image: "/assets/speed-test.png",
       title: "Speed Test:",
       description: "How fast can you spot road signs",
-      link: "https://staging.d2hisid6yp5sd9.amplifyapp.com/",
+      link: "https://staging.dho5r9sclfwnb.amplifyapp.com/",
     },
   ];
   return (
