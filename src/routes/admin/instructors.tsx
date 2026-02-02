@@ -2899,7 +2899,12 @@ function WeeklyScheduleView({
                                   handleOccupiedSlotClick(schedule);
                                 } else if (schedule && schedule.isTentative) {
                                   // Existing tentative schedule - open dialog for editing
-                                  handleTentativeSlotClick(schedule, day, hour, minute);
+                                  handleTentativeSlotClick(
+                                    schedule,
+                                    day,
+                                    hour,
+                                    minute,
+                                  );
                                 } else if (!unavailable) {
                                   // Empty slot - navigate to add page
                                   const dateParam = format(day, "yyyy-MM-dd");

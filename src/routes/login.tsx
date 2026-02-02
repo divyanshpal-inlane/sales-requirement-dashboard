@@ -139,8 +139,10 @@ export default function Login() {
   };
 
   if (user && user.user_metadata.user_role === "learner") {
-    if (active === "login") return <Navigate to="/home" />;
-    return <Navigate to="/onboard/birthday" />;
+    // Always redirect to /home - it will check onboarding_completed
+    // and redirect to onboarding if needed. This allows migrated learners
+    // (who already have onboarding_completed=true) to skip onboarding.
+    return <Navigate to="/home" />;
   } else if (user && user.user_metadata.user_role === "instructor") {
     return <Navigate to="/instructor" />;
   }

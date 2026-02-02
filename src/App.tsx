@@ -39,9 +39,10 @@ import InstructorsManagement, {
 } from "@/routes/admin/instructors";
 import { AddTentativeSchedule } from "@/routes/admin/instructors";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
-import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
+import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
+import LearnerMigration from "@/routes/admin/LearnerMigration";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
@@ -263,6 +264,7 @@ export default function App() {
                 path="learner-issue-fixer"
                 element={<LearnerIssueFixer />}
               />
+              <Route path="learner-migration" element={<LearnerMigration />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

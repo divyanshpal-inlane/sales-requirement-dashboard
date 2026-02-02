@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   ArrowLeft,
-  Search,
-  X,
-  RefreshCcw,
   Loader2,
-  Users,
   MoreHorizontal,
+  RefreshCcw,
+  Search,
+  Users,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -35,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -58,7 +59,6 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
-import { Input } from "@/components/ui/input";
 
 export type Schedule = {
   date: Date;
@@ -112,12 +112,23 @@ export default function AdminSchedules() {
       learnerId,
       schedules,
       courseId,
+      rescheduleLessonNumber,
     }: {
       learnerId: string;
       schedules: Schedule[];
       courseId: string;
       rescheduleLessonNumber?: number;
     }) => {
+      console.log("=== CREATE SCHEDULE MUTATION ===");
+      console.log("learnerId:", learnerId);
+      console.log("schedules:", schedules);
+      console.log("courseId:", courseId);
+      console.log("schedules.length:", schedules.length);
+
+      if (schedules.length === 0) {
+        console.warn("WARNING: No schedules to create/update!");
+      }
+
       // delete existing lessonId schedule for learner
       const { error: deleteError } = await supabase
         .from("Schedule")
@@ -175,107 +186,51 @@ export default function AdminSchedules() {
 
       if (error) throw error;
 
-      // Renumber lessons based on chronological order after schedule creation
-      // Fetch all schedules for this learner+course with Lesson data
-      const { data: allSchedules, error: fetchError } = await supabase
-        .from("Schedule")
-        .select("id, date, start_time, Lesson!inner(id, number)")
-        .eq("learner_id", learnerId)
-        .eq("course_id", courseId)
-        .order("date", { ascending: true })
-        .order("start_time", { ascending: true });
+      // Only renumber lessons for NEW schedule creation, NOT for reschedules
+      // During reschedule, lessons should keep their original numbers
+      if (!rescheduleLessonNumber) {
+        // Renumber lessons based on chronological order after schedule creation
+        // Fetch all schedules for this learner+course with Lesson data
+        const { data: allSchedules, error: fetchError } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, Lesson!inner(id, number)")
+          .eq("learner_id", learnerId)
+          .eq("course_id", courseId)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
 
-      if (fetchError) {
-        console.error("Error fetching schedules for renumbering:", fetchError);
-      } else if (allSchedules && allSchedules.length > 0) {
-        // Sort schedules by date and time
-        const sortedSchedules = [...allSchedules].sort((a, b) => {
-          const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
-          const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
-          return dateTimeA - dateTimeB;
-        });
+        if (fetchError) {
+          console.error(
+            "Error fetching schedules for renumbering:",
+            fetchError,
+          );
+        } else if (allSchedules && allSchedules.length > 0) {
+          // Sort schedules by date and time
+          const sortedSchedules = [...allSchedules].sort((a, b) => {
+            const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+            const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+            return dateTimeA - dateTimeB;
+          });
 
-        // Update lesson numbers based on chronological order
-        for (let i = 0; i < sortedSchedules.length; i++) {
-          const schedule = sortedSchedules[i];
-          if (schedule.Lesson?.id) {
-            const { error: lessonError } = await supabase
-              .from("Lesson")
-              .update({ number: i + 1 })
-              .eq("id", schedule.Lesson.id);
+          // Update lesson numbers based on chronological order
+          for (let i = 0; i < sortedSchedules.length; i++) {
+            const schedule = sortedSchedules[i];
+            if (schedule.Lesson?.id) {
+              const { error: lessonError } = await supabase
+                .from("Lesson")
+                .update({ number: i + 1 })
+                .eq("id", schedule.Lesson.id);
 
-            if (lessonError) {
-              console.error("Error updating lesson number:", lessonError);
+              if (lessonError) {
+                console.error("Error updating lesson number:", lessonError);
+              }
             }
           }
         }
       }
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Schedule created",
-        description: "The schedule has been created successfully.",
-      });
-      if (selectedRequest) {
-        completeRescheduleRequestMutation.mutate(
-          {
-            requestId: selectedRequest.id,
-          },
-          {
-            onSuccess: () => {
-              const rescheduleLessonNumber =
-                selectedRequest.type === "reschedule"
-                  ? Math.min(...variables.schedules.map((s) => s.lessonNumber))
-                  : 1;
-              if (selectedRequest.type === "new") {
-                supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "SCHEDULE_PREPARED",
-                    learner_id: selectedRequest.learner_id,
-
-                    start_date: format(
-                      new Date(variables.schedules[0].date),
-                      "dd/MM/yyyy",
-                    ),
-                    start_time: variables.schedules[0].start_time,
-                  },
-                });
-              }
-              if (selectedRequest.type === "reschedule") {
-                supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
-                    learner_id: selectedRequest.learner_id,
-                  },
-                });
-              }
-              if (selectedRequest.type === "lesson10") {
-                supabase.functions.invoke("send-message", {
-                  body: {
-                    message_type: "WEBAPP_LESSON_10_SCHEDULED",
-                    learner_id: selectedRequest.learner_id,
-                  },
-                });
-              }
-              // supabase.functions.invoke("learner-daily-schedule", {
-              //   body: {
-              //     learner_id: selectedRequest.learner_id,
-              //     reschedule_lesson_number: rescheduleLessonNumber,
-              //   },
-              // });
-            },
-          },
-        );
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
+
   const handleActiveLearnerSelect = (learner: any) => {
     console.log("Selected active Learner:", learner);
     if (selectedRequest?.id === learner.id) {
@@ -370,12 +325,88 @@ export default function AdminSchedules() {
         ? Math.min(...schedules.map((s) => s.lessonNumber))
         : 1;
 
-    createScheduleMutation.mutate({
-      learnerId: selectedRequest.learner_id,
-      schedules,
-      courseId,
-      rescheduleLessonNumber,
-    });
+    // Capture the request at mutation time to avoid race conditions
+    // (selectedRequest can be cleared by useEffect before onSuccess runs)
+    const currentRequest = selectedRequest;
+
+    createScheduleMutation.mutate(
+      {
+        learnerId: selectedRequest.learner_id,
+        schedules,
+        courseId,
+        rescheduleLessonNumber,
+      },
+      {
+        onSuccess: (_, variables) => {
+          toast({
+            title: "Schedule created",
+            description: "The schedule has been created successfully.",
+          });
+          console.log(
+            "Schedule mutation succeeded, completing reschedule request:",
+            currentRequest?.id,
+          );
+          if (currentRequest) {
+            completeRescheduleRequestMutation.mutate(
+              {
+                requestId: currentRequest.id,
+              },
+              {
+                onSuccess: () => {
+                  console.log("Reschedule request marked as completed");
+                  const lessonNumber =
+                    currentRequest.type === "reschedule"
+                      ? Math.min(
+                          ...variables.schedules.map((s) => s.lessonNumber),
+                        )
+                      : 1;
+                  if (currentRequest.type === "new") {
+                    supabase.functions.invoke("send-message", {
+                      body: {
+                        message_type: "SCHEDULE_PREPARED",
+                        learner_id: currentRequest.learner_id,
+                        start_date: format(
+                          new Date(variables.schedules[0].date),
+                          "dd/MM/yyyy",
+                        ),
+                        start_time: variables.schedules[0].start_time,
+                      },
+                    });
+                  }
+                  if (currentRequest.type === "reschedule") {
+                    supabase.functions.invoke("send-message", {
+                      body: {
+                        message_type:
+                          "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+                        learner_id: currentRequest.learner_id,
+                      },
+                    });
+                  }
+                  if (currentRequest.type === "lesson10") {
+                    supabase.functions.invoke("send-message", {
+                      body: {
+                        message_type: "WEBAPP_LESSON_10_SCHEDULED",
+                        learner_id: currentRequest.learner_id,
+                      },
+                    });
+                  }
+                },
+                onError: (error) => {
+                  console.error("Error completing reschedule request:", error);
+                },
+              },
+            );
+          }
+        },
+        onError: (error) => {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+          });
+        },
+      },
+    );
   };
 
   const newRequests = useMemo(
@@ -574,7 +605,9 @@ export default function AdminSchedules() {
               {/* Learners List */}
               <Card className="col-span-2">
                 <CardHeader className="p-3">
-                  <CardTitle className="text-sm">Learners Needing Schedule</CardTitle>
+                  <CardTitle className="text-sm">
+                    Learners Needing Schedule
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                   <ScrollArea className="h-[calc(100vh-240px)]">
@@ -734,7 +767,9 @@ export default function AdminSchedules() {
               {/* Learners List */}
               <Card className="md:col-span-2">
                 <CardHeader className="p-3">
-                  <CardTitle className="text-sm">10th Lesson Requests</CardTitle>
+                  <CardTitle className="text-sm">
+                    10th Lesson Requests
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                   <ScrollArea className="h-[calc(100vh-240px)]">
@@ -1095,13 +1130,37 @@ export const LearnerSchedulesManager = ({
     try {
       setIsProcessing(true);
 
-      // 1. Update the specific schedule with new date/time
+      // 0. First fetch the OLD schedule data before updating (for calendar cancellation)
+      const { data: oldScheduleData, error: oldScheduleError } = await supabase
+        .from("Schedule")
+        .select(
+          "*, Lesson(id, number), Instructor(id_instructor, name, email, phone)",
+        )
+        .eq("id", selectedSchedule.id)
+        .single();
+
+      if (oldScheduleError) throw oldScheduleError;
+
+      const oldDate = oldScheduleData.date;
+      const oldStartTime = oldScheduleData.start_time;
+      const oldEndTime = oldScheduleData.end_time;
+      const calendarUid = oldScheduleData.calendar_uid;
+      const calendarSequence = oldScheduleData.calendar_sequence || 0;
+      const lessonNumber = oldScheduleData.Lesson?.number || 1;
+      const instructorName = oldScheduleData.Instructor?.name || "Instructor";
+      const instructorEmail = oldScheduleData.Instructor?.email || "";
+      const instructorPhone = oldScheduleData.Instructor?.phone || "";
+      const instructorId = oldScheduleData.Instructor?.id_instructor || "";
+
+      // 1. Update the specific schedule with new date/time and increment calendar_sequence
+      const newSequence = calendarSequence + 1;
       const { error: updateError } = await supabase
         .from("Schedule")
         .update({
           date: selectedSchedule.date,
           start_time: selectedSchedule.start_time,
           end_time: selectedSchedule.end_time,
+          calendar_sequence: newSequence,
         })
         .eq("id", selectedSchedule.id);
 
@@ -1160,7 +1219,101 @@ export const LearnerSchedulesManager = ({
         }
       }
 
-      // 7. Send notification to customer about reschedule
+      // 7. Send calendar invites (cancellation for old + new for updated schedule)
+      if (learner.email && instructorEmail) {
+        try {
+          const pickupLocation =
+            learner.pick_up_location ||
+            (learner.address_lat && learner.address_lng
+              ? `${learner.address_lat},${learner.address_lng}`
+              : "To be confirmed");
+
+          const events = [];
+
+          // Create cancellation event for old schedule (if we have a calendar_uid)
+          if (calendarUid) {
+            const oldStartDate = new Date(oldDate);
+            const [oldStartHour, oldStartMin] = oldStartTime
+              .split(":")
+              .map(Number);
+            oldStartDate.setHours(oldStartHour, oldStartMin, 0);
+
+            const oldEndDate = new Date(oldDate);
+            const [oldEndHour, oldEndMin] = oldEndTime.split(":").map(Number);
+            oldEndDate.setHours(oldEndHour, oldEndMin, 0);
+
+            events.push({
+              startTime: oldStartDate,
+              endTime: oldEndDate,
+              lessonNumber: lessonNumber,
+              pickupLocation: pickupLocation,
+              uid: calendarUid,
+              sequence: newSequence,
+              isCancellation: true,
+              instructorName: instructorName,
+              instructorPhone: instructorPhone,
+              instructorEmail: instructorEmail,
+              instructorId: instructorId,
+            });
+          }
+
+          // Create new event for the updated schedule
+          const newStartDate = new Date(selectedSchedule.date);
+          const [newStartHour, newStartMin] = selectedSchedule.start_time
+            .split(":")
+            .map(Number);
+          newStartDate.setHours(newStartHour, newStartMin, 0);
+
+          const newEndDate = new Date(selectedSchedule.date);
+          const [newEndHour, newEndMin] = selectedSchedule.end_time
+            .split(":")
+            .map(Number);
+          newEndDate.setHours(newEndHour, newEndMin, 0);
+
+          events.push({
+            startTime: newStartDate,
+            endTime: newEndDate,
+            lessonNumber: lessonNumber,
+            pickupLocation: pickupLocation,
+            uid: calendarUid || undefined, // Reuse UID if exists, otherwise generate new
+            sequence: newSequence,
+            isCancellation: false,
+            instructorName: instructorName,
+            instructorPhone: instructorPhone,
+            instructorEmail: instructorEmail,
+            instructorId: instructorId,
+          });
+
+          // Send calendar invites
+          const uidMap = await sendMultiEventCalendarInvite(
+            learner.email,
+            instructorEmail,
+            events,
+            instructorName,
+            learner.name || "Student",
+            learner.phone || "",
+            "reschedule",
+            learner.id,
+          );
+
+          // Update the schedule with the new calendar_uid if one was generated
+          if (uidMap && uidMap[lessonNumber] && !calendarUid) {
+            await supabase
+              .from("Schedule")
+              .update({ calendar_uid: uidMap[lessonNumber] })
+              .eq("id", selectedSchedule.id);
+          }
+
+          console.log("Calendar invites sent successfully for reschedule");
+        } catch (calendarError) {
+          console.error("Error sending calendar invites:", calendarError);
+          // Don't fail the entire operation if calendar invites fail
+        }
+      } else {
+        console.warn("Missing email addresses, skipping calendar invites");
+      }
+
+      // 8. Send notification to customer about reschedule
       await supabase.functions.invoke("send-message", {
         body: {
           message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
@@ -1172,7 +1325,8 @@ export const LearnerSchedulesManager = ({
       await syncData();
       toast({
         title: "Rescheduled",
-        description: "Lesson rescheduled and order updated. Customer notified.",
+        description:
+          "Lesson rescheduled, calendar updated, and customer notified.",
       });
     } catch (error: any) {
       toast({

@@ -556,7 +556,11 @@ export function useLearnersWithIssues() {
 }
 
 // Fetch schedules for a specific learner
-export function useLearnerSchedulesAdmin({ learnerId }: { learnerId?: string }) {
+export function useLearnerSchedulesAdmin({
+  learnerId,
+}: {
+  learnerId?: string;
+}) {
   return useQuery({
     queryKey: ["learner-schedules-admin", learnerId],
     queryFn: async () => {
@@ -709,6 +713,7 @@ export function useCreatePaymentAdmin() {
 // Order matters due to foreign key constraints:
 // - Schedules reference learner_id
 // - Enrollments reference payment_id (so enrollments must be deleted before payments)
+// - Reschedule_requests reference payment_id (so reschedule_requests must be deleted before payments)
 // - Payments reference learner_id
 // - Learner is deleted last
 export function useDeleteLearnerAllData() {
@@ -727,7 +732,8 @@ export function useDeleteLearnerAllData() {
         .delete()
         .eq("learner_id", learnerId);
 
-      if (scheduleError) throw new Error(`Failed to delete schedules: ${scheduleError.message}`);
+      if (scheduleError)
+        throw new Error(`Failed to delete schedules: ${scheduleError.message}`);
 
       // 2. Delete all enrollments for this learner (must be before payments due to FK)
       const { error: enrollmentError } = await supabase
@@ -735,23 +741,39 @@ export function useDeleteLearnerAllData() {
         .delete()
         .eq("learner_id", learnerId);
 
-      if (enrollmentError) throw new Error(`Failed to delete enrollments: ${enrollmentError.message}`);
+      if (enrollmentError)
+        throw new Error(
+          `Failed to delete enrollments: ${enrollmentError.message}`,
+        );
 
-      // 3. Delete all payments for this learner (after enrollments)
+      // 3. Delete all reschedule_requests for this learner (must be before payments due to FK)
+      const { error: rescheduleError } = await supabase
+        .from("reschedule_requests")
+        .delete()
+        .eq("learner_id", learnerId);
+
+      if (rescheduleError)
+        throw new Error(
+          `Failed to delete reschedule requests: ${rescheduleError.message}`,
+        );
+
+      // 4. Delete all payments for this learner (after enrollments and reschedule_requests)
       const { error: paymentError } = await supabase
         .from("payment")
         .delete()
         .eq("learner_id", learnerId);
 
-      if (paymentError) throw new Error(`Failed to delete payments: ${paymentError.message}`);
+      if (paymentError)
+        throw new Error(`Failed to delete payments: ${paymentError.message}`);
 
-      // 4. Delete the learner record
+      // 5. Delete the learner record
       const { error: learnerError } = await supabase
         .from("Learner")
         .delete()
         .eq("id", learnerId);
 
-      if (learnerError) throw new Error(`Failed to delete learner: ${learnerError.message}`);
+      if (learnerError)
+        throw new Error(`Failed to delete learner: ${learnerError.message}`);
 
       // Return the counts that were passed in (we know them from the UI)
       return {

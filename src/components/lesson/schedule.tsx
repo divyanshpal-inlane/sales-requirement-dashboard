@@ -190,6 +190,50 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
       const { data, error } = await supabase.from("Schedule").upsert(bookings);
 
       if (error) throw error;
+
+      // Only renumber lessons for NEW schedule creation, NOT for reschedules
+      // During reschedule, lessons should keep their original numbers
+      if (!isRescheduling) {
+        // Renumber lessons based on chronological order after schedule creation
+        // This ensures lesson numbers always reflect the actual order of lessons
+        const { data: allSchedules, error: fetchError } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, Lesson!inner(id, number)")
+          .eq("learner_id", learnerId)
+          .eq("course_id", courseId)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (fetchError) {
+          console.error(
+            "Error fetching schedules for renumbering:",
+            fetchError,
+          );
+        } else if (allSchedules && allSchedules.length > 0) {
+          // Sort schedules by date and time (already sorted by query, but ensure consistency)
+          const sortedSchedules = [...allSchedules].sort((a, b) => {
+            const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+            const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+            return dateTimeA - dateTimeB;
+          });
+
+          // Update lesson numbers based on chronological order
+          for (let i = 0; i < sortedSchedules.length; i++) {
+            const schedule = sortedSchedules[i];
+            if (schedule.Lesson?.id) {
+              const { error: lessonError } = await supabase
+                .from("Lesson")
+                .update({ number: i + 1 })
+                .eq("id", schedule.Lesson.id);
+
+              if (lessonError) {
+                console.error("Error updating lesson number:", lessonError);
+              }
+            }
+          }
+        }
+      }
+
       return data;
     },
     onSuccess: () => {

@@ -1,8 +1,21 @@
-import { ArrowLeft, AlertTriangle, CheckCircle, Search, Wrench, ChevronRight, Save, RefreshCw, Trash2 } from "lucide-react";
-import { useState, useMemo } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle,
+  ChevronRight,
+  RefreshCw,
+  Save,
+  Search,
+  Trash2,
+  Wrench,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +25,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,14 +38,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  useLearnersWithIssues,
-  useLearnerSchedulesAdmin,
-  useUpdateLearnerAdmin,
-  useUpdateEnrollmentAdmin,
-  useUpdatePaymentAdmin,
   useCreateEnrollmentAdmin,
   useCreatePaymentAdmin,
   useDeleteLearnerAllData,
+  useLearnerSchedulesAdmin,
+  useLearnersWithIssues,
+  useUpdateEnrollmentAdmin,
+  useUpdateLearnerAdmin,
+  useUpdatePaymentAdmin,
 } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
@@ -63,8 +73,16 @@ function detectIssues(
   const issues: Issue[] = [];
 
   // Ensure enrollments and payments are arrays
-  const enrollmentArray = Array.isArray(enrollments) ? enrollments : enrollments ? [enrollments] : [];
-  const paymentArray = Array.isArray(payments) ? payments : payments ? [payments] : [];
+  const enrollmentArray = Array.isArray(enrollments)
+    ? enrollments
+    : enrollments
+      ? [enrollments]
+      : [];
+  const paymentArray = Array.isArray(payments)
+    ? payments
+    : payments
+      ? [payments]
+      : [];
 
   const enrollment = enrollmentArray[0];
   const payment = paymentArray[0];
@@ -92,18 +110,26 @@ function detectIssues(
   }
 
   // Check for half_paid stuck
-  if (payment?.status === "half_paid" && enrollment?.payment_status === "full_paid") {
+  if (
+    payment?.status === "half_paid" &&
+    enrollment?.payment_status === "full_paid"
+  ) {
     issues.push({
       type: "payment",
       severity: "warning",
       title: "Payment Status Mismatch",
-      description: "Enrollment shows full_paid but payment record shows half_paid",
+      description:
+        "Enrollment shows full_paid but payment record shows half_paid",
       fix: "Update payment status to 'full_paid'",
     });
   }
 
   // Check for missing schedules with active enrollment (only when we have schedule data)
-  if (includeScheduleCheck && enrollment?.status === "active" && scheduleCount === 0) {
+  if (
+    includeScheduleCheck &&
+    enrollment?.status === "active" &&
+    scheduleCount === 0
+  ) {
     issues.push({
       type: "schedule",
       severity: "warning",
@@ -125,8 +151,14 @@ function detectIssues(
   }
 
   // Check demo/custom course issues
-  const progress = enrollment?.progress as { type?: string; total_hours?: number } | null;
-  if ((progress?.type === "demo" || progress?.type === "custom") && !enrollment?.unlocked_lessons?.length) {
+  const progress = enrollment?.progress as {
+    type?: string;
+    total_hours?: number;
+  } | null;
+  if (
+    (progress?.type === "demo" || progress?.type === "custom") &&
+    !enrollment?.unlocked_lessons?.length
+  ) {
     issues.push({
       type: "enrollment",
       severity: "warning",
@@ -173,10 +205,14 @@ function getStatusDot(issues: Issue[]) {
 export default function LearnerIssueFixer() {
   const [searchQuery, setSearchQuery] = useState("");
   const [issueFilter, setIssueFilter] = useState<string>("all");
-  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(
+    null,
+  );
 
   const { data: learnersData, isLoading, refetch } = useLearnersWithIssues();
-  const { data: schedules } = useLearnerSchedulesAdmin({ learnerId: selectedLearnerId ?? undefined });
+  const { data: schedules } = useLearnerSchedulesAdmin({
+    learnerId: selectedLearnerId ?? undefined,
+  });
 
   // Get selected learner data
   const selectedLearner = useMemo(() => {
@@ -220,7 +256,9 @@ export default function LearnerIssueFixer() {
   // Current learner's issues (with schedule count - include schedule check)
   const currentIssues = useMemo(() => {
     if (!selectedLearner) return [];
-    const learnerData = learnersWithIssues.find((l) => l.id === selectedLearnerId);
+    const learnerData = learnersWithIssues.find(
+      (l) => l.id === selectedLearnerId,
+    );
     if (!learnerData) return [];
     return detectIssues(
       selectedLearner,
@@ -438,11 +476,21 @@ function DataEditor({
     <Tabs defaultValue="learner" className="flex h-full flex-col">
       <div className="border-b px-3">
         <TabsList className="h-9">
-          <TabsTrigger value="learner" className="text-xs">Learner</TabsTrigger>
-          <TabsTrigger value="enrollment" className="text-xs">Enrollment</TabsTrigger>
-          <TabsTrigger value="payment" className="text-xs">Payment</TabsTrigger>
-          <TabsTrigger value="schedules" className="text-xs">Schedules ({schedules.length})</TabsTrigger>
-          <TabsTrigger value="danger" className="text-xs text-red-600">Danger Zone</TabsTrigger>
+          <TabsTrigger value="learner" className="text-xs">
+            Learner
+          </TabsTrigger>
+          <TabsTrigger value="enrollment" className="text-xs">
+            Enrollment
+          </TabsTrigger>
+          <TabsTrigger value="payment" className="text-xs">
+            Payment
+          </TabsTrigger>
+          <TabsTrigger value="schedules" className="text-xs">
+            Schedules ({schedules.length})
+          </TabsTrigger>
+          <TabsTrigger value="danger" className="text-xs text-red-600">
+            Danger Zone
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -456,7 +504,11 @@ function DataEditor({
         </TabsContent>
 
         <TabsContent value="payment" className="m-0 p-3">
-          <PaymentEditor payments={payments} enrollments={enrollments} learnerId={learner.id} />
+          <PaymentEditor
+            payments={payments}
+            enrollments={enrollments}
+            learnerId={learner.id}
+          />
         </TabsContent>
 
         <TabsContent value="schedules" className="m-0 p-3">
@@ -516,7 +568,9 @@ function LearnerEditor({ learner }: { learner: Learner }) {
           <Label className="text-xs">Phone</Label>
           <Input
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, phone: e.target.value })
+            }
             className="h-8 text-sm"
           />
         </div>
@@ -544,7 +598,9 @@ function LearnerEditor({ learner }: { learner: Learner }) {
           <Label className="text-xs">Has DL</Label>
           <Checkbox
             checked={formData.has_a_DL}
-            onCheckedChange={(checked: boolean) => setFormData({ ...formData, has_a_DL: checked })}
+            onCheckedChange={(checked: boolean) =>
+              setFormData({ ...formData, has_a_DL: checked })
+            }
           />
         </div>
         <div className="flex items-center justify-between rounded-lg border p-2">
@@ -560,7 +616,9 @@ function LearnerEditor({ learner }: { learner: Learner }) {
           <Label className="text-xs">LL Received</Label>
           <Checkbox
             checked={formData.LL_received}
-            onCheckedChange={(checked: boolean) => setFormData({ ...formData, LL_received: checked })}
+            onCheckedChange={(checked: boolean) =>
+              setFormData({ ...formData, LL_received: checked })
+            }
           />
         </div>
         <div className="flex items-center justify-between rounded-lg border p-2">
@@ -576,7 +634,9 @@ function LearnerEditor({ learner }: { learner: Learner }) {
           <Label className="text-xs">DL Received</Label>
           <Checkbox
             checked={formData.DL_received}
-            onCheckedChange={(checked: boolean) => setFormData({ ...formData, DL_received: checked })}
+            onCheckedChange={(checked: boolean) =>
+              setFormData({ ...formData, DL_received: checked })
+            }
           />
         </div>
         <div className="flex items-center justify-between rounded-lg border p-2">
@@ -594,13 +654,19 @@ function LearnerEditor({ learner }: { learner: Learner }) {
         <Label className="text-xs">Comments</Label>
         <Textarea
           value={formData.comments}
-          onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, comments: e.target.value })
+          }
           className="text-sm"
           rows={2}
         />
       </div>
 
-      <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm">
+      <Button
+        onClick={handleSave}
+        disabled={updateMutation.isPending}
+        size="sm"
+      >
         <Save className="mr-2 h-4 w-4" />
         {updateMutation.isPending ? "Saving..." : "Save Changes"}
       </Button>
@@ -613,7 +679,14 @@ function EnrollmentEditor({
   enrollments,
   learnerId,
 }: {
-  enrollments: (Enrollment & { Courses?: { id: string; name: string | null; duration: number | null; total_lessons: number | null } | null })[];
+  enrollments: (Enrollment & {
+    Courses?: {
+      id: string;
+      name: string | null;
+      duration: number | null;
+      total_lessons: number | null;
+    } | null;
+  })[];
   learnerId: string;
 }) {
   const updateMutation = useUpdateEnrollmentAdmin();
@@ -623,7 +696,10 @@ function EnrollmentEditor({
   // Get course info from the linked Courses table (primary source)
   const linkedCourse = (enrollment as any)?.Courses;
   // Parse progress as fallback
-  const existingProgress = enrollment?.progress as { type?: string; total_hours?: number } | null;
+  const existingProgress = enrollment?.progress as {
+    type?: string;
+    total_hours?: number;
+  } | null;
   const existingUnlockedLessons = enrollment?.unlocked_lessons || [];
 
   // Determine course type from course name (demo, custom, or regular)
@@ -635,17 +711,24 @@ function EnrollmentEditor({
   };
 
   // Calculate actual total lessons - prioritize Courses table data
-  const actualTotalLessons = linkedCourse?.total_lessons || linkedCourse?.duration || existingProgress?.total_hours || 10;
+  const actualTotalLessons =
+    linkedCourse?.total_lessons ||
+    linkedCourse?.duration ||
+    existingProgress?.total_hours ||
+    10;
   const courseType = getCourseType();
   // Calculate half payment lessons (half of total, rounded down)
   const halfPaymentLessons = Math.floor(actualTotalLessons / 2);
   // Full payment lessons (total minus 1 for regular 10-lesson course, or all for others)
-  const fullPaymentLessons = (courseType === "regular" && actualTotalLessons === 10)
-    ? actualTotalLessons - 1
-    : actualTotalLessons;
+  const fullPaymentLessons =
+    courseType === "regular" && actualTotalLessons === 10
+      ? actualTotalLessons - 1
+      : actualTotalLessons;
 
   const [formData, setFormData] = useState({
-    status: enrollment?.status || "pending" as Database["public"]["Enums"]["enrollment_status"],
+    status:
+      enrollment?.status ||
+      ("pending" as Database["public"]["Enums"]["enrollment_status"]),
     payment_status: enrollment?.payment_status || "",
     // Progress fields - use actual course data
     courseType: courseType,
@@ -670,7 +753,8 @@ function EnrollmentEditor({
       createMutation.mutate({
         learner_id: learnerId,
         course_id: "default-course-id",
-        status: formData.status as Database["public"]["Enums"]["enrollment_status"],
+        status:
+          formData.status as Database["public"]["Enums"]["enrollment_status"],
         payment_status: formData.payment_status,
         unlocked_lessons: unlockedLessons,
         progress: progress,
@@ -679,7 +763,8 @@ function EnrollmentEditor({
       updateMutation.mutate({
         id: enrollment.id,
         updates: {
-          status: formData.status as Database["public"]["Enums"]["enrollment_status"],
+          status:
+            formData.status as Database["public"]["Enums"]["enrollment_status"],
           payment_status: formData.payment_status,
           unlocked_lessons: unlockedLessons,
           progress: progress,
@@ -702,15 +787,21 @@ function EnrollmentEditor({
     return (
       <div className="space-y-4">
         <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="mb-2 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <p className="text-sm font-medium text-orange-800">No enrollment found</p>
+            <p className="text-sm font-medium text-orange-800">
+              No enrollment found
+            </p>
           </div>
-          <p className="text-xs text-orange-600 mb-3">
-            This learner doesn't have an enrollment record. Enrollments must be created through the normal payment flow to ensure proper course linking.
+          <p className="mb-3 text-xs text-orange-600">
+            This learner doesn't have an enrollment record. Enrollments must be
+            created through the normal payment flow to ensure proper course
+            linking.
           </p>
           <p className="text-xs text-muted-foreground">
-            To create an enrollment, the learner should complete the payment process in the app, which will automatically create the enrollment with the correct course.
+            To create an enrollment, the learner should complete the payment
+            process in the app, which will automatically create the enrollment
+            with the correct course.
           </p>
         </div>
       </div>
@@ -724,23 +815,36 @@ function EnrollmentEditor({
   return (
     <div className="space-y-4">
       {/* Current Status Banner */}
-      <div className={`rounded-lg border p-3 ${
-        isActive && isFullyPaid
-          ? "border-green-300 bg-green-50"
-          : isActive
-            ? "border-yellow-300 bg-yellow-50"
-            : "border-red-300 bg-red-50"
-      }`}>
+      <div
+        className={`rounded-lg border p-3 ${
+          isActive && isFullyPaid
+            ? "border-green-300 bg-green-50"
+            : isActive
+              ? "border-yellow-300 bg-yellow-50"
+              : "border-red-300 bg-red-50"
+        }`}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <p className={`text-sm font-medium ${
-              isActive && isFullyPaid ? "text-green-800" : isActive ? "text-yellow-800" : "text-red-800"
-            }`}>
-              Status: {enrollment.status?.toUpperCase()} | Payment: {enrollment.payment_status?.toUpperCase() || "NOT SET"}
+            <p
+              className={`text-sm font-medium ${
+                isActive && isFullyPaid
+                  ? "text-green-800"
+                  : isActive
+                    ? "text-yellow-800"
+                    : "text-red-800"
+              }`}
+            >
+              Status: {enrollment.status?.toUpperCase()} | Payment:{" "}
+              {enrollment.payment_status?.toUpperCase() || "NOT SET"}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Lessons Unlocked: {existingUnlockedLessons.length > 0 ? existingUnlockedLessons.join(", ") : "None"}
-              {" "}| Course: {linkedCourse?.name || courseType} ({actualTotalLessons} lessons)
+            <p className="mt-1 text-xs text-muted-foreground">
+              Lessons Unlocked:{" "}
+              {existingUnlockedLessons.length > 0
+                ? existingUnlockedLessons.join(", ")
+                : "None"}{" "}
+              | Course: {linkedCourse?.name || courseType} ({actualTotalLessons}{" "}
+              lessons)
             </p>
           </div>
           {isActive && isFullyPaid && (
@@ -750,15 +854,17 @@ function EnrollmentEditor({
       </div>
 
       {/* Quick Fix Actions */}
-      {(!isActive || !isFullyPaid || existingUnlockedLessons.length < fullPaymentLessons) && (
+      {(!isActive ||
+        !isFullyPaid ||
+        existingUnlockedLessons.length < fullPaymentLessons) && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
           <p className="mb-2 text-xs font-medium text-blue-800">Quick Fix</p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             {!isActive && (
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 bg-white"
+                className="h-7 bg-white text-xs"
                 onClick={() => {
                   setFormData({ ...formData, status: "active" });
                 }}
@@ -769,7 +875,7 @@ function EnrollmentEditor({
             {existingUnlockedLessons.length < fullPaymentLessons && (
               <Button
                 size="sm"
-                className="text-xs h-7 bg-blue-600 hover:bg-blue-700"
+                className="h-7 bg-blue-600 text-xs hover:bg-blue-700"
                 onClick={handleUnlockAllLessons}
               >
                 Unlock All {fullPaymentLessons} Lessons + Set Active + Full Paid
@@ -781,21 +887,33 @@ function EnrollmentEditor({
 
       {/* Enrollment Settings */}
       <div className="space-y-3">
-        <p className="text-xs font-medium text-gray-700 border-b pb-1">Enrollment Settings</p>
+        <p className="border-b pb-1 text-xs font-medium text-gray-700">
+          Enrollment Settings
+        </p>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs font-medium">Enrollment Status</Label>
-            <p className="text-[10px] text-muted-foreground">Controls if learner can use the app</p>
+            <p className="text-[10px] text-muted-foreground">
+              Controls if learner can use the app
+            </p>
             <Select
               value={formData.status}
-              onValueChange={(value) => setFormData({ ...formData, status: value as Database["public"]["Enums"]["enrollment_status"] })}
+              onValueChange={(value) =>
+                setFormData({
+                  ...formData,
+                  status:
+                    value as Database["public"]["Enums"]["enrollment_status"],
+                })
+              }
             >
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pending">Pending (Cannot schedule)</SelectItem>
+                <SelectItem value="pending">
+                  Pending (Cannot schedule)
+                </SelectItem>
                 <SelectItem value="active">Active (Can schedule)</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -803,18 +921,28 @@ function EnrollmentEditor({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs font-medium">Payment Status in Enrollment</Label>
-            <p className="text-[10px] text-muted-foreground">Sync with Payment tab</p>
+            <Label className="text-xs font-medium">
+              Payment Status in Enrollment
+            </Label>
+            <p className="text-[10px] text-muted-foreground">
+              Sync with Payment tab
+            </p>
             <Select
               value={formData.payment_status}
-              onValueChange={(value) => setFormData({ ...formData, payment_status: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, payment_status: value })
+              }
             >
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="half_paid">Half Paid ({halfPaymentLessons} lessons)</SelectItem>
-                <SelectItem value="full_paid">Full Paid ({fullPaymentLessons} lessons)</SelectItem>
+                <SelectItem value="half_paid">
+                  Half Paid ({halfPaymentLessons} lessons)
+                </SelectItem>
+                <SelectItem value="full_paid">
+                  Full Paid ({fullPaymentLessons} lessons)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -823,12 +951,17 @@ function EnrollmentEditor({
 
       {/* Lessons Configuration */}
       <div className="space-y-3">
-        <p className="text-xs font-medium text-gray-700 border-b pb-1">Lessons Available for Scheduling</p>
+        <p className="border-b pb-1 text-xs font-medium text-gray-700">
+          Lessons Available for Scheduling
+        </p>
 
         <div className="space-y-1">
-          <Label className="text-xs font-medium">Number of Lessons to Unlock</Label>
+          <Label className="text-xs font-medium">
+            Number of Lessons to Unlock
+          </Label>
           <p className="text-[10px] text-muted-foreground">
-            How many lessons can the learner schedule? ({halfPaymentLessons} for half payment, {fullPaymentLessons} for full payment)
+            How many lessons can the learner schedule? ({halfPaymentLessons} for
+            half payment, {fullPaymentLessons} for full payment)
           </p>
           <div className="flex items-center gap-3">
             <Input
@@ -836,15 +969,25 @@ function EnrollmentEditor({
               min={0}
               max={actualTotalLessons}
               value={formData.lessonsToUnlock}
-              onChange={(e) => setFormData({ ...formData, lessonsToUnlock: Number(e.target.value) })}
-              className="h-8 text-sm w-24"
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  lessonsToUnlock: Number(e.target.value),
+                })
+              }
+              className="h-8 w-24 text-sm"
             />
             <div className="flex gap-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 px-2"
-                onClick={() => setFormData({ ...formData, lessonsToUnlock: halfPaymentLessons })}
+                className="h-7 px-2 text-xs"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    lessonsToUnlock: halfPaymentLessons,
+                  })
+                }
                 title="Half payment"
               >
                 {halfPaymentLessons}
@@ -852,8 +995,13 @@ function EnrollmentEditor({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 px-2"
-                onClick={() => setFormData({ ...formData, lessonsToUnlock: fullPaymentLessons })}
+                className="h-7 px-2 text-xs"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    lessonsToUnlock: fullPaymentLessons,
+                  })
+                }
                 title="Full payment"
               >
                 {fullPaymentLessons}
@@ -861,65 +1009,94 @@ function EnrollmentEditor({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 px-2"
-                onClick={() => setFormData({ ...formData, lessonsToUnlock: actualTotalLessons })}
+                className="h-7 px-2 text-xs"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    lessonsToUnlock: actualTotalLessons,
+                  })
+                }
                 title="All lessons"
               >
                 {actualTotalLessons}
               </Button>
             </div>
           </div>
-          <p className="text-xs text-blue-600 mt-1">
-            Will unlock: {formData.lessonsToUnlock > 0 ? `Lessons 1 to ${formData.lessonsToUnlock}` : "None"}
+          <p className="mt-1 text-xs text-blue-600">
+            Will unlock:{" "}
+            {formData.lessonsToUnlock > 0
+              ? `Lessons 1 to ${formData.lessonsToUnlock}`
+              : "None"}
           </p>
         </div>
       </div>
 
       {/* Course Information */}
       <div className="space-y-3">
-        <p className="text-xs font-medium text-gray-700 border-b pb-1">Course Information</p>
+        <p className="border-b pb-1 text-xs font-medium text-gray-700">
+          Course Information
+        </p>
 
         {linkedCourse ? (
-          <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
             <p className="text-sm font-medium text-blue-800">
               {linkedCourse.name || "Unnamed Course"}
             </p>
-            <p className="text-xs text-blue-600 mt-1">
-              Duration: {linkedCourse.duration || linkedCourse.total_lessons || "N/A"} hours/lessons
+            <p className="mt-1 text-xs text-blue-600">
+              Duration:{" "}
+              {linkedCourse.duration || linkedCourse.total_lessons || "N/A"}{" "}
+              hours/lessons
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2">
-              Course data comes from the linked Courses table. To change course type,
-              you need to update the enrollment's course_id.
+            <p className="mt-2 text-[10px] text-muted-foreground">
+              Course data comes from the linked Courses table. To change course
+              type, you need to update the enrollment's course_id.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Course Type (Manual Override)</Label>
-              <p className="text-[10px] text-muted-foreground">No linked course - set manually</p>
+              <Label className="text-xs font-medium">
+                Course Type (Manual Override)
+              </Label>
+              <p className="text-[10px] text-muted-foreground">
+                No linked course - set manually
+              </p>
               <Select
                 value={formData.courseType}
-                onValueChange={(value) => setFormData({ ...formData, courseType: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, courseType: value })
+                }
               >
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="regular">Regular (Standard 10 lessons)</SelectItem>
+                  <SelectItem value="regular">
+                    Regular (Standard 10 lessons)
+                  </SelectItem>
                   <SelectItem value="demo">Demo (Trial lesson)</SelectItem>
-                  <SelectItem value="custom">Custom (Flexible hours)</SelectItem>
+                  <SelectItem value="custom">
+                    Custom (Flexible hours)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium">Total Hours/Lessons</Label>
-              <p className="text-[10px] text-muted-foreground">Manual override value</p>
+              <p className="text-[10px] text-muted-foreground">
+                Manual override value
+              </p>
               <Input
                 type="number"
                 min={1}
                 max={20}
                 value={formData.totalHours}
-                onChange={(e) => setFormData({ ...formData, totalHours: Number(e.target.value) })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    totalHours: Number(e.target.value),
+                  })
+                }
                 className="h-8 text-sm"
               />
             </div>
@@ -928,14 +1105,31 @@ function EnrollmentEditor({
       </div>
 
       {/* Current State Info */}
-      <div className="rounded-lg bg-gray-50 p-3 text-xs space-y-1">
-        <p><strong>Enrollment ID:</strong> {enrollment.id}</p>
-        <p><strong>Course ID:</strong> {enrollment.course_id || "Not linked to course"}</p>
-        <p><strong>Linked Course:</strong> {linkedCourse?.name || "None"} {linkedCourse && `(${linkedCourse.total_lessons || linkedCourse.duration} lessons)`}</p>
-        <p><strong>Created:</strong> {new Date(enrollment.created_at).toLocaleString()}</p>
+      <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-xs">
+        <p>
+          <strong>Enrollment ID:</strong> {enrollment.id}
+        </p>
+        <p>
+          <strong>Course ID:</strong>{" "}
+          {enrollment.course_id || "Not linked to course"}
+        </p>
+        <p>
+          <strong>Linked Course:</strong> {linkedCourse?.name || "None"}{" "}
+          {linkedCourse &&
+            `(${linkedCourse.total_lessons || linkedCourse.duration} lessons)`}
+        </p>
+        <p>
+          <strong>Created:</strong>{" "}
+          {new Date(enrollment.created_at).toLocaleString()}
+        </p>
       </div>
 
-      <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm" className="w-full">
+      <Button
+        onClick={handleSave}
+        disabled={updateMutation.isPending}
+        size="sm"
+        className="w-full"
+      >
         <Save className="mr-2 h-4 w-4" />
         {updateMutation.isPending ? "Saving..." : "Save All Changes"}
       </Button>
@@ -950,7 +1144,14 @@ function PaymentEditor({
   learnerId,
 }: {
   payments: Payment[];
-  enrollments: (Enrollment & { Courses?: { id: string; name: string | null; duration: number | null; total_lessons: number | null } | null })[];
+  enrollments: (Enrollment & {
+    Courses?: {
+      id: string;
+      name: string | null;
+      duration: number | null;
+      total_lessons: number | null;
+    } | null;
+  })[];
   learnerId: string;
 }) {
   const updatePaymentMutation = useUpdatePaymentAdmin();
@@ -962,7 +1163,10 @@ function PaymentEditor({
   // Get course info from the linked Courses table (primary source)
   const linkedCourse = (enrollment as any)?.Courses;
   // Parse progress as fallback
-  const existingProgress = enrollment?.progress as { type?: string; total_hours?: number } | null;
+  const existingProgress = enrollment?.progress as {
+    type?: string;
+    total_hours?: number;
+  } | null;
 
   // Determine course type from course name
   const getCourseType = (): string => {
@@ -973,12 +1177,17 @@ function PaymentEditor({
   };
 
   // Calculate actual total lessons - prioritize Courses table data
-  const actualTotalLessons = linkedCourse?.total_lessons || linkedCourse?.duration || existingProgress?.total_hours || 10;
+  const actualTotalLessons =
+    linkedCourse?.total_lessons ||
+    linkedCourse?.duration ||
+    existingProgress?.total_hours ||
+    10;
   const courseType = getCourseType();
   const halfPaymentLessons = Math.floor(actualTotalLessons / 2);
-  const fullPaymentLessons = (courseType === "regular" && actualTotalLessons === 10)
-    ? actualTotalLessons - 1
-    : actualTotalLessons;
+  const fullPaymentLessons =
+    courseType === "regular" && actualTotalLessons === 10
+      ? actualTotalLessons - 1
+      : actualTotalLessons;
 
   const [cashPaymentAmount, setCashPaymentAmount] = useState(0);
 
@@ -988,9 +1197,13 @@ function PaymentEditor({
   const hasNoPayment = !payment;
 
   // Handle cash payment - updates both payment and enrollment
-  const handleCashPayment = async (paymentType: "half" | "full" | "remaining") => {
+  const handleCashPayment = async (
+    paymentType: "half" | "full" | "remaining",
+  ) => {
     const isFullPayment = paymentType === "full" || paymentType === "remaining";
-    const lessonsToUnlock = isFullPayment ? fullPaymentLessons : halfPaymentLessons;
+    const lessonsToUnlock = isFullPayment
+      ? fullPaymentLessons
+      : halfPaymentLessons;
 
     if (payment) {
       // Update existing payment
@@ -998,9 +1211,10 @@ function PaymentEditor({
         id: payment.id,
         updates: {
           status: isFullPayment ? "full_paid" : "half_paid",
-          amount: paymentType === "remaining"
-            ? (payment.amount + cashPaymentAmount)
-            : (cashPaymentAmount || payment.amount),
+          amount:
+            paymentType === "remaining"
+              ? payment.amount + cashPaymentAmount
+              : cashPaymentAmount || payment.amount,
           gateway_reference: payment.gateway_reference
             ? `${payment.gateway_reference}, CASH-${Date.now()}`
             : `CASH-${Date.now()}`,
@@ -1024,7 +1238,10 @@ function PaymentEditor({
         updates: {
           status: "active",
           payment_status: isFullPayment ? "full_paid" : "half_paid",
-          unlocked_lessons: Array.from({ length: lessonsToUnlock }, (_, i) => i + 1),
+          unlocked_lessons: Array.from(
+            { length: lessonsToUnlock },
+            (_, i) => i + 1,
+          ),
         },
       });
     }
@@ -1033,29 +1250,41 @@ function PaymentEditor({
   return (
     <div className="space-y-4">
       {/* Current Payment Status */}
-      <div className={`rounded-lg border p-3 ${
-        isFullyPaid
-          ? "border-green-300 bg-green-50"
-          : isHalfPaid
-            ? "border-yellow-300 bg-yellow-50"
-            : "border-red-300 bg-red-50"
-      }`}>
+      <div
+        className={`rounded-lg border p-3 ${
+          isFullyPaid
+            ? "border-green-300 bg-green-50"
+            : isHalfPaid
+              ? "border-yellow-300 bg-yellow-50"
+              : "border-red-300 bg-red-50"
+        }`}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <p className={`text-sm font-medium ${
-              isFullyPaid ? "text-green-800" : isHalfPaid ? "text-yellow-800" : "text-red-800"
-            }`}>
-              Payment Status: {isFullyPaid ? "FULLY PAID" : isHalfPaid ? "HALF PAID" : "NO PAYMENT"}
+            <p
+              className={`text-sm font-medium ${
+                isFullyPaid
+                  ? "text-green-800"
+                  : isHalfPaid
+                    ? "text-yellow-800"
+                    : "text-red-800"
+              }`}
+            >
+              Payment Status:{" "}
+              {isFullyPaid
+                ? "FULLY PAID"
+                : isHalfPaid
+                  ? "HALF PAID"
+                  : "NO PAYMENT"}
             </p>
             {payment && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Amount: ₹{payment.amount} | Ref: {payment.gateway_reference || "N/A"}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Amount: ₹{payment.amount} | Ref:{" "}
+                {payment.gateway_reference || "N/A"}
               </p>
             )}
           </div>
-          {isFullyPaid && (
-            <CheckCircle className="h-6 w-6 text-green-600" />
-          )}
+          {isFullyPaid && <CheckCircle className="h-6 w-6 text-green-600" />}
         </div>
       </div>
 
@@ -1071,7 +1300,7 @@ function PaymentEditor({
               : "Customer paid remaining amount? Update to full payment."}
           </p>
 
-          <div className="flex items-center gap-3 mb-3">
+          <div className="mb-3 flex items-center gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Amount Received (₹)</Label>
               <Input
@@ -1079,28 +1308,34 @@ function PaymentEditor({
                 placeholder="Enter amount"
                 value={cashPaymentAmount || ""}
                 onChange={(e) => setCashPaymentAmount(Number(e.target.value))}
-                className="h-8 text-sm w-32 bg-white"
+                className="h-8 w-32 bg-white text-sm"
               />
             </div>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             {hasNoPayment && (
               <>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-7 bg-white"
+                  className="h-7 bg-white text-xs"
                   onClick={() => handleCashPayment("half")}
-                  disabled={updatePaymentMutation.isPending || createPaymentMutation.isPending}
+                  disabled={
+                    updatePaymentMutation.isPending ||
+                    createPaymentMutation.isPending
+                  }
                 >
                   Half Payment (Unlock {halfPaymentLessons} Lessons)
                 </Button>
                 <Button
                   size="sm"
-                  className="text-xs h-7 bg-blue-600 hover:bg-blue-700"
+                  className="h-7 bg-blue-600 text-xs hover:bg-blue-700"
                   onClick={() => handleCashPayment("full")}
-                  disabled={updatePaymentMutation.isPending || createPaymentMutation.isPending}
+                  disabled={
+                    updatePaymentMutation.isPending ||
+                    createPaymentMutation.isPending
+                  }
                 >
                   Full Payment (Unlock {fullPaymentLessons} Lessons)
                 </Button>
@@ -1109,7 +1344,7 @@ function PaymentEditor({
             {isHalfPaid && (
               <Button
                 size="sm"
-                className="text-xs h-7 bg-green-600 hover:bg-green-700"
+                className="h-7 bg-green-600 text-xs hover:bg-green-700"
                 onClick={() => handleCashPayment("remaining")}
                 disabled={updatePaymentMutation.isPending}
               >
@@ -1122,13 +1357,27 @@ function PaymentEditor({
 
       {/* Payment Details (read-only info) */}
       {payment && (
-        <div className="rounded-lg bg-gray-50 p-3 text-xs space-y-1">
-          <p><strong>Payment ID:</strong> {payment.id}</p>
-          <p><strong>Created:</strong> {new Date(payment.created_at).toLocaleString()}</p>
-          <p><strong>Amount Paid:</strong> ₹{payment.amount}</p>
-          <p><strong>Total Amount:</strong> ₹{payment.total_amount || payment.amount}</p>
-          <p><strong>Type:</strong> {payment.payment_type}</p>
-          <p><strong>Reference:</strong> {payment.gateway_reference || "N/A"}</p>
+        <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-xs">
+          <p>
+            <strong>Payment ID:</strong> {payment.id}
+          </p>
+          <p>
+            <strong>Created:</strong>{" "}
+            {new Date(payment.created_at).toLocaleString()}
+          </p>
+          <p>
+            <strong>Amount Paid:</strong> ₹{payment.amount}
+          </p>
+          <p>
+            <strong>Total Amount:</strong> ₹
+            {payment.total_amount || payment.amount}
+          </p>
+          <p>
+            <strong>Type:</strong> {payment.payment_type}
+          </p>
+          <p>
+            <strong>Reference:</strong> {payment.gateway_reference || "N/A"}
+          </p>
         </div>
       )}
     </div>
@@ -1202,16 +1451,18 @@ function DangerZone({
       });
       alert(
         `Successfully deleted:\n` +
-        `- ${result.schedules} schedule(s)\n` +
-        `- ${result.enrollments} enrollment(s)\n` +
-        `- ${result.payments} payment(s)\n` +
-        `- Learner record`
+          `- ${result.schedules} schedule(s)\n` +
+          `- ${result.enrollments} enrollment(s)\n` +
+          `- ${result.payments} payment(s)\n` +
+          `- Learner record`,
       );
       setIsOpen(false);
       setConfirmText("");
       onDeleteSuccess?.();
     } catch (error) {
-      alert(`Failed to delete: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `Failed to delete: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
@@ -1221,17 +1472,20 @@ function DangerZone({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border-2 border-red-300 bg-red-50 p-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-red-600" />
           <h3 className="font-semibold text-red-800">Danger Zone</h3>
         </div>
-        <p className="text-sm text-red-700 mb-4">
-          Actions in this section are <strong>irreversible</strong>. Please proceed with caution.
+        <p className="mb-4 text-sm text-red-700">
+          Actions in this section are <strong>irreversible</strong>. Please
+          proceed with caution.
         </p>
 
         {/* Data Summary */}
-        <div className="bg-white rounded-lg border border-red-200 p-3 mb-4">
-          <p className="text-xs font-medium text-gray-700 mb-2">Data that will be deleted:</p>
+        <div className="mb-4 rounded-lg border border-red-200 bg-white p-3">
+          <p className="mb-2 text-xs font-medium text-gray-700">
+            Data that will be deleted:
+          </p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Learner:</span>
@@ -1270,23 +1524,24 @@ function DangerZone({
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="text-red-600 flex items-center gap-2">
+              <DialogTitle className="flex items-center gap-2 text-red-600">
                 <AlertTriangle className="h-5 w-5" />
                 Confirm Permanent Deletion
               </DialogTitle>
               <DialogDescription asChild>
                 <div className="space-y-3">
                   <p>
-                    You are about to permanently delete <strong>all data</strong> for:
+                    You are about to permanently delete{" "}
+                    <strong>all data</strong> for:
                   </p>
-                  <div className="bg-gray-100 rounded-lg p-3 text-sm">
-                    <p className="font-medium">{learner.name || "Unnamed Learner"}</p>
+                  <div className="rounded-lg bg-gray-100 p-3 text-sm">
+                    <p className="font-medium">
+                      {learner.name || "Unnamed Learner"}
+                    </p>
                     <p className="text-muted-foreground">{learner.phone}</p>
                   </div>
-                  <p className="text-sm">
-                    This will delete:
-                  </p>
-                  <ul className="text-sm list-disc list-inside space-y-1">
+                  <p className="text-sm">This will delete:</p>
+                  <ul className="list-inside list-disc space-y-1 text-sm">
                     <li>{schedulesCount} schedule(s)</li>
                     <li>{paymentsCount} payment(s)</li>
                     <li>{enrollmentsCount} enrollment(s)</li>
@@ -1294,7 +1549,9 @@ function DangerZone({
                   </ul>
                   <div className="pt-2">
                     <Label className="text-xs font-medium">
-                      Type <span className="font-bold text-red-600">DELETE</span> to confirm:
+                      Type{" "}
+                      <span className="font-bold text-red-600">DELETE</span> to
+                      confirm:
                     </Label>
                     <Input
                       value={confirmText}
@@ -1319,9 +1576,14 @@ function DangerZone({
               <Button
                 variant="destructive"
                 onClick={handleDelete}
-                disabled={confirmText !== expectedConfirmText || deleteMutation.isPending}
+                disabled={
+                  confirmText !== expectedConfirmText ||
+                  deleteMutation.isPending
+                }
               >
-                {deleteMutation.isPending ? "Deleting..." : "Delete Permanently"}
+                {deleteMutation.isPending
+                  ? "Deleting..."
+                  : "Delete Permanently"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1330,8 +1592,13 @@ function DangerZone({
 
       {/* Learner ID for reference */}
       <div className="rounded-lg bg-gray-50 p-3 text-xs">
-        <p><strong>Learner ID:</strong> {learner.id}</p>
-        <p><strong>Created:</strong> {new Date(learner.created_at).toLocaleString()}</p>
+        <p>
+          <strong>Learner ID:</strong> {learner.id}
+        </p>
+        <p>
+          <strong>Created:</strong>{" "}
+          {new Date(learner.created_at).toLocaleString()}
+        </p>
       </div>
     </div>
   );
