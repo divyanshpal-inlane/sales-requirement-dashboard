@@ -99,6 +99,7 @@ export default function RescheduleConfirmationSheet({
             .filter((s) => s.lessonId)
             .map((lesson) => lesson.lessonId!),
           payment_id: payment.id,
+          type: "reschedule",
         })
         .select()
         .single();

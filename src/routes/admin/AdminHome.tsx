@@ -3,6 +3,7 @@ import {
   Calendar as CalendarIcon,
   ClipboardList,
   PhoneCall,
+  Upload,
   UserCircle,
   UserPlus,
   Users,
@@ -28,6 +29,13 @@ export default function AdminHome() {
       icon: UserPlus,
       link: "/admin/learner-management",
       color: "text-teal-500",
+    },
+    {
+      title: "Customer Migration",
+      description: "Migrate existing customers from paper records",
+      icon: Upload,
+      link: "/admin/learner-migration",
+      color: "text-purple-500",
     },
     {
       title: "Schedule Management",
@@ -89,7 +97,8 @@ export default function AdminHome() {
     },
     {
       title: "Learner Issue Fixer",
-      description: "Diagnose and fix learner app, payment, and scheduling issues",
+      description:
+        "Diagnose and fix learner app, payment, and scheduling issues",
       icon: Wrench,
       link: "/admin/learner-issue-fixer",
       color: "text-red-500",

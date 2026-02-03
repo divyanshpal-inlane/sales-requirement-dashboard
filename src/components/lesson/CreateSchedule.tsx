@@ -2751,10 +2751,18 @@ function CreateSchedule({
       0,
     );
 
-    // Get available lessons for upcoming slots (lessons after the completed ones)
-    // Fix: When no lessons are completed (maxCompletedLessonNumber = 0), include ALL lessons
-    // This handles both 0-indexed (0,1,2...) and 1-indexed (1,2,3...) lesson numbering
+    // Get available lessons for upcoming slots
+    // IMPORTANT: For reschedule requests, ONLY use the lessons being rescheduled (from request.lesson_ids)
+    // For new schedule requests, use all lessons after the completed ones
+    const isRescheduleRequest = request.type === "reschedule";
+
     const availableLessons = courseLessons.filter((l) => {
+      // For reschedule requests, only include lessons that are being rescheduled
+      if (isRescheduleRequest) {
+        return request.lesson_ids.includes(l.id);
+      }
+
+      // For new schedule requests, filter by completed lesson number
       const lessonNumber = l.number ?? 0;
       // If no completed lessons, include all lessons
       if (maxCompletedLessonNumber === 0) {
@@ -2763,6 +2771,70 @@ function CreateSchedule({
       // Otherwise, include only lessons after the last completed one
       return lessonNumber > maxCompletedLessonNumber;
     });
+
+    console.log(
+      "╔════════════════════════════════════════════════════════════════╗",
+    );
+    console.log(
+      "║              RESCHEDULE DEBUG - CRITICAL INFO                  ║",
+    );
+    console.log(
+      "╠════════════════════════════════════════════════════════════════╣",
+    );
+    console.log("║ REQUEST INFO:");
+    console.log("║   request.id:", request.id);
+    console.log("║   request.type:", request.type);
+    console.log("║   request.learner_id:", request.learner_id);
+    console.log("║   request.lesson_ids:", JSON.stringify(request.lesson_ids));
+    console.log(
+      "╠════════════════════════════════════════════════════════════════╣",
+    );
+    console.log("║ CONDITION CHECK:");
+    console.log(
+      "║   isRescheduleRequest (request.type === 'reschedule'):",
+      isRescheduleRequest,
+    );
+    console.log(
+      "╠════════════════════════════════════════════════════════════════╣",
+    );
+    console.log("║ COURSE LESSONS (all lessons in course):");
+    courseLessons.forEach((l, i) => {
+      const isInRequest = request.lesson_ids.includes(l.id);
+      console.log(
+        `║   [${i}] id: ${l.id}, number: ${l.number} ${isInRequest ? "← IN REQUEST" : ""}`,
+      );
+    });
+    console.log(
+      "╠════════════════════════════════════════════════════════════════╣",
+    );
+    console.log(
+      "║ AVAILABLE LESSONS (for reschedule: should ONLY be from request.lesson_ids):",
+    );
+    console.log("║   availableLessons count:", availableLessons.length);
+    if (availableLessons.length === 0) {
+      console.log("║   ⚠️ WARNING: availableLessons is EMPTY!");
+    }
+    availableLessons.forEach((l, i) => {
+      console.log(`║   [${i}] id: ${l.id}, number: ${l.number}`);
+    });
+    console.log(
+      "╠════════════════════════════════════════════════════════════════╣",
+    );
+    console.log("║ MATCHING CHECK:");
+    request.lesson_ids.forEach((reqId, i) => {
+      const found = courseLessons.find((l) => l.id === reqId);
+      const inAvailable = availableLessons.find((l) => l.id === reqId);
+      console.log(`║   request.lesson_ids[${i}] = "${reqId}"`);
+      console.log(
+        `║     → In courseLessons: ${found ? `YES (number: ${found.number})` : "NO ⚠️"}`,
+      );
+      console.log(
+        `║     → In availableLessons: ${inAvailable ? `YES (number: ${inAvailable.number})` : "NO ⚠️"}`,
+      );
+    });
+    console.log(
+      "╚════════════════════════════════════════════════════════════════╝",
+    );
 
     // Check if a 9+1 course type (learner doesn't have a driver's license)
     const { data: learner, error: learnerError } = await supabase
@@ -2878,6 +2950,21 @@ function CreateSchedule({
         // This handles both sequential (1,2,3...) and non-sequential lesson numbering
         const lesson = sortedAvailableLessons[currentNewSlotIndex];
 
+        console.log(`=== ASSIGNING LESSON TO NEW SLOT ===`);
+        console.log(`  New slot date: ${slot.date}`);
+        console.log(`  currentNewSlotIndex: ${currentNewSlotIndex}`);
+        console.log(
+          `  sortedAvailableLessons.length: ${sortedAvailableLessons.length}`,
+        );
+        console.log(
+          `  sortedAvailableLessons:`,
+          sortedAvailableLessons.map((l) => ({ id: l.id, number: l.number })),
+        );
+        console.log(
+          `  Assigned lesson: ${lesson ? `id=${lesson.id}, number=${lesson.number}` : "NONE"}`,
+        );
+        console.log(`====================================`);
+
         if (!lesson) {
           console.error(
             `No available lesson found for new slot index ${currentNewSlotIndex}. ` +
@@ -2950,21 +3037,30 @@ function CreateSchedule({
     const schedulesToCancel = schedulesToChange || [];
 
     // Filter out only the schedules that need to be created/updated
-    // console.log("schedules with ids", schedulesWithIds);
+    // IMPORTANT: Only include schedules for lessons that are EXPLICITLY being rescheduled
+    // Do NOT include lessons just because their number changed - those should keep their original schedule
+    console.log("=== RESCHEDULE DEBUG ===");
+    console.log("request.lesson_ids:", request.lesson_ids);
+    console.log("schedulesWithIds:", schedulesWithIds);
+    console.log(
+      "schedulesWithIds with isNew:",
+      schedulesWithIds.filter((s) => s.isNew),
+    );
+
     const schedulesToUpdate = schedulesWithIds.filter((schedule) => {
-      // Include if it's a new slot
+      // Include if it's a new slot (admin selected new time slots for the reschedule)
       if (schedule.isNew) return true;
 
-      // Include if the lesson has changes (number or timing)
-      if (schedule.lessonId && lessonIdsWithChanges.includes(schedule.lessonId))
-        return true;
-
       // Include if it's one of the lessons being explicitly rescheduled
+      // This preserves existing schedule slots that are part of the reschedule request
       if (schedule.lessonId && request.lesson_ids.includes(schedule.lessonId))
         return true;
 
       return false;
     });
+
+    console.log("schedulesToUpdate:", schedulesToUpdate);
+    console.log("========================");
 
     // Create final schedules array
     // console.log("finalscheudules from schedules to update", schedulesToUpdate);
@@ -2992,6 +3088,18 @@ function CreateSchedule({
           calendar_uid: "", // Will be populated for schedules only
         };
       });
+
+    console.log("========== FINAL SCHEDULES TO CREATE ==========");
+    console.log("finalSchedules count:", finalSchedules.length);
+    finalSchedules.forEach((s, i) => {
+      console.log(
+        `  [${i}] date: ${s.date}, lessonId: ${s.lessonId}, lessonNumber: ${s.lessonNumber}`,
+      );
+    });
+    console.log(
+      "These lesson IDs will be DELETED and recreated with new dates",
+    );
+    console.log("================================================");
 
     setIsSendingInvites(true);
     try {
@@ -3112,63 +3220,9 @@ function CreateSchedule({
         });
       }
 
-      // 2. Process lessons with changed numbers or timings
-      for (const lessonId of lessonIdsWithChanges) {
-        // Skip if this lesson is already in the cancellation list (from explicit reschedules)
-        if (rescheduledLessonIds.has(lessonId)) {
-          continue;
-        }
-
-        // Get the current schedule for this lesson
-        const lessonData = currentLessonMap.get(lessonId);
-        if (!lessonData || !lessonData.schedule.calendar_uid) continue;
-
-        const schedule = lessonData.schedule;
-
-        // Create start and end date objects
-        const startDate = new Date(schedule.date);
-        const [startHour, startMinute] = schedule.start_time
-          .split(":")
-          .map(Number);
-        startDate.setHours(startHour, startMinute, 0);
-
-        const endDate = new Date(schedule.date);
-        const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
-        endDate.setHours(endHour, endMinute, 0);
-
-        // Get instructor details for this lesson
-        const instructorId = schedule.instructor_id;
-        const instructorDetails = instructorsMap.get(instructorId) || {
-          name: "Unknown Instructor",
-          phone: "Contact InLane for details",
-          email: "",
-        };
-
-        // Determine pickup location
-        const pickupLocation =
-          learnerData.pick_up_location ||
-          (learnerData.address_lat && learnerData.address_lng
-            ? `${learnerData.address_lat},${learnerData.address_lng}`
-            : "To be confirmed");
-
-        console.log(
-          `Adding cancellation for lesson with changes: ${lessonId}, lesson number ${lessonData.currentNumber}`,
-        );
-
-        cancellationEvents.push({
-          startTime: startDate,
-          endTime: endDate,
-          lessonNumber: lessonData.currentNumber,
-          pickupLocation: pickupLocation,
-          uid: schedule.calendar_uid,
-          sequence: (schedule.calendar_sequence || 0) + 1,
-          isCancellation: true,
-          instructorId: instructorId,
-          instructorName: instructorDetails.name,
-          instructorPhone: instructorDetails.phone,
-          instructorEmail: instructorDetails.email,
-        });
-      }
+      // NOTE: We no longer send cancellation events for lessons that only have number changes
+      // but weren't explicitly rescheduled. Those lessons keep their original schedule,
+      // so we shouldn't send any calendar updates for them.
 
       console.log(`Total cancellation events: ${cancellationEvents.length}`);
 
@@ -3207,10 +3261,9 @@ function CreateSchedule({
             : "To be confirmed");
 
         // Determine if this is a rescheduled event
+        // Only consider explicitly rescheduled lessons, not lessons with just number changes
         const isRescheduled =
-          matchingLessonId &&
-          (rescheduledLessonIds.has(matchingLessonId) ||
-            lessonIdsWithChanges.includes(matchingLessonId));
+          matchingLessonId && rescheduledLessonIds.has(matchingLessonId);
 
         const sequenceNumber = isRescheduled
           ? (lessonIdToSequence.get(matchingLessonId) || 0) + 1
@@ -3506,43 +3559,88 @@ function CreateSchedule({
 
   return (
     <div className="w-full space-y-4">
-      {lessons && lessons.length > 0 && !request.type === "new" && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="mb-3 font-medium">Lessons to Reschedule</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {lessons
-                .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
-                .map((lesson) => (
-                  <div key={lesson.id} className="rounded-lg border p-3">
-                    <div className="font-medium">Lesson {lesson.number}</div>
-                    {schedulesToChange?.find(
-                      (s) => s.lesson_id === lesson.id,
-                    ) && (
-                      <div className="mt-1 text-xs text-yellow-600">
-                        Currently scheduled for:{" "}
-                        {format(
-                          new Date(
-                            schedulesToChange.find(
-                              (s) => s.lesson_id === lesson.id,
-                            )?.date ?? "",
-                          ).setHours(
-                            parseInt(
-                              schedulesToChange
-                                .find((s) => s.lesson_id === lesson.id)
-                                ?.start_time.split(":")[0] ?? "0",
-                            ),
-                            0,
-                          ),
-                          "MMM d, h:mm a",
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+      {/* Show alert for reschedule requests */}
+      {request.type === "reschedule" && lessons && lessons.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-amber-100 p-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-amber-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <h3 className="font-semibold text-amber-800">
+                Reschedule Request
+              </h3>
+              <p className="mt-1 text-sm text-amber-700">
+                Rescheduling{" "}
+                <span className="font-bold">
+                  Lesson {lessons.map((l) => l.number).join(", ")}
+                </span>
+                {schedulesToChange && schedulesToChange.length > 0 && (
+                  <span>
+                    {" "}
+                    from{" "}
+                    <span className="font-medium">
+                      {format(
+                        new Date(schedulesToChange[0]?.date ?? ""),
+                        "MMM d, yyyy",
+                      )}
+                      {" at "}
+                      {schedulesToChange[0]?.start_time?.substring(0, 5)}
+                    </span>
+                  </span>
+                )}
+              </p>
+              <p className="mt-1 text-xs text-amber-600">
+                Select new time slot(s) below for the lesson(s)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show lesson 10 request info */}
+      {request.type === "lesson10" && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-blue-100 p-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-blue-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-800">
+                Lesson 10 Scheduling Request
+              </h3>
+              <p className="mt-1 text-sm text-blue-700">
+                Schedule the <span className="font-bold">10th lesson</span> for
+                this learner
+              </p>
+              <p className="mt-1 text-xs text-blue-600">
+                Select a time slot below for Lesson 10
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between">

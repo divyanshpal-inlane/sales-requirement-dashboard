@@ -1,6 +1,6 @@
 import { UserPlus } from "lucide-react";
 import { ArrowLeft } from "lucide-react";
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -32,16 +32,40 @@ type CourseType = "predefined" | "custom" | "demo";
 
 // Predefined courses with their IDs and durations
 const PREDEFINED_COURSES = [
-  { id: "e129f667-0510-4f07-9847-edb58356dc74", name: "Beginner Course", duration: 10 },
+  {
+    id: "e129f667-0510-4f07-9847-edb58356dc74",
+    name: "Beginner Course",
+    duration: 10,
+  },
   { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
   { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
   { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
   { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
-  { id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb", name: "Parking + Flyover", duration: 4 },
-  { id: "abddddb8-3f54-41ea-a64b-5ba55988b12a", name: "Slopes + Parking", duration: 4 },
-  { id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936", name: "Traffic + Parking", duration: 6 },
-  { id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3", name: "Traffic + Flyover", duration: 6 },
-  { id: "b991363c-6791-411e-9cb8-6723e40d0a0a", name: "Traffic + Parking + Flyover", duration: 8 },
+  {
+    id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb",
+    name: "Parking + Flyover",
+    duration: 4,
+  },
+  {
+    id: "abddddb8-3f54-41ea-a64b-5ba55988b12a",
+    name: "Slopes + Parking",
+    duration: 4,
+  },
+  {
+    id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936",
+    name: "Traffic + Parking",
+    duration: 6,
+  },
+  {
+    id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3",
+    name: "Traffic + Flyover",
+    duration: 6,
+  },
+  {
+    id: "b991363c-6791-411e-9cb8-6723e40d0a0a",
+    name: "Traffic + Parking + Flyover",
+    duration: 8,
+  },
 ];
 
 // Skill modules for custom course
@@ -82,7 +106,8 @@ export default function LearnerManagement() {
   });
 
   const [createdLearnerId, setCreatedLearnerId] = useState<string | null>(null);
-  const [isCreateLearnerDialogOpen, setIsCreateLearnerDialogOpen] = useState(false);
+  const [isCreateLearnerDialogOpen, setIsCreateLearnerDialogOpen] =
+    useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -115,7 +140,9 @@ export default function LearnerManagement() {
         const module = SKILL_MODULES.find((m) => m.id === id);
         return module?.name || "";
       });
-      return moduleNames.length > 0 ? `Custom: ${moduleNames.join(" + ")}` : "Custom Course";
+      return moduleNames.length > 0
+        ? `Custom: ${moduleNames.join(" + ")}`
+        : "Custom Course";
     }
     return "";
   }, [courseType, selectedCourseId, selectedModules]);
@@ -125,7 +152,7 @@ export default function LearnerManagement() {
     setSelectedModules((prev) =>
       prev.includes(moduleId)
         ? prev.filter((id) => id !== moduleId)
-        : [...prev, moduleId]
+        : [...prev, moduleId],
     );
   };
 
@@ -307,7 +334,9 @@ export default function LearnerManagement() {
       // For predefined courses, use the selected course ID
       if (courseType === "predefined") {
         dataToSend.courseId = selectedCourseId;
-        const selectedCourse = PREDEFINED_COURSES.find((c) => c.id === selectedCourseId);
+        const selectedCourse = PREDEFINED_COURSES.find(
+          (c) => c.id === selectedCourseId,
+        );
         dataToSend.courseName = selectedCourse?.name || "";
       } else if (courseType === "custom") {
         // For custom courses, course_id is NULL in database
@@ -595,7 +624,9 @@ export default function LearnerManagement() {
                       <SelectValue placeholder="Select course type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="predefined">Predefined Course</SelectItem>
+                      <SelectItem value="predefined">
+                        Predefined Course
+                      </SelectItem>
                       <SelectItem value="custom">Custom Course</SelectItem>
                       <SelectItem value="demo">Demo Lesson</SelectItem>
                     </SelectContent>
@@ -611,7 +642,9 @@ export default function LearnerManagement() {
                     <Select
                       onValueChange={(courseId) => {
                         setSelectedCourseId(courseId);
-                        const selectedCourse = PREDEFINED_COURSES.find((c) => c.id === courseId);
+                        const selectedCourse = PREDEFINED_COURSES.find(
+                          (c) => c.id === courseId,
+                        );
                         setLearnerData((prev) => ({
                           ...prev,
                           courseId,
@@ -637,34 +670,45 @@ export default function LearnerManagement() {
                 {/* Custom Course - Module Selection */}
                 {courseType === "custom" && (
                   <div className="grid grid-cols-4 items-start gap-4">
-                    <Label className="text-right pt-2">
-                      Select Modules
-                    </Label>
+                    <Label className="pt-2 text-right">Select Modules</Label>
                     <div className="col-span-3 space-y-2">
                       {SKILL_MODULES.map((module) => (
-                        <div key={module.id} className="flex items-center space-x-2">
+                        <div
+                          key={module.id}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
                             id={module.id}
                             checked={selectedModules.includes(module.id)}
                             onCheckedChange={() => {
                               toggleModule(module.id);
                               // Update learnerData with custom course info
-                              const newModules = selectedModules.includes(module.id)
-                                ? selectedModules.filter((id) => id !== module.id)
+                              const newModules = selectedModules.includes(
+                                module.id,
+                              )
+                                ? selectedModules.filter(
+                                    (id) => id !== module.id,
+                                  )
                                 : [...selectedModules, module.id];
-                              const moduleNames = newModules.map((id) =>
-                                SKILL_MODULES.find((m) => m.id === id)?.name || ""
+                              const moduleNames = newModules.map(
+                                (id) =>
+                                  SKILL_MODULES.find((m) => m.id === id)
+                                    ?.name || "",
                               );
                               setLearnerData((prev) => ({
                                 ...prev,
                                 courseId: "",
-                                courseName: moduleNames.length > 0
-                                  ? `Custom: ${moduleNames.join(" + ")}`
-                                  : "Custom Course",
+                                courseName:
+                                  moduleNames.length > 0
+                                    ? `Custom: ${moduleNames.join(" + ")}`
+                                    : "Custom Course",
                               }));
                             }}
                           />
-                          <Label htmlFor={module.id} className="font-normal cursor-pointer">
+                          <Label
+                            htmlFor={module.id}
+                            className="cursor-pointer font-normal"
+                          >
                             {module.name} ({module.hours} hrs)
                           </Label>
                         </div>
@@ -676,9 +720,7 @@ export default function LearnerManagement() {
                 {/* Demo Course Info */}
                 {courseType === "demo" && (
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">
-                      Course Info
-                    </Label>
+                    <Label className="text-right">Course Info</Label>
                     <div className="col-span-3">
                       <Badge variant="secondary" className="text-sm">
                         Demo Lesson - 1 hour - ₹{DEMO_CONFIG.price}
@@ -693,7 +735,9 @@ export default function LearnerManagement() {
                     <Label className="text-right">Total Lessons</Label>
                     <div className="col-span-3">
                       <Badge variant="outline" className="text-sm font-medium">
-                        {totalLessons} {totalLessons === 1 ? "lesson" : "lessons"} ({totalLessons} hours)
+                        {totalLessons}{" "}
+                        {totalLessons === 1 ? "lesson" : "lessons"} (
+                        {totalLessons} hours)
                       </Badge>
                     </div>
                   </div>
@@ -730,14 +774,19 @@ export default function LearnerManagement() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="full">Full Payment</SelectItem>
-                          <SelectItem value="installment">Installment (Half now)</SelectItem>
+                          <SelectItem value="installment">
+                            Installment (Half now)
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     {learnerData.installmentType === "installment" && (
                       <>
                         <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="installment1Amount" className="text-right">
+                          <Label
+                            htmlFor="installment1Amount"
+                            className="text-right"
+                          >
                             1st Payment (₹)
                           </Label>
                           <Input
@@ -752,7 +801,10 @@ export default function LearnerManagement() {
                           />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="installment2Amount" className="text-right">
+                          <Label
+                            htmlFor="installment2Amount"
+                            className="text-right"
+                          >
                             2nd Payment (₹)
                           </Label>
                           <Input

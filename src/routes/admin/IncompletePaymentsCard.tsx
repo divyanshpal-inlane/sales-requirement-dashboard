@@ -422,7 +422,8 @@ export function IncompletePaymentsCard() {
       // If only first installment paid -> half_paid
       const isFullPayment = paidInfoDialogData?.installment_mode === "full";
       const bothInstallmentsPaid = manualInstallment1 && manualInstallment2;
-      const paymentStatus = (isFullPayment || bothInstallmentsPaid) ? "full_paid" : "half_paid";
+      const paymentStatus =
+        isFullPayment || bothInstallmentsPaid ? "full_paid" : "half_paid";
 
       // Calculate the amount being paid
       const paidAmount = (manualInstallment1 || 0) + (manualInstallment2 || 0);
@@ -468,7 +469,8 @@ export function IncompletePaymentsCard() {
           payment_id: paymentRecord.id,
           status: "active",
           payment_status: paymentStatus, // This was missing!
-          installment_mode: paymentStatus === "full_paid" ? "full" : "first_half",
+          installment_mode:
+            paymentStatus === "full_paid" ? "full" : "first_half",
           installment1_amount: paidInfoDialogData?.installment1_amount,
           installment2_amount: paidInfoDialogData?.installment2_amount,
         },
