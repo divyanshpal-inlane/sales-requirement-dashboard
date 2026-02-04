@@ -912,25 +912,19 @@ function MigrationFormContent() {
 
       if (enrollmentError) throw enrollmentError;
 
-      // 6. Create Lesson records for ALL lessons (completed + remaining)
+      // 6. For predefined courses, fetch existing lessons (don't create new ones)
+      // For custom courses, lessons are handled as "virtual" lessons (no DB records needed)
+      let existingLessons: any[] = [];
       if (totalLessons > 0 && courseId) {
-        const lessonRecords = Array.from({ length: totalLessons }, (_, i) => ({
-          course_id: courseId,
-          number: i + 1,
-          duration: 1,
-          description:
-            i < completedLessonsNumSubmit
-              ? `Lesson ${i + 1} (Migrated - Completed)`
-              : `Lesson ${i + 1}`,
-          enabled: true,
-        }));
-
-        const { data: createdLessons, error: lessonError } = await supabase
+        // Fetch existing lessons for this predefined course
+        const { data: fetchedLessons, error: lessonError } = await supabase
           .from("Lesson")
-          .insert(lessonRecords)
-          .select();
+          .select("*")
+          .eq("course_id", courseId)
+          .order("number", { ascending: true });
 
         if (lessonError) throw lessonError;
+        existingLessons = fetchedLessons || [];
 
         // 7. Create Schedule records if schedule entries are provided
         if (
@@ -942,8 +936,8 @@ function MigrationFormContent() {
           );
 
           const scheduleRecords = formData.scheduleEntries.map((entry) => {
-            // Find the lesson ID for this lesson number
-            const lesson = createdLessons?.find(
+            // Find the lesson ID for this lesson number from existing lessons
+            const lesson = existingLessons?.find(
               (l: any) => l.number === entry.lessonNumber,
             );
 
