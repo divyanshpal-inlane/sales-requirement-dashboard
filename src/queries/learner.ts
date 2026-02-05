@@ -270,7 +270,14 @@ export function useLessons({ courseId }: { courseId: string | undefined }) {
             .eq("course_id", courseId)
             .order("number", { ascending: true });
           if (error) throw new Error(error.message);
-          return data;
+          // Deduplicate lessons by number - keep only the first record per lesson number
+          // This handles cases where duplicate lesson records exist for the same course
+          const seen = new Set<number>();
+          return (data ?? []).filter((lesson) => {
+            if (seen.has(lesson.number)) return false;
+            seen.add(lesson.number);
+            return true;
+          });
         }
       : skipToken,
   });

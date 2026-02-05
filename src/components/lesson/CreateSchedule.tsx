@@ -1697,13 +1697,28 @@ function CreateSchedule({
         .order("number", { ascending: true });
 
       if (error) throw error;
-      return data;
+      // Deduplicate lessons by number - keep only the first record per lesson number
+      // This handles cases where duplicate lesson records exist for the same course
+      const seen = new Set<number>();
+      return (data ?? []).filter((lesson) => {
+        if (seen.has(lesson.number)) return false;
+        seen.add(lesson.number);
+        return true;
+      });
     },
   });
 
   // find the minimum lesson number that needs to be re-scheduled from
   // all the lessons that are requested
   const lessons = allLessons?.filter((l) => request.lesson_ids.includes(l.id));
+
+  // For "new" schedule requests, use the deduplicated course lesson count
+  // (request.lesson_ids may be inflated due to duplicate lesson records from old migrations)
+  // For reschedule/lesson10 requests, lesson_ids come from actual schedules so they're correct
+  const requiredLessonCount =
+    request.type === "new"
+      ? (allLessons?.length ?? request.lesson_ids.length)
+      : request.lesson_ids.length;
 
   const minLessonNumber =
     lessons && lessons.length > 0
@@ -2544,7 +2559,7 @@ function CreateSchedule({
     const hour = slot.timestamp.getHours();
     const minute = slot.timestamp.getMinutes();
 
-    if (currentUniqueSlots >= request.lesson_ids.length) {
+    if (currentUniqueSlots >= requiredLessonCount) {
       alert("Cannot select more slots than required.");
       return;
     }
@@ -3746,7 +3761,7 @@ function CreateSchedule({
       </div>
       <div className="flex items-center justify-between">
         <div className="text-md flex text-gray-500">
-          Selected: {selectedSlots.length / 2} of {request.lesson_ids.length}{" "}
+          Selected: {selectedSlots.length / 2} of {requiredLessonCount}{" "}
           hours
         </div>
         <Button
@@ -3755,7 +3770,7 @@ function CreateSchedule({
             window.location.reload();
           }}
           disabled={
-            selectedSlots.length / 2 !== request.lesson_ids.length ||
+            selectedSlots.length / 2 !== requiredLessonCount ||
             isSendingInvites
           }
           className="whitespace-nowrap"
