@@ -211,26 +211,43 @@ const getSteps = (showScheduleSetup: boolean) => {
   return [...baseSteps, { id: 4, title: "Review", icon: ClipboardCheck }];
 };
 
-// Available time slots for scheduling (5 AM to 10 PM)
+// Available time slots for scheduling (5 AM to 10 PM, with 30-minute intervals)
 const TIME_SLOTS = [
-  { value: "05:00", label: "5 AM" },
-  { value: "06:00", label: "6 AM" },
-  { value: "07:00", label: "7 AM" },
-  { value: "08:00", label: "8 AM" },
-  { value: "09:00", label: "9 AM" },
-  { value: "10:00", label: "10 AM" },
-  { value: "11:00", label: "11 AM" },
-  { value: "12:00", label: "12 PM" },
-  { value: "13:00", label: "1 PM" },
-  { value: "14:00", label: "2 PM" },
-  { value: "15:00", label: "3 PM" },
-  { value: "16:00", label: "4 PM" },
-  { value: "17:00", label: "5 PM" },
-  { value: "18:00", label: "6 PM" },
-  { value: "19:00", label: "7 PM" },
-  { value: "20:00", label: "8 PM" },
-  { value: "21:00", label: "9 PM" },
-  { value: "22:00", label: "10 PM" },
+  { value: "05:00", label: "5:00 AM" },
+  { value: "05:30", label: "5:30 AM" },
+  { value: "06:00", label: "6:00 AM" },
+  { value: "06:30", label: "6:30 AM" },
+  { value: "07:00", label: "7:00 AM" },
+  { value: "07:30", label: "7:30 AM" },
+  { value: "08:00", label: "8:00 AM" },
+  { value: "08:30", label: "8:30 AM" },
+  { value: "09:00", label: "9:00 AM" },
+  { value: "09:30", label: "9:30 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "10:30", label: "10:30 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "11:30", label: "11:30 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "12:30", label: "12:30 PM" },
+  { value: "13:00", label: "1:00 PM" },
+  { value: "13:30", label: "1:30 PM" },
+  { value: "14:00", label: "2:00 PM" },
+  { value: "14:30", label: "2:30 PM" },
+  { value: "15:00", label: "3:00 PM" },
+  { value: "15:30", label: "3:30 PM" },
+  { value: "16:00", label: "4:00 PM" },
+  { value: "16:30", label: "4:30 PM" },
+  { value: "17:00", label: "5:00 PM" },
+  { value: "17:30", label: "5:30 PM" },
+  { value: "18:00", label: "6:00 PM" },
+  { value: "18:30", label: "6:30 PM" },
+  { value: "19:00", label: "7:00 PM" },
+  { value: "19:30", label: "7:30 PM" },
+  { value: "20:00", label: "8:00 PM" },
+  { value: "20:30", label: "8:30 PM" },
+  { value: "21:00", label: "9:00 PM" },
+  { value: "21:30", label: "9:30 PM" },
+  { value: "22:00", label: "10:00 PM" },
 ];
 
 // Address Autocomplete Component using Google Places
@@ -762,7 +779,7 @@ function MigrationFormContent() {
         .from("Learner")
         .select("id")
         .eq("phone", formData.phone)
-        .single();
+        .maybeSingle();
 
       if (existingLearner) {
         toast({
@@ -797,7 +814,19 @@ function MigrationFormContent() {
         parseInt(formData.completedLessons) || 0;
 
       // 3. Create Learner record
-      // If learner has completed lessons, they must have LL_received = true
+      // Determine LL status based on various conditions:
+      // - If has_a_DL (4-wheeler DL), they MUST have LL (required in India)
+      // - If completed any lessons, they must have LL
+      // - Otherwise, use the form value
+      const shouldHaveLL =
+        formData.has_a_DL ||
+        completedLessonsNumSubmit > 0 ||
+        formData.LL_received;
+
+      // When LL is received (or should be received), set all intermediate LL flow fields
+      // This ensures the learner app doesn't get stuck in the LL flow
+      const llReceivedDate = formData.LL_received_date || null;
+
       const learnerData: any = {
         name: formData.name,
         phone: formData.phone,
@@ -811,11 +840,16 @@ function MigrationFormContent() {
         has_a_DL: formData.has_a_DL,
         has_two_wheeler_license: formData.has_two_wheeler_license,
         address_change_required: formData.address_change_required,
-        // Auto-set LL_received to true if learner has completed any lessons
-        LL_received:
-          completedLessonsNumSubmit > 0 ? true : formData.LL_received,
-        LL_received_date: formData.LL_received_date || null,
+        // LL fields - set all required fields when LL is received
+        LL_received: shouldHaveLL,
+        LL_received_date: llReceivedDate,
         LL_application_id: formData.LL_application_id || null,
+        // When LL is received, set intermediate flow fields to skip LL flow in learner app
+        LL_team_appointment_booked: shouldHaveLL ? true : null,
+        LL_application_approved: shouldHaveLL ? true : null,
+        LL_test_date: shouldHaveLL ? llReceivedDate : null,
+        LL_result: shouldHaveLL ? true : null,
+        // DL fields
         DL_id: formData.DL_id || null,
         DL_received: formData.DL_received,
         DL_received_date: formData.DL_received_date || null,
@@ -2085,11 +2119,13 @@ function MigrationFormContent() {
                       </p>
                       <p>
                         <strong>LL Received:</strong>{" "}
-                        {completedLessonsNum > 0
-                          ? "Yes (auto-set)"
-                          : formData.LL_received
-                            ? "Yes"
-                            : "No"}
+                        {formData.has_a_DL
+                          ? "Yes (auto-set, has DL)"
+                          : completedLessonsNum > 0
+                            ? "Yes (auto-set, has lessons)"
+                            : formData.LL_received
+                              ? "Yes"
+                              : "No"}
                       </p>
                       <p>
                         <strong>DL Received:</strong>{" "}

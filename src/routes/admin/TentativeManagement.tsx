@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, formatDate, parse, subDays } from "date-fns";
 import {
   Delete,
@@ -6,6 +6,7 @@ import {
   RefreshCcw,
   Search,
   Send,
+  Trash2,
   UserPlus,
 } from "lucide-react";
 import { ArrowLeft } from "lucide-react";
@@ -228,6 +229,7 @@ function LearnerNotificationCard() {
                     <th className="px-2 py-2 text-center">Booked time</th>
                     <th className="px-2 py-2 text-left">Lead Name</th>
                     <th className="px-2 py-2 text-left">Description</th>
+                    <th className="px-2 py-2 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,6 +291,22 @@ function LearnerNotificationCard() {
                             "Unknown"}
                         </div>
                       </td>
+                      <td className="px-2 py-2 text-center">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() =>
+                            handleDeleteTentative(String(scheduleData.id))
+                          }
+                          disabled={deletingId === String(scheduleData.id)}
+                        >
+                          {deletingId === String(scheduleData.id) ? (
+                            <RefreshCcw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -303,11 +321,63 @@ function LearnerNotificationCard() {
 
 export default function TentativeScheduleInfo2() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLearner, setSelectedLearner] = useState<LearnerInfo | null>(
     null,
   );
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSchedules, setSelectedSchedules] = useState<any[]>([]);
+  const [schedulesDialogOpen, setSchedulesDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Delete tentative schedule mutation
+  const deleteTentativeMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const { error } = await supabase
+        .from("Schedule")
+        .delete()
+        .eq("id", Number(scheduleId));
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["learnersWithTentative"] });
+      toast({
+        title: "Success",
+        description: "Tentative schedule deleted successfully.",
+      });
+      setDeletingId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete schedule.",
+        variant: "destructive",
+      });
+      setDeletingId(null);
+    },
+  });
+
+  const handleDeleteTentative = (scheduleId: string) => {
+    if (!scheduleId) {
+      toast({
+        title: "Error",
+        description: "Schedule ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDeletingId(scheduleId);
+    deleteTentativeMutation.mutate(scheduleId);
+  };
+
+  const handleTentativeShow = (schedules: any[]) => {
+    setSelectedSchedules(schedules);
+    setSchedulesDialogOpen(true);
+  };
 
   // Fetch all learners whose payment status is completed
   // in descending order of signup time
@@ -537,10 +607,7 @@ export default function TentativeScheduleInfo2() {
                       <div
                         // Use the safe groupId property for the key
                         key={groupId}
-                        className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-gray-50"
-                        onClick={() =>
-                          handleTentativeShow(schedulesGroup.schedules)
-                        }
+                        className="rounded-lg border p-4 transition-colors hover:bg-gray-50"
                       >
                         <div className="flex items-start gap-4">
                           {/* Use groupId for getInitials */}
@@ -610,9 +677,9 @@ export default function TentativeScheduleInfo2() {
                                 return (
                                   <div
                                     key={schedule.id}
-                                    className="rounded-md bg-gray-100 p-2 text-xs"
+                                    className="flex items-center justify-between rounded-md bg-gray-100 p-2 text-xs"
                                   >
-                                    <p>
+                                    <p className="flex-1">
                                       {/* The schedule description and date are now broken into parts to match the new template */}
                                       <span className="font-medium">
                                         {schedule.tentative_details
@@ -627,12 +694,26 @@ export default function TentativeScheduleInfo2() {
                                       &nbsp; on &nbsp;
                                       {displayDate}
                                     </p>
-                                    {/* <p className="text-muted-foreground">
-                                            Location: {schedule.tentative_details.pickup_location || 'Not set'}
-                                        </p> */}
-                                    {/* <p className="text-muted-foreground">
-                                            Description: {schedule.tentative_details.description || 'N/A'}
-                                        </p> */}
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      className="ml-2 h-6 px-2"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteTentative(
+                                          String(schedule.id),
+                                        );
+                                      }}
+                                      disabled={
+                                        deletingId === String(schedule.id)
+                                      }
+                                    >
+                                      {deletingId === String(schedule.id) ? (
+                                        <RefreshCcw className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-3 w-3" />
+                                      )}
+                                    </Button>
                                   </div>
                                 );
                               })}

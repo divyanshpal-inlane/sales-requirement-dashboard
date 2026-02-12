@@ -187,7 +187,7 @@ export const useInstructorScheduleData = (phone: string) => {
         await supabase
           .from("Schedule")
           .select(
-            "*, Learner!inner(*), Instructor!inner(name, phone, email), Lesson!inner(*), Courses!inner(total_lessons)",
+            "*, Learner!inner(*), Instructor!inner(name, phone, email, unavailability), Lesson!inner(*), Courses!inner(total_lessons)",
           )
           .eq("Instructor.phone", phone)
           .gte("date", startDateStr)
@@ -209,14 +209,69 @@ export const useInstructorScheduleData = (phone: string) => {
         instructorSchedules,
       );
 
+      // Get unique learner+course combinations from visible schedules
+      const learnerCoursePairs = new Set(
+        instructorSchedules.map((s) => `${s.learner_id}|${s.course_id}`),
+      );
+
+      // Fetch ALL schedules for these learner+course combinations to calculate correct lesson numbers
+      const scheduleToLessonNumber: Record<string, number> = {};
+
+      await Promise.all(
+        Array.from(learnerCoursePairs).map(async (pair) => {
+          const [learnerId, courseId] = pair.split("|");
+
+          // Fetch all schedules for this learner+course (no date restrictions)
+          const { data: allLearnerSchedules, error } = await supabase
+            .from("Schedule")
+            .select("id, date, start_time")
+            .eq("learner_id", learnerId)
+            .eq("course_id", courseId)
+            .order("date", { ascending: true })
+            .order("start_time", { ascending: true });
+
+          if (error || !allLearnerSchedules) return;
+
+          // Sort by date and time
+          const sorted = [...allLearnerSchedules].sort((a, b) => {
+            const dateTimeA = new Date(
+              `${a.date}T${a.start_time || "00:00:00"}`,
+            ).getTime();
+            const dateTimeB = new Date(
+              `${b.date}T${b.start_time || "00:00:00"}`,
+            ).getTime();
+            return dateTimeA - dateTimeB;
+          });
+
+          // Assign chronological lesson numbers
+          sorted.forEach((schedule, index) => {
+            scheduleToLessonNumber[schedule.id] = index + 1;
+          });
+        }),
+      );
+
+      // Update each schedule's Lesson.number with the calculated chronological number
+      const schedulesWithCorrectNumbers = instructorSchedules.map(
+        (schedule) => ({
+          ...schedule,
+          Lesson: schedule.Lesson
+            ? {
+                ...schedule.Lesson,
+                number:
+                  scheduleToLessonNumber[schedule.id] || schedule.Lesson.number,
+              }
+            : null,
+        }),
+      );
+
       // Filter schedules for the current date
-      const instructorScheduleDay = instructorSchedules.filter(
+      const instructorScheduleDay = schedulesWithCorrectNumbers.filter(
         (schedule) => schedule.date === currentDate,
       );
 
       // Fetch learner and lesson data for each schedule (all schedules)
       const learnerLesson = await Promise.all(
-        instructorSchedules.map(async (scheduleData) => {
+        schedulesWithCorrectNumbers.map(async (scheduleData) => {
           if (!scheduleData.isTentative) {
             return {
               learner: scheduleData.Learner,
@@ -243,12 +298,12 @@ export const useInstructorScheduleData = (phone: string) => {
       console.log("T2_1 learnerLessonDay", learnerLessonDay);
 
       // --- FIX APPLIED HERE ---
-      const instructorData = instructorSchedules?.[0]?.Instructor;
+      const instructorData = schedulesWithCorrectNumbers?.[0]?.Instructor;
 
       return {
         // You must assign the expression to a key
         instructor: instructorData,
-        instructorSchedules,
+        instructorSchedules: schedulesWithCorrectNumbers,
         instructorScheduleDay,
         learnerLessonDay,
         learnerLesson,
