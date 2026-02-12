@@ -814,7 +814,19 @@ function MigrationFormContent() {
         parseInt(formData.completedLessons) || 0;
 
       // 3. Create Learner record
-      // If learner has completed lessons, they must have LL_received = true
+      // Determine LL status based on various conditions:
+      // - If has_a_DL (4-wheeler DL), they MUST have LL (required in India)
+      // - If completed any lessons, they must have LL
+      // - Otherwise, use the form value
+      const shouldHaveLL =
+        formData.has_a_DL ||
+        completedLessonsNumSubmit > 0 ||
+        formData.LL_received;
+
+      // When LL is received (or should be received), set all intermediate LL flow fields
+      // This ensures the learner app doesn't get stuck in the LL flow
+      const llReceivedDate = formData.LL_received_date || null;
+
       const learnerData: any = {
         name: formData.name,
         phone: formData.phone,
@@ -828,11 +840,16 @@ function MigrationFormContent() {
         has_a_DL: formData.has_a_DL,
         has_two_wheeler_license: formData.has_two_wheeler_license,
         address_change_required: formData.address_change_required,
-        // Auto-set LL_received to true if learner has completed any lessons
-        LL_received:
-          completedLessonsNumSubmit > 0 ? true : formData.LL_received,
-        LL_received_date: formData.LL_received_date || null,
+        // LL fields - set all required fields when LL is received
+        LL_received: shouldHaveLL,
+        LL_received_date: llReceivedDate,
         LL_application_id: formData.LL_application_id || null,
+        // When LL is received, set intermediate flow fields to skip LL flow in learner app
+        LL_team_appointment_booked: shouldHaveLL ? true : null,
+        LL_application_approved: shouldHaveLL ? true : null,
+        LL_test_date: shouldHaveLL ? llReceivedDate : null,
+        LL_result: shouldHaveLL ? true : null,
+        // DL fields
         DL_id: formData.DL_id || null,
         DL_received: formData.DL_received,
         DL_received_date: formData.DL_received_date || null,
@@ -2102,11 +2119,13 @@ function MigrationFormContent() {
                       </p>
                       <p>
                         <strong>LL Received:</strong>{" "}
-                        {completedLessonsNum > 0
-                          ? "Yes (auto-set)"
-                          : formData.LL_received
-                            ? "Yes"
-                            : "No"}
+                        {formData.has_a_DL
+                          ? "Yes (auto-set, has DL)"
+                          : completedLessonsNum > 0
+                            ? "Yes (auto-set, has lessons)"
+                            : formData.LL_received
+                              ? "Yes"
+                              : "No"}
                       </p>
                       <p>
                         <strong>DL Received:</strong>{" "}

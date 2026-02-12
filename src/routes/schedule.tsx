@@ -150,7 +150,7 @@ export default function Schedule() {
                   <span
                     className={`${isLessonPast ? "text-gray-400" : "text-accent-purple"}`}
                   >
-                    Lesson {lesson.lesson?.number}: {lesson.lesson?.description}
+                    Lesson {lesson.lesson?.number}
                     <Button
                       variant="link"
                       onClick={() => {
