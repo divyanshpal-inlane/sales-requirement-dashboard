@@ -1050,7 +1050,7 @@ export const LearnerSchedulesManager = ({
         .from("Learner")
         .select(
           `
-          id, name, area, phone, email,
+          id, name, area, phone, email, pick_up_location, address_lat, address_lng,
           schedules:Schedule(
             id, date, start_time, end_time, instructor_id,
             status,
@@ -1063,7 +1063,36 @@ export const LearnerSchedulesManager = ({
         .single();
 
       if (error) throw error;
-      setLearner(data);
+
+      // Sort schedules by date and time, then assign lesson numbers based on chronological order
+      if (data && data.schedules) {
+        const sortedSchedules = [...data.schedules].sort((a, b) => {
+          const dateTimeA = new Date(
+            `${a.date}T${a.start_time || "00:00:00"}`,
+          ).getTime();
+          const dateTimeB = new Date(
+            `${b.date}T${b.start_time || "00:00:00"}`,
+          ).getTime();
+          return dateTimeA - dateTimeB;
+        });
+
+        // Assign lesson numbers based on chronological position
+        const schedulesWithCorrectNumbers = sortedSchedules.map(
+          (schedule, index) => ({
+            ...schedule,
+            Lesson: schedule.Lesson
+              ? {
+                  ...schedule.Lesson,
+                  number: index + 1, // Use chronological position as lesson number
+                }
+              : null,
+          }),
+        );
+
+        setLearner({ ...data, schedules: schedulesWithCorrectNumbers });
+      } else {
+        setLearner(data);
+      }
     } catch (error: any) {
       console.error("Data fetch error:", error.message);
     } finally {
@@ -1100,13 +1129,20 @@ export const LearnerSchedulesManager = ({
     }
   };
 
-  const onUpdateStatus = async (scheduleId: string, newStatus: string) => {
+  const onUpdateStatus = async (
+    scheduleId: string | number,
+    newStatus: string,
+  ) => {
     try {
       setIsProcessing(true);
+      // Convert to number if it's a string, as the database expects an integer ID
+      const numericId =
+        typeof scheduleId === "string" ? Number(scheduleId) : scheduleId;
+
       const { error } = await supabase
         .from("Schedule")
         .update({ status: newStatus })
-        .eq("id", scheduleId);
+        .eq("id", numericId);
 
       if (error) throw error;
       await syncData();

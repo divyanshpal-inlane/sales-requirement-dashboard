@@ -234,30 +234,35 @@ export const LearnerInfoDialog = ({
 
           if (courseError) throw courseError;
 
-          // Fetch lesson numbers
-          const lessonIds = [...new Set(scheduleData.map((s) => s.lesson_id))];
-          const { data: lessonData, error: lessonError } = await supabase
-            .from("Lesson")
-            .select("id, number, course_id")
-            .in("id", lessonIds);
-
-          if (lessonError) throw lessonError;
-
-          // Combine all data
-          const enrichedSchedules = scheduleData.map((schedule) => {
-            const instructor = instructorData?.find(
-              (i) => i.id_instructor === schedule.instructor_id,
-            );
-            const course = courseData?.find((c) => c.id === schedule.course_id);
-            const lesson = lessonData?.find((l) => l.id === schedule.lesson_id);
-
-            return {
-              ...schedule,
-              instructor_name: instructor?.name || "Unknown",
-              course_name: course?.name || "Unknown Course",
-              lesson_number: lesson?.number || 0,
-            };
+          // Sort schedules by date and time to determine chronological order
+          const sortedScheduleData = [...scheduleData].sort((a, b) => {
+            const dateTimeA = new Date(
+              `${a.date}T${a.start_time || "00:00:00"}`,
+            ).getTime();
+            const dateTimeB = new Date(
+              `${b.date}T${b.start_time || "00:00:00"}`,
+            ).getTime();
+            return dateTimeA - dateTimeB;
           });
+
+          // Combine all data with lesson numbers based on chronological order
+          const enrichedSchedules = sortedScheduleData.map(
+            (schedule, index) => {
+              const instructor = instructorData?.find(
+                (i) => i.id_instructor === schedule.instructor_id,
+              );
+              const course = courseData?.find(
+                (c) => c.id === schedule.course_id,
+              );
+
+              return {
+                ...schedule,
+                instructor_name: instructor?.name || "Unknown",
+                course_name: course?.name || "Unknown Course",
+                lesson_number: index + 1, // Use chronological position as lesson number
+              };
+            },
+          );
 
           setCurrentSchedules(enrichedSchedules);
         } else {

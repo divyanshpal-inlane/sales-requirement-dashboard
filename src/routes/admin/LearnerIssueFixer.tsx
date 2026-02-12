@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import {
   useCreateEnrollmentAdmin,
   useCreatePaymentAdmin,
@@ -1157,6 +1158,7 @@ function PaymentEditor({
   const updatePaymentMutation = useUpdatePaymentAdmin();
   const updateEnrollmentMutation = useUpdateEnrollmentAdmin();
   const createPaymentMutation = useCreatePaymentAdmin();
+  const { toast } = useToast();
   const payment = payments[0];
   const enrollment = enrollments[0];
 
@@ -1200,49 +1202,65 @@ function PaymentEditor({
   const handleCashPayment = async (
     paymentType: "half" | "full" | "remaining",
   ) => {
-    const isFullPayment = paymentType === "full" || paymentType === "remaining";
-    const lessonsToUnlock = isFullPayment
-      ? fullPaymentLessons
-      : halfPaymentLessons;
+    try {
+      const isFullPayment =
+        paymentType === "full" || paymentType === "remaining";
+      const lessonsToUnlock = isFullPayment
+        ? fullPaymentLessons
+        : halfPaymentLessons;
 
-    if (payment) {
-      // Update existing payment
-      await updatePaymentMutation.mutateAsync({
-        id: payment.id,
-        updates: {
+      if (payment) {
+        // Update existing payment
+        await updatePaymentMutation.mutateAsync({
+          id: payment.id,
+          updates: {
+            status: isFullPayment ? "full_paid" : "half_paid",
+            amount:
+              paymentType === "remaining"
+                ? payment.amount + cashPaymentAmount
+                : cashPaymentAmount || payment.amount,
+            gateway_reference: payment.gateway_reference
+              ? `${payment.gateway_reference}, CASH-${Date.now()}`
+              : `CASH-${Date.now()}`,
+          },
+        });
+      } else {
+        // Create new payment record
+        await createPaymentMutation.mutateAsync({
+          learner_id: learnerId,
+          amount: cashPaymentAmount,
           status: isFullPayment ? "full_paid" : "half_paid",
-          amount:
-            paymentType === "remaining"
-              ? payment.amount + cashPaymentAmount
-              : cashPaymentAmount || payment.amount,
-          gateway_reference: payment.gateway_reference
-            ? `${payment.gateway_reference}, CASH-${Date.now()}`
-            : `CASH-${Date.now()}`,
-        },
-      });
-    } else {
-      // Create new payment record
-      await createPaymentMutation.mutateAsync({
-        learner_id: learnerId,
-        amount: cashPaymentAmount,
-        status: isFullPayment ? "full_paid" : "half_paid",
-        payment_type: "course",
-        gateway_reference: `CASH-${Date.now()}`,
-      });
-    }
+          payment_type: "course",
+          gateway_reference: `CASH-${Date.now()}`,
+        });
+      }
 
-    // Update enrollment if exists
-    if (enrollment) {
-      await updateEnrollmentMutation.mutateAsync({
-        id: enrollment.id,
-        updates: {
-          status: "active",
-          payment_status: isFullPayment ? "full_paid" : "half_paid",
-          unlocked_lessons: Array.from(
-            { length: lessonsToUnlock },
-            (_, i) => i + 1,
-          ),
-        },
+      // Update enrollment if exists
+      if (enrollment) {
+        await updateEnrollmentMutation.mutateAsync({
+          id: enrollment.id,
+          updates: {
+            status: "active",
+            payment_status: isFullPayment ? "full_paid" : "half_paid",
+            unlocked_lessons: Array.from(
+              { length: lessonsToUnlock },
+              (_, i) => i + 1,
+            ),
+          },
+        });
+      }
+
+      toast({
+        title: "Payment Updated",
+        description: `Payment marked as ${isFullPayment ? "fully paid" : "half paid"} successfully.`,
+      });
+    } catch (error: any) {
+      console.error("Payment update error:", error);
+      toast({
+        title: "Payment Update Failed",
+        description:
+          error.message || "Failed to update payment. Please try again.",
+        variant: "destructive",
       });
     }
   };

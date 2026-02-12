@@ -108,9 +108,28 @@ export function useUpcomingLesson() {
           course: null,
         };
       }
-      const currentDate = new Date();
-      const currentTime = currentDate.toTimeString().split(" ")[0];
 
+      // First, fetch ALL schedules for this learner to calculate chronological position
+      const { data: allSchedules, error: allError } = await supabase
+        .from("Schedule")
+        .select(
+          `
+          id,
+          date,
+          start_time,
+          status,
+          course_id
+        `,
+        )
+        .eq("learner_id", learner.id)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (allError) {
+        throw new Error(`Supabase error: ${allError.message}`);
+      }
+
+      // Now fetch non-completed schedules with full details
       const { data, error } = await supabase
         .from("Schedule")
         .select(
@@ -131,7 +150,6 @@ export function useUpcomingLesson() {
         .neq("status", "completed")
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
-      // .limit(1);
 
       if (error) {
         throw new Error(`Supabase error: ${error.message}`);
@@ -146,42 +164,40 @@ export function useUpcomingLesson() {
         };
       }
 
-      // Filter and sort upcoming schedules
-      const validSchedules = data;
-      // data.filter((item) => {
-      //   if (!item.date) return false;
-      //   const itemDate = new Date(item.date);
+      const nextSchedule = data[0];
 
-      //   if (itemDate > currentDate) return true;
+      // Calculate the chronological lesson number by finding this schedule's position
+      // among ALL schedules for the same course, sorted by date/time
+      let lessonNumber = 1;
+      if (allSchedules && nextSchedule.course_id) {
+        // Filter to only schedules for the same course and sort by date/time
+        const courseSchedules = allSchedules
+          .filter((s) => s.course_id === nextSchedule.course_id)
+          .sort((a, b) => {
+            const dateTimeA = new Date(
+              `${a.date}T${a.start_time || "00:00:00"}`,
+            ).getTime();
+            const dateTimeB = new Date(
+              `${b.date}T${b.start_time || "00:00:00"}`,
+            ).getTime();
+            return dateTimeA - dateTimeB;
+          });
 
-      //   if (itemDate.toDateString() === currentDate.toDateString()) {
-      //     return item.end_time && item.end_time > currentTime;
-      //   }
-
-      //   return false;
-      // });
-
-      const sortedSchedules = validSchedules;
-      // validSchedules.sort((a, b) => {
-      //   const dateTimeA = new Date(`${a.date}T${a.start_time}`);
-      //   const dateTimeB = new Date(`${b.date}T${b.start_time}`);
-      //   return dateTimeA.getTime() - dateTimeB.getTime();
-      // });
-
-      if (sortedSchedules.length === 0) {
-        return {
-          upcomingSchedule: null,
-          upcomingLesson: null,
-          instructor: null,
-          course: null,
-        };
+        // Find the position of this schedule (1-indexed)
+        const index = courseSchedules.findIndex(
+          (s) => s.id === nextSchedule.id,
+        );
+        lessonNumber = index >= 0 ? index + 1 : 1;
       }
-
-      const nextSchedule = sortedSchedules[0];
 
       return {
         upcomingSchedule: nextSchedule,
-        upcomingLesson: nextSchedule.Lesson,
+        upcomingLesson: nextSchedule.Lesson
+          ? {
+              ...nextSchedule.Lesson,
+              number: lessonNumber, // Use chronological position as lesson number
+            }
+          : null,
         instructor: nextSchedule.Instructor,
         course: nextSchedule.Courses,
       };
@@ -397,14 +413,33 @@ export function useLearnerSchedule({
         .order("start_time", { ascending: true });
 
       if (error) throw error;
-      return data.map((lesson) => ({
+
+      // Sort schedules by date and time to ensure correct order
+      const sortedData = [...data].sort((a, b) => {
+        const dateTimeA = new Date(
+          `${a.date}T${a.start_time || "00:00:00"}`,
+        ).getTime();
+        const dateTimeB = new Date(
+          `${b.date}T${b.start_time || "00:00:00"}`,
+        ).getTime();
+        return dateTimeA - dateTimeB;
+      });
+
+      // Calculate lesson numbers based on chronological position (1, 2, 3, ...)
+      return sortedData.map((lesson, index) => ({
         id: lesson.id,
         date: lesson.date,
         startTime: lesson.start_time,
         learnerId: lesson.learner_id,
         lessonId: lesson.lesson_id,
         endTime: lesson.end_time,
-        lesson: lesson.Lesson,
+        lesson: lesson.Lesson
+          ? {
+              id: lesson.Lesson.id,
+              number: index + 1, // Use chronological position as lesson number
+              description: lesson.Lesson.description,
+            }
+          : null,
         status: lesson.status,
       }));
     },
@@ -582,10 +617,61 @@ export function useLearnerSchedulesAdmin({
         `,
         )
         .eq("learner_id", learnerId)
-        .order("date", { ascending: true });
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
 
       if (error) throw error;
-      return data || [];
+
+      // Group schedules by course_id to calculate lesson numbers per course
+      const schedulesByCourse: Record<string, typeof data> = {};
+      (data || []).forEach((schedule) => {
+        const courseId = schedule.course_id;
+        if (!schedulesByCourse[courseId]) {
+          schedulesByCourse[courseId] = [];
+        }
+        schedulesByCourse[courseId].push(schedule);
+      });
+
+      // Sort each group by date/time and create a map of schedule_id -> lesson_number
+      const scheduleToLessonNumber: Record<string, number> = {};
+      Object.values(schedulesByCourse).forEach((schedules) => {
+        // Sort by date and time
+        const sorted = [...schedules].sort((a, b) => {
+          const dateTimeA = new Date(
+            `${a.date}T${a.start_time || "00:00:00"}`,
+          ).getTime();
+          const dateTimeB = new Date(
+            `${b.date}T${b.start_time || "00:00:00"}`,
+          ).getTime();
+          return dateTimeA - dateTimeB;
+        });
+        // Assign chronological lesson numbers (per course)
+        sorted.forEach((schedule, index) => {
+          scheduleToLessonNumber[schedule.id] = index + 1;
+        });
+      });
+
+      // Sort all schedules by date and time for display, with updated lesson numbers
+      const sortedData = [...(data || [])].sort((a, b) => {
+        const dateTimeA = new Date(
+          `${a.date}T${a.start_time || "00:00:00"}`,
+        ).getTime();
+        const dateTimeB = new Date(
+          `${b.date}T${b.start_time || "00:00:00"}`,
+        ).getTime();
+        return dateTimeA - dateTimeB;
+      });
+
+      // Apply calculated lesson numbers per course
+      return sortedData.map((schedule) => ({
+        ...schedule,
+        Lesson: schedule.Lesson
+          ? {
+              ...schedule.Lesson,
+              number: scheduleToLessonNumber[schedule.id] || 1,
+            }
+          : null,
+      }));
     },
     enabled: !!learnerId,
   });
