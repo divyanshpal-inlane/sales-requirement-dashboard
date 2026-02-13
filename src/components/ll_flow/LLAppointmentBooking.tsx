@@ -4,6 +4,14 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabaseClient";
 import { useLearner } from "@/queries/learner";
 import { useLearnerUpdate } from "@/queries/learner";
@@ -15,8 +23,24 @@ export default function LLAppointmentBooking() {
   const { mutate: updateLearner } = useLearnerUpdate();
 
   const [showFillFormBanner, setShowFillFormBanner] = useState<boolean>(false);
+  const [showLLConfirmDialog, setShowLLConfirmDialog] =
+    useState<boolean>(false);
+
   const handleFillForm = () => {
     setShowFillFormBanner(true);
+  };
+
+  const handleConfirmHasLL = () => {
+    // User confirms they already have LL - skip LL flow and go to scheduling
+    // NOTE: We set LL_received: true, NOT has_a_DL: true
+    // has_a_DL means they have a Driving License, which is different from Learner's License
+    updateLearner({
+      LL_received: true,
+      LL_result: true,
+      LL_team_appointment_booked: true,
+      LL_application_approved: true,
+    });
+    setShowLLConfirmDialog(false);
   };
 
   if (!learner) {
@@ -93,18 +117,36 @@ export default function LLAppointmentBooking() {
           </Card>
           <p className="mt-auto text-center text-base">
             <span>Already have an LL?</span>
-            <Button
-              variant="link"
-              onClick={() => {
-                updateLearner({
-                  LL_result: true,
-                  has_a_DL: true,
-                });
-              }}
-            >
+            <Button variant="link" onClick={() => setShowLLConfirmDialog(true)}>
               Schedule lessons
             </Button>
           </p>
+
+          {/* Confirmation Dialog for "Already have an LL" */}
+          <Dialog
+            open={showLLConfirmDialog}
+            onOpenChange={setShowLLConfirmDialog}
+          >
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Confirm Learner's License</DialogTitle>
+                <DialogDescription>
+                  Are you sure you already have a valid Learner's License (LL)?
+                  By confirming, you will skip the LL application process and
+                  proceed directly to scheduling your driving lessons.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLLConfirmDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmHasLL}>Yes, I have an LL</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
