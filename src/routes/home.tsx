@@ -32,6 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -89,6 +90,7 @@ export default function Home() {
   } = useUpcomingLesson();
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [showEndLessonDialog, setShowEndLessonDialog] = useState(false);
+  const [showNoLLConfirmDialog, setShowNoLLConfirmDialog] = useState(false);
   const [isFinishingLesson, setIsFinishingLesson] = useState(false);
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
@@ -898,16 +900,47 @@ export default function Home() {
                           </span>
                           <Button
                             variant="link"
-                            onClick={() => {
-                              updateLearner({
-                                has_a_DL: false,
-                                LL_result: null,
-                              });
-                            }}
+                            onClick={() => setShowNoLLConfirmDialog(true)}
                           >
                             Book appointment
                           </Button>
                         </p>
+
+                        {/* Confirmation Dialog for "Don't have an LL" */}
+                        <Dialog open={showNoLLConfirmDialog} onOpenChange={setShowNoLLConfirmDialog}>
+                          <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Go Back to LL Application</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you don&apos;t have a Learner&apos;s License (LL)?
+                                By confirming, you will be redirected to the LL application process.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="flex gap-2 sm:gap-0">
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowNoLLConfirmDialog(false)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  // Reset LL fields to go back to LL application flow
+                                  updateLearner({
+                                    has_a_DL: false,
+                                    LL_received: false,
+                                    LL_result: null,
+                                    LL_team_appointment_booked: null,
+                                    LL_application_approved: null,
+                                  });
+                                  setShowNoLLConfirmDialog(false);
+                                }}
+                              >
+                                Yes, I need an LL
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     ) : (
                       <div className="mt-24 text-center text-xl">
