@@ -1268,15 +1268,15 @@ export const LearnerSchedulesManager = ({
 
           // Create cancellation event for old schedule (if we have a calendar_uid)
           if (calendarUid) {
-            const oldStartDate = new Date(oldDate);
+            // Parse date string as local timezone (not UTC) to avoid off-by-one day issues
+            const [oldYear, oldMonth, oldDay] = oldDate.split("-").map(Number);
             const [oldStartHour, oldStartMin] = oldStartTime
               .split(":")
               .map(Number);
-            oldStartDate.setHours(oldStartHour, oldStartMin, 0);
+            const oldStartDate = new Date(oldYear, oldMonth - 1, oldDay, oldStartHour, oldStartMin, 0);
 
-            const oldEndDate = new Date(oldDate);
             const [oldEndHour, oldEndMin] = oldEndTime.split(":").map(Number);
-            oldEndDate.setHours(oldEndHour, oldEndMin, 0);
+            const oldEndDate = new Date(oldYear, oldMonth - 1, oldDay, oldEndHour, oldEndMin, 0);
 
             events.push({
               startTime: oldStartDate,
@@ -1294,17 +1294,17 @@ export const LearnerSchedulesManager = ({
           }
 
           // Create new event for the updated schedule
-          const newStartDate = new Date(selectedSchedule.date);
+          // Parse date string as local timezone (not UTC) to avoid off-by-one day issues
+          const [year, month, day] = selectedSchedule.date.split("-").map(Number);
           const [newStartHour, newStartMin] = selectedSchedule.start_time
             .split(":")
             .map(Number);
-          newStartDate.setHours(newStartHour, newStartMin, 0);
+          const newStartDate = new Date(year, month - 1, day, newStartHour, newStartMin, 0);
 
-          const newEndDate = new Date(selectedSchedule.date);
           const [newEndHour, newEndMin] = selectedSchedule.end_time
             .split(":")
             .map(Number);
-          newEndDate.setHours(newEndHour, newEndMin, 0);
+          const newEndDate = new Date(year, month - 1, day, newEndHour, newEndMin, 0);
 
           events.push({
             startTime: newStartDate,

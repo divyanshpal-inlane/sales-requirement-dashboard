@@ -48,3 +48,22 @@ export function useRescheduleLearnerLessonRequests(learnerId: string) {
     enabled: !!learnerId, // prevent from running until learnerId gets defined
   });
 }
+
+export function useCompletedRescheduleRequests(learnerId: string | undefined) {
+  return useQuery({
+    queryKey: ["completed_reschedule_requests", learnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reschedule_requests")
+        .select("id, status, lesson_ids, created_at, updated_at")
+        .eq("learner_id", learnerId!)
+        .eq("type", "reschedule")
+        .eq("status", "completed")
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!learnerId,
+  });
+}
