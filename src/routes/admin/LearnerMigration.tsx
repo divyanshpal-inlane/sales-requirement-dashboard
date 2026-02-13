@@ -1900,9 +1900,14 @@ function MigrationFormContent() {
                               slot.value,
                             );
                             const hour = parseInt(slot.value.slice(0, 2));
+                            const minutes = slot.value.slice(3, 5);
                             const ampm = hour < 12 ? "am" : "pm";
                             const displayHour =
                               hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                            const displayTime =
+                              minutes === "30"
+                                ? `${displayHour}:30${ampm}`
+                                : `${displayHour}${ampm}`;
 
                             return (
                               <button
@@ -1921,7 +1926,7 @@ function MigrationFormContent() {
                               >
                                 {isSelected
                                   ? `L${lessonNum}`
-                                  : `${displayHour}${ampm}`}
+                                  : displayTime}
                               </button>
                             );
                           })}
