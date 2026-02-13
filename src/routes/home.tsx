@@ -14,6 +14,7 @@ import {
   ArrowRight,
   BookOpen,
   Clock,
+  Lock,
   Scroll,
   Star,
   ThumbsUp,
@@ -288,6 +289,104 @@ export default function Home() {
     scheduleRequests.some(
       (request) => request.lesson_id === LessonData.upcomingLesson.id,
     );
+
+  // Course progress calculations
+  const totalCourseLessons = enrolledCourse?.Courses?.total_lessons || 10;
+  const completedLessonsCount =
+    scheduledLessons?.filter(
+      (lesson) => lesson.status?.toUpperCase() === "COMPLETED",
+    ).length || 0;
+  const scheduledLessonsCount = scheduledLessons?.length || 0;
+
+  // Check if lesson 10 is locked (no DL for 10-lesson course)
+  const isLesson10LockedForDL =
+    totalCourseLessons === 10 &&
+    learner?.has_a_DL === false &&
+    scheduledLessonsCount === 9;
+
+  // For half payment, calculate accessible lessons
+  const accessibleLessonsCount =
+    enrolledCourse?.payment_status === "half_paid"
+      ? maxNumLessonsOnHalfInstallment + numWaiveredLessonUnlocked
+      : totalCourseLessons;
+
+  // Render course progress card
+  const renderCourseProgressCard = () => {
+    // Don't show for demo/custom courses without proper course data
+    if (
+      enrolledCourse?.progress?.type === "demo" ||
+      enrolledCourse?.progress?.type === "custom" ||
+      !enrolledCourse?.course_id
+    ) {
+      return null;
+    }
+
+    // Don't show if no scheduled lessons yet
+    if (!scheduledLessons || scheduledLessons.length === 0) {
+      return null;
+    }
+
+    const progressPercentage = Math.round(
+      (completedLessonsCount / totalCourseLessons) * 100,
+    );
+
+    return (
+      <Card className="mb-4 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="font-medium">Course Progress</span>
+            </div>
+            <span className="text-sm text-muted-foreground">
+              {completedLessonsCount} of {totalCourseLessons} lessons
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+
+          {/* Status indicators */}
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
+              {completedLessonsCount} Completed
+            </span>
+            <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
+              {scheduledLessonsCount - completedLessonsCount} Scheduled
+            </span>
+
+            {/* Half payment indicator */}
+            {enrolledCourse?.payment_status === "half_paid" && (
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                <Lock className="h-3 w-3" />
+                {totalCourseLessons - accessibleLessonsCount} Locked (Payment)
+              </span>
+            )}
+
+            {/* Lesson 10 locked indicator */}
+            {isLesson10LockedForDL && (
+              <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
+                <Lock className="h-3 w-3" />
+                Lesson 10 (Pending DL)
+              </span>
+            )}
+          </div>
+
+          {/* Lesson 10 explanation for no DL */}
+          {isLesson10LockedForDL && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Lesson 10 will be scheduled after your DL test date is confirmed.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderLesson1ScheduleState = () => (
     <div className="flex flex-col items-center gap-6 p-4">
@@ -821,6 +920,9 @@ export default function Home() {
         className="scrollbar-none flex h-[calc(100vh-50px)] flex-col overflow-y-auto p-4 pb-20"
         style={{ scrollbarWidth: "none" }}
       >
+        {/* Course Progress Card */}
+        {renderCourseProgressCard()}
+
         {allLessonsCompleted ? (
           renderCourseCompletionPage()
         ) : (

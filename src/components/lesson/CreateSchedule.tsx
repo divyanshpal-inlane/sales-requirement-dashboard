@@ -179,10 +179,11 @@ interface CreateScheduleProps {
   learnerArea: string;
   request: SchedulingRequests[number];
   onScheduleCreate: (schedules: Schedule[], courseId: string) => void;
-  learnerDetails: {
+  learnerDetails?: {
     address_lat: number;
     address_lng: number;
-  };
+    has_a_DL?: boolean | null;
+  } | null;
 }
 
 export default function CreateScheduleWithInstructor({
@@ -1522,12 +1523,15 @@ function CreateSchedule({
   instructorsWithDistance,
   defaultInstructorSchedule,
   unavailabilityDataChecker,
+  learnerDetails,
 }: CreateScheduleProps & {
   defaultInstructorId: string | null;
   currentRangeStart: Date;
   onDateChange: (date: Date) => void;
   instructorsWithDistance: InstructorWithDistance[];
   defaultInstructorSchedule?: Schedule[] | null;
+  unavailabilityDataChecker?: any;
+  learnerDetails?: CreateScheduleProps["learnerDetails"];
 }) {
   const { data: preferences } = usePreferences(learnerId);
   const [startDate, setStartDate] = useState(currentRangeStart);
@@ -1715,9 +1719,21 @@ function CreateSchedule({
   // For "new" schedule requests, use the deduplicated course lesson count
   // (request.lesson_ids may be inflated due to duplicate lesson records from old migrations)
   // For reschedule/lesson10 requests, lesson_ids come from actual schedules so they're correct
+  const totalCourseHours = allLessons?.length ?? request.lesson_ids.length;
+
+  // Check if this is a 10-lesson course where learner doesn't have DL
+  // In this case, lesson 10 should be locked and scheduled separately later
+  const isLesson10Locked =
+    request.type === "new" &&
+    totalCourseHours === 10 &&
+    learnerDetails?.has_a_DL === false;
+
+  // Required lessons to schedule now (9 if lesson 10 is locked, otherwise all)
   const requiredLessonCount =
     request.type === "new"
-      ? (allLessons?.length ?? request.lesson_ids.length)
+      ? isLesson10Locked
+        ? 9 // Only schedule 9 lessons if learner doesn't have DL
+        : totalCourseHours
       : request.lesson_ids.length;
 
   const minLessonNumber =
@@ -3759,10 +3775,35 @@ function CreateSchedule({
           <div className="text-sm text-gray-500"></div>
         </div>
       </div>
+      {/* Lesson 10 Locked Banner */}
+      {isLesson10Locked && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-start gap-2">
+            <span className="text-lg">🔒</span>
+            <div>
+              <p className="font-medium text-amber-800">
+                Lesson 10 is locked - Learner doesn&apos;t have DL
+              </p>
+              <p className="text-sm text-amber-700">
+                Schedule 9 lessons now. Lesson 10 will be scheduled separately
+                after the learner&apos;s DL test date is confirmed (via &quot;10th
+                Lesson Requests&quot; tab).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
-        <div className="text-md flex text-gray-500">
-          Selected: {selectedSlots.length / 2} of {requiredLessonCount}{" "}
-          hours
+        <div className="text-md flex flex-col text-gray-500">
+          <span>
+            Selected: {selectedSlots.length / 2} of {requiredLessonCount} hours
+            {isLesson10Locked && (
+              <span className="ml-2 text-sm text-amber-600">
+                (Course: {totalCourseHours} hrs, Lesson 10 locked)
+              </span>
+            )}
+          </span>
         </div>
         <Button
           onClick={async () => {
@@ -3770,8 +3811,7 @@ function CreateSchedule({
             window.location.reload();
           }}
           disabled={
-            selectedSlots.length / 2 !== requiredLessonCount ||
-            isSendingInvites
+            selectedSlots.length / 2 !== requiredLessonCount || isSendingInvites
           }
           className="whitespace-nowrap"
         >

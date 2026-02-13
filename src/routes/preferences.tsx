@@ -58,14 +58,13 @@ function Preferences() {
     }
   } else if (lessons) {
     // Regular course with lessons
+    // Always pass ALL lesson IDs for new schedules - lesson 10 locking is handled in admin CreateSchedule
     lessonsToSchedule =
-      type === "new" && learner?.has_a_DL
-        ? lessons.map((l) => l.id)
-        : type === "new"
-          ? lessons.slice(0, 9).map((l) => l.id)
-          : type === "lesson10"
-            ? lessons.slice(9, 10).map((l) => l.id)
-            : lessons.map((l) => l.id);
+      type === "new"
+        ? lessons.map((l) => l.id) // Always include all lessons (including lesson 10)
+        : type === "lesson10"
+          ? lessons.slice(9, 10).map((l) => l.id)
+          : lessons.map((l) => l.id);
   }
 
   if (enrolledCourseLoading || lessonsLoading || enrollmentLoading) {
