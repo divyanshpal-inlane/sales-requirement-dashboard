@@ -91,6 +91,7 @@ const LearnerLLDetails = () => {
   const [selectedLearnerForDialog, setSelectedLearnerForDialog] =
     useState<LearnerInfo | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [learnerSearchTerm, setLearnerSearchTerm] = useState("");
   const [llNumberDialogOpen, setLLNumberDialogOpen] = useState(false);
   const [llNumber, setLLNumber] = useState("");
   const [LearnerId, setLearnerId] = useState("");
@@ -168,6 +169,16 @@ const LearnerLLDetails = () => {
       learner.name?.toLowerCase().includes(searchLower) ||
       learner.phone?.toLowerCase().includes(searchLower) ||
       learner.LL_application_id?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Filter main learners list based on search term
+  const filteredLearners = learners?.filter((learner) => {
+    if (!learnerSearchTerm) return true;
+    const searchLower = learnerSearchTerm.toLowerCase();
+    return (
+      learner.name?.toLowerCase().includes(searchLower) ||
+      learner.phone?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -399,19 +410,33 @@ const LearnerLLDetails = () => {
             <CardTitle className="text-lg font-semibold text-gray-800">
               Select Learner
             </CardTitle>
+            <div className="mt-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+                <Input
+                  type="text"
+                  value={learnerSearchTerm}
+                  onChange={(e) => setLearnerSearchTerm(e.target.value)}
+                  placeholder="Search by name or phone..."
+                  className="rounded-lg border-2 border-gray-200 py-2 pl-10 pr-4 transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[600px] overflow-y-auto">
-              {learners?.length === 0 ? (
+              {filteredLearners?.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">
-                  <div className="text-lg font-medium">No pending learners</div>
+                  <div className="text-lg font-medium">
+                    {learnerSearchTerm ? "No matching learners" : "No pending learners"}
+                  </div>
                   <div className="text-sm">
-                    All learners have been processed
+                    {learnerSearchTerm ? "Try a different search term" : "All learners have been processed"}
                   </div>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {learners?.map((learner) => (
+                  {filteredLearners?.map((learner) => (
                     <div
                       key={learner.id}
                       className={`cursor-pointer p-4 transition-all duration-200 hover:bg-gray-50 ${

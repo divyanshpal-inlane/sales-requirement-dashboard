@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { format, isSameDay, startOfDay, subDays } from "date-fns";
-import { ChevronRight, Lock } from "lucide-react";
+import { BookOpen, ChevronRight, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -203,8 +203,79 @@ export default function Schedule() {
     ? COURSES_DATA[enrollment.course_id].lessonsData
     : undefined;
   const courseLessons = enrollment?.Courses?.Lesson || [];
+
+  // Course progress calculations
+  const totalCourseLessons = enrollment?.Courses?.total_lessons || 10;
+  const completedLessonsCount =
+    scheduledLessons?.filter(
+      (lesson) => lesson.status?.toUpperCase() === "COMPLETED",
+    ).length || 0;
+  const scheduledLessonsCount = scheduledLessons?.length || 0;
+
+  // Check if lesson 10 is locked (no DL for 10-lesson course)
+  const isLesson10LockedForDL =
+    totalCourseLessons === 10 &&
+    learner?.has_a_DL === false &&
+    scheduledLessonsCount === 9;
+
+  // Progress percentage
+  const progressPercentage = totalCourseLessons > 0
+    ? Math.round((completedLessonsCount / totalCourseLessons) * 100)
+    : 0;
+
   return (
-    <div className="flex h-full w-full p-6 pb-20">
+    <div className="flex h-full w-full flex-col gap-4 p-6 pb-20">
+      {/* Course Progress Card */}
+      {scheduledLessons && scheduledLessons.length > 0 && enrollment?.course_id && (
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <span className="font-medium">Course Progress</span>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {completedLessonsCount} of {totalCourseLessons} lessons
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+
+            {/* Status indicators */}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
+                {completedLessonsCount} Completed
+              </span>
+              <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
+                {scheduledLessonsCount - completedLessonsCount} Scheduled
+              </span>
+
+              {/* Half payment indicator */}
+              {enrollment?.payment_status === "half_paid" && (
+                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                  <Lock className="h-3 w-3" />
+                  Payment Pending
+                </span>
+              )}
+
+              {/* Lesson 10 locked indicator */}
+              {isLesson10LockedForDL && (
+                <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
+                  <Lock className="h-3 w-3" />
+                  Lesson 10 (Pending DL)
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
         <TabsList className="w-full">
           <TabsTrigger value="calendar" className="w-full">
