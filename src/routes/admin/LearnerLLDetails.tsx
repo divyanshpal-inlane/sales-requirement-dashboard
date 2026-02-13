@@ -105,8 +105,9 @@ const LearnerLLDetails = () => {
         .from("Learner")
         .select("*, enrollment!inner(learner_id)") // Select all Learner columns with Enrollment info
         .eq("has_a_DL", false)
-        .neq("LL_application_approved", true)
-        .neq("LL_received", true)
+        // Use .or() to handle NULL values - in SQL, NULL != true returns NULL (not true)
+        .or("LL_application_approved.is.null,LL_application_approved.neq.true")
+        .or("LL_received.is.null,LL_received.neq.true")
         .eq("enrollment.status", "active"); // Only paid learners
       if (error) throw error;
       console.log("Learner LL paid", data);
