@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { format, isSameDay, startOfDay, subDays } from "date-fns";
-import { BookOpen, ChevronRight, Lock } from "lucide-react";
+import { BookOpen, ChevronRight, Lock, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -21,7 +21,10 @@ import {
   useLearnerEnrollment,
   useLearnerSchedule,
 } from "@/queries/learner";
-import { useRescheduleLearnerLessonRequests } from "@/queries/schedule-requests";
+import {
+  useCompletedRescheduleRequests,
+  useRescheduleLearnerLessonRequests,
+} from "@/queries/schedule-requests";
 
 type CustomDayProps = {
   date: Date;
@@ -61,6 +64,9 @@ export default function Schedule() {
   });
   const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useRescheduleLearnerLessonRequests(learner?.id);
+  const { data: completedReschedules } = useCompletedRescheduleRequests(
+    learner?.id,
+  );
 
   useEffect(() => {
     if (scheduledLessons) {
@@ -219,62 +225,114 @@ export default function Schedule() {
     scheduledLessonsCount === 9;
 
   // Progress percentage
-  const progressPercentage = totalCourseLessons > 0
-    ? Math.round((completedLessonsCount / totalCourseLessons) * 100)
-    : 0;
+  const progressPercentage =
+    totalCourseLessons > 0
+      ? Math.round((completedLessonsCount / totalCourseLessons) * 100)
+      : 0;
 
   return (
     <div className="flex h-full w-full flex-col gap-4 p-6 pb-20">
       {/* Course Progress Card */}
-      {scheduledLessons && scheduledLessons.length > 0 && enrollment?.course_id && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                <span className="font-medium">Course Progress</span>
+      {scheduledLessons &&
+        scheduledLessons.length > 0 &&
+        enrollment?.course_id && (
+          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <span className="font-medium">Course Progress</span>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {completedLessonsCount} of {totalCourseLessons} lessons
+                </span>
               </div>
-              <span className="text-sm text-muted-foreground">
-                {completedLessonsCount} of {totalCourseLessons} lessons
-              </span>
-            </div>
 
-            {/* Progress bar */}
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
 
-            {/* Status indicators */}
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
-                {completedLessonsCount} Completed
-              </span>
-              <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
-                {scheduledLessonsCount - completedLessonsCount} Scheduled
-              </span>
-
-              {/* Half payment indicator */}
-              {enrollment?.payment_status === "half_paid" && (
-                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700">
-                  <Lock className="h-3 w-3" />
-                  Payment Pending
+              {/* Status indicators */}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
+                  {completedLessonsCount} Completed
                 </span>
-              )}
-
-              {/* Lesson 10 locked indicator */}
-              {isLesson10LockedForDL && (
-                <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
-                  <Lock className="h-3 w-3" />
-                  Lesson 10 (Pending DL)
+                <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
+                  {scheduledLessonsCount - completedLessonsCount} Scheduled
                 </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
+                {/* Rescheduled indicator with popover */}
+                {completedReschedules && completedReschedules.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="flex cursor-pointer items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-purple-700 transition-colors hover:bg-purple-200">
+                        <RefreshCw className="h-3 w-3" />
+                        {completedReschedules.length} Rescheduled
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3">
+                      <h4 className="mb-2 font-semibold text-gray-700">
+                        Reschedule History
+                      </h4>
+                      <div className="max-h-48 space-y-2 overflow-y-auto">
+                        {completedReschedules.map((reschedule) => {
+                          const lessonNumbers = reschedule.lesson_ids
+                            .map((id) => {
+                              const lesson = scheduledLessons?.find(
+                                (l) => l.lessonId === id,
+                              );
+                              return lesson?.lesson?.number;
+                            })
+                            .filter(Boolean);
+
+                          return (
+                            <div
+                              key={reschedule.id}
+                              className="rounded-md border border-gray-100 bg-gray-50 p-2 text-sm"
+                            >
+                              <div className="font-medium text-purple-700">
+                                Lesson{lessonNumbers.length > 1 ? "s" : ""}{" "}
+                                {lessonNumbers.join(", ") || "N/A"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {reschedule.updated_at
+                                  ? format(
+                                      new Date(reschedule.updated_at),
+                                      "MMM d, yyyy",
+                                    )
+                                  : "Date unknown"}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* Half payment indicator */}
+                {enrollment?.payment_status === "half_paid" && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                    <Lock className="h-3 w-3" />
+                    Payment Pending
+                  </span>
+                )}
+
+                {/* Lesson 10 locked indicator */}
+                {isLesson10LockedForDL && (
+                  <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
+                    <Lock className="h-3 w-3" />
+                    Lesson 10 (Pending DL)
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       <Tabs defaultValue="calendar" className="flex h-full w-full flex-col">
         <TabsList className="w-full">

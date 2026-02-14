@@ -100,17 +100,23 @@ function detectIssues(
   }
 
   // Check enrollment status mismatch with payment
-  if (enrollment?.status === "pending" && payment?.status === "full_paid") {
+  // payment.status = "completed" means payment was successful
+  // enrollment.payment_status = "full_paid" or "half_paid" tracks installment status
+  if (
+    enrollment?.status === "pending" &&
+    (payment?.status === "completed" || payment?.status === "full_paid") &&
+    enrollment?.payment_status === "full_paid"
+  ) {
     issues.push({
       type: "enrollment",
       severity: "warning",
       title: "Enrollment Status Mismatch",
-      description: "Payment is full but enrollment still pending",
+      description: "Payment is complete but enrollment still pending",
       fix: "Update enrollment status to 'active'",
     });
   }
 
-  // Check for half_paid stuck
+  // Check for legacy half_paid stuck (for backward compatibility with old data)
   if (
     payment?.status === "half_paid" &&
     enrollment?.payment_status === "full_paid"
@@ -118,10 +124,10 @@ function detectIssues(
     issues.push({
       type: "payment",
       severity: "warning",
-      title: "Payment Status Mismatch",
+      title: "Payment Status Mismatch (Legacy)",
       description:
         "Enrollment shows full_paid but payment record shows half_paid",
-      fix: "Update payment status to 'full_paid'",
+      fix: "Update payment status to 'completed'",
     });
   }
 
@@ -1193,10 +1199,11 @@ function PaymentEditor({
 
   const [cashPaymentAmount, setCashPaymentAmount] = useState(0);
 
-  // Check payment status
-  const isFullyPaid = payment?.status === "full_paid";
-  const isHalfPaid = payment?.status === "half_paid";
-  const hasNoPayment = !payment;
+  // Check payment status from enrollment (source of truth for full/half paid)
+  // payment.status is "completed" for successful payments, enrollment.payment_status tracks full/half
+  const isFullyPaid = enrollment?.payment_status === "full_paid";
+  const isHalfPaid = enrollment?.payment_status === "half_paid";
+  const hasNoPayment = !payment || payment?.status === "pending";
 
   // Handle cash payment - updates both payment and enrollment
   const handleCashPayment = async (
@@ -1211,10 +1218,12 @@ function PaymentEditor({
 
       if (payment) {
         // Update existing payment
+        // Use "completed" status to match automatic payment flow (Razorpay/ICICI)
+        // The enrollment.payment_status tracks full_paid vs half_paid for installments
         await updatePaymentMutation.mutateAsync({
           id: payment.id,
           updates: {
-            status: isFullPayment ? "full_paid" : "half_paid",
+            status: "completed",
             amount:
               paymentType === "remaining"
                 ? payment.amount + cashPaymentAmount
@@ -1226,10 +1235,11 @@ function PaymentEditor({
         });
       } else {
         // Create new payment record
+        // Use "completed" status to match automatic payment flow (Razorpay/ICICI)
         await createPaymentMutation.mutateAsync({
           learner_id: learnerId,
           amount: cashPaymentAmount,
-          status: isFullPayment ? "full_paid" : "half_paid",
+          status: "completed",
           payment_type: "course",
           gateway_reference: `CASH-${Date.now()}`,
         });

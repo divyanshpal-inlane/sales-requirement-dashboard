@@ -81,7 +81,8 @@ export function useSchedulingRequests() {
       const { data: learners, error: learnersError } = await supabase
         .from("reschedule_requests")
         .select("*, Learner(*)")
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
       if (learnersError) throw learnersError;
       if (!learners) return [];

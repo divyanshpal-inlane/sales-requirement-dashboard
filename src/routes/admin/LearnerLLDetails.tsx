@@ -428,10 +428,14 @@ const LearnerLLDetails = () => {
               {filteredLearners?.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">
                   <div className="text-lg font-medium">
-                    {learnerSearchTerm ? "No matching learners" : "No pending learners"}
+                    {learnerSearchTerm
+                      ? "No matching learners"
+                      : "No pending learners"}
                   </div>
                   <div className="text-sm">
-                    {learnerSearchTerm ? "Try a different search term" : "All learners have been processed"}
+                    {learnerSearchTerm
+                      ? "Try a different search term"
+                      : "All learners have been processed"}
                   </div>
                 </div>
               ) : (
