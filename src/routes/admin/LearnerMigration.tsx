@@ -1904,7 +1904,6 @@ function MigrationFormContent() {
                             const ampm = hour < 12 ? "am" : "pm";
                             const displayHour =
                               hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                            // Show :30 for half-hour slots to clearly indicate 30-min flexibility
                             const displayTime =
                               minutes === "30"
                                 ? `${displayHour}:30${ampm}`
@@ -1925,7 +1924,9 @@ function MigrationFormContent() {
                                       : "cursor-pointer hover:bg-primary/20"
                                 }`}
                               >
-                                {isSelected ? `L${lessonNum}` : displayTime}
+                                {isSelected
+                                  ? `L${lessonNum}`
+                                  : displayTime}
                               </button>
                             );
                           })}
