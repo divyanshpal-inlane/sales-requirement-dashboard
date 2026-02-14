@@ -10,11 +10,13 @@ import {
   set,
   subDays,
 } from "date-fns";
+import { format } from "date-fns";
 import {
   ArrowRight,
   BookOpen,
   Clock,
   Lock,
+  RefreshCw,
   Scroll,
   Star,
   ThumbsUp,
@@ -40,6 +42,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -58,6 +65,7 @@ import {
 } from "@/queries/learner";
 import { usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
+import { useCompletedRescheduleRequests } from "@/queries/schedule-requests";
 
 const isWithin30MinutesOfLesson = (
   scheduleDate: string,
@@ -101,6 +109,9 @@ export default function Home() {
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
   });
+  const { data: completedReschedules } = useCompletedRescheduleRequests(
+    learner?.id,
+  );
   const {
     mutateAsync: updateScheduleStatusAsync,
     isPending: isUpdateScheduleLoading,
@@ -359,6 +370,55 @@ export default function Home() {
             <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
               {scheduledLessonsCount - completedLessonsCount} Scheduled
             </span>
+
+            {/* Rescheduled indicator with popover */}
+            {completedReschedules && completedReschedules.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex cursor-pointer items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-purple-700 transition-colors hover:bg-purple-200">
+                    <RefreshCw className="h-3 w-3" />
+                    {completedReschedules.length} Rescheduled
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3">
+                  <h4 className="mb-2 font-semibold text-gray-700">
+                    Reschedule History
+                  </h4>
+                  <div className="max-h-48 space-y-2 overflow-y-auto">
+                    {completedReschedules.map((reschedule) => {
+                      const lessonNumbers = reschedule.lesson_ids
+                        .map((id) => {
+                          const lesson = scheduledLessons?.find(
+                            (l) => l.lessonId === id,
+                          );
+                          return lesson?.lesson?.number;
+                        })
+                        .filter(Boolean);
+
+                      return (
+                        <div
+                          key={reschedule.id}
+                          className="rounded-md border border-gray-100 bg-gray-50 p-2 text-sm"
+                        >
+                          <div className="font-medium text-purple-700">
+                            Lesson{lessonNumbers.length > 1 ? "s" : ""}{" "}
+                            {lessonNumbers.join(", ") || "N/A"}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {reschedule.updated_at
+                              ? format(
+                                  new Date(reschedule.updated_at),
+                                  "MMM d, yyyy",
+                                )
+                              : "Date unknown"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
 
             {/* Half payment indicator */}
             {enrolledCourse?.payment_status === "half_paid" && (
@@ -1009,13 +1069,20 @@ export default function Home() {
                         </p>
 
                         {/* Confirmation Dialog for "Don't have an LL" */}
-                        <Dialog open={showNoLLConfirmDialog} onOpenChange={setShowNoLLConfirmDialog}>
+                        <Dialog
+                          open={showNoLLConfirmDialog}
+                          onOpenChange={setShowNoLLConfirmDialog}
+                        >
                           <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
-                              <DialogTitle>Go Back to LL Application</DialogTitle>
+                              <DialogTitle>
+                                Go Back to LL Application
+                              </DialogTitle>
                               <DialogDescription>
-                                Are you sure you don&apos;t have a Learner&apos;s License (LL)?
-                                By confirming, you will be redirected to the LL application process.
+                                Are you sure you don&apos;t have a
+                                Learner&apos;s License (LL)? By confirming, you
+                                will be redirected to the LL application
+                                process.
                               </DialogDescription>
                             </DialogHeader>
                             <DialogFooter className="flex gap-2 sm:gap-0">

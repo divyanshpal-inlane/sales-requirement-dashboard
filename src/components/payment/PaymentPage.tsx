@@ -15,6 +15,7 @@ import {
 import { DEMO_COURSE, SKILL_MODULES } from "@/constants/courses";
 import { supabase } from "@/lib/supabaseClient";
 import { useCourses } from "@/queries/payment";
+
 import {
   GatewaySelectionDialog,
   PaymentGateway,
@@ -63,8 +64,9 @@ function PaymentPage() {
 
   // Gateway selection state
   const [showGatewayDialog, setShowGatewayDialog] = useState(false);
-  const [selectedGateway, setSelectedGateway] =
-    useState<PaymentGateway | null>(null);
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(
+    null,
+  );
   const [showRazorpayCheckout, setShowRazorpayCheckout] = useState(false);
 
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
@@ -452,8 +454,7 @@ function PaymentPage() {
       finalAmount = 10;
       finalInstallmentType = "full";
     } else if (paymentDetails.installmentType !== "second_half") {
-      finalAmount =
-        paymentOption === "full" ? totalAmount : installment1Amount;
+      finalAmount = paymentOption === "full" ? totalAmount : installment1Amount;
       finalInstallmentType = paymentOption === "full" ? "full" : "first_half";
     }
 
