@@ -1202,16 +1202,8 @@ export const LearnerSchedulesManager = ({
 
       if (updateError) throw updateError;
 
-      // 2. Get the course_id from the schedule to fetch all related schedules
-      const { data: scheduleData, error: fetchScheduleError } = await supabase
-        .from("Schedule")
-        .select("course_id")
-        .eq("id", selectedSchedule.id)
-        .single();
-
-      if (fetchScheduleError) throw fetchScheduleError;
-
-      const courseId = scheduleData?.course_id;
+      // 2. Get course_id from the already-fetched oldScheduleData (no extra query needed)
+      const courseId = oldScheduleData?.course_id;
 
       if (courseId) {
         // 3. Fetch all schedules for this learner+course with Lesson data
@@ -1240,122 +1232,132 @@ export const LearnerSchedulesManager = ({
             number: index + 1,
           }));
 
-        // 6. Bulk update lessons with new numbers
+        // 6. Bulk update lessons with new numbers (parallelized for performance)
         if (lessonUpdates.length > 0) {
-          for (const update of lessonUpdates) {
-            const { error: lessonError } = await supabase
+          const updatePromises = lessonUpdates.map((update) =>
+            supabase
               .from("Lesson")
               .update({ number: update.number })
-              .eq("id", update.id);
-
-            if (lessonError) {
-              console.error("Error updating lesson number:", lessonError);
+              .eq("id", update.id)
+          );
+          const results = await Promise.all(updatePromises);
+          results.forEach((result, index) => {
+            if (result.error) {
+              console.error(
+                `Error updating lesson ${lessonUpdates[index].id} number:`,
+                result.error
+              );
             }
-          }
+          });
         }
       }
 
-      // 7. Send calendar invites (cancellation for old + new for updated schedule)
-      if (learner.email && instructorEmail) {
-        try {
-          const pickupLocation =
-            learner.pick_up_location ||
-            (learner.address_lat && learner.address_lng
-              ? `${learner.address_lat},${learner.address_lng}`
-              : "To be confirmed");
+      // 7. Send calendar invites and notification in parallel for performance
+      const calendarInvitePromise = (async () => {
+        if (learner.email && instructorEmail) {
+          try {
+            const pickupLocation =
+              learner.pick_up_location ||
+              (learner.address_lat && learner.address_lng
+                ? `${learner.address_lat},${learner.address_lng}`
+                : "To be confirmed");
 
-          const events = [];
+            const events = [];
 
-          // Create cancellation event for old schedule (if we have a calendar_uid)
-          if (calendarUid) {
-            // Parse date string as local timezone (not UTC) to avoid off-by-one day issues
-            const [oldYear, oldMonth, oldDay] = oldDate.split("-").map(Number);
-            const [oldStartHour, oldStartMin] = oldStartTime
+            // Create cancellation event for old schedule (if we have a calendar_uid)
+            if (calendarUid) {
+              const oldStartDate = new Date(oldDate);
+              const [oldStartHour, oldStartMin] = oldStartTime
+                .split(":")
+                .map(Number);
+              oldStartDate.setHours(oldStartHour, oldStartMin, 0);
+
+              const oldEndDate = new Date(oldDate);
+              const [oldEndHour, oldEndMin] = oldEndTime.split(":").map(Number);
+              oldEndDate.setHours(oldEndHour, oldEndMin, 0);
+
+              events.push({
+                startTime: oldStartDate,
+                endTime: oldEndDate,
+                lessonNumber: lessonNumber,
+                pickupLocation: pickupLocation,
+                uid: calendarUid,
+                sequence: newSequence,
+                isCancellation: true,
+                instructorName: instructorName,
+                instructorPhone: instructorPhone,
+                instructorEmail: instructorEmail,
+                instructorId: instructorId,
+              });
+            }
+
+            // Create new event for the updated schedule
+            const newStartDate = new Date(selectedSchedule.date);
+            const [newStartHour, newStartMin] = selectedSchedule.start_time
               .split(":")
               .map(Number);
-            const oldStartDate = new Date(oldYear, oldMonth - 1, oldDay, oldStartHour, oldStartMin, 0);
+            newStartDate.setHours(newStartHour, newStartMin, 0);
 
-            const [oldEndHour, oldEndMin] = oldEndTime.split(":").map(Number);
-            const oldEndDate = new Date(oldYear, oldMonth - 1, oldDay, oldEndHour, oldEndMin, 0);
+            const newEndDate = new Date(selectedSchedule.date);
+            const [newEndHour, newEndMin] = selectedSchedule.end_time
+              .split(":")
+              .map(Number);
+            newEndDate.setHours(newEndHour, newEndMin, 0);
 
             events.push({
-              startTime: oldStartDate,
-              endTime: oldEndDate,
+              startTime: newStartDate,
+              endTime: newEndDate,
               lessonNumber: lessonNumber,
               pickupLocation: pickupLocation,
-              uid: calendarUid,
+              uid: calendarUid || undefined, // Reuse UID if exists, otherwise generate new
               sequence: newSequence,
-              isCancellation: true,
+              isCancellation: false,
               instructorName: instructorName,
               instructorPhone: instructorPhone,
               instructorEmail: instructorEmail,
               instructorId: instructorId,
             });
+
+            // Send calendar invites
+            const uidMap = await sendMultiEventCalendarInvite(
+              learner.email,
+              instructorEmail,
+              events,
+              instructorName,
+              learner.name || "Student",
+              learner.phone || "",
+              "reschedule",
+              learner.id,
+            );
+
+            // Update the schedule with the new calendar_uid if one was generated
+            if (uidMap && uidMap[lessonNumber] && !calendarUid) {
+              await supabase
+                .from("Schedule")
+                .update({ calendar_uid: uidMap[lessonNumber] })
+                .eq("id", selectedSchedule.id);
+            }
+
+            console.log("Calendar invites sent successfully for reschedule");
+          } catch (calendarError) {
+            console.error("Error sending calendar invites:", calendarError);
+            // Don't fail the entire operation if calendar invites fail
           }
-
-          // Create new event for the updated schedule
-          // Parse date string as local timezone (not UTC) to avoid off-by-one day issues
-          const [year, month, day] = selectedSchedule.date.split("-").map(Number);
-          const [newStartHour, newStartMin] = selectedSchedule.start_time
-            .split(":")
-            .map(Number);
-          const newStartDate = new Date(year, month - 1, day, newStartHour, newStartMin, 0);
-
-          const [newEndHour, newEndMin] = selectedSchedule.end_time
-            .split(":")
-            .map(Number);
-          const newEndDate = new Date(year, month - 1, day, newEndHour, newEndMin, 0);
-
-          events.push({
-            startTime: newStartDate,
-            endTime: newEndDate,
-            lessonNumber: lessonNumber,
-            pickupLocation: pickupLocation,
-            uid: calendarUid || undefined, // Reuse UID if exists, otherwise generate new
-            sequence: newSequence,
-            isCancellation: false,
-            instructorName: instructorName,
-            instructorPhone: instructorPhone,
-            instructorEmail: instructorEmail,
-            instructorId: instructorId,
-          });
-
-          // Send calendar invites
-          const uidMap = await sendMultiEventCalendarInvite(
-            learner.email,
-            instructorEmail,
-            events,
-            instructorName,
-            learner.name || "Student",
-            learner.phone || "",
-            "reschedule",
-            learner.id,
-          );
-
-          // Update the schedule with the new calendar_uid if one was generated
-          if (uidMap && uidMap[lessonNumber] && !calendarUid) {
-            await supabase
-              .from("Schedule")
-              .update({ calendar_uid: uidMap[lessonNumber] })
-              .eq("id", selectedSchedule.id);
-          }
-
-          console.log("Calendar invites sent successfully for reschedule");
-        } catch (calendarError) {
-          console.error("Error sending calendar invites:", calendarError);
-          // Don't fail the entire operation if calendar invites fail
+        } else {
+          console.warn("Missing email addresses, skipping calendar invites");
         }
-      } else {
-        console.warn("Missing email addresses, skipping calendar invites");
-      }
+      })();
 
       // 8. Send notification to customer about reschedule
-      await supabase.functions.invoke("send-message", {
+      const notificationPromise = supabase.functions.invoke("send-message", {
         body: {
           message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
           learner_id: learner.id,
         },
       });
+
+      // Wait for both calendar and notification to complete
+      await Promise.all([calendarInvitePromise, notificationPromise]);
 
       setIsRescheduleModalOpen(false);
       await syncData();
