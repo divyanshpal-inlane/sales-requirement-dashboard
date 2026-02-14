@@ -15,6 +15,11 @@ import {
 import { DEMO_COURSE, SKILL_MODULES } from "@/constants/courses";
 import { supabase } from "@/lib/supabaseClient";
 import { useCourses } from "@/queries/payment";
+import {
+  GatewaySelectionDialog,
+  PaymentGateway,
+} from "./GatewaySelectionDialog";
+import { RazorpayCheckout } from "./RazorpayCheckout";
 
 type CourseSelectionType = "predefined" | "custom" | "demo" | "test";
 
@@ -55,6 +60,12 @@ function PaymentPage() {
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [hasCompletedDemo, setHasCompletedDemo] = useState(false);
   const [demoPaymentId, setDemoPaymentId] = useState<string | null>(null);
+
+  // Gateway selection state
+  const [showGatewayDialog, setShowGatewayDialog] = useState(false);
+  const [selectedGateway, setSelectedGateway] =
+    useState<PaymentGateway | null>(null);
+  const [showRazorpayCheckout, setShowRazorpayCheckout] = useState(false);
 
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
     amount: 0,
@@ -423,64 +434,82 @@ function PaymentPage() {
     }));
   };
 
+  // Get prepared payment data for both gateways
+  const getPreparedPaymentData = () => {
+    const totalAmount = paymentDetails.totalAmount || paymentDetails.amount;
+    const installment1Amount =
+      paymentDetails.installment1Amount || roundPrice(totalAmount / 2);
+    const installment2Amount =
+      paymentDetails.installment2Amount || totalAmount - installment1Amount;
+
+    let finalAmount = paymentDetails.amount;
+    let finalInstallmentType = paymentDetails.installmentType;
+
+    if (courseSelectionType === "demo") {
+      finalAmount = DEMO_COURSE.price;
+      finalInstallmentType = "full";
+    } else if (courseSelectionType === "test") {
+      finalAmount = 10;
+      finalInstallmentType = "full";
+    } else if (paymentDetails.installmentType !== "second_half") {
+      finalAmount =
+        paymentOption === "full" ? totalAmount : installment1Amount;
+      finalInstallmentType = paymentOption === "full" ? "full" : "first_half";
+    }
+
+    return {
+      ...paymentDetails,
+      amount: finalAmount,
+      installmentType: finalInstallmentType,
+      ...(paymentDetails.enrollmentId
+        ? { enrollmentId: paymentDetails.enrollmentId }
+        : {}),
+      installment1Amount: installment1Amount,
+      installment2Amount: installment2Amount,
+      selectedModules:
+        courseSelectionType === "custom" ? selectedModules : undefined,
+      totalHours:
+        courseSelectionType === "custom"
+          ? paymentDetails.totalHours
+          : undefined,
+      isDemoUpgrade: hasCompletedDemo && courseSelectionType !== "demo",
+      demoPaymentId:
+        hasCompletedDemo && courseSelectionType !== "demo"
+          ? demoPaymentId
+          : undefined,
+      courseSelectionType: courseSelectionType,
+    };
+  };
+
+  // Handle form submission - show gateway selection dialog
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowGatewayDialog(true);
+  };
+
+  // Handle gateway selection
+  const handleGatewaySelect = async (gateway: PaymentGateway) => {
+    setShowGatewayDialog(false);
+    setSelectedGateway(gateway);
+
+    if (gateway === "razorpay") {
+      // Show Razorpay checkout component
+      setShowRazorpayCheckout(true);
+    } else {
+      // Process ICICI payment (existing flow - unchanged)
+      await processICICIPayment();
+    }
+  };
+
+  // ICICI payment flow (existing code - unchanged)
+  const processICICIPayment = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Calculate the correct amount based on current payment option
-      const totalAmount = paymentDetails.totalAmount || paymentDetails.amount;
-      const installment1Amount =
-        paymentDetails.installment1Amount || roundPrice(totalAmount / 2);
-      const installment2Amount =
-        paymentDetails.installment2Amount || totalAmount - installment1Amount;
+      const paymentData = getPreparedPaymentData();
 
-      // Determine the actual amount to charge based on payment option
-      let finalAmount = paymentDetails.amount;
-      let finalInstallmentType = paymentDetails.installmentType;
-
-      // For demo, always use the fixed demo price
-      if (courseSelectionType === "demo") {
-        finalAmount = DEMO_COURSE.price;
-        finalInstallmentType = "full";
-      } else if (courseSelectionType === "test") {
-        // For test, always use ₹10
-        finalAmount = 10;
-        finalInstallmentType = "full";
-      } else if (paymentDetails.installmentType !== "second_half") {
-        // For non-second-half payments, recalculate based on current paymentOption
-        finalAmount =
-          paymentOption === "full" ? totalAmount : installment1Amount;
-        finalInstallmentType = paymentOption === "full" ? "full" : "first_half";
-      }
-
-      // Include the enrollmentId and installment amounts in the payment details
-      const paymentData = {
-        ...paymentDetails,
-        amount: finalAmount,
-        installmentType: finalInstallmentType,
-        ...(paymentDetails.enrollmentId
-          ? { enrollmentId: paymentDetails.enrollmentId }
-          : {}),
-        installment1Amount: installment1Amount,
-        installment2Amount: installment2Amount,
-        // Include custom course data
-        selectedModules:
-          courseSelectionType === "custom" ? selectedModules : undefined,
-        totalHours:
-          courseSelectionType === "custom"
-            ? paymentDetails.totalHours
-            : undefined,
-        isDemoUpgrade: hasCompletedDemo && courseSelectionType !== "demo",
-        demoPaymentId:
-          hasCompletedDemo && courseSelectionType !== "demo"
-            ? demoPaymentId
-            : undefined,
-        courseSelectionType: courseSelectionType,
-      };
-
-      console.log("Sending payment data:", paymentData);
+      console.log("Sending payment data to ICICI:", paymentData);
 
       const { data, error } = await supabase.functions.invoke(
         "process-payment",
@@ -492,7 +521,6 @@ function PaymentPage() {
       if (error) {
         console.error("Payment error:", error);
 
-        // Check if the error is related to missing columns
         if (error.message && error.message.includes("column")) {
           setError(
             `Database error: ${error.message}. Please run the SQL migration to add the required columns.`,
@@ -555,6 +583,12 @@ function PaymentPage() {
       );
       setIsLoading(false);
     }
+  };
+
+  // Handle Razorpay checkout cancel
+  const handleRazorpayCancel = () => {
+    setShowRazorpayCheckout(false);
+    setSelectedGateway(null);
   };
 
   const type =
@@ -1028,6 +1062,40 @@ function PaymentPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Gateway Selection Dialog */}
+      <GatewaySelectionDialog
+        open={showGatewayDialog}
+        onOpenChange={setShowGatewayDialog}
+        onSelectGateway={handleGatewaySelect}
+        amount={paymentDetails.amount}
+      />
+
+      {/* Razorpay Checkout */}
+      {showRazorpayCheckout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Processing Payment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RazorpayCheckout
+                paymentData={{
+                  ...getPreparedPaymentData(),
+                  paymentType:
+                    courseSelectionType === "demo" ||
+                    courseSelectionType === "test"
+                      ? "demo"
+                      : courseSelectionType === "custom"
+                        ? "custom"
+                        : "course",
+                }}
+                onCancel={handleRazorpayCancel}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
