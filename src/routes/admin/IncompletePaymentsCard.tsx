@@ -195,12 +195,13 @@ export function IncompletePaymentsCard() {
       return "Payment pending";
     } else if (
       enrollment.payment &&
-      !["full_paid", "half_paid"].includes(enrollment.payment.status)
+      !["full_paid", "half_paid", "completed"].includes(enrollment.payment.status)
     ) {
       return "Payment failed";
     }
 
-    // the enrollment status only contains full_paid, half_paid, etc.
+    // the enrollment.payment_status contains full_paid, half_paid, etc.
+    // payment.status = "completed" for successful payments
     return enrollment.payment_status;
   };
 
@@ -438,7 +439,8 @@ export function IncompletePaymentsCard() {
         }
       }
 
-      // 1. Make payment record with correct status (full_paid or half_paid)
+      // 1. Make payment record with "completed" status to match automatic payment flow
+      // The enrollment.payment_status tracks full_paid vs half_paid for installments
       const { data: paymentRecord, error: dbError } = await supabase
         .from("payment")
         .insert([
@@ -449,7 +451,7 @@ export function IncompletePaymentsCard() {
             email: paidInfoDialogData?.Learner?.email,
             phone: paidInfoDialogData?.Learner?.phone,
             payment_type: "course",
-            status: paymentStatus,
+            status: "completed",
             name: paidInfoDialogData?.Learner?.name,
             installment_type: installmentType,
             installment1_amount: paidInfoDialogData?.installment1_amount,

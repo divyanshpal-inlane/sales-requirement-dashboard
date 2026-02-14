@@ -1694,6 +1694,15 @@ function CreateSchedule({
       if (lesson1Error) throw lesson1Error;
       const courseId = lesson1.course_id;
       if (!courseId) throw new Error("Course ID not found");
+
+      // Fetch course to get total_lessons
+      const { data: course } = await supabase
+        .from("Courses")
+        .select("total_lessons")
+        .eq("id", courseId)
+        .single();
+      const courseTotalLessons = course?.total_lessons;
+
       const { data, error } = await supabase
         .from("Lesson")
         .select("*")
@@ -1704,11 +1713,14 @@ function CreateSchedule({
       // Deduplicate lessons by number - keep only the first record per lesson number
       // This handles cases where duplicate lesson records exist for the same course
       const seen = new Set<number>();
-      return (data ?? []).filter((lesson) => {
+      const deduped = (data ?? []).filter((lesson) => {
         if (seen.has(lesson.number)) return false;
         seen.add(lesson.number);
         return true;
       });
+
+      // Limit to course's total_lessons if available (handles extra lesson records in DB)
+      return courseTotalLessons ? deduped.slice(0, courseTotalLessons) : deduped;
     },
   });
 
@@ -3786,8 +3798,8 @@ function CreateSchedule({
               </p>
               <p className="text-sm text-amber-700">
                 Schedule 9 lessons now. Lesson 10 will be scheduled separately
-                after the learner&apos;s DL test date is confirmed (via &quot;10th
-                Lesson Requests&quot; tab).
+                after the learner&apos;s DL test date is confirmed (via
+                &quot;10th Lesson Requests&quot; tab).
               </p>
             </div>
           </div>

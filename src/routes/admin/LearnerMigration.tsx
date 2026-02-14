@@ -1900,9 +1900,15 @@ function MigrationFormContent() {
                               slot.value,
                             );
                             const hour = parseInt(slot.value.slice(0, 2));
+                            const minutes = slot.value.slice(3, 5);
                             const ampm = hour < 12 ? "am" : "pm";
                             const displayHour =
                               hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                            // Show :30 for half-hour slots to clearly indicate 30-min flexibility
+                            const displayTime =
+                              minutes === "30"
+                                ? `${displayHour}:30${ampm}`
+                                : `${displayHour}${ampm}`;
 
                             return (
                               <button
@@ -1919,9 +1925,7 @@ function MigrationFormContent() {
                                       : "cursor-pointer hover:bg-primary/20"
                                 }`}
                               >
-                                {isSelected
-                                  ? `L${lessonNum}`
-                                  : `${displayHour}${ampm}`}
+                                {isSelected ? `L${lessonNum}` : displayTime}
                               </button>
                             );
                           })}

@@ -525,10 +525,12 @@ export default function CustomerInfo() {
             ? Number(manualInstallment2)
             : 0;
 
+        // Use "completed" for payment.status to match automatic payment flow
+        // The enrollment.payment_status tracks full_paid vs half_paid for installments
         if (val1 > 0 && val2 > 0) {
           paymentStatus = "completed";
         } else if (val1 > 0) {
-          paymentStatus = "half_paid";
+          paymentStatus = "completed"; // Changed from "half_paid" - enrollment.payment_status tracks installments
         }
       }
 

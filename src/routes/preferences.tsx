@@ -28,6 +28,7 @@ function Preferences() {
     });
 
   const courseId = enrolledCourse?.[0]?.course_id;
+  const courseTotalLessons = enrolledCourse?.[0]?.Courses?.total_lessons;
   const isDemo = enrollment?.progress?.type === "demo";
   const isCustom = enrollment?.progress?.type === "custom";
 
@@ -58,13 +59,18 @@ function Preferences() {
     }
   } else if (lessons) {
     // Regular course with lessons
+    // Limit lessons to match course's total_lessons (handles cases where DB has extra lesson records)
+    const limitedLessons = courseTotalLessons
+      ? lessons.slice(0, courseTotalLessons)
+      : lessons;
+
     // Always pass ALL lesson IDs for new schedules - lesson 10 locking is handled in admin CreateSchedule
     lessonsToSchedule =
       type === "new"
-        ? lessons.map((l) => l.id) // Always include all lessons (including lesson 10)
+        ? limitedLessons.map((l) => l.id) // Always include all lessons (including lesson 10)
         : type === "lesson10"
-          ? lessons.slice(9, 10).map((l) => l.id)
-          : lessons.map((l) => l.id);
+          ? limitedLessons.slice(9, 10).map((l) => l.id)
+          : limitedLessons.map((l) => l.id);
   }
 
   if (enrolledCourseLoading || lessonsLoading || enrollmentLoading) {
