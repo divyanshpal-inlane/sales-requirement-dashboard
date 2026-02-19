@@ -4,6 +4,7 @@ import {
   Calendar,
   Car,
   Clock,
+  Edit2,
   Info,
   Mail,
   MapPin,
@@ -28,6 +29,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Schedule } from "@/queries/learner";
 import { TIME_SLOT_LABELS } from "@/types/schedule";
 
+import { LearnerEditData, LearnerEditDialog } from "./LearnerEditDialog";
 import { LearnerLLDisplay } from "./LLDisplay";
 
 export interface LearnerInfo {
@@ -37,6 +39,7 @@ export interface LearnerInfo {
   email: string;
   area: string;
   pincode?: string;
+  city?: string;
   signed_up?: string;
   created_at?: string;
   address_lat?: number;
@@ -45,9 +48,21 @@ export interface LearnerInfo {
   preferred_completion_days?: number;
   prefers_two_hour_classes?: boolean;
   preferred_two_hour_days?: string;
-  pick_up_location?: string; // Added pickup address field
+  two_hour_days?: string;
+  pick_up_location?: string;
   DL_test_date: string | null;
-  comments?: string; // Added comments field
+  DL_result?: boolean | null;
+  comments?: string;
+  dob?: string | null;
+  aadhar_state?: string | null;
+  has_a_DL?: boolean | null;
+  has_two_wheeler_license?: boolean | null;
+  address_change_required?: boolean | null;
+  LL_application_id?: string | null;
+  LL_test_date?: string | null;
+  LL_received?: boolean | null;
+  LL_received_date?: string | null;
+  is_LL_form_filled?: boolean | null;
 }
 
 interface SchedulePreference {
@@ -98,6 +113,9 @@ export const LearnerInfoDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [fullLearnerData, setFullLearnerData] =
+    useState<LearnerEditData | null>(null);
   const [comments, setComments] = useState("");
   const [isSavingComments, setIsSavingComments] = useState(false);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -128,6 +146,31 @@ export const LearnerInfoDialog = ({
 
     if (open) {
       fetchLatestComments();
+    }
+  }, [learner.id, open]);
+
+  // Fetch full learner data for editing
+  useEffect(() => {
+    const fetchFullLearnerData = async () => {
+      if (!learner.id || !open) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("Learner")
+          .select("*")
+          .eq("id", learner.id)
+          .single();
+
+        if (error) throw error;
+
+        setFullLearnerData(data as LearnerEditData);
+      } catch (error) {
+        console.error("Error fetching full learner data:", error);
+      }
+    };
+
+    if (open) {
+      fetchFullLearnerData();
     }
   }, [learner.id, open]);
 
@@ -502,9 +545,20 @@ export const LearnerInfoDialog = ({
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-4xl">
         <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle className="text-xl font-bold text-primary">
-            Customer Details
-          </DialogTitle>
+          <div className="flex items-center gap-3">
+            <DialogTitle className="text-xl font-bold text-primary">
+              Customer Details
+            </DialogTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEditDialog(true)}
+              disabled={!fullLearnerData}
+            >
+              <Edit2 className="mr-1 h-4 w-4" />
+              Edit
+            </Button>
+          </div>
           <DialogClose />
         </DialogHeader>
 
@@ -859,6 +913,28 @@ export const LearnerInfoDialog = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* Edit Dialog */}
+      {fullLearnerData && (
+        <LearnerEditDialog
+          learner={fullLearnerData}
+          open={showEditDialog}
+          onClose={() => setShowEditDialog(false)}
+          onSaved={() => {
+            // Refresh the data
+            setShowEditDialog(false);
+            // Re-fetch full learner data after save
+            supabase
+              .from("Learner")
+              .select("*")
+              .eq("id", learner.id)
+              .single()
+              .then(({ data }) => {
+                if (data) setFullLearnerData(data as LearnerEditData);
+              });
+          }}
+        />
+      )}
     </Dialog>
   );
 };

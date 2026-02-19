@@ -224,6 +224,19 @@ export default function StartLesson() {
                 <p className="mt-2 text-sm text-gray-600">
                   Your driving lesson is currently in progress
                 </p>
+                {/* Show end OTP for instructor to complete the lesson */}
+                <div className="mt-4 rounded-lg bg-orange-50 p-4">
+                  <p className="mb-2 text-sm font-medium text-orange-800">
+                    End Lesson OTP
+                  </p>
+                  <div className="text-3xl font-bold text-orange-600">
+                    {data?.upcomingSchedule?.otp_end ||
+                      data?.upcomingSchedule?.otp}
+                  </div>
+                  <p className="mt-2 text-xs text-orange-700">
+                    Share this OTP with your instructor to end the lesson
+                  </p>
+                </div>
               </div>
             ) : lessonSchedule?.status?.toUpperCase() === "COMPLETED" ? (
               <div className="text-center">

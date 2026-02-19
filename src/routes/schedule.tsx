@@ -218,8 +218,8 @@ export default function Schedule() {
     ).length || 0;
   const scheduledLessonsCount = scheduledLessons?.length || 0;
 
-  // Check if lesson 10 is locked (no DL for 10-lesson course)
-  const isLesson10LockedForDL =
+  // Check if lesson 10 is ready to be scheduled (9 lessons done, 10-lesson course, no DL)
+  const isLesson10ReadyToSchedule =
     totalCourseLessons === 10 &&
     learner?.has_a_DL === false &&
     scheduledLessonsCount === 9;
@@ -322,11 +322,11 @@ export default function Schedule() {
                   </span>
                 )}
 
-                {/* Lesson 10 locked indicator */}
-                {isLesson10LockedForDL && (
-                  <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
-                    <Lock className="h-3 w-3" />
-                    Lesson 10 (Pending DL)
+                {/* Lesson 10 ready indicator */}
+                {isLesson10ReadyToSchedule && (
+                  <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-green-700">
+                    <Calendar className="h-3 w-3" />
+                    Lesson 10 Ready
                   </span>
                 )}
               </div>

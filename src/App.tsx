@@ -32,8 +32,10 @@ import {
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
 import AdminHome from "@/routes/admin/AdminHome";
+import AdminManagement from "@/routes/admin/AdminManagement";
 import CustomerInfo from "@/routes/admin/CustomerInfo";
 import DLTestDates from "@/routes/admin/DLTestDates";
+import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
@@ -41,7 +43,6 @@ import { AddTentativeSchedule } from "@/routes/admin/instructors";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
 import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
-import AdminManagement from "@/routes/admin/AdminManagement";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
 import AdminSchedules from "@/routes/admin/schedules";
@@ -267,6 +268,10 @@ export default function App() {
                 element={<LearnerIssueFixer />}
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
+              <Route
+                path="instructor-onboarding"
+                element={<InstructorOnboardingPage />}
+              />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="admin-management" element={<AdminManagement />} />
             </Route>
