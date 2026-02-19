@@ -3,6 +3,7 @@ import {
   Calendar,
   Calendar as CalendarIcon,
   ClipboardList,
+  LogOut,
   PhoneCall,
   Upload,
   UserCircle,
@@ -11,7 +12,9 @@ import {
   Wrench,
 } from "lucide-react";
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
+import { useAuth } from "@/context/auth-context";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +26,18 @@ import {
 } from "@/components/ui/card";
 
 export default function AdminHome() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/admin-byser-secu7");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
   const adminFeatures = [
     {
       title: "Learner Management",
@@ -123,11 +138,23 @@ export default function AdminHome() {
       }}
     >
       <div className="mx-auto max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="mt-2 text-lg text-muted-foreground">
-            Manage schedules and learner licenses
-          </p>
+        {/* Header with Logout Button */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>
+            <p className="mt-2 text-lg text-muted-foreground">
+              Manage schedules and learner licenses
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">

@@ -1,17 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import {
-  AlertCircle,
   Bug,
   Camera,
   Check,
-  ChevronDown,
   Lightbulb,
   Loader2,
-  MessageSquarePlus,
   Send,
   Sparkles,
-  Trash2,
-  Upload,
   Wrench,
   X,
 } from "lucide-react";
@@ -357,9 +352,6 @@ export default function ReportIssuePage() {
       <div className="container mx-auto max-w-2xl px-4">
         {/* Header */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-            <MessageSquarePlus className="h-8 w-8 text-indigo-600" />
-          </div>
           <h1 className="text-3xl font-bold text-gray-800">Team Feedback Portal</h1>
           <p className="mt-2 text-gray-600">
             Report bugs, suggest features, or share improvement ideas
