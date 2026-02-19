@@ -33,7 +33,6 @@ import {
 } from "@/context/auth-context";
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
-import CustomerInfo from "@/routes/admin/CustomerInfo";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorsManagement, {
@@ -62,9 +61,9 @@ import Profile2 from "@/routes/profile2";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
+import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
-import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
 import ReportIssue from "./routes/report-issue";
@@ -253,7 +252,6 @@ export default function App() {
                 path="learner-management"
                 element={<LearnerManagement />}
               />
-              <Route path="customer-info" element={<CustomerInfo />} />
               <Route
                 path="notification-management"
                 element={<NotificationManagement />}

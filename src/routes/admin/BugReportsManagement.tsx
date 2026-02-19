@@ -670,7 +670,7 @@ export default function BugReportsManagement() {
                 {/* Header */}
                 <div className="sticky top-0 z-10 border-b bg-white p-6">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div className="flex-1 pr-10">
                       <div className="mb-2 flex items-center gap-3">
                         {getReportTypeBadge(
                           selectedBug.report_type || "bug",
@@ -693,6 +693,14 @@ export default function BugReportsManagement() {
                         <span>ID: {selectedBug.id.substring(0, 8)}</span>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-4 top-4 rounded-full hover:bg-gray-100"
+                      onClick={() => setDetailDialogOpen(false)}
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
                   </div>
                 </div>
 
@@ -787,11 +795,30 @@ export default function BugReportsManagement() {
                                       className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted text-left"
                                       onClick={() => openLightbox(url)}
                                     >
-                                      <div className="aspect-video">
+                                      <div className="flex aspect-video items-center justify-center bg-gray-100">
                                         <img
                                           src={url}
                                           alt={`Screenshot ${index + 1}`}
                                           className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                          onError={(e) => {
+                                            const target =
+                                              e.target as HTMLImageElement;
+                                            target.style.display = "none";
+                                            const parent = target.parentElement;
+                                            if (
+                                              parent &&
+                                              !parent.querySelector(
+                                                ".error-placeholder",
+                                              )
+                                            ) {
+                                              const placeholder =
+                                                document.createElement("div");
+                                              placeholder.className =
+                                                "error-placeholder flex flex-col items-center justify-center h-full w-full text-gray-400";
+                                              placeholder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-xs mt-1">Failed to load</span>`;
+                                              parent.appendChild(placeholder);
+                                            }
+                                          }}
                                         />
                                       </div>
                                       <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
@@ -807,6 +834,9 @@ export default function BugReportsManagement() {
                                   ),
                                 )}
                               </div>
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                Click on an image to view it in full size
+                              </p>
                             </CardContent>
                           </Card>
                         )}
@@ -877,11 +907,11 @@ export default function BugReportsManagement() {
                             </div>
                           )}
                           {selectedBug.reporter_email && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
+                            <div className="flex items-start gap-2 text-sm">
+                              <Mail className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                               <a
                                 href={`mailto:${selectedBug.reporter_email}`}
-                                className="text-blue-600 hover:underline"
+                                className="break-all text-blue-600 hover:underline"
                               >
                                 {selectedBug.reporter_email}
                               </a>

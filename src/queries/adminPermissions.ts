@@ -46,12 +46,6 @@ export const ADMIN_PERMISSIONS = {
     description: "Set reminders and send daily notifications to learners",
     route: "/admin/notification-management",
   },
-  customer_info: {
-    key: "customer_info",
-    label: "Paid Customer Information",
-    description: "View and manage detailed customer information",
-    route: "/admin/customer-info",
-  },
   tentative_schedules: {
     key: "tentative_schedules",
     label: "Tentative Schedules Info",
@@ -73,7 +67,8 @@ export const ADMIN_PERMISSIONS = {
   team_feedback: {
     key: "team_feedback",
     label: "Team Feedback",
-    description: "View and manage bug reports, feature requests, and suggestions",
+    description:
+      "View and manage bug reports, feature requests, and suggestions",
     route: "/admin/bug-reports",
   },
 } as const;
@@ -99,7 +94,9 @@ export function useCurrentAdmin() {
   return useQuery({
     queryKey: ["currentAdmin"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user?.phone) {
         return null;
@@ -151,7 +148,10 @@ export function useHasPermission(permission: PermissionKey) {
   const { data: admin, isLoading } = useCurrentAdmin();
 
   return {
-    hasPermission: admin?.is_super_admin || admin?.permissions?.includes(permission) || false,
+    hasPermission:
+      admin?.is_super_admin ||
+      admin?.permissions?.includes(permission) ||
+      false,
     isLoading,
     isSuperAdmin: admin?.is_super_admin || false,
   };
@@ -189,9 +189,11 @@ export function useAllAdmins() {
 
           return {
             ...admin,
-            permissions: (permissions || []).map((p) => p.permission as PermissionKey),
+            permissions: (permissions || []).map(
+              (p) => p.permission as PermissionKey,
+            ),
           };
-        })
+        }),
       );
 
       return adminsWithPermissions;
@@ -216,12 +218,10 @@ export function useCreateAdmin() {
       permissions: PermissionKey[];
     }) => {
       // Edge function handles everything: Admin table, auth user, and permissions
-      const { data: authData, error: authError } = await supabase.functions.invoke(
-        "create-admin-user",
-        {
+      const { data: authData, error: authError } =
+        await supabase.functions.invoke("create-admin-user", {
           body: { phone, password, name, permissions },
-        }
-      );
+        });
 
       if (authError) {
         throw new Error(authError.message || "Failed to create admin");
@@ -297,10 +297,7 @@ export function useDeleteAdmin() {
         .single();
 
       // Delete from Admin table (permissions will cascade)
-      const { error } = await supabase
-        .from("Admin")
-        .delete()
-        .eq("id", adminId);
+      const { error } = await supabase.from("Admin").delete().eq("id", adminId);
 
       if (error) throw error;
 

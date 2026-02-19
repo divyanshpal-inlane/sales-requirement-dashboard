@@ -8,7 +8,6 @@ import {
   Settings,
   ShieldCheck,
   Upload,
-  UserCircle,
   UserPlus,
   Users,
   Wrench,
@@ -89,13 +88,6 @@ const featureConfig: Record<
     icon: PhoneCall,
     link: "/admin/notification-management",
     color: "text-teal-500",
-  },
-  customer_info: {
-    title: "Paid Customer Information",
-    description: "View and manage detailed customer information",
-    icon: UserCircle,
-    link: "/admin/customer-info",
-    color: "text-indigo-500",
   },
   tentative_schedules: {
     title: "Tentative Schedules Info",
@@ -202,7 +194,9 @@ export default function AdminHome() {
                       <ShieldCheck size={24} />
                     </div>
                     <div>
-                      <CardTitle className="text-xl">Admin Management</CardTitle>
+                      <CardTitle className="text-xl">
+                        Admin Management
+                      </CardTitle>
                       <CardDescription className="mt-1">
                         Create and manage admin accounts and permissions
                       </CardDescription>
@@ -220,7 +214,10 @@ export default function AdminHome() {
 
           {/* Feature cards based on permissions */}
           {allowedFeatures.map((feature) => (
-            <Card key={feature.title} className="transition-all hover:shadow-lg">
+            <Card
+              key={feature.title}
+              className="transition-all hover:shadow-lg"
+            >
               <Link to={feature.link}>
                 <CardHeader>
                   <div className="flex items-center gap-4">
