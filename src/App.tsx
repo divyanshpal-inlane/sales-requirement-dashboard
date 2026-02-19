@@ -41,6 +41,7 @@ import { AddTentativeSchedule } from "@/routes/admin/instructors";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
 import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
+import AdminManagement from "@/routes/admin/AdminManagement";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
 import AdminSchedules from "@/routes/admin/schedules";
@@ -267,6 +268,7 @@ export default function App() {
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
               <Route path="settings" element={<AdminSettings />} />
+              <Route path="admin-management" element={<AdminManagement />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />
