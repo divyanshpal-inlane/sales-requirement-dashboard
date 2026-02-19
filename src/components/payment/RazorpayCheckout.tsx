@@ -77,7 +77,7 @@ export function RazorpayCheckout({
           if (verified) {
             setStatus("success");
             // Redirect to success page
-            navigate("/payment-success?status=success");
+            navigate(`/payment/success?status=completed&phone=${encodeURIComponent(paymentData.phone)}&type=${paymentData.paymentType}`);
           } else {
             setStatus("error");
           }
