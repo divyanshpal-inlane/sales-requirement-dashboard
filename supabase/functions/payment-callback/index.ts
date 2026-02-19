@@ -126,7 +126,11 @@ serve(async (req) => {
     });
 
     if (calculatedHash !== receivedHash) {
-      console.warn("Hash mismatch - response may have been tampered");
+      console.error("Hash mismatch - response may have been tampered", {
+        received: receivedHash,
+        calculated: calculatedHash,
+      });
+      throw new Error("Payment signature verification failed - hash mismatch");
     }
 
     // Extract payment ID from merchantTxnNo (format: ORD-{paymentId})
