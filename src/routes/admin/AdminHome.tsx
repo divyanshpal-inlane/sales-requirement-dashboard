@@ -1,7 +1,9 @@
 import {
+  Bug,
   Calendar,
   ClipboardList,
   Loader2,
+  LogOut,
   PhoneCall,
   Settings,
   ShieldCheck,
@@ -11,7 +13,7 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useAuth } from "@/context/auth-context";
 import {
   ADMIN_PERMISSIONS,
   PermissionKey,
@@ -117,8 +120,28 @@ const featureConfig: Record<
   },
 };
 
+// Team Feedback - available to all admins
+const teamFeedbackFeature = {
+  title: "Team Feedback",
+  description: "View bugs, feature requests, and suggestions from team",
+  icon: Bug,
+  link: "/admin/bug-reports",
+  color: "text-indigo-500",
+};
+
 export default function AdminHome() {
   const { data: currentAdmin, isLoading } = useCurrentAdmin();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/admin-byser-secu7");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -129,9 +152,10 @@ export default function AdminHome() {
   }
 
   // Filter features based on admin's permissions
-  const allowedFeatures = currentAdmin?.permissions
-    ?.filter((perm) => featureConfig[perm])
-    .map((perm) => featureConfig[perm]) || [];
+  const allowedFeatures =
+    currentAdmin?.permissions
+      ?.filter((perm) => featureConfig[perm])
+      .map((perm) => featureConfig[perm]) || [];
 
   return (
     <div
@@ -143,16 +167,30 @@ export default function AdminHome() {
       }}
     >
       <div className="mx-auto max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="mt-2 text-lg text-muted-foreground">
-            Manage schedules and learner licenses
-          </p>
-          {currentAdmin?.is_super_admin && (
-            <p className="mt-1 text-sm text-purple-600">
-              Logged in as Super Admin
+        {/* Header with Logout Button */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">
+              Admin Dashboard
+            </h1>
+            <p className="mt-2 text-lg text-muted-foreground">
+              Manage schedules and learner licenses
             </p>
-          )}
+            {currentAdmin?.is_super_admin && (
+              <p className="mt-1 text-sm text-purple-600">
+                Logged in as Super Admin
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
@@ -184,10 +222,7 @@ export default function AdminHome() {
 
           {/* Feature cards based on permissions */}
           {allowedFeatures.map((feature) => (
-            <Card
-              key={feature.title}
-              className="transition-all hover:shadow-lg"
-            >
+            <Card key={feature.title} className="transition-all hover:shadow-lg">
               <Link to={feature.link}>
                 <CardHeader>
                   <div className="flex items-center gap-4">
@@ -213,13 +248,41 @@ export default function AdminHome() {
             </Card>
           ))}
 
+          {/* Team Feedback - available to all admins */}
+          <Card className="transition-all hover:shadow-lg">
+            <Link to={teamFeedbackFeature.link}>
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`rounded-lg bg-gray-100 p-2 ${teamFeedbackFeature.color}`}
+                  >
+                    <teamFeedbackFeature.icon size={24} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">
+                      {teamFeedbackFeature.title}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {teamFeedbackFeature.description}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" variant="ghost">
+                  Access {teamFeedbackFeature.title}
+                </Button>
+              </CardContent>
+            </Link>
+          </Card>
+
           {allowedFeatures.length === 0 && !currentAdmin?.is_super_admin && (
             <Card className="col-span-2">
               <CardHeader>
                 <CardTitle>No Access</CardTitle>
                 <CardDescription>
-                  You don't have permission to access any features. Please contact
-                  the Super Admin to get access.
+                  You don't have permission to access any features. Please
+                  contact the Super Admin to get access.
                 </CardDescription>
               </CardHeader>
             </Card>
