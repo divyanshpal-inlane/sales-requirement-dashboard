@@ -34,8 +34,8 @@ CREATE POLICY "Admins can update app settings"
     ON app_settings FOR UPDATE
     USING (
         EXISTS (
-            SELECT 1 FROM admin
-            WHERE admin.user_id = auth.uid()
+            SELECT 1 FROM "Admin"
+            WHERE "Admin".phone = auth.jwt()->>'phone'
         )
     );
 
@@ -44,7 +44,7 @@ CREATE POLICY "Admins can insert app settings"
     ON app_settings FOR INSERT
     WITH CHECK (
         EXISTS (
-            SELECT 1 FROM admin
-            WHERE admin.user_id = auth.uid()
+            SELECT 1 FROM "Admin"
+            WHERE "Admin".phone = auth.jwt()->>'phone'
         )
     );
