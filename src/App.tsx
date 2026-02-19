@@ -61,8 +61,10 @@ import StartLesson from "@/routes/startLesson";
 
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
+import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
+import ReportIssue from "./routes/report-issue";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +85,7 @@ export default function App() {
           <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/report-issue" element={<ReportIssue />} />
             <Route path="/admin-byser-secu7" element={<AdminLogin />} />
             <Route path="/instructor-login" element={<InstructorAuth />} />
             <Route
@@ -265,6 +268,7 @@ export default function App() {
                 element={<LearnerIssueFixer />}
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
+              <Route path="bug-reports" element={<BugReportsManagement />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

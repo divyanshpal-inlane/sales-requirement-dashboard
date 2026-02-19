@@ -1,4 +1,5 @@
 import {
+  Bug,
   Calendar,
   Calendar as CalendarIcon,
   ClipboardList,
@@ -102,6 +103,13 @@ export default function AdminHome() {
       icon: Wrench,
       link: "/admin/learner-issue-fixer",
       color: "text-red-500",
+    },
+    {
+      title: "Team Feedback",
+      description: "View bugs, feature requests, and suggestions from team",
+      icon: Bug,
+      link: "/admin/bug-reports",
+      color: "text-indigo-500",
     },
   ];
 
