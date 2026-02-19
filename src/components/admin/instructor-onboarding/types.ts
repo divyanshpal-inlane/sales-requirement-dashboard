@@ -1,5 +1,7 @@
 // Types for Instructor Onboarding Wizard
 
+import { ParsedCalendarEvent } from "@/utils/icsParser";
+
 export type IdProofType = "aadhar" | "pan" | "voter_id" | "passport";
 export type CarFuelType = "petrol" | "diesel" | "ev" | "cng" | "lpg";
 export type CarMakeType = "Manual" | "Automatic";
@@ -55,7 +57,10 @@ export interface InstructorOnboardingData {
   // Step 5: Unavailability
   unavailability: Unavailability[];
 
-  // Step 6: Contract
+  // Step 6: Calendar Import (optional)
+  importedCalendarEvents: ParsedCalendarEvent[];
+
+  // Step 7: Contract
   contractAccepted: boolean;
 
   // Auth
@@ -91,6 +96,9 @@ export const initialOnboardingData: InstructorOnboardingData = {
   unavailability: [],
 
   // Step 6
+  importedCalendarEvents: [],
+
+  // Step 7
   contractAccepted: false,
 
   // Auth

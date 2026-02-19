@@ -1,4 +1,5 @@
 import {
+  CalendarPlus,
   Car,
   Check,
   ClipboardCheck,
@@ -244,6 +245,42 @@ export function ReviewStep({ data, updateData, onStepClick }: ReviewStepProps) {
           </CardContent>
         </Card>
 
+        {/* Calendar Import */}
+        <Card className="overflow-hidden">
+          <CardHeader className="px-3 py-2">
+            <div className="flex items-center justify-between">
+              <div className="flex min-w-0 items-center gap-2">
+                <CalendarPlus className="h-4 w-4 shrink-0 text-primary" />
+                <CardTitle className="text-sm">Calendar Import</CardTitle>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onStepClick(6)}
+                className="h-7 shrink-0 px-2"
+              >
+                <Pencil className="mr-1 h-3 w-3" />
+                Edit
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="px-3 py-2">
+            {data.importedCalendarEvents.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 shrink-0 text-green-500" />
+                <span className="text-xs font-medium text-green-600">
+                  {data.importedCalendarEvents.length} event(s) imported
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No calendar events imported (optional)
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Contract Status */}
         <Card className="overflow-hidden">
           <CardHeader className="px-3 py-2">
@@ -256,7 +293,7 @@ export function ReviewStep({ data, updateData, onStepClick }: ReviewStepProps) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => onStepClick(6)}
+                onClick={() => onStepClick(7)}
                 className="h-7 shrink-0 px-2"
               >
                 <Pencil className="mr-1 h-3 w-3" />

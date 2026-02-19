@@ -10,7 +10,7 @@ interface WeekViewProps {
   isGoogleConnected: boolean;
   onScheduleClick: (schedule: any, learner: any) => void;
   onEventClick: (event: any) => void;
-  onEmptyCellClick: (date: Date, hour: number) => void;
+  onEmptyCellClick: (date: Date, hour: number, minute: number) => void;
 }
 
 const WeekView = ({
@@ -60,13 +60,16 @@ const WeekView = ({
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 16 }).map((_, timeIndex) => {
-              const hour = timeIndex + 6;
-              const minute = 0;
+            {/* 32 slots = 16 hours × 2 (30-min each), from 6 AM to 10 PM */}
+            {Array.from({ length: 32 }).map((_, timeIndex) => {
+              const hour = Math.floor(timeIndex / 2) + 6;
+              const minute = (timeIndex % 2) * 30;
+              const showHourLabel = minute === 0;
+
               return (
-                <tr key={timeIndex} className="h-12">
-                  <td className="sticky left-0 z-10 border border-gray-200 bg-white px-2 py-0 text-center">
-                    <span className="text-xs">
+                <tr key={timeIndex} className={`h-8 ${minute === 0 ? "border-t border-gray-300" : ""}`}>
+                  <td className={`sticky left-0 z-10 border border-gray-200 bg-white px-1 py-0 text-center ${!showHourLabel ? "text-gray-400" : ""}`}>
+                    <span className="text-[10px]">
                       {format(new Date().setHours(hour, minute), "h:mm a")}
                     </span>
                   </td>
@@ -81,30 +84,31 @@ const WeekView = ({
                         );
                         const scheduleEnd = new Date(`${s.date}T${s.end_time}`);
                         const currentTime = new Date(day);
-                        currentTime.setHours(hour, minute);
+                        currentTime.setHours(hour, minute, 0, 0);
+                        const nextSlotTime = new Date(day);
+                        nextSlotTime.setHours(hour, minute + 30, 0, 0);
 
                         return (
                           isSameDay(scheduleDate, day) &&
-                          currentTime >= scheduleStart &&
-                          currentTime < scheduleEnd
+                          currentTime < scheduleEnd &&
+                          nextSlotTime > scheduleStart
                         );
                       },
                     );
 
                     const googleEvent = googleEvents.find((event) => {
-                      const eventStart = new Date(
-                        event.start?.dateTime || event.start?.date,
-                      );
-                      const eventEnd = new Date(
-                        event.end?.dateTime || event.end?.date,
-                      );
+                      if (!event.start?.dateTime) return false;
+                      const eventStart = new Date(event.start.dateTime);
+                      const eventEnd = new Date(event.end.dateTime);
                       const currentTime = new Date(day);
-                      currentTime.setHours(hour, minute);
+                      currentTime.setHours(hour, minute, 0, 0);
+                      const nextSlotTime = new Date(day);
+                      nextSlotTime.setHours(hour, minute + 30, 0, 0);
 
                       return (
                         isSameDay(eventStart, day) &&
-                        currentTime >= eventStart &&
-                        currentTime < eventEnd
+                        currentTime < eventEnd &&
+                        nextSlotTime > eventStart
                       );
                     });
 
@@ -127,24 +131,27 @@ const WeekView = ({
                       }
                     }
 
+                    const scheduleStartHour = schedule ? parseInt(schedule.start_time.split(":")[0]) : 0;
+                    const scheduleStartMinute = schedule ? parseInt(schedule.start_time.split(":")[1]) : 0;
                     const isScheduleStart =
                       schedule &&
-                      parseInt(schedule.start_time.split(":")[0]) === hour &&
-                      parseInt(schedule.start_time.split(":")[1]) === minute;
+                      scheduleStartHour === hour &&
+                      scheduleStartMinute >= minute &&
+                      scheduleStartMinute < minute + 30;
 
                     const isGoogleEventStart =
                       googleEvent &&
-                      new Date(googleEvent.start.dateTime).getHours() ===
-                        hour &&
-                      new Date(googleEvent.start.dateTime).getMinutes() ===
-                        minute;
+                      googleEvent.start?.dateTime &&
+                      new Date(googleEvent.start.dateTime).getHours() === hour &&
+                      new Date(googleEvent.start.dateTime).getMinutes() >= minute &&
+                      new Date(googleEvent.start.dateTime).getMinutes() < minute + 30;
 
                     const isEmpty = !schedule && !googleEvent && !isUnavailable;
 
                     return (
                       <td
                         key={dayIndex}
-                        className={`h-12 max-h-12 border border-gray-200 px-2 py-0 text-center ${
+                        className={`h-8 max-h-8 border border-gray-200 px-1 py-0 text-center ${
                           schedule
                             ? schedule.status === "completed"
                               ? "bg-green-200 text-green-800"
@@ -165,27 +172,27 @@ const WeekView = ({
                           } else if (googleEvent) {
                             onEventClick(googleEvent);
                           } else if (isEmpty && isGoogleConnected) {
-                            onEmptyCellClick(day, hour);
+                            onEmptyCellClick(day, hour, minute);
                           }
                         }}
                       >
-                        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs">
+                        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px]">
                           {isScheduleStart ? (
                             <>
-                              <div className="font-semibold">{learnerName}</div>
-                              <div>{`${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`}</div>
+                              <div className="font-semibold truncate">{learnerName}</div>
+                              <div>{`${schedule.start_time.substring(0, 5)}-${schedule.end_time.substring(0, 5)}`}</div>
                             </>
                           ) : isGoogleEventStart ? (
                             <>
-                              <div className="font-semibold">
+                              <div className="font-semibold truncate">
                                 {googleEvent.summary}
                               </div>
                               <div>
                                 {format(
                                   new Date(googleEvent.start.dateTime),
                                   "HH:mm",
-                                )}{" "}
-                                -{" "}
+                                )}
+                                -
                                 {format(
                                   new Date(googleEvent.end.dateTime),
                                   "HH:mm",
@@ -193,11 +200,9 @@ const WeekView = ({
                               </div>
                             </>
                           ) : isEmpty && isGoogleConnected ? (
-                            <div className="text-xs text-gray-400">
-                              <Plus className="mx-auto h-3 w-3" />
+                            <div className="text-gray-300 opacity-0 hover:opacity-100">
+                              <Plus className="mx-auto h-2 w-2" />
                             </div>
-                          ) : isUnavailable && !schedule && !googleEvent ? (
-                            ""
                           ) : (
                             ""
                           )}

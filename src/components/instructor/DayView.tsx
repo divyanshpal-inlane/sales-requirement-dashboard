@@ -10,7 +10,7 @@ interface DayViewProps {
   isGoogleConnected: boolean;
   onScheduleClick: (schedule: any, learner: any) => void;
   onEventClick: (event: any) => void;
-  onEmptyCellClick: (date: Date, hour: number) => void;
+  onEmptyCellClick: (date: Date, hour: number, minute: number) => void;
 }
 
 const DayView = ({
@@ -35,9 +35,10 @@ const DayView = ({
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        {Array.from({ length: 16 }).map((_, timeIndex) => {
-          const hour = timeIndex + 6;
-          const minute = 0;
+        {/* 32 slots = 16 hours × 2 (30-min each), from 6 AM to 10 PM */}
+        {Array.from({ length: 32 }).map((_, timeIndex) => {
+          const hour = Math.floor(timeIndex / 2) + 6;
+          const minute = (timeIndex % 2) * 30;
 
           const timeSlotSchedules = daySchedules.filter((schedule) => {
             const scheduleStart = new Date(
@@ -47,18 +48,24 @@ const DayView = ({
               `${schedule.date}T${schedule.end_time}`,
             );
             const currentTime = new Date(currentDate);
-            currentTime.setHours(hour, minute);
+            currentTime.setHours(hour, minute, 0, 0);
+            const nextSlotTime = new Date(currentDate);
+            nextSlotTime.setHours(hour, minute + 30, 0, 0);
 
-            return currentTime >= scheduleStart && currentTime < scheduleEnd;
+            // Check if this slot overlaps with the schedule
+            return currentTime < scheduleEnd && nextSlotTime > scheduleStart;
           });
 
           const timeSlotGoogleEvents = dayGoogleEvents.filter((event) => {
+            if (!event.start?.dateTime) return false;
             const eventStart = new Date(event.start.dateTime);
             const eventEnd = new Date(event.end.dateTime);
             const currentTime = new Date(currentDate);
-            currentTime.setHours(hour, minute);
+            currentTime.setHours(hour, minute, 0, 0);
+            const nextSlotTime = new Date(currentDate);
+            nextSlotTime.setHours(hour, minute + 30, 0, 0);
 
-            return currentTime >= eventStart && currentTime < eventEnd;
+            return currentTime < eventEnd && nextSlotTime > eventStart;
           });
 
           const isUnavailable = isTimeUnavailable(
@@ -73,26 +80,29 @@ const DayView = ({
             timeSlotGoogleEvents.length === 0 &&
             !isUnavailable;
 
+          // Show hour label only on the hour (minute === 0)
+          const showHourLabel = minute === 0;
+
           return (
             <div
               key={timeIndex}
-              className={`flex min-h-[60px] border-b border-gray-100 ${
+              className={`flex min-h-[40px] border-b ${minute === 0 ? "border-gray-200" : "border-gray-100"} ${
                 isEmpty && isGoogleConnected
                   ? "cursor-pointer hover:bg-blue-50"
                   : ""
               }`}
               onClick={() => {
                 if (isEmpty && isGoogleConnected) {
-                  onEmptyCellClick(currentDate, hour);
+                  onEmptyCellClick(currentDate, hour, minute);
                 }
               }}
             >
-              <div className="w-16 border-r bg-gray-50 p-2 text-xs text-gray-600">
-                {format(new Date().setHours(hour, 0), "HH:mm")}
+              <div className={`w-16 border-r bg-gray-50 p-1 text-xs text-gray-600 ${!showHourLabel ? "text-gray-400" : ""}`}>
+                {format(new Date().setHours(hour, minute), "HH:mm")}
               </div>
 
               <div
-                className={`relative flex-1 p-2 ${
+                className={`relative flex-1 p-1 ${
                   isUnavailable && timeSlotSchedules.length === 0
                     ? "bg-gray-400"
                     : ""
@@ -103,16 +113,19 @@ const DayView = ({
                     (ll) => ll.lesson.id === schedule.lesson_id,
                   );
 
+                  const scheduleStartHour = parseInt(schedule.start_time.split(":")[0]);
+                  const scheduleStartMinute = parseInt(schedule.start_time.split(":")[1]);
                   const isScheduleStart =
-                    parseInt(schedule.start_time.split(":")[0]) === hour &&
-                    parseInt(schedule.start_time.split(":")[1]) === minute;
+                    scheduleStartHour === hour &&
+                    scheduleStartMinute >= minute &&
+                    scheduleStartMinute < minute + 30;
 
                   if (!isScheduleStart) return null;
 
                   return (
                     <div
                       key={idx}
-                      className={`mb-1 cursor-pointer rounded p-2 text-sm ${
+                      className={`mb-1 cursor-pointer rounded p-1.5 text-sm ${
                         schedule.status === "completed"
                           ? "bg-green-200 text-green-800"
                           : schedule.status === "ongoing"
@@ -140,16 +153,20 @@ const DayView = ({
 
                 {/* Google Calendar Events */}
                 {timeSlotGoogleEvents.map((event, idx) => {
+                  if (!event.start?.dateTime) return null;
+                  const eventStartHour = new Date(event.start.dateTime).getHours();
+                  const eventStartMinute = new Date(event.start.dateTime).getMinutes();
                   const isEventStart =
-                    new Date(event.start.dateTime).getHours() === hour &&
-                    new Date(event.start.dateTime).getMinutes() === minute;
+                    eventStartHour === hour &&
+                    eventStartMinute >= minute &&
+                    eventStartMinute < minute + 30;
 
                   if (!isEventStart) return null;
 
                   return (
                     <div
                       key={`google-${idx}`}
-                      className="mb-1 cursor-pointer rounded bg-orange-200 p-2 text-sm text-orange-800"
+                      className="mb-1 cursor-pointer rounded bg-orange-200 p-1.5 text-sm text-orange-800"
                       onClick={(e) => {
                         e.stopPropagation();
                         onEventClick(event);
@@ -165,13 +182,10 @@ const DayView = ({
                   );
                 })}
 
-                {/* Empty slot indicator */}
+                {/* Empty slot indicator - only show on hover via CSS */}
                 {isEmpty && isGoogleConnected && (
-                  <div className="flex h-full items-center justify-center text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      <span className="text-sm">Click to add event</span>
-                    </div>
+                  <div className="flex h-full items-center justify-center text-gray-300 opacity-0 transition-opacity hover:opacity-100">
+                    <Plus className="h-3 w-3" />
                   </div>
                 )}
               </div>

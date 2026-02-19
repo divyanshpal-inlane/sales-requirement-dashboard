@@ -104,13 +104,13 @@ const EnhancedCalendarView = ({
     console.log("Profile clicked");
   };
 
-  const handleEmptyCellClick = (date: Date, hour: number) => {
+  const handleEmptyCellClick = (date: Date, hour: number, minute: number) => {
     if (!googleCalendar.isGoogleConnected) {
       alert("Please connect to Google Calendar first to create events.");
       return;
     }
     // Handle empty cell click for event creation
-    console.log("Empty cell clicked", date, hour);
+    console.log("Empty cell clicked", date, hour, minute);
   };
 
   return (

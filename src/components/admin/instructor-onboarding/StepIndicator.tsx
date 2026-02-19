@@ -1,6 +1,7 @@
 import {
   BookOpen,
-  Calendar,
+  CalendarDays,
+  CalendarPlus,
   Car,
   Check,
   ClipboardCheck,
@@ -18,9 +19,10 @@ const STEPS: StepInfo[] = [
   { id: 2, title: "Documents", icon: FileText },
   { id: 3, title: "Vehicle", icon: Car },
   { id: 4, title: "Service Area", icon: MapPin },
-  { id: 5, title: "Availability", icon: Calendar },
-  { id: 6, title: "Contract", icon: BookOpen },
-  { id: 7, title: "Review", icon: ClipboardCheck },
+  { id: 5, title: "Availability", icon: CalendarDays },
+  { id: 6, title: "Calendar", icon: CalendarPlus },
+  { id: 7, title: "Contract", icon: BookOpen },
+  { id: 8, title: "Review", icon: ClipboardCheck },
 ];
 
 interface StepIndicatorProps {

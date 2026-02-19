@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { StepIndicator } from "./StepIndicator";
 // Import step components
 import { BasicInfoStep } from "./steps/BasicInfoStep";
+import { CalendarImportStep } from "./steps/CalendarImportStep";
 import { ContractStep } from "./steps/ContractStep";
 import { DocumentsStep } from "./steps/DocumentsStep";
 import { ReviewStep } from "./steps/ReviewStep";
@@ -20,7 +21,7 @@ import { UnavailabilityStep } from "./steps/UnavailabilityStep";
 import { VehicleDetailsStep } from "./steps/VehicleDetailsStep";
 import { initialOnboardingData, InstructorOnboardingData } from "./types";
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 // Email validation helper
 const isValidEmail = (email: string): boolean => {
@@ -111,13 +112,17 @@ export function OnboardingWizard() {
         // Optional step, no required validation
         break;
 
-      case 6: // Contract
+      case 6: // Calendar Import
+        // Optional step, no required validation
+        break;
+
+      case 7: // Contract
         if (!formData.contractAccepted) {
           errors.push("You must accept the terms and conditions");
         }
         break;
 
-      case 7: // Review
+      case 8: // Review
         if (!formData.initialPassword.trim()) {
           errors.push("Initial password is required");
         } else if (formData.initialPassword.length < 6) {
@@ -332,6 +337,15 @@ export function OnboardingWizard() {
         unavailability: data.unavailability,
         enabled: true,
         signed_up: new Date().toISOString(),
+        // Calendar import (optional)
+        imported_calendar_events:
+          data.importedCalendarEvents.length > 0
+            ? data.importedCalendarEvents
+            : null,
+        imported_calendar_updated_at:
+          data.importedCalendarEvents.length > 0
+            ? new Date().toISOString()
+            : null,
       };
 
       // Only add optional columns if they exist (these were added via migration)
@@ -449,8 +463,10 @@ export function OnboardingWizard() {
       case 5:
         return <UnavailabilityStep {...stepProps} />;
       case 6:
-        return <ContractStep {...stepProps} />;
+        return <CalendarImportStep {...stepProps} />;
       case 7:
+        return <ContractStep {...stepProps} />;
+      case 8:
         return <ReviewStep {...stepProps} onStepClick={handleStepClick} />;
       default:
         return null;
