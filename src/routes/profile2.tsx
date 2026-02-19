@@ -349,13 +349,7 @@ export default function Profile2() {
                 icon={<User className="h-4 w-4 text-primary" />}
                 label="Full Name"
                 value={learner?.name}
-                onEdit={() =>
-                  openEditDialog("basic", {
-                    name: learner?.name || "",
-                    email: learner?.email || "",
-                    dob: learner?.dob || "",
-                  })
-                }
+                editable={false}
               />
             </div>
             <div className="px-4">
@@ -371,13 +365,7 @@ export default function Profile2() {
                 icon={<Mail className="h-4 w-4 text-primary" />}
                 label="Email"
                 value={learner?.email}
-                onEdit={() =>
-                  openEditDialog("basic", {
-                    name: learner?.name || "",
-                    email: learner?.email || "",
-                    dob: learner?.dob || "",
-                  })
-                }
+                editable={false}
               />
             </div>
             <div className="px-4">
@@ -385,13 +373,7 @@ export default function Profile2() {
                 icon={<Calendar className="h-4 w-4 text-primary" />}
                 label="Date of Birth"
                 value={formatDate(learner?.dob)}
-                onEdit={() =>
-                  openEditDialog("basic", {
-                    name: learner?.name || "",
-                    email: learner?.email || "",
-                    dob: learner?.dob || "",
-                  })
-                }
+                editable={false}
               />
             </div>
             <div className="px-4">
@@ -399,11 +381,7 @@ export default function Profile2() {
                 icon={<IdCard className="h-4 w-4 text-primary" />}
                 label="Aadhar State"
                 value={learner?.aadhar_state}
-                onEdit={() =>
-                  openEditDialog("aadhar", {
-                    aadhar_state: learner?.aadhar_state || "",
-                  })
-                }
+                editable={false}
               />
             </div>
           </CardContent>
@@ -423,13 +401,17 @@ export default function Profile2() {
                 icon={<MapPin className="h-4 w-4 text-primary" />}
                 label="Pickup Location"
                 value={learner?.pick_up_location}
-                onEdit={() =>
-                  openEditDialog("location", {
-                    pick_up_location: learner?.pick_up_location || "",
-                    area: learner?.area || "",
-                    pincode: learner?.pincode || "",
-                    city: learner?.city || "",
-                  })
+                editable={!!learner?.preferred_start_date}
+                onEdit={
+                  learner?.preferred_start_date
+                    ? () =>
+                        openEditDialog("location", {
+                          pick_up_location: learner?.pick_up_location || "",
+                          area: learner?.area || "",
+                          pincode: learner?.pincode || "",
+                          city: learner?.city || "",
+                        })
+                    : undefined
                 }
               />
             </div>
@@ -438,13 +420,17 @@ export default function Profile2() {
                 icon={<MapPin className="h-4 w-4 text-primary" />}
                 label="Area"
                 value={learner?.area}
-                onEdit={() =>
-                  openEditDialog("location", {
-                    pick_up_location: learner?.pick_up_location || "",
-                    area: learner?.area || "",
-                    pincode: learner?.pincode || "",
-                    city: learner?.city || "",
-                  })
+                editable={!!learner?.preferred_start_date}
+                onEdit={
+                  learner?.preferred_start_date
+                    ? () =>
+                        openEditDialog("location", {
+                          pick_up_location: learner?.pick_up_location || "",
+                          area: learner?.area || "",
+                          pincode: learner?.pincode || "",
+                          city: learner?.city || "",
+                        })
+                    : undefined
                 }
               />
             </div>
@@ -457,13 +443,17 @@ export default function Profile2() {
                     ? `${learner?.city || ""}${learner?.city && learner?.pincode ? ", " : ""}${learner?.pincode || ""}`
                     : null
                 }
-                onEdit={() =>
-                  openEditDialog("location", {
-                    pick_up_location: learner?.pick_up_location || "",
-                    area: learner?.area || "",
-                    pincode: learner?.pincode || "",
-                    city: learner?.city || "",
-                  })
+                editable={!!learner?.preferred_start_date}
+                onEdit={
+                  learner?.preferred_start_date
+                    ? () =>
+                        openEditDialog("location", {
+                          pick_up_location: learner?.pick_up_location || "",
+                          area: learner?.area || "",
+                          pincode: learner?.pincode || "",
+                          city: learner?.city || "",
+                        })
+                    : undefined
                 }
               />
             </div>
@@ -484,15 +474,19 @@ export default function Profile2() {
                 icon={<Calendar className="h-4 w-4 text-primary" />}
                 label="Preferred Start Date"
                 value={formatDate(learner?.preferred_start_date)}
-                onEdit={() =>
-                  openEditDialog("preferences", {
-                    preferred_start_date: learner?.preferred_start_date || "",
-                    preferred_completion_days:
-                      learner?.preferred_completion_days || "",
-                    prefers_two_hour_classes:
-                      learner?.prefers_two_hour_classes || false,
-                    two_hour_days: learner?.two_hour_days || "",
-                  })
+                editable={!!learner?.preferred_start_date}
+                onEdit={
+                  learner?.preferred_start_date
+                    ? () =>
+                        openEditDialog("preferences", {
+                          preferred_start_date: learner?.preferred_start_date || "",
+                          preferred_completion_days:
+                            learner?.preferred_completion_days || "",
+                          prefers_two_hour_classes:
+                            learner?.prefers_two_hour_classes || false,
+                          two_hour_days: learner?.two_hour_days || "",
+                        })
+                    : undefined
                 }
               />
             </div>
@@ -505,15 +499,19 @@ export default function Profile2() {
                     ? `${learner.preferred_completion_days} days`
                     : null
                 }
-                onEdit={() =>
-                  openEditDialog("preferences", {
-                    preferred_start_date: learner?.preferred_start_date || "",
-                    preferred_completion_days:
-                      learner?.preferred_completion_days || "",
-                    prefers_two_hour_classes:
-                      learner?.prefers_two_hour_classes || false,
-                    two_hour_days: learner?.two_hour_days || "",
-                  })
+                editable={!!learner?.preferred_start_date}
+                onEdit={
+                  learner?.preferred_start_date
+                    ? () =>
+                        openEditDialog("preferences", {
+                          preferred_start_date: learner?.preferred_start_date || "",
+                          preferred_completion_days:
+                            learner?.preferred_completion_days || "",
+                          prefers_two_hour_classes:
+                            learner?.prefers_two_hour_classes || false,
+                          two_hour_days: learner?.two_hour_days || "",
+                        })
+                    : undefined
                 }
               />
             </div>
@@ -540,23 +538,21 @@ export default function Profile2() {
                     )}
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    openEditDialog("preferences", {
-                      preferred_start_date: learner?.preferred_start_date || "",
-                      preferred_completion_days:
-                        learner?.preferred_completion_days || "",
-                      prefers_two_hour_classes:
-                        learner?.prefers_two_hour_classes || false,
-                      two_hour_days: learner?.two_hour_days || "",
-                    })
-                  }
-                  className="h-8 w-8 shrink-0"
-                >
-                  <Edit2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
+                {learner?.preferred_start_date && (
+                  <Edit2
+                    className="h-4 w-4 shrink-0 cursor-pointer text-muted-foreground"
+                    onClick={() =>
+                      openEditDialog("preferences", {
+                        preferred_start_date: learner?.preferred_start_date || "",
+                        preferred_completion_days:
+                          learner?.preferred_completion_days || "",
+                        prefers_two_hour_classes:
+                          learner?.prefers_two_hour_classes || false,
+                        two_hour_days: learner?.two_hour_days || "",
+                      })
+                    }
+                  />
+                )}
               </div>
             </div>
           </CardContent>
