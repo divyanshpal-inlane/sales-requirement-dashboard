@@ -284,7 +284,7 @@ export default function Profile2() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="h-full overflow-y-auto bg-gray-50 pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b bg-white px-4 py-3">
         <div className="mx-auto flex max-w-lg items-center justify-between">
