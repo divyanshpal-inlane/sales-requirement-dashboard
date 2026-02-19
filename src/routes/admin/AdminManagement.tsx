@@ -1,16 +1,12 @@
 import {
-  Check,
   Loader2,
   Plus,
   Shield,
   ShieldCheck,
   Trash2,
   UserCog,
-  X,
 } from "lucide-react";
 import { useState } from "react";
-
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import {
   ADMIN_PERMISSIONS,
   AdminWithPermissions,
@@ -42,6 +39,7 @@ import {
 } from "@/queries/adminPermissions";
 
 export default function AdminManagement() {
+  const { toast } = useToast();
   const { data: currentAdmin, isLoading: currentAdminLoading } = useCurrentAdmin();
   const { data: admins, isLoading: adminsLoading } = useAllAdmins();
   const createAdmin = useCreateAdmin();
@@ -59,7 +57,6 @@ export default function AdminManagement() {
     permissions: [] as PermissionKey[],
   });
   const [editPermissions, setEditPermissions] = useState<PermissionKey[]>([]);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Check if current user is super admin
   if (currentAdminLoading || adminsLoading) {
@@ -95,10 +92,18 @@ export default function AdminManagement() {
       await createAdmin.mutateAsync(newAdminForm);
       setShowCreateDialog(false);
       setNewAdminForm({ name: "", phone: "", password: "", permissions: [] });
-      setSuccessMessage("Admin created successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Admin created successfully!",
+      });
+    } catch (error: unknown) {
       console.error("Error creating admin:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create admin";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -111,10 +116,18 @@ export default function AdminManagement() {
       });
       setShowEditDialog(false);
       setSelectedAdmin(null);
-      setSuccessMessage("Permissions updated successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Permissions updated successfully!",
+      });
+    } catch (error: unknown) {
       console.error("Error updating permissions:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update permissions";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -124,10 +137,18 @@ export default function AdminManagement() {
       await deleteAdmin.mutateAsync(selectedAdmin.id);
       setShowDeleteDialog(false);
       setSelectedAdmin(null);
-      setSuccessMessage("Admin deleted successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Admin deleted successfully!",
+      });
+    } catch (error: unknown) {
       console.error("Error deleting admin:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete admin";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -201,23 +222,6 @@ export default function AdminManagement() {
             Add Admin
           </Button>
         </div>
-
-        {successMessage && (
-          <Alert className="mb-6 border-green-200 bg-green-50">
-            <Check className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              {successMessage}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {createAdmin.isError && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>
-              Failed to create admin. {createAdmin.error?.message}
-            </AlertDescription>
-          </Alert>
-        )}
 
         <div className="space-y-4">
           {admins?.map((admin) => (

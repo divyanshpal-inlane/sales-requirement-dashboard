@@ -79,6 +79,7 @@ export interface Admin {
   phone: string;
   name: string;
   is_super_admin: boolean;
+  is_admin: boolean;
   created_at: string;
   signed_up: string | null;
 }
@@ -151,13 +152,16 @@ export function useHasPermission(permission: PermissionKey) {
 }
 
 // Get all admins (super admin only)
+// Only shows users who have is_admin = true (actual admins created via Admin Management)
 export function useAllAdmins() {
   return useQuery({
     queryKey: ["allAdmins"],
     queryFn: async () => {
+      // Get only actual admins (is_admin = true)
       const { data: admins, error } = await supabase
         .from("Admin")
         .select("*")
+        .eq("is_admin", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -205,48 +209,24 @@ export function useCreateAdmin() {
       password: string;
       permissions: PermissionKey[];
     }) => {
-      // Create admin in Admin table
-      const { data: admin, error: adminError } = await supabase
-        .from("Admin")
-        .insert({
-          phone,
-          name,
-          is_super_admin: false,
-        })
-        .select()
-        .single();
-
-      if (adminError) throw adminError;
-
-      // Create permissions
-      if (permissions.length > 0) {
-        const permissionRecords = permissions.map((permission) => ({
-          admin_id: admin.id,
-          permission,
-        }));
-
-        const { error: permError } = await supabase
-          .from("admin_permissions")
-          .insert(permissionRecords);
-
-        if (permError) throw permError;
-      }
-
-      // Create auth user via edge function
-      const { error: authError } = await supabase.functions.invoke(
+      // Edge function handles everything: Admin table, auth user, and permissions
+      const { data: authData, error: authError } = await supabase.functions.invoke(
         "create-admin-user",
         {
-          body: { phone, password, name },
+          body: { phone, password, name, permissions },
         }
       );
 
       if (authError) {
-        // Rollback admin creation
-        await supabase.from("Admin").delete().eq("id", admin.id);
-        throw authError;
+        throw new Error(authError.message || "Failed to create admin");
       }
 
-      return admin;
+      // Check if the function returned an error in the response
+      if (authData && !authData.success) {
+        throw new Error(authData.error || "Failed to create admin");
+      }
+
+      return { id: authData.adminId, phone, name };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allAdmins"] });
