@@ -52,7 +52,8 @@ function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPrefilled, setIsPrefilled] = useState(false);
   const { data: courses, isLoading: coursesLoading } = useCourses();
-  const { data: gatewayMode, isLoading: gatewayModeLoading } = usePaymentGatewayMode();
+  const { data: gatewayMode, isLoading: gatewayModeLoading } =
+    usePaymentGatewayMode();
   const [paymentOption, setPaymentOption] = useState<"full" | "installment">(
     "full",
   );

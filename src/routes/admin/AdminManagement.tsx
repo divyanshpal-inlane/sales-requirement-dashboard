@@ -7,6 +7,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,7 +41,8 @@ import {
 
 export default function AdminManagement() {
   const { toast } = useToast();
-  const { data: currentAdmin, isLoading: currentAdminLoading } = useCurrentAdmin();
+  const { data: currentAdmin, isLoading: currentAdminLoading } =
+    useCurrentAdmin();
   const { data: admins, isLoading: adminsLoading } = useAllAdmins();
   const createAdmin = useCreateAdmin();
   const updatePermissions = useUpdateAdminPermissions();
@@ -49,7 +51,8 @@ export default function AdminManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedAdmin, setSelectedAdmin] = useState<AdminWithPermissions | null>(null);
+  const [selectedAdmin, setSelectedAdmin] =
+    useState<AdminWithPermissions | null>(null);
   const [newAdminForm, setNewAdminForm] = useState({
     name: "",
     phone: "",
@@ -98,7 +101,8 @@ export default function AdminManagement() {
       });
     } catch (error: unknown) {
       console.error("Error creating admin:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to create admin";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create admin";
       toast({
         title: "Error",
         description: errorMessage,
@@ -122,7 +126,8 @@ export default function AdminManagement() {
       });
     } catch (error: unknown) {
       console.error("Error updating permissions:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to update permissions";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update permissions";
       toast({
         title: "Error",
         description: errorMessage,
@@ -143,7 +148,8 @@ export default function AdminManagement() {
       });
     } catch (error: unknown) {
       console.error("Error deleting admin:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete admin";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete admin";
       toast({
         title: "Error",
         description: errorMessage,
@@ -176,7 +182,7 @@ export default function AdminManagement() {
     setEditPermissions((prev) =>
       prev.includes(permission)
         ? prev.filter((p) => p !== permission)
-        : [...prev, permission]
+        : [...prev, permission],
     );
   };
 
@@ -211,7 +217,9 @@ export default function AdminManagement() {
           <div className="flex items-center gap-3">
             <ShieldCheck className="h-8 w-8 text-purple-600" />
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Admin Management</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                Admin Management
+              </h1>
               <p className="mt-1 text-muted-foreground">
                 Create and manage admin accounts and permissions
               </p>
@@ -315,7 +323,10 @@ export default function AdminManagement() {
                   placeholder="Admin name"
                   value={newAdminForm.name}
                   onChange={(e) =>
-                    setNewAdminForm((prev) => ({ ...prev, name: e.target.value }))
+                    setNewAdminForm((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -326,7 +337,10 @@ export default function AdminManagement() {
                   placeholder="10-digit phone number"
                   value={newAdminForm.phone}
                   onChange={(e) =>
-                    setNewAdminForm((prev) => ({ ...prev, phone: e.target.value }))
+                    setNewAdminForm((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -338,7 +352,10 @@ export default function AdminManagement() {
                   placeholder="Min 6 characters"
                   value={newAdminForm.password}
                   onChange={(e) =>
-                    setNewAdminForm((prev) => ({ ...prev, password: e.target.value }))
+                    setNewAdminForm((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -372,8 +389,12 @@ export default function AdminManagement() {
                     >
                       <Checkbox
                         id={`new-${perm.key}`}
-                        checked={newAdminForm.permissions.includes(perm.key as PermissionKey)}
-                        onCheckedChange={() => toggleNewPermission(perm.key as PermissionKey)}
+                        checked={newAdminForm.permissions.includes(
+                          perm.key as PermissionKey,
+                        )}
+                        onCheckedChange={() =>
+                          toggleNewPermission(perm.key as PermissionKey)
+                        }
                       />
                       <div className="flex-1">
                         <label
@@ -392,7 +413,10 @@ export default function AdminManagement() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
                 Cancel
               </Button>
               <Button
@@ -452,8 +476,12 @@ export default function AdminManagement() {
                   >
                     <Checkbox
                       id={`edit-${perm.key}`}
-                      checked={editPermissions.includes(perm.key as PermissionKey)}
-                      onCheckedChange={() => toggleEditPermission(perm.key as PermissionKey)}
+                      checked={editPermissions.includes(
+                        perm.key as PermissionKey,
+                      )}
+                      onCheckedChange={() =>
+                        toggleEditPermission(perm.key as PermissionKey)
+                      }
                     />
                     <div className="flex-1">
                       <label
@@ -471,7 +499,10 @@ export default function AdminManagement() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+              >
                 Cancel
               </Button>
               <Button
@@ -493,12 +524,15 @@ export default function AdminManagement() {
             <DialogHeader>
               <DialogTitle>Delete Admin</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete {selectedAdmin?.name}? This action
-                cannot be undone.
+                Are you sure you want to delete {selectedAdmin?.name}? This
+                action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+              >
                 Cancel
               </Button>
               <Button

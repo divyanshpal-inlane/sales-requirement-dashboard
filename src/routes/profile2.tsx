@@ -329,7 +329,9 @@ export default function Profile2() {
                 <h2 className="truncate text-lg font-semibold">
                   {learner?.name || "User"}
                 </h2>
-                <p className="text-sm text-muted-foreground">{learner?.phone}</p>
+                <p className="text-sm text-muted-foreground">
+                  {learner?.phone}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -479,7 +481,8 @@ export default function Profile2() {
                   learner?.preferred_start_date
                     ? () =>
                         openEditDialog("preferences", {
-                          preferred_start_date: learner?.preferred_start_date || "",
+                          preferred_start_date:
+                            learner?.preferred_start_date || "",
                           preferred_completion_days:
                             learner?.preferred_completion_days || "",
                           prefers_two_hour_classes:
@@ -504,7 +507,8 @@ export default function Profile2() {
                   learner?.preferred_start_date
                     ? () =>
                         openEditDialog("preferences", {
-                          preferred_start_date: learner?.preferred_start_date || "",
+                          preferred_start_date:
+                            learner?.preferred_start_date || "",
                           preferred_completion_days:
                             learner?.preferred_completion_days || "",
                           prefers_two_hour_classes:
@@ -521,21 +525,26 @@ export default function Profile2() {
                   <Car className="h-4 w-4 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">2-Hour Classes</p>
+                  <p className="text-xs text-muted-foreground">
+                    2-Hour Classes
+                  </p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge
                       variant={
-                        learner?.prefers_two_hour_classes ? "default" : "secondary"
+                        learner?.prefers_two_hour_classes
+                          ? "default"
+                          : "secondary"
                       }
                       className="text-xs"
                     >
                       {learner?.prefers_two_hour_classes ? "Yes" : "No"}
                     </Badge>
-                    {learner?.prefers_two_hour_classes && learner?.two_hour_days && (
-                      <span className="text-xs text-muted-foreground">
-                        ({learner.two_hour_days})
-                      </span>
-                    )}
+                    {learner?.prefers_two_hour_classes &&
+                      learner?.two_hour_days && (
+                        <span className="text-xs text-muted-foreground">
+                          ({learner.two_hour_days})
+                        </span>
+                      )}
                   </div>
                 </div>
                 {learner?.preferred_start_date && (
@@ -543,7 +552,8 @@ export default function Profile2() {
                     className="h-4 w-4 shrink-0 cursor-pointer text-muted-foreground"
                     onClick={() =>
                       openEditDialog("preferences", {
-                        preferred_start_date: learner?.preferred_start_date || "",
+                        preferred_start_date:
+                          learner?.preferred_start_date || "",
                         preferred_completion_days:
                           learner?.preferred_completion_days || "",
                         prefers_two_hour_classes:
@@ -596,7 +606,9 @@ export default function Profile2() {
                 </p>
               </div>
               <Badge
-                variant={learner?.has_two_wheeler_license ? "default" : "secondary"}
+                variant={
+                  learner?.has_two_wheeler_license ? "default" : "secondary"
+                }
                 className="ml-2 shrink-0"
               >
                 {learner?.has_two_wheeler_license ? "Yes" : "No"}
@@ -611,16 +623,22 @@ export default function Profile2() {
                 </h4>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">LL Form Filled</span>
+                    <span className="text-muted-foreground">
+                      LL Form Filled
+                    </span>
                     <Badge
-                      variant={learner?.is_LL_form_filled ? "default" : "secondary"}
+                      variant={
+                        learner?.is_LL_form_filled ? "default" : "secondary"
+                      }
                       className="text-xs"
                     >
                       {learner?.is_LL_form_filled ? "Yes" : "No"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Application ID</span>
+                    <span className="text-muted-foreground">
+                      Application ID
+                    </span>
                     <span className="max-w-[120px] truncate text-xs">
                       {learner?.LL_application_id || "N/A"}
                     </span>
@@ -642,7 +660,9 @@ export default function Profile2() {
                   </div>
                   {learner?.LL_received && learner?.LL_received_date && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Received Date</span>
+                      <span className="text-muted-foreground">
+                        Received Date
+                      </span>
                       <span className="text-xs">
                         {formatDate(learner?.LL_received_date?.toString())}
                       </span>

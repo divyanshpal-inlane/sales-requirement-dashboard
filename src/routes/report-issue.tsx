@@ -35,10 +35,34 @@ import { supabase } from "@/lib/supabaseClient";
 
 // Report types
 const REPORT_TYPES = [
-  { value: "bug", label: "Bug / Issue", icon: Bug, color: "bg-red-100 text-red-700", description: "Something is broken or not working correctly" },
-  { value: "feature_request", label: "Feature Request", icon: Sparkles, color: "bg-purple-100 text-purple-700", description: "Request a new feature or functionality" },
-  { value: "suggestion", label: "Suggestion", icon: Lightbulb, color: "bg-yellow-100 text-yellow-700", description: "Share an idea to improve the platform" },
-  { value: "improvement", label: "Improvement", icon: Wrench, color: "bg-blue-100 text-blue-700", description: "Suggest an enhancement to existing features" },
+  {
+    value: "bug",
+    label: "Bug / Issue",
+    icon: Bug,
+    color: "bg-red-100 text-red-700",
+    description: "Something is broken or not working correctly",
+  },
+  {
+    value: "feature_request",
+    label: "Feature Request",
+    icon: Sparkles,
+    color: "bg-purple-100 text-purple-700",
+    description: "Request a new feature or functionality",
+  },
+  {
+    value: "suggestion",
+    label: "Suggestion",
+    icon: Lightbulb,
+    color: "bg-yellow-100 text-yellow-700",
+    description: "Share an idea to improve the platform",
+  },
+  {
+    value: "improvement",
+    label: "Improvement",
+    icon: Wrench,
+    color: "bg-blue-100 text-blue-700",
+    description: "Suggest an enhancement to existing features",
+  },
 ];
 
 // Team roles
@@ -112,10 +136,26 @@ const FEATURE_CATEGORIES: Record<string, { value: string; label: string }[]> = {
 
 // Priority levels
 const PRIORITY_LEVELS = [
-  { value: "low", label: "Low - Minor inconvenience", color: "bg-gray-100 text-gray-700" },
-  { value: "medium", label: "Medium - Affects work but has workaround", color: "bg-yellow-100 text-yellow-700" },
-  { value: "high", label: "High - Blocking work", color: "bg-orange-100 text-orange-700" },
-  { value: "critical", label: "Critical - Urgent, affects customers", color: "bg-red-100 text-red-700" },
+  {
+    value: "low",
+    label: "Low - Minor inconvenience",
+    color: "bg-gray-100 text-gray-700",
+  },
+  {
+    value: "medium",
+    label: "Medium - Affects work but has workaround",
+    color: "bg-yellow-100 text-yellow-700",
+  },
+  {
+    value: "high",
+    label: "High - Blocking work",
+    color: "bg-orange-100 text-orange-700",
+  },
+  {
+    value: "critical",
+    label: "Critical - Urgent, affects customers",
+    color: "bg-red-100 text-red-700",
+  },
 ];
 
 interface FormData {
@@ -328,7 +368,8 @@ export default function ReportIssuePage() {
             </p>
             {submittedId && (
               <p className="mb-6 text-sm text-gray-500">
-                Reference ID: <span className="font-mono">{submittedId.substring(0, 8)}</span>
+                Reference ID:{" "}
+                <span className="font-mono">{submittedId.substring(0, 8)}</span>
               </p>
             )}
             <Button onClick={() => setShowSuccess(false)} className="w-full">
@@ -345,14 +386,18 @@ export default function ReportIssuePage() {
     : [];
 
   // Get current report type info for dynamic UI
-  const currentReportType = REPORT_TYPES.find((t) => t.value === formData.report_type);
+  const currentReportType = REPORT_TYPES.find(
+    (t) => t.value === formData.report_type,
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8">
       <div className="container mx-auto max-w-2xl px-4">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-800">Team Feedback Portal</h1>
+          <h1 className="text-3xl font-bold text-gray-800">
+            Team Feedback Portal
+          </h1>
           <p className="mt-2 text-gray-600">
             Report bugs, suggest features, or share improvement ideas
           </p>
@@ -362,7 +407,9 @@ export default function ReportIssuePage() {
           {/* Report Type Selection */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-lg">What would you like to submit?</CardTitle>
+              <CardTitle className="text-lg">
+                What would you like to submit?
+              </CardTitle>
               <CardDescription>
                 Select the type of feedback you want to share
               </CardDescription>
@@ -386,7 +433,9 @@ export default function ReportIssuePage() {
                       <div className={`mb-2 rounded-full p-2 ${type.color}`}>
                         <Icon className="h-5 w-5" />
                       </div>
-                      <span className={`text-sm font-medium ${isSelected ? "text-indigo-700" : "text-gray-700"}`}>
+                      <span
+                        className={`text-sm font-medium ${isSelected ? "text-indigo-700" : "text-gray-700"}`}
+                      >
                         {type.label}
                       </span>
                       <span className="mt-1 text-center text-xs text-gray-500">
@@ -416,7 +465,9 @@ export default function ReportIssuePage() {
                     id="name"
                     placeholder="Enter your name"
                     value={formData.reporter_name}
-                    onChange={(e) => updateField("reporter_name", e.target.value)}
+                    onChange={(e) =>
+                      updateField("reporter_name", e.target.value)
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -448,7 +499,9 @@ export default function ReportIssuePage() {
                     id="phone"
                     placeholder="Your phone number"
                     value={formData.reporter_phone}
-                    onChange={(e) => updateField("reporter_phone", e.target.value)}
+                    onChange={(e) =>
+                      updateField("reporter_phone", e.target.value)
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -459,7 +512,9 @@ export default function ReportIssuePage() {
                     type="email"
                     placeholder="Your email"
                     value={formData.reporter_email}
-                    onChange={(e) => updateField("reporter_email", e.target.value)}
+                    onChange={(e) =>
+                      updateField("reporter_email", e.target.value)
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -471,14 +526,22 @@ export default function ReportIssuePage() {
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-lg">
-                {formData.report_type === "bug" ? "Issue Details" :
-                 formData.report_type === "feature_request" ? "Feature Request Details" :
-                 formData.report_type === "suggestion" ? "Suggestion Details" : "Improvement Details"}
+                {formData.report_type === "bug"
+                  ? "Issue Details"
+                  : formData.report_type === "feature_request"
+                    ? "Feature Request Details"
+                    : formData.report_type === "suggestion"
+                      ? "Suggestion Details"
+                      : "Improvement Details"}
               </CardTitle>
               <CardDescription>
-                {formData.report_type === "bug" ? "Describe the issue you are facing" :
-                 formData.report_type === "feature_request" ? "Describe the feature you'd like to see" :
-                 formData.report_type === "suggestion" ? "Share your suggestion with us" : "Describe the improvement you'd like to see"}
+                {formData.report_type === "bug"
+                  ? "Describe the issue you are facing"
+                  : formData.report_type === "feature_request"
+                    ? "Describe the feature you'd like to see"
+                    : formData.report_type === "suggestion"
+                      ? "Share your suggestion with us"
+                      : "Describe the improvement you'd like to see"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -539,9 +602,13 @@ export default function ReportIssuePage() {
                 <Input
                   id="title"
                   placeholder={
-                    formData.report_type === "bug" ? "Brief summary of the issue" :
-                    formData.report_type === "feature_request" ? "What feature would you like?" :
-                    formData.report_type === "suggestion" ? "Brief summary of your suggestion" : "What would you like to improve?"
+                    formData.report_type === "bug"
+                      ? "Brief summary of the issue"
+                      : formData.report_type === "feature_request"
+                        ? "What feature would you like?"
+                        : formData.report_type === "suggestion"
+                          ? "Brief summary of your suggestion"
+                          : "What would you like to improve?"
                   }
                   value={formData.issue_title}
                   onChange={(e) => updateField("issue_title", e.target.value)}
@@ -556,28 +623,39 @@ export default function ReportIssuePage() {
                 <Textarea
                   id="description"
                   placeholder={
-                    formData.report_type === "bug" ? "Describe the issue in detail. What happened? What did you expect to happen?" :
-                    formData.report_type === "feature_request" ? "Describe the feature in detail. What problem would it solve? How would it work?" :
-                    formData.report_type === "suggestion" ? "Share your suggestion in detail. Why do you think this would help?" : "Describe the improvement. How would it make things better?"
+                    formData.report_type === "bug"
+                      ? "Describe the issue in detail. What happened? What did you expect to happen?"
+                      : formData.report_type === "feature_request"
+                        ? "Describe the feature in detail. What problem would it solve? How would it work?"
+                        : formData.report_type === "suggestion"
+                          ? "Share your suggestion in detail. Why do you think this would help?"
+                          : "Describe the improvement. How would it make things better?"
                   }
                   value={formData.issue_description}
-                  onChange={(e) => updateField("issue_description", e.target.value)}
+                  onChange={(e) =>
+                    updateField("issue_description", e.target.value)
+                  }
                   className="mt-1 min-h-[120px]"
                 />
               </div>
 
               <div>
                 <Label htmlFor="steps">
-                  {formData.report_type === "bug" ? "Steps to Reproduce (Optional)" : "Additional Details (Optional)"}
+                  {formData.report_type === "bug"
+                    ? "Steps to Reproduce (Optional)"
+                    : "Additional Details (Optional)"}
                 </Label>
                 <Textarea
                   id="steps"
                   placeholder={
-                    formData.report_type === "bug" ? "1. Go to...&#10;2. Click on...&#10;3. See error..." :
-                    "Any additional context or details..."
+                    formData.report_type === "bug"
+                      ? "1. Go to...&#10;2. Click on...&#10;3. See error..."
+                      : "Any additional context or details..."
                   }
                   value={formData.steps_to_reproduce}
-                  onChange={(e) => updateField("steps_to_reproduce", e.target.value)}
+                  onChange={(e) =>
+                    updateField("steps_to_reproduce", e.target.value)
+                  }
                   className="mt-1 min-h-[80px]"
                 />
               </div>
@@ -594,7 +672,9 @@ export default function ReportIssuePage() {
                   <SelectContent>
                     {PRIORITY_LEVELS.map((level) => (
                       <SelectItem key={level.value} value={level.value}>
-                        <span className={`rounded px-2 py-0.5 text-sm ${level.color}`}>
+                        <span
+                          className={`rounded px-2 py-0.5 text-sm ${level.color}`}
+                        >
                           {level.label}
                         </span>
                       </SelectItem>
@@ -608,7 +688,9 @@ export default function ReportIssuePage() {
           {/* Affected User (Optional) */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-lg">Affected User (Optional)</CardTitle>
+              <CardTitle className="text-lg">
+                Affected User (Optional)
+              </CardTitle>
               <CardDescription>
                 If this issue is related to a specific user
               </CardDescription>
@@ -621,7 +703,9 @@ export default function ReportIssuePage() {
                     id="affected_phone"
                     placeholder="Learner/Instructor phone"
                     value={formData.affected_user_phone}
-                    onChange={(e) => updateField("affected_user_phone", e.target.value)}
+                    onChange={(e) =>
+                      updateField("affected_user_phone", e.target.value)
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -631,7 +715,9 @@ export default function ReportIssuePage() {
                     id="affected_name"
                     placeholder="Learner/Instructor name"
                     value={formData.affected_user_name}
-                    onChange={(e) => updateField("affected_user_name", e.target.value)}
+                    onChange={(e) =>
+                      updateField("affected_user_name", e.target.value)
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -707,9 +793,13 @@ export default function ReportIssuePage() {
             ) : (
               <>
                 <Send className="mr-2 h-5 w-5" />
-                {formData.report_type === "bug" ? "Submit Bug Report" :
-                 formData.report_type === "feature_request" ? "Submit Feature Request" :
-                 formData.report_type === "suggestion" ? "Submit Suggestion" : "Submit Improvement"}
+                {formData.report_type === "bug"
+                  ? "Submit Bug Report"
+                  : formData.report_type === "feature_request"
+                    ? "Submit Feature Request"
+                    : formData.report_type === "suggestion"
+                      ? "Submit Suggestion"
+                      : "Submit Improvement"}
               </>
             )}
           </Button>

@@ -11,7 +11,9 @@ function PaymentStatusCard() {
   const { data: learner, isLoading: learnerLoading } = useLearner();
 
   // Fetch all payments for the learner
-  const { data: payments, isLoading: paymentsLoading } = usePaymentsByLearner(learner?.id);
+  const { data: payments, isLoading: paymentsLoading } = usePaymentsByLearner(
+    learner?.id,
+  );
 
   // Find the latest completed payment (course, custom, or demo)
   const completedPayment = Array.isArray(payments)

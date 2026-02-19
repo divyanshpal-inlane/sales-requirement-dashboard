@@ -1,4 +1,9 @@
-import { Check, CreditCard, Loader2, Settings as SettingsIcon } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  Loader2,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -52,7 +57,9 @@ export default function AdminSettings() {
   const handleModeChange = async (mode: PaymentGatewayMode) => {
     try {
       await updateMode.mutateAsync(mode);
-      setSuccessMessage(`Payment gateway changed to: ${gatewayOptions.find(o => o.value === mode)?.label}`);
+      setSuccessMessage(
+        `Payment gateway changed to: ${gatewayOptions.find((o) => o.value === mode)?.label}`,
+      );
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
       console.error("Failed to update payment gateway mode:", error);
@@ -81,7 +88,9 @@ export default function AdminSettings() {
           <div className="flex items-center gap-3">
             <SettingsIcon className="h-8 w-8 text-gray-700" />
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Admin Settings</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                Admin Settings
+              </h1>
               <p className="mt-1 text-muted-foreground">
                 Configure application-wide settings
               </p>
@@ -178,9 +187,7 @@ export default function AdminSettings() {
                             : "border-gray-300"
                         }`}
                       >
-                        {isSelected && (
-                          <Check className="h-4 w-4 text-white" />
-                        )}
+                        {isSelected && <Check className="h-4 w-4 text-white" />}
                       </div>
                     </button>
                   );

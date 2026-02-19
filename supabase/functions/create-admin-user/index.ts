@@ -26,7 +26,10 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user: requestingUser }, error: authError } = await supabaseClient.auth.getUser(token);
+    const {
+      data: { user: requestingUser },
+      error: authError,
+    } = await supabaseClient.auth.getUser(token);
 
     if (authError || !requestingUser) {
       throw new Error("Unauthorized");
@@ -64,7 +67,7 @@ serve(async (req) => {
 
     // Check if phone already exists in auth.users
     const { data: existingUsers } = await supabaseClient.auth.admin.listUsers();
-    const phoneExists = existingUsers?.users?.some(u => u.phone === phone);
+    const phoneExists = existingUsers?.users?.some((u) => u.phone === phone);
 
     if (phoneExists) {
       throw new Error("This phone number already has an auth account");
@@ -90,18 +93,19 @@ serve(async (req) => {
     console.log("Admin record created:", newAdmin.id);
 
     // Step 2: Create auth user using Supabase Admin API
-    const { data: authUser, error: authCreateError } = await supabaseClient.auth.admin.createUser({
-      phone,
-      password,
-      phone_confirm: true,
-      user_metadata: {
-        user_role: "admin",
-        name,
-      },
-      app_metadata: {
-        user_role: "admin",
-      },
-    });
+    const { data: authUser, error: authCreateError } =
+      await supabaseClient.auth.admin.createUser({
+        phone,
+        password,
+        phone_confirm: true,
+        user_metadata: {
+          user_role: "admin",
+          name,
+        },
+        app_metadata: {
+          user_role: "admin",
+        },
+      });
 
     if (authCreateError) {
       console.error("Error creating auth user:", authCreateError);
@@ -128,13 +132,21 @@ serve(async (req) => {
       }
     }
 
-    console.log("Admin user fully created:", { phone, name, adminId: newAdmin.id });
+    console.log("Admin user fully created:", {
+      phone,
+      name,
+      adminId: newAdmin.id,
+    });
 
     return new Response(
-      JSON.stringify({ success: true, adminId: newAdmin.id, userId: authUser.user.id }),
+      JSON.stringify({
+        success: true,
+        adminId: newAdmin.id,
+        userId: authUser.user.id,
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     console.error("Error creating admin user:", error);
@@ -143,7 +155,7 @@ serve(async (req) => {
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });
