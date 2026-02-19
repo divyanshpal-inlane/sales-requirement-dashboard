@@ -264,7 +264,14 @@ export default function ReportIssuePage() {
       const screenshotUrls: string[] = [];
 
       for (const file of screenshots) {
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
+        // Sanitize filename: remove special characters, replace spaces with underscores
+        const sanitizedName = file.name
+          .normalize("NFKD") // Normalize unicode characters
+          .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+          .replace(/[^\w\s.-]/g, "") // Remove special characters except word chars, spaces, dots, hyphens
+          .replace(/\s+/g, "_") // Replace spaces with underscores
+          .replace(/_+/g, "_"); // Collapse multiple underscores
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${sanitizedName}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("bug-screenshots")
           .upload(fileName, file);
