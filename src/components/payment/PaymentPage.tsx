@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { DEMO_COURSE, SKILL_MODULES } from "@/constants/courses";
 import { supabase } from "@/lib/supabaseClient";
+import { usePaymentGatewayMode } from "@/queries/appSettings";
 import { useCourses } from "@/queries/payment";
 
 import {
@@ -51,6 +52,7 @@ function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPrefilled, setIsPrefilled] = useState(false);
   const { data: courses, isLoading: coursesLoading } = useCourses();
+  const { data: gatewayMode, isLoading: gatewayModeLoading } = usePaymentGatewayMode();
   const [paymentOption, setPaymentOption] = useState<"full" | "installment">(
     "full",
   );
@@ -482,10 +484,22 @@ function PaymentPage() {
     };
   };
 
-  // Handle form submission - show gateway selection dialog
+  // Handle form submission - check gateway mode and proceed accordingly
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setShowGatewayDialog(true);
+
+    // Check gateway mode setting
+    if (gatewayMode === "icici") {
+      // ICICI only - go directly to ICICI
+      await processICICIPayment();
+    } else if (gatewayMode === "razorpay") {
+      // Razorpay only - go directly to Razorpay
+      setSelectedGateway("razorpay");
+      setShowRazorpayCheckout(true);
+    } else {
+      // Both gateways - show selection dialog
+      setShowGatewayDialog(true);
+    }
   };
 
   // Handle gateway selection
@@ -602,12 +616,12 @@ function PaymentPage() {
   const secondInstallmentAmount =
     paymentDetails.installment2Amount || displayAmount - firstInstallmentAmount;
 
-  if (coursesLoading) {
+  if (coursesLoading || gatewayModeLoading) {
     return (
       <div className="container mx-auto max-w-md py-8">
         <Card>
           <CardHeader>
-            <CardTitle>Loading courses...</CardTitle>
+            <CardTitle>Loading...</CardTitle>
           </CardHeader>
         </Card>
       </div>

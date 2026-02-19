@@ -44,6 +44,7 @@ import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
 import AdminSchedules from "@/routes/admin/schedules";
+import AdminSettings from "@/routes/admin/Settings";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
@@ -265,6 +266,7 @@ export default function App() {
                 element={<LearnerIssueFixer />}
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

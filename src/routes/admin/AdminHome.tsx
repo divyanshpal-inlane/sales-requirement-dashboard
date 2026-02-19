@@ -3,6 +3,7 @@ import {
   Calendar as CalendarIcon,
   ClipboardList,
   PhoneCall,
+  Settings,
   Upload,
   UserCircle,
   UserPlus,
@@ -102,6 +103,13 @@ export default function AdminHome() {
       icon: Wrench,
       link: "/admin/learner-issue-fixer",
       color: "text-red-500",
+    },
+    {
+      title: "Settings",
+      description: "Configure payment gateways and app settings",
+      icon: Settings,
+      link: "/admin/settings",
+      color: "text-gray-600",
     },
   ];
 
