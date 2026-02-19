@@ -153,7 +153,10 @@ function InfoItem({
   editable = true,
 }: InfoItemProps) {
   return (
-    <div className="flex items-center gap-3 py-3">
+    <div
+      className={`flex items-center gap-3 py-3 ${editable && onEdit ? "cursor-pointer active:bg-gray-50" : ""}`}
+      onClick={editable && onEdit ? onEdit : undefined}
+    >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
         {icon}
       </div>
@@ -164,14 +167,7 @@ function InfoItem({
         </p>
       </div>
       {editable && onEdit && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onEdit}
-          className="h-8 w-8 shrink-0"
-        >
-          <Edit2 className="h-4 w-4 text-muted-foreground" />
-        </Button>
+        <Edit2 className="h-4 w-4 shrink-0 text-muted-foreground" />
       )}
     </div>
   );
@@ -179,7 +175,7 @@ function InfoItem({
 
 export default function Profile2() {
   const { data: learner, isLoading, error, refetch } = useLearner();
-  const { mutateAsync: updateLearner, isLoading: isUpdating } =
+  const { mutateAsync: updateLearner, isPending: isUpdating } =
     useLearnerUpdate();
   const navigate = useNavigate();
   const { logout } = useAuth();
