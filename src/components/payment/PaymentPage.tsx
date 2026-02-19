@@ -1051,7 +1051,17 @@ function PaymentPage() {
                 (!paymentDetails.requestId && type === "reschedule")
               }
             >
-              {isLoading ? "Processing..." : `Pay ₹${paymentDetails.amount}`}
+              {isLoading
+                ? "Processing..."
+                : type === "course" &&
+                    courseSelectionType === "predefined" &&
+                    !paymentDetails.courseId
+                  ? "Select a Course to Continue"
+                  : type === "course" &&
+                      courseSelectionType === "custom" &&
+                      selectedModules.length === 0
+                    ? "Select Modules to Continue"
+                    : `Pay ₹${paymentDetails.amount}`}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">

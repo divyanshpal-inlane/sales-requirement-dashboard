@@ -8,10 +8,10 @@ import { usePaymentsByLearner } from "@/queries/payment";
 
 function PaymentStatusCard() {
   const navigate = useNavigate();
-  const { data: learner } = useLearner();
+  const { data: learner, isLoading: learnerLoading } = useLearner();
 
   // Fetch all payments for the learner
-  const { data: payments, isLoading } = usePaymentsByLearner(learner?.id);
+  const { data: payments, isLoading: paymentsLoading } = usePaymentsByLearner(learner?.id);
 
   // Find the latest completed payment (course, custom, or demo)
   const completedPayment = Array.isArray(payments)
@@ -27,11 +27,14 @@ function PaymentStatusCard() {
         )[0]
     : null;
 
-  if (isLoading) {
+  if (learnerLoading || paymentsLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Loading payment status...</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            Loading...
+          </CardTitle>
         </CardHeader>
       </Card>
     );
