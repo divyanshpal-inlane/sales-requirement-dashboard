@@ -70,6 +70,12 @@ export const ADMIN_PERMISSIONS = {
     description: "Configure payment gateways and app settings",
     route: "/admin/settings",
   },
+  team_feedback: {
+    key: "team_feedback",
+    label: "Team Feedback",
+    description: "View and manage bug reports, feature requests, and suggestions",
+    route: "/admin/bug-reports",
+  },
 } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;

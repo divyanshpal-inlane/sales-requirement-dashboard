@@ -118,15 +118,13 @@ const featureConfig: Record<
     link: "/admin/settings",
     color: "text-gray-600",
   },
-};
-
-// Team Feedback - available to all admins
-const teamFeedbackFeature = {
-  title: "Team Feedback",
-  description: "View bugs, feature requests, and suggestions from team",
-  icon: Bug,
-  link: "/admin/bug-reports",
-  color: "text-indigo-500",
+  team_feedback: {
+    title: "Team Feedback",
+    description: "View bugs, feature requests, and suggestions from team",
+    icon: Bug,
+    link: "/admin/bug-reports",
+    color: "text-indigo-500",
+  },
 };
 
 export default function AdminHome() {
@@ -247,34 +245,6 @@ export default function AdminHome() {
               </Link>
             </Card>
           ))}
-
-          {/* Team Feedback - available to all admins */}
-          <Card className="transition-all hover:shadow-lg">
-            <Link to={teamFeedbackFeature.link}>
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`rounded-lg bg-gray-100 p-2 ${teamFeedbackFeature.color}`}
-                  >
-                    <teamFeedbackFeature.icon size={24} />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl">
-                      {teamFeedbackFeature.title}
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {teamFeedbackFeature.description}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full" variant="ghost">
-                  Access {teamFeedbackFeature.title}
-                </Button>
-              </CardContent>
-            </Link>
-          </Card>
 
           {allowedFeatures.length === 0 && !currentAdmin?.is_super_admin && (
             <Card className="col-span-2">
