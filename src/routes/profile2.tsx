@@ -16,6 +16,7 @@ import {
   Phone,
   Save,
   User,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -23,12 +24,7 @@ import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/context/auth-context";
 import { supabase } from "@/lib/supabaseClient";
@@ -110,16 +105,23 @@ function EditDialog({
 }: EditDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="mx-4 max-w-[calc(100vw-32px)] rounded-xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">{children}</div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto py-2">
+          {children}
+        </div>
+        <div className="flex gap-3 pt-2">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            className="flex-1"
+          >
             Cancel
           </Button>
-          <Button onClick={onSave} disabled={isSaving}>
+          <Button onClick={onSave} disabled={isSaving} className="flex-1">
             {isSaving ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
@@ -135,7 +137,7 @@ function EditDialog({
   );
 }
 
-interface InfoRowProps {
+interface InfoItemProps {
   icon: React.ReactNode;
   label: string;
   value: string | React.ReactNode;
@@ -143,27 +145,32 @@ interface InfoRowProps {
   editable?: boolean;
 }
 
-function InfoRow({
+function InfoItem({
   icon,
   label,
   value,
   onEdit,
   editable = true,
-}: InfoRowProps) {
+}: InfoItemProps) {
   return (
-    <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="font-medium">{value || "Not set"}</p>
-        </div>
+    <div className="flex items-center gap-3 py-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-medium">
+          {value || <span className="text-muted-foreground">Not set</span>}
+        </p>
       </div>
       {editable && onEdit && (
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          <Edit2 className="h-4 w-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onEdit}
+          className="h-8 w-8 shrink-0"
+        >
+          <Edit2 className="h-4 w-4 text-muted-foreground" />
         </Button>
       )}
     </div>
@@ -218,7 +225,7 @@ export default function Profile2() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="p-4">
         <Alert variant="destructive">
           <AlertDescription>
             Error loading profile: {error.message}
@@ -268,206 +275,159 @@ export default function Profile2() {
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return "Not set";
+    if (!dateStr) return null;
     try {
-      return format(new Date(dateStr), "PPP");
+      return format(new Date(dateStr), "dd MMM yyyy");
     } catch {
       return dateStr;
     }
   };
 
   return (
-    <div
-      className="scrollbar-none container mx-auto flex h-full flex-col overflow-y-auto pb-24"
-      style={{ scrollbarWidth: "none" }}
-    >
-      {/* Top Bar */}
-      <div className="sticky top-0 z-10 bg-background px-4 py-4">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b bg-white px-4 py-3">
+        <div className="mx-auto flex max-w-lg items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate(-1)}
-            className="transform bg-white transition-transform hover:scale-105"
+            className="h-9 w-9"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
 
-          <h1 className="text-xl font-semibold">My Profile</h1>
+          <h1 className="text-base font-semibold">My Profile</h1>
 
           <a
             href={`https://wa.me/+91${CUST_SUPPORT_PHONE}?text=Hello%20I%20need%20support`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center"
+            className="flex h-9 w-9 items-center justify-center"
           >
-            <MessageCircle className="h-6 w-6 text-primary" />
+            <MessageCircle className="h-5 w-5 text-primary" />
           </a>
         </div>
       </div>
 
-      {/* Success Alert */}
-      {showSuccessAlert && (
-        <Alert className="mx-4 mb-4 bg-green-50 text-green-800">
-          <Check className="h-4 w-4" />
-          <AlertDescription>Profile updated successfully!</AlertDescription>
-        </Alert>
-      )}
+      {/* Content */}
+      <div className="mx-auto max-w-lg px-4 py-4">
+        {/* Success Alert */}
+        {showSuccessAlert && (
+          <Alert className="mb-4 border-green-200 bg-green-50">
+            <Check className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              Profile updated successfully!
+            </AlertDescription>
+          </Alert>
+        )}
 
-      <div className="space-y-4 px-4">
-        {/* Profile Header Card */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white">
+        {/* Profile Header */}
+        <Card className="mb-4 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-white">
                 {learner?.name?.charAt(0)?.toUpperCase() || "?"}
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold">{learner?.name || "User"}</h2>
-                <p className="text-muted-foreground">{learner?.phone}</p>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-lg font-semibold">
+                  {learner?.name || "User"}
+                </h2>
+                <p className="text-sm text-muted-foreground">{learner?.phone}</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Personal Information */}
+        <Card className="mb-4 overflow-hidden">
+          <CardHeader className="border-b bg-gray-50/50 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <User className="h-4 w-4 text-primary" />
+              Personal Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y p-0">
+            <div className="px-4">
+              <InfoItem
+                icon={<User className="h-4 w-4 text-primary" />}
+                label="Full Name"
+                value={learner?.name}
+                onEdit={() =>
                   openEditDialog("basic", {
                     name: learner?.name || "",
                     email: learner?.email || "",
                     dob: learner?.dob || "",
                   })
                 }
-              >
-                <Edit2 className="mr-1 h-4 w-4" />
-                Edit
-              </Button>
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<Phone className="h-4 w-4 text-primary" />}
+                label="Phone Number"
+                value={learner?.phone}
+                editable={false}
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<Mail className="h-4 w-4 text-primary" />}
+                label="Email"
+                value={learner?.email}
+                onEdit={() =>
+                  openEditDialog("basic", {
+                    name: learner?.name || "",
+                    email: learner?.email || "",
+                    dob: learner?.dob || "",
+                  })
+                }
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<Calendar className="h-4 w-4 text-primary" />}
+                label="Date of Birth"
+                value={formatDate(learner?.dob)}
+                onEdit={() =>
+                  openEditDialog("basic", {
+                    name: learner?.name || "",
+                    email: learner?.email || "",
+                    dob: learner?.dob || "",
+                  })
+                }
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<IdCard className="h-4 w-4 text-primary" />}
+                label="Aadhar State"
+                value={learner?.aadhar_state}
+                onEdit={() =>
+                  openEditDialog("aadhar", {
+                    aadhar_state: learner?.aadhar_state || "",
+                  })
+                }
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* Personal Information */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <User className="h-5 w-5 text-primary" />
-              Personal Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <InfoRow
-              icon={<User className="h-5 w-5 text-primary" />}
-              label="Full Name"
-              value={learner?.name}
-              onEdit={() =>
-                openEditDialog("basic", {
-                  name: learner?.name || "",
-                  email: learner?.email || "",
-                  dob: learner?.dob || "",
-                })
-              }
-            />
-            <Separator />
-            <InfoRow
-              icon={<Phone className="h-5 w-5 text-primary" />}
-              label="Phone Number"
-              value={learner?.phone}
-              editable={false}
-            />
-            <Separator />
-            <InfoRow
-              icon={<Mail className="h-5 w-5 text-primary" />}
-              label="Email"
-              value={learner?.email}
-              onEdit={() =>
-                openEditDialog("basic", {
-                  name: learner?.name || "",
-                  email: learner?.email || "",
-                  dob: learner?.dob || "",
-                })
-              }
-            />
-            <Separator />
-            <InfoRow
-              icon={<Calendar className="h-5 w-5 text-primary" />}
-              label="Date of Birth"
-              value={formatDate(learner?.dob)}
-              onEdit={() =>
-                openEditDialog("basic", {
-                  name: learner?.name || "",
-                  email: learner?.email || "",
-                  dob: learner?.dob || "",
-                })
-              }
-            />
-            <Separator />
-            <InfoRow
-              icon={<IdCard className="h-5 w-5 text-primary" />}
-              label="Aadhar State"
-              value={learner?.aadhar_state}
-              onEdit={() =>
-                openEditDialog("aadhar", {
-                  aadhar_state: learner?.aadhar_state || "",
-                })
-              }
-            />
-          </CardContent>
-        </Card>
-
         {/* Location Information */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <MapPin className="h-5 w-5 text-primary" />
+        <Card className="mb-4 overflow-hidden">
+          <CardHeader className="border-b bg-gray-50/50 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <MapPin className="h-4 w-4 text-primary" />
               Location Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1">
-            <InfoRow
-              icon={<MapPin className="h-5 w-5 text-primary" />}
-              label="Pickup Location"
-              value={learner?.pick_up_location}
-              onEdit={() =>
-                openEditDialog("location", {
-                  pick_up_location: learner?.pick_up_location || "",
-                  area: learner?.area || "",
-                  pincode: learner?.pincode || "",
-                  city: learner?.city || "",
-                })
-              }
-            />
-            <Separator />
-            <InfoRow
-              icon={<MapPin className="h-5 w-5 text-primary" />}
-              label="Area"
-              value={learner?.area}
-              onEdit={() =>
-                openEditDialog("location", {
-                  pick_up_location: learner?.pick_up_location || "",
-                  area: learner?.area || "",
-                  pincode: learner?.pincode || "",
-                  city: learner?.city || "",
-                })
-              }
-            />
-            <Separator />
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <MapPin className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    City & Pincode
-                  </p>
-                  <p className="font-medium">
-                    {learner?.city || "Not set"}
-                    {learner?.pincode ? `, ${learner.pincode}` : ""}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
+          <CardContent className="divide-y p-0">
+            <div className="px-4">
+              <InfoItem
+                icon={<MapPin className="h-4 w-4 text-primary" />}
+                label="Pickup Location"
+                value={learner?.pick_up_location}
+                onEdit={() =>
                   openEditDialog("location", {
                     pick_up_location: learner?.pick_up_location || "",
                     area: learner?.area || "",
@@ -475,90 +435,60 @@ export default function Profile2() {
                     city: learner?.city || "",
                   })
                 }
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<MapPin className="h-4 w-4 text-primary" />}
+                label="Area"
+                value={learner?.area}
+                onEdit={() =>
+                  openEditDialog("location", {
+                    pick_up_location: learner?.pick_up_location || "",
+                    area: learner?.area || "",
+                    pincode: learner?.pincode || "",
+                    city: learner?.city || "",
+                  })
+                }
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<MapPin className="h-4 w-4 text-primary" />}
+                label="City & Pincode"
+                value={
+                  learner?.city || learner?.pincode
+                    ? `${learner?.city || ""}${learner?.city && learner?.pincode ? ", " : ""}${learner?.pincode || ""}`
+                    : null
+                }
+                onEdit={() =>
+                  openEditDialog("location", {
+                    pick_up_location: learner?.pick_up_location || "",
+                    area: learner?.area || "",
+                    pincode: learner?.pincode || "",
+                    city: learner?.city || "",
+                  })
+                }
+              />
             </div>
           </CardContent>
         </Card>
 
         {/* Learning Preferences */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Clock className="h-5 w-5 text-primary" />
+        <Card className="mb-4 overflow-hidden">
+          <CardHeader className="border-b bg-gray-50/50 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Clock className="h-4 w-4 text-primary" />
               Learning Preferences
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1">
-            <InfoRow
-              icon={<Calendar className="h-5 w-5 text-primary" />}
-              label="Preferred Start Date"
-              value={formatDate(learner?.preferred_start_date)}
-              onEdit={() =>
-                openEditDialog("preferences", {
-                  preferred_start_date: learner?.preferred_start_date || "",
-                  preferred_completion_days:
-                    learner?.preferred_completion_days || "",
-                  prefers_two_hour_classes:
-                    learner?.prefers_two_hour_classes || false,
-                  two_hour_days: learner?.two_hour_days || "",
-                })
-              }
-            />
-            <Separator />
-            <InfoRow
-              icon={<Clock className="h-5 w-5 text-primary" />}
-              label="Completion Duration"
-              value={
-                learner?.preferred_completion_days
-                  ? `${learner.preferred_completion_days} days`
-                  : undefined
-              }
-              onEdit={() =>
-                openEditDialog("preferences", {
-                  preferred_start_date: learner?.preferred_start_date || "",
-                  preferred_completion_days:
-                    learner?.preferred_completion_days || "",
-                  prefers_two_hour_classes:
-                    learner?.prefers_two_hour_classes || false,
-                  two_hour_days: learner?.two_hour_days || "",
-                })
-              }
-            />
-            <Separator />
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <Car className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    2-Hour Classes
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        learner?.prefers_two_hour_classes
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {learner?.prefers_two_hour_classes ? "Yes" : "No"}
-                    </Badge>
-                    {learner?.prefers_two_hour_classes &&
-                      learner?.two_hour_days && (
-                        <span className="text-sm text-muted-foreground">
-                          ({learner.two_hour_days})
-                        </span>
-                      )}
-                  </div>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
+          <CardContent className="divide-y p-0">
+            <div className="px-4">
+              <InfoItem
+                icon={<Calendar className="h-4 w-4 text-primary" />}
+                label="Preferred Start Date"
+                value={formatDate(learner?.preferred_start_date)}
+                onEdit={() =>
                   openEditDialog("preferences", {
                     preferred_start_date: learner?.preferred_start_date || "",
                     preferred_completion_days:
@@ -568,51 +498,114 @@ export default function Profile2() {
                     two_hour_days: learner?.two_hour_days || "",
                   })
                 }
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
+              />
+            </div>
+            <div className="px-4">
+              <InfoItem
+                icon={<Clock className="h-4 w-4 text-primary" />}
+                label="Completion Duration"
+                value={
+                  learner?.preferred_completion_days
+                    ? `${learner.preferred_completion_days} days`
+                    : null
+                }
+                onEdit={() =>
+                  openEditDialog("preferences", {
+                    preferred_start_date: learner?.preferred_start_date || "",
+                    preferred_completion_days:
+                      learner?.preferred_completion_days || "",
+                    prefers_two_hour_classes:
+                      learner?.prefers_two_hour_classes || false,
+                    two_hour_days: learner?.two_hour_days || "",
+                  })
+                }
+              />
+            </div>
+            <div className="px-4">
+              <div className="flex items-center gap-3 py-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Car className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">2-Hour Classes</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      variant={
+                        learner?.prefers_two_hour_classes ? "default" : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {learner?.prefers_two_hour_classes ? "Yes" : "No"}
+                    </Badge>
+                    {learner?.prefers_two_hour_classes && learner?.two_hour_days && (
+                      <span className="text-xs text-muted-foreground">
+                        ({learner.two_hour_days})
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() =>
+                    openEditDialog("preferences", {
+                      preferred_start_date: learner?.preferred_start_date || "",
+                      preferred_completion_days:
+                        learner?.preferred_completion_days || "",
+                      prefers_two_hour_classes:
+                        learner?.prefers_two_hour_classes || false,
+                      two_hour_days: learner?.two_hour_days || "",
+                    })
+                  }
+                  className="h-8 w-8 shrink-0"
+                >
+                  <Edit2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* License Information */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FileText className="h-5 w-5 text-primary" />
+        <Card className="mb-4 overflow-hidden">
+          <CardHeader className="border-b bg-gray-50/50 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <FileText className="h-4 w-4 text-primary" />
               License Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 p-4">
             {/* Has DL */}
-            <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-              <div>
-                <p className="font-medium">4-Wheeler License (DL)</p>
-                <p className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">4-Wheeler License (DL)</p>
+                <p className="text-xs text-muted-foreground">
                   Do you have a driving license?
                 </p>
               </div>
-              <Badge variant={learner?.has_a_DL ? "default" : "secondary"}>
+              <Badge
+                variant={learner?.has_a_DL ? "default" : "secondary"}
+                className="ml-2 shrink-0"
+              >
                 {learner?.has_a_DL === true
                   ? "Yes"
                   : learner?.has_a_DL === false
                     ? "No"
-                    : "Not specified"}
+                    : "N/A"}
               </Badge>
             </div>
 
             {/* Has 2-Wheeler License */}
-            <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-              <div>
-                <p className="font-medium">2-Wheeler License</p>
-                <p className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">2-Wheeler License</p>
+                <p className="text-xs text-muted-foreground">
                   Do you have a 2-wheeler license?
                 </p>
               </div>
               <Badge
-                variant={
-                  learner?.has_two_wheeler_license ? "default" : "secondary"
-                }
+                variant={learner?.has_two_wheeler_license ? "default" : "secondary"}
+                className="ml-2 shrink-0"
               >
                 {learner?.has_two_wheeler_license ? "Yes" : "No"}
               </Badge>
@@ -620,117 +613,103 @@ export default function Profile2() {
 
             {/* LL Status */}
             {learner?.has_a_DL === false && (
-              <>
-                <Separator />
+              <div className="rounded-lg border p-3">
+                <h4 className="mb-2 text-sm font-medium">
+                  Learner License (LL) Status
+                </h4>
                 <div className="space-y-2">
-                  <h4 className="font-medium">Learner License (LL) Status</h4>
-                  <div className="grid gap-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        LL Form Filled
-                      </span>
-                      <Badge
-                        variant={
-                          learner?.is_LL_form_filled ? "default" : "secondary"
-                        }
-                      >
-                        {learner?.is_LL_form_filled ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        LL Application ID
-                      </span>
-                      <span>
-                        {learner?.LL_application_id || "Not available"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        LL Test Date
-                      </span>
-                      <span>{formatDate(learner?.LL_test_date)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">LL Received</span>
-                      <Badge
-                        variant={learner?.LL_received ? "default" : "secondary"}
-                      >
-                        {learner?.LL_received ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    {learner?.LL_received && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          LL Received Date
-                        </span>
-                        <span>
-                          {formatDate(learner?.LL_received_date?.toString())}
-                        </span>
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">LL Form Filled</span>
+                    <Badge
+                      variant={learner?.is_LL_form_filled ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {learner?.is_LL_form_filled ? "Yes" : "No"}
+                    </Badge>
                   </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Application ID</span>
+                    <span className="max-w-[120px] truncate text-xs">
+                      {learner?.LL_application_id || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">LL Test Date</span>
+                    <span className="text-xs">
+                      {formatDate(learner?.LL_test_date) || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">LL Received</span>
+                    <Badge
+                      variant={learner?.LL_received ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {learner?.LL_received ? "Yes" : "No"}
+                    </Badge>
+                  </div>
+                  {learner?.LL_received && learner?.LL_received_date && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Received Date</span>
+                      <span className="text-xs">
+                        {formatDate(learner?.LL_received_date?.toString())}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </>
+              </div>
             )}
 
             {/* DL Test Status */}
             {learner?.DL_test_date && (
-              <>
-                <Separator />
+              <div className="rounded-lg border p-3">
+                <h4 className="mb-2 text-sm font-medium">DL Test Status</h4>
                 <div className="space-y-2">
-                  <h4 className="font-medium">DL Test Status</h4>
-                  <div className="grid gap-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        DL Test Date
-                      </span>
-                      <span>{formatDate(learner.DL_test_date)}</span>
-                    </div>
-                    {learner?.DL_result !== null && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          DL Test Result
-                        </span>
-                        <Badge
-                          variant={
-                            learner?.DL_result ? "default" : "destructive"
-                          }
-                        >
-                          {learner?.DL_result ? "Passed" : "Failed"}
-                        </Badge>
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">DL Test Date</span>
+                    <span className="text-xs">
+                      {formatDate(learner.DL_test_date)}
+                    </span>
                   </div>
+                  {learner?.DL_result !== null && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Result</span>
+                      <Badge
+                        variant={learner?.DL_result ? "default" : "destructive"}
+                        className="text-xs"
+                      >
+                        {learner?.DL_result ? "Passed" : "Failed"}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
-              </>
+              </div>
             )}
 
             {/* View LL Document */}
             {llFileUrl && (
-              <>
-                <Separator />
-                <a
-                  href={llFileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-lg bg-primary/5 p-3 transition-colors hover:bg-primary/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="font-medium">
-                      View Uploaded LL Document
-                    </span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </a>
-              </>
+              <a
+                href={llFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3 transition-colors hover:bg-primary/10"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">View LL Document</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </a>
             )}
           </CardContent>
         </Card>
 
         {/* Logout Button */}
-        <Button onClick={handleLogout} variant="destructive" className="w-full">
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </Button>
@@ -742,24 +721,28 @@ export default function Profile2() {
       <EditDialog
         open={editingSection === "basic"}
         onClose={closeEditDialog}
-        title="Edit Personal Information"
+        title="Edit Personal Info"
         onSave={handleSave}
         isSaving={isUpdating}
       >
         <div className="space-y-4">
           <div>
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="name" className="text-sm">
+              Full Name
+            </Label>
             <Input
               id="name"
               value={editFormData.name || ""}
               onChange={(e) =>
                 setEditFormData({ ...editFormData, name: e.target.value })
               }
-              className="mt-1"
+              className="mt-1.5"
             />
           </div>
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-sm">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -767,11 +750,13 @@ export default function Profile2() {
               onChange={(e) =>
                 setEditFormData({ ...editFormData, email: e.target.value })
               }
-              className="mt-1"
+              className="mt-1.5"
             />
           </div>
           <div>
-            <Label htmlFor="dob">Date of Birth</Label>
+            <Label htmlFor="dob" className="text-sm">
+              Date of Birth
+            </Label>
             <Input
               id="dob"
               type="date"
@@ -779,7 +764,7 @@ export default function Profile2() {
               onChange={(e) =>
                 setEditFormData({ ...editFormData, dob: e.target.value })
               }
-              className="mt-1"
+              className="mt-1.5"
             />
           </div>
         </div>
@@ -794,14 +779,16 @@ export default function Profile2() {
         isSaving={isUpdating}
       >
         <div>
-          <Label htmlFor="aadhar_state">Aadhar Registration State</Label>
+          <Label htmlFor="aadhar_state" className="text-sm">
+            Aadhar Registration State
+          </Label>
           <Select
             value={editFormData.aadhar_state || ""}
             onValueChange={(value) =>
               setEditFormData({ ...editFormData, aadhar_state: value })
             }
           >
-            <SelectTrigger className="mt-1">
+            <SelectTrigger className="mt-1.5">
               <SelectValue placeholder="Select your state" />
             </SelectTrigger>
             <SelectContent>
@@ -825,7 +812,9 @@ export default function Profile2() {
       >
         <div className="space-y-4">
           <div>
-            <Label htmlFor="pick_up_location">Pickup Location</Label>
+            <Label htmlFor="pick_up_location" className="text-sm">
+              Pickup Location
+            </Label>
             <Input
               id="pick_up_location"
               value={editFormData.pick_up_location || ""}
@@ -835,43 +824,49 @@ export default function Profile2() {
                   pick_up_location: e.target.value,
                 })
               }
-              className="mt-1"
+              className="mt-1.5"
               placeholder="Enter your pickup address"
             />
           </div>
           <div>
-            <Label htmlFor="area">Area</Label>
+            <Label htmlFor="area" className="text-sm">
+              Area
+            </Label>
             <Input
               id="area"
               value={editFormData.area || ""}
               onChange={(e) =>
                 setEditFormData({ ...editFormData, area: e.target.value })
               }
-              className="mt-1"
+              className="mt-1.5"
               placeholder="Enter your area"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city" className="text-sm">
+                City
+              </Label>
               <Input
                 id="city"
                 value={editFormData.city || ""}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, city: e.target.value })
                 }
-                className="mt-1"
+                className="mt-1.5"
               />
             </div>
             <div>
-              <Label htmlFor="pincode">Pincode</Label>
+              <Label htmlFor="pincode" className="text-sm">
+                Pincode
+              </Label>
               <Input
                 id="pincode"
                 value={editFormData.pincode || ""}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, pincode: e.target.value })
                 }
-                className="mt-1"
+                className="mt-1.5"
               />
             </div>
           </div>
@@ -882,13 +877,15 @@ export default function Profile2() {
       <EditDialog
         open={editingSection === "preferences"}
         onClose={closeEditDialog}
-        title="Edit Learning Preferences"
+        title="Edit Preferences"
         onSave={handleSave}
         isSaving={isUpdating}
       >
         <div className="space-y-4">
           <div>
-            <Label htmlFor="preferred_start_date">Preferred Start Date</Label>
+            <Label htmlFor="preferred_start_date" className="text-sm">
+              Preferred Start Date
+            </Label>
             <Input
               id="preferred_start_date"
               type="date"
@@ -899,12 +896,12 @@ export default function Profile2() {
                   preferred_start_date: e.target.value,
                 })
               }
-              className="mt-1"
+              className="mt-1.5"
             />
           </div>
           <div>
-            <Label htmlFor="preferred_completion_days">
-              Preferred Completion Duration (days)
+            <Label htmlFor="preferred_completion_days" className="text-sm">
+              Completion Duration (days)
             </Label>
             <Input
               id="preferred_completion_days"
@@ -916,15 +913,15 @@ export default function Profile2() {
                   preferred_completion_days: parseInt(e.target.value) || null,
                 })
               }
-              className="mt-1"
+              className="mt-1.5"
               placeholder="e.g., 30"
             />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <Label>Prefer 2-Hour Classes</Label>
-              <p className="text-sm text-muted-foreground">
-                Would you like to have 2-hour sessions?
+              <p className="text-sm font-medium">2-Hour Classes</p>
+              <p className="text-xs text-muted-foreground">
+                Prefer 2-hour sessions?
               </p>
             </div>
             <Switch
@@ -939,7 +936,7 @@ export default function Profile2() {
           </div>
           {editFormData.prefers_two_hour_classes && (
             <div>
-              <Label>Preferred Days for 2-Hour Classes</Label>
+              <Label className="text-sm">Preferred Days</Label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {DAYS_OF_WEEK.map((day) => {
                   const selectedDays = (editFormData.two_hour_days || "")
@@ -952,6 +949,7 @@ export default function Profile2() {
                       type="button"
                       variant={isSelected ? "default" : "outline"}
                       size="sm"
+                      className="h-8 px-3"
                       onClick={() => {
                         const newDays = isSelected
                           ? selectedDays.filter((d) => d !== day)
