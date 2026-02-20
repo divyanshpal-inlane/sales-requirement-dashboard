@@ -1924,9 +1924,7 @@ function MigrationFormContent() {
                                       : "cursor-pointer hover:bg-primary/20"
                                 }`}
                               >
-                                {isSelected
-                                  ? `L${lessonNum}`
-                                  : displayTime}
+                                {isSelected ? `L${lessonNum}` : displayTime}
                               </button>
                             );
                           })}

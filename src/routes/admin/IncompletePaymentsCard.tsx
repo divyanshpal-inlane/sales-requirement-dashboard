@@ -195,7 +195,9 @@ export function IncompletePaymentsCard() {
       return "Payment pending";
     } else if (
       enrollment.payment &&
-      !["full_paid", "half_paid", "completed"].includes(enrollment.payment.status)
+      !["full_paid", "half_paid", "completed"].includes(
+        enrollment.payment.status,
+      )
     ) {
       return "Payment failed";
     }

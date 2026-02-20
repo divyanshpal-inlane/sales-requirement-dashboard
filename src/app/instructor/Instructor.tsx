@@ -37,6 +37,7 @@ import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar";
 import { useNavigate } from "react-router-dom";
 
 import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
+import { CalendarImport } from "@/components/instructor/CalendarImport";
 import { LessonPlan } from "@/components/lesson/plan";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +62,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
+import { useImportedCalendar } from "@/hooks/useImportedCalendar";
 import {
   useInstructor,
   useInstructorScheduleData,
@@ -251,6 +253,15 @@ function Instructor() {
   const updateScheduleStatus = useUpdateScheduleStatus();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Calendar import functionality
+  const {
+    calendarEvents: importedCalendarEvents,
+    importedEventsCount,
+    importEvents,
+    hasImportedCalendar,
+  } = useImportedCalendar({ instructorPhone: phone });
+  const [showCalendarImport, setShowCalendarImport] = useState(false);
 
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -1342,6 +1353,19 @@ function Instructor() {
         <div className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col items-center justify-between p-4">
             <div className="-mt-4 mb-2 ml-2 flex items-center space-x-3">
+              {/* Import Calendar Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCalendarImport(true)}
+                className="flex items-center gap-1 text-xs"
+              >
+                <Calendar className="h-3 w-3" />
+                {hasImportedCalendar
+                  ? `${importedEventsCount} Events`
+                  : "Import"}
+              </Button>
+
               {/* Create Event Button */}
               {isGoogleConnected && (
                 <Button
@@ -1378,6 +1402,32 @@ function Instructor() {
                 <User className="text-white" size={20} />
               </button>
             </div>
+
+            {/* Calendar Import Dialog */}
+            <Dialog
+              open={showCalendarImport}
+              onOpenChange={setShowCalendarImport}
+            >
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Import Your Calendar
+                  </DialogTitle>
+                  <DialogDescription>
+                    Import events from your personal calendar to block those
+                    time slots from scheduling.
+                  </DialogDescription>
+                </DialogHeader>
+                <CalendarImport
+                  onImport={(events) => {
+                    importEvents(events);
+                    setShowCalendarImport(false);
+                  }}
+                  existingEventsCount={importedEventsCount}
+                />
+              </DialogContent>
+            </Dialog>
 
             <div className="mt-2 flex items-center space-x-2">
               <Button
@@ -1479,56 +1529,16 @@ function Instructor() {
     navigate(`/otp/end/${learnerId}/${itemId}`);
   };
 
+  // Always require OTP verification for all lessons (both start and end)
+  // Previously this returned false for "non-boundary" lessons (middle of continuous sessions)
+  // which allowed bypassing OTP verification - this was a security issue
   const checkBoundarySchedule = (
     instructorSchedules,
     lessonSchedule,
     checkStart,
   ) => {
-    console.log(
-      `[ENTRY] checkBoundarySchedule | checkStart: ${checkStart} | lessonSchedule: ${JSON.stringify(lessonSchedule)} | instructorSchedules: ${JSON.stringify(instructorSchedules)}`,
-    );
-
-    const currentIndex = instructorSchedules.findIndex(
-      (s) => s.id === lessonSchedule.id,
-    );
-    const lessonStartHM = lessonSchedule.start_time.substring(0, 5);
-    const lessonEndHM = lessonSchedule.end_time.substring(0, 5);
-
-    let isBoundary = false;
-
-    if (checkStart) {
-      // If it's the first lesson in the sorted list, it is a START boundary
-      if (currentIndex === 0) {
-        isBoundary = true;
-      } else {
-        const prev = instructorSchedules[currentIndex - 1];
-        // Boundary is true if Day, Learner, OR Time do NOT match
-        isBoundary = !(
-          prev.date === lessonSchedule.date &&
-          prev.end_time.substring(0, 5) === lessonStartHM &&
-          prev.learner_id === lessonSchedule.learner_id
-        );
-      }
-    } else {
-      // If it's the last lesson in the sorted list, it is an END boundary
-      if (currentIndex === instructorSchedules.length - 1) {
-        isBoundary = true;
-      } else {
-        const next = instructorSchedules[currentIndex + 1];
-        // Boundary is true if Day, Learner, OR Time do NOT match
-        isBoundary = !(
-          next.date === lessonSchedule.date &&
-          next.start_time.substring(0, 5) === lessonEndHM &&
-          next.learner_id === lessonSchedule.learner_id
-        );
-      }
-    }
-
-    console.log(
-      `[EXIT] checkBoundarySchedule | isBoundary: ${isBoundary} | ID: ${lessonSchedule?.id}`,
-    );
-
-    return isBoundary;
+    // Always return true to require OTP for every lesson start/end
+    return true;
   };
   return (
     <div className="flex h-full w-full flex-col">
@@ -2106,6 +2116,7 @@ function Instructor() {
                   <Input
                     id="startTime"
                     type="time"
+                    step="1800"
                     value={newEventData.startTime || ""}
                     onChange={(e) =>
                       setNewEventData((prev) => ({
@@ -2120,6 +2131,7 @@ function Instructor() {
                   <Input
                     id="endTime"
                     type="time"
+                    step="1800"
                     value={newEventData.endTime || ""}
                     onChange={(e) =>
                       setNewEventData((prev) => ({

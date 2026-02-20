@@ -32,8 +32,9 @@ import {
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
 import AdminHome from "@/routes/admin/AdminHome";
-import CustomerInfo from "@/routes/admin/CustomerInfo";
+import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
+import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
@@ -44,6 +45,7 @@ import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
 import AdminSchedules from "@/routes/admin/schedules";
+import AdminSettings from "@/routes/admin/Settings";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
@@ -59,10 +61,12 @@ import Profile2 from "@/routes/profile2";
 import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
+import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
+import ReportIssue from "./routes/report-issue";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +87,7 @@ export default function App() {
           <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/report-issue" element={<ReportIssue />} />
             <Route path="/admin-byser-secu7" element={<AdminLogin />} />
             <Route path="/instructor-login" element={<InstructorAuth />} />
             <Route
@@ -247,7 +252,6 @@ export default function App() {
                 path="learner-management"
                 element={<LearnerManagement />}
               />
-              <Route path="customer-info" element={<CustomerInfo />} />
               <Route
                 path="notification-management"
                 element={<NotificationManagement />}
@@ -265,6 +269,13 @@ export default function App() {
                 element={<LearnerIssueFixer />}
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
+              <Route
+                path="instructor-onboarding"
+                element={<InstructorOnboardingPage />}
+              />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="admin-management" element={<AdminManagement />} />
+              <Route path="bug-reports" element={<BugReportsManagement />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

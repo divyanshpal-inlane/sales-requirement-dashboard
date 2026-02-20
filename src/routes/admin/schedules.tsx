@@ -1238,14 +1238,14 @@ export const LearnerSchedulesManager = ({
             supabase
               .from("Lesson")
               .update({ number: update.number })
-              .eq("id", update.id)
+              .eq("id", update.id),
           );
           const results = await Promise.all(updatePromises);
           results.forEach((result, index) => {
             if (result.error) {
               console.error(
                 `Error updating lesson ${lessonUpdates[index].id} number:`,
-                result.error
+                result.error,
               );
             }
           });

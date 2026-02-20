@@ -1720,7 +1720,9 @@ function CreateSchedule({
       });
 
       // Limit to course's total_lessons if available (handles extra lesson records in DB)
-      return courseTotalLessons ? deduped.slice(0, courseTotalLessons) : deduped;
+      return courseTotalLessons
+        ? deduped.slice(0, courseTotalLessons)
+        : deduped;
     },
   });
 
@@ -3787,19 +3789,18 @@ function CreateSchedule({
           <div className="text-sm text-gray-500"></div>
         </div>
       </div>
-      {/* Lesson 10 Locked Banner */}
+      {/* Lesson 10 Separate Scheduling Banner */}
       {isLesson10Locked && (
-        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
           <div className="flex items-start gap-2">
-            <span className="text-lg">🔒</span>
+            <span className="text-lg">📅</span>
             <div>
-              <p className="font-medium text-amber-800">
-                Lesson 10 is locked - Learner doesn&apos;t have DL
+              <p className="font-medium text-blue-800">
+                Lesson 10 will be scheduled separately
               </p>
-              <p className="text-sm text-amber-700">
-                Schedule 9 lessons now. Lesson 10 will be scheduled separately
-                after the learner&apos;s DL test date is confirmed (via
-                &quot;10th Lesson Requests&quot; tab).
+              <p className="text-sm text-blue-700">
+                Schedule 9 lessons now. After completion, the learner can
+                request Lesson 10 scheduling from their home page.
               </p>
             </div>
           </div>
@@ -3811,8 +3812,8 @@ function CreateSchedule({
           <span>
             Selected: {selectedSlots.length / 2} of {requiredLessonCount} hours
             {isLesson10Locked && (
-              <span className="ml-2 text-sm text-amber-600">
-                (Course: {totalCourseHours} hrs, Lesson 10 locked)
+              <span className="ml-2 text-sm text-blue-600">
+                (Course: {totalCourseHours} hrs, Lesson 10 scheduled later)
               </span>
             )}
           </span>

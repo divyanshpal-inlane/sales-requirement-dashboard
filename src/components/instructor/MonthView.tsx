@@ -16,7 +16,7 @@ interface MonthViewProps {
   isGoogleConnected: boolean;
   onScheduleClick: (schedule: any, learner: any) => void;
   onEventClick: (event: any) => void;
-  onEmptyCellClick: (date: Date, hour: number) => void;
+  onEmptyCellClick: (date: Date, hour: number, minute: number) => void;
 }
 
 const MonthView = ({
@@ -68,7 +68,7 @@ const MonthView = ({
             daySchedules.length === 0 &&
             dayGoogleEvents.length === 0
           ) {
-            onEmptyCellClick(date, 9); // Default to 9 AM
+            onEmptyCellClick(date, 9, 0); // Default to 9:00 AM
           }
         }}
       >

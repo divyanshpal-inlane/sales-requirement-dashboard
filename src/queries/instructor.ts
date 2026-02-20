@@ -422,15 +422,16 @@ export const useVerifyOtp = ({
       }
 
       const schedule = data as unknown as ScheduleWithOtp;
-      let isValid =
-        (schedule && isVerifyStartLesson ? schedule.otp : schedule.otp_end) ===
-        otp;
-      // Also handle end lesson otp null for lessons scheduled before the change
-      if (!isVerifyStartLesson && !schedule.otp_end) {
-        console.log("OTP end is null, allowing end lesson verification");
-        isValid = true;
-      }
-      console.log("Returning verification data", { isValid, schedule });
+
+      // For start lesson, verify against otp field
+      // For end lesson, verify against otp_end field
+      // If otp_end is null (legacy schedules), use the start otp as fallback
+      const expectedOtp = isVerifyStartLesson
+        ? schedule.otp
+        : schedule.otp_end || schedule.otp; // Fallback to start OTP for legacy schedules
+
+      const isValid = expectedOtp === otp;
+
       return {
         isValid,
         schedule,

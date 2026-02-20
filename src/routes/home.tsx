@@ -145,6 +145,12 @@ export default function Home() {
     return <div>Loading...</div>;
   }
 
+  // FIRST: Check if onboarding is complete (before checking payment)
+  if (!learner?.onboarding_completed) {
+    return <Navigate to="/onboard/birthday" />;
+  }
+
+  // THEN: Check if payment is complete
   if (!completedPayment && !isCompleted) {
     return (
       <div className="container mx-auto max-w-md py-8">
@@ -235,10 +241,7 @@ export default function Home() {
   localStorageInitOnce("onboardingDone");
   localStorageInitOnce("schedulePreferencesUpdated");
 
-  const ls_onboarding_done = localStorage.getItem("onboardingDone");
-  if (!learner?.onboarding_completed && ls_onboarding_done != "true") {
-    return <Navigate to="/onboard/birthday" />;
-  }
+  // Note: Onboarding check is now done earlier in the component (before payment check)
 
   if (
     isLoading ||
@@ -1118,11 +1121,6 @@ export default function Home() {
                           : ""}
                         You can apply for the Driver licence test after 30 days
                         of LL date.
-                        {!learner.DL_test_date
-                          ? "Once the test date gets confirmed by you, the lesson 10 can be scheduled within 1 week of the driving test date."
-                          : ""}
-                        {/*  !learner.has_lesson10_booked ? " Book lesson 10"
-                             : "You've booked it" */}
                         {scheduledLessons &&
                           scheduledLessons.length === 9 &&
                           isLesson10Completed === undefined && (
@@ -1131,15 +1129,6 @@ export default function Home() {
                               onClick={() =>
                                 navigate(
                                   "/createSchedule/preferences?type=lesson10",
-                                )
-                              }
-                              disabled={
-                                !(
-                                  learner?.DL_test_date &&
-                                  isAfter(
-                                    new Date(),
-                                    subDays(new Date(learner.DL_test_date), 7),
-                                  )
                                 )
                               }
                             >

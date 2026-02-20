@@ -58,6 +58,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 
 import { SearchInstructorScheduleInfo } from "@/components/admin/InstructorScheduleInfo";
+import { CalendarImport } from "@/components/instructor/CalendarImport";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -90,6 +91,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
+import { useAdminImportedCalendar } from "@/hooks/useAdminImportedCalendar";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import { checkInstructorAvailability } from "@/queries/instructor";
@@ -313,6 +315,7 @@ const initialInstructorData: InstructorData = {
 // });
 
 // Updated version: handles lat,lng from mouse click also
+// Fixed: proper script loading + useRef for onChange to prevent stale closure
 const AddressAutocomplete = memo(
   ({
     value,
@@ -325,23 +328,91 @@ const AddressAutocomplete = memo(
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(
       null,
     );
+    const onChangeRef = useRef(onChange);
     const [isScriptLoaded, setIsScriptLoaded] = useState(false);
     const [internalValue, setInternalValue] = useState(value);
+
+    // Keep onChange ref updated to avoid stale closure
+    useEffect(() => {
+      onChangeRef.current = onChange;
+    }, [onChange]);
 
     // Sync internal value with prop
     useEffect(() => {
       setInternalValue(value);
     }, [value]);
 
-    // Script loading logic (keep your existing logic here)
+    // Script loading logic - properly load Google Maps Places API
     useEffect(() => {
-      /* ... your existing script loading logic ... */
-      if (window.google?.maps?.places) setIsScriptLoaded(true);
+      // Check if already loaded
+      if (window.google?.maps?.places) {
+        setIsScriptLoaded(true);
+        return;
+      }
+
+      // Check if script is already being loaded
+      const existingScript = document.querySelector(
+        'script[src*="maps.googleapis.com/maps/api/js"]',
+      );
+
+      if (existingScript) {
+        // Wait for existing script to load
+        const checkLoaded = setInterval(() => {
+          if (window.google?.maps?.places) {
+            setIsScriptLoaded(true);
+            clearInterval(checkLoaded);
+          }
+        }, 100);
+
+        // Cleanup interval after 10 seconds
+        setTimeout(() => clearInterval(checkLoaded), 10000);
+        return;
+      }
+
+      // Load the script
+      const googleMapScript = document.createElement("script");
+      googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+      googleMapScript.async = true;
+      googleMapScript.defer = true;
+
+      googleMapScript.onload = () => {
+        setIsScriptLoaded(true);
+      };
+
+      googleMapScript.onerror = () => {
+        console.error("Failed to load Google Maps script");
+      };
+
+      document.head.appendChild(googleMapScript);
+    }, []);
+
+    // Add CSS to ensure the dropdown is visible
+    useEffect(() => {
+      const style = document.createElement("style");
+      style.innerHTML = `
+        .pac-container {
+          z-index: 10000 !important;
+          pointer-events: auto !important;
+        }
+        .pac-item {
+          cursor: pointer !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      return () => {
+        document.head.removeChild(style);
+      };
     }, []);
 
     useEffect(() => {
       if (!inputRef.current || !isScriptLoaded || !window.google?.maps?.places)
         return;
+
+      // Clear previous instance if it exists
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
 
       // Initialize Autocomplete once
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
@@ -352,7 +423,7 @@ const AddressAutocomplete = memo(
         },
       );
 
-      // Handle Selection
+      // Handle Selection - use ref to always get latest onChange
       const listener = autocompleteRef.current.addListener(
         "place_changed",
         () => {
@@ -363,9 +434,8 @@ const AddressAutocomplete = memo(
             const lat = place.geometry.location.lat();
             const lng = place.geometry.location.lng();
 
-            console.log("📍 Google Selection:", { addr, lat, lng });
             setInternalValue(addr);
-            onChange(addr, lat, lng);
+            onChangeRef.current(addr, lat, lng);
           }
         },
       );
@@ -373,13 +443,13 @@ const AddressAutocomplete = memo(
       return () => {
         if (listener) google.maps.event.removeListener(listener);
       };
-    }, [isScriptLoaded]); // REMOVED 'onChange' from dependencies to prevent re-init
+    }, [isScriptLoaded]);
 
     const handleManualTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
       setInternalValue(val);
       // When typing manually, we clear lat/lng
-      onChange(val, null, null);
+      onChangeRef.current(val, null, null);
     };
 
     return (
@@ -391,11 +461,15 @@ const AddressAutocomplete = memo(
           placeholder="Search address..."
           className="w-full"
           autoComplete="off"
-          // Prevent event bubbling that might interfere with selection
           onKeyDown={(e) => {
             if (e.key === "Enter") e.preventDefault();
           }}
         />
+        {!isScriptLoaded && (
+          <div className="mt-1 text-xs text-gray-500">
+            Loading address autocomplete...
+          </div>
+        )}
       </div>
     );
   },
@@ -838,6 +912,11 @@ export default function InstructorsManagement() {
   };
 
   const handleAddNewInstructor = () => {
+    // Navigate to the comprehensive instructor onboarding wizard
+    navigate("/admin/instructor-onboarding");
+  };
+
+  const handleQuickAddInstructor = () => {
     setFormMode("add");
     resetForm();
     setIsDialogOpen(true);
@@ -902,10 +981,16 @@ export default function InstructorsManagement() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-bold">Instructor Management</h1>
-        <Button onClick={handleAddNewInstructor}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Instructor
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleAddNewInstructor}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Onboard Instructor
+          </Button>
+          <Button variant="outline" onClick={handleQuickAddInstructor}>
+            <Plus className="mr-2 h-4 w-4" />
+            Quick Add
+          </Button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -1601,6 +1686,7 @@ export default function InstructorsManagement() {
                       <Label>Start Time</Label>
                       <Input
                         type="time"
+                        step="1800"
                         value={unavailabilityData.booked_start_time || ""}
                         onChange={(e) =>
                           setUnavailabilityData({
@@ -1614,6 +1700,7 @@ export default function InstructorsManagement() {
                       <Label>End Time</Label>
                       <Input
                         type="time"
+                        step="1800"
                         value={unavailabilityData.booked_end_time || ""}
                         onChange={(e) =>
                           setUnavailabilityData({
@@ -1677,6 +1764,7 @@ export default function InstructorsManagement() {
                       <Label>Start Time</Label>
                       <Input
                         type="time"
+                        step="1800"
                         value={unavailabilityData.booked_start_time || ""}
                         onChange={(e) =>
                           setUnavailabilityData({
@@ -1690,6 +1778,7 @@ export default function InstructorsManagement() {
                       <Label>End Time</Label>
                       <Input
                         type="time"
+                        step="1800"
                         value={unavailabilityData.booked_end_time || ""}
                         onChange={(e) =>
                           setUnavailabilityData({
@@ -1756,6 +1845,7 @@ export default function InstructorsManagement() {
                       <Label>Start Time</Label>
                       <Input
                         type="time"
+                        step="1800"
                         value={unavailabilityData.range_start_time || ""}
                         onChange={(e) =>
                           setUnavailabilityData({
@@ -1769,6 +1859,7 @@ export default function InstructorsManagement() {
                       <Label>End Time</Label>
                       <Input
                         type="time"
+                        step="1800"
                         value={unavailabilityData.range_end_time || ""}
                         onChange={(e) =>
                           setUnavailabilityData({
@@ -4257,6 +4348,7 @@ export const AddTentativeSchedule = ({
                   <Label>Start Time</Label>
                   <Input
                     type="time"
+                    step="1800"
                     value={newSlotTimes.start}
                     onChange={(e) => handleStartTimeChange(e.target.value)}
                   />
@@ -4265,6 +4357,7 @@ export const AddTentativeSchedule = ({
                   <Label>End Time</Label>
                   <Input
                     type="time"
+                    step="1800"
                     value={newSlotTimes.end}
                     onChange={(e) =>
                       setNewSlotTimes({ ...newSlotTimes, end: e.target.value })
@@ -4630,6 +4723,7 @@ export const EditTentativeSchedule = ({ schedule }: { schedule: any }) => {
                     />
                     <Input
                       type="time"
+                      step="1800"
                       value={slot.start_time}
                       onChange={(e) => {
                         const updated = [...slots];
@@ -4639,6 +4733,7 @@ export const EditTentativeSchedule = ({ schedule }: { schedule: any }) => {
                     />
                     <Input
                       type="time"
+                      step="1800"
                       value={slot.end_time}
                       onChange={(e) => {
                         const updated = [...slots];
@@ -4804,6 +4899,49 @@ function isTimeUnavailable(
   });
 }
 
+// Check if a time slot is blocked by an imported calendar event
+function isBlockedByImportedEvent(
+  importedEvents: any[] | null | undefined,
+  day: Date,
+  hour: number,
+  minute: number,
+): boolean {
+  if (
+    !importedEvents ||
+    !Array.isArray(importedEvents) ||
+    importedEvents.length === 0
+  ) {
+    return false;
+  }
+
+  const currentTime = new Date(day);
+  currentTime.setHours(hour, minute, 0, 0);
+  const formattedDate = format(day, "yyyy-MM-dd");
+
+  return importedEvents.some((event) => {
+    // Check if event is on this date
+    const eventDateStr = event.start?.dateTime || event.start?.date;
+    if (!eventDateStr) return false;
+
+    const eventDate = eventDateStr.split("T")[0];
+    if (eventDate !== formattedDate) return false;
+
+    // All-day event
+    if (event.start?.date && !event.start?.dateTime) {
+      return true;
+    }
+
+    // Timed event - check if current time falls within event
+    if (event.start?.dateTime && event.end?.dateTime) {
+      const eventStart = new Date(event.start.dateTime);
+      const eventEnd = new Date(event.end.dateTime);
+      return currentTime >= eventStart && currentTime < eventEnd;
+    }
+
+    return false;
+  });
+}
+
 export const InstructorSchedulePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -4900,6 +5038,16 @@ export const InstructorSchedulePage = () => {
     },
   });
 
+  // Calendar import functionality
+  const {
+    calendarEvents: importedCalendarEvents,
+    importedEventsCount,
+    importEvents,
+    hasImportedCalendar,
+  } = useAdminImportedCalendar({ instructorId: id });
+
+  const [showCalendarImport, setShowCalendarImport] = useState(false);
+
   const [editingschedule, setEditingschedule] = useState<any | null>(null);
 
   const filteredSchedules = useMemo(() => {
@@ -4917,6 +5065,45 @@ export const InstructorSchedulePage = () => {
       );
     });
   }, [instructor, searchQuery]);
+
+  // Calculate chronological lesson numbers per learner
+  // This groups schedules by learner, sorts by date/time, and assigns sequential numbers
+  const scheduleToLessonNumber = useMemo(() => {
+    if (!instructor?.schedules) return {};
+
+    // Group non-tentative schedules by learner_id
+    const schedulesByLearner: Record<string, typeof instructor.schedules> = {};
+    instructor.schedules.forEach((schedule) => {
+      if (schedule.isTentative || !schedule.learner_id) return;
+
+      const learnerId = schedule.learner_id;
+      if (!schedulesByLearner[learnerId]) {
+        schedulesByLearner[learnerId] = [];
+      }
+      schedulesByLearner[learnerId].push(schedule);
+    });
+
+    // Sort each group by date/time and create a map of schedule_id -> lesson_number
+    const mapping: Record<string, number> = {};
+    Object.values(schedulesByLearner).forEach((schedules) => {
+      const sorted = [...schedules].sort((a, b) => {
+        const dateTimeA = new Date(
+          `${a.date}T${a.start_time || "00:00:00"}`,
+        ).getTime();
+        const dateTimeB = new Date(
+          `${b.date}T${b.start_time || "00:00:00"}`,
+        ).getTime();
+        return dateTimeA - dateTimeB;
+      });
+
+      // Assign chronological lesson numbers (1-indexed)
+      sorted.forEach((schedule, index) => {
+        mapping[schedule.id] = index + 1;
+      });
+    });
+
+    return mapping;
+  }, [instructor?.schedules]);
 
   // Reset edit state when closing the sidebar or switching slots
   const handleCloseSidebar = () => {
@@ -5001,16 +5188,54 @@ export const InstructorSchedulePage = () => {
           </h1>
         </div>
 
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            placeholder="Search name or phone..."
-            className="h-8 w-full rounded-md border-none bg-slate-50 pl-9 text-xs outline-none focus:ring-1 focus:ring-slate-200"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              placeholder="Search name or phone..."
+              className="h-8 w-full rounded-md border-none bg-slate-50 pl-9 text-xs outline-none focus:ring-1 focus:ring-slate-200"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Import Calendar Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 text-xs"
+            onClick={() => setShowCalendarImport(true)}
+          >
+            <Calendar className="h-4 w-4" />
+            {hasImportedCalendar
+              ? `${importedEventsCount} Events`
+              : "Import Calendar"}
+          </Button>
         </div>
       </header>
+
+      {/* Calendar Import Dialog */}
+      <Dialog open={showCalendarImport} onOpenChange={setShowCalendarImport}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Import Instructor Calendar
+            </DialogTitle>
+            <DialogDescription>
+              Import events from the instructor's personal calendar to block
+              those time slots from scheduling.
+            </DialogDescription>
+          </DialogHeader>
+          <CalendarImport
+            onImport={(events) => {
+              importEvents(events);
+              setShowCalendarImport(false);
+            }}
+            existingEventsCount={importedEventsCount}
+          />
+        </DialogContent>
+      </Dialog>
 
       <div className="relative flex flex-1 overflow-hidden">
         {/* LEFT SIDEBAR (1/3 Width) */}
@@ -5130,9 +5355,10 @@ export const InstructorSchedulePage = () => {
                               ) : (
                                 <>
                                   {display(schedule.learner?.name)}
-                                  {schedule.lesson?.number && (
+                                  {scheduleToLessonNumber[schedule.id] && (
                                     <span className="ml-1.5 font-medium text-slate-500">
-                                      ({schedule.lesson?.number})
+                                      (Class{" "}
+                                      {scheduleToLessonNumber[schedule.id]})
                                     </span>
                                   )}
                                 </>
@@ -5436,18 +5662,32 @@ export const InstructorSchedulePage = () => {
                         s.date === dateStr &&
                         s.start_time.split(":")[0] === slot.hour24,
                     );
-                    const isTopUnavailable = isTimeUnavailable(
-                      instructor?.unavailability,
-                      date,
-                      parseInt(slot.hour24),
-                      0,
-                    );
-                    const isBottomUnavailable = isTimeUnavailable(
-                      instructor?.unavailability,
-                      date,
-                      parseInt(slot.hour24),
-                      30,
-                    );
+                    const isTopUnavailable =
+                      isTimeUnavailable(
+                        instructor?.unavailability,
+                        date,
+                        parseInt(slot.hour24),
+                        0,
+                      ) ||
+                      isBlockedByImportedEvent(
+                        importedCalendarEvents,
+                        date,
+                        parseInt(slot.hour24),
+                        0,
+                      );
+                    const isBottomUnavailable =
+                      isTimeUnavailable(
+                        instructor?.unavailability,
+                        date,
+                        parseInt(slot.hour24),
+                        30,
+                      ) ||
+                      isBlockedByImportedEvent(
+                        importedCalendarEvents,
+                        date,
+                        parseInt(slot.hour24),
+                        30,
+                      );
 
                     return (
                       <div
@@ -5549,11 +5789,11 @@ export const InstructorSchedulePage = () => {
                                       : schedule.learner?.name}
                                   </span>
 
-                                  {/* Show Lesson Number for confirmed schedules only */}
+                                  {/* Show chronological Lesson Number for confirmed schedules only */}
                                   {!schedule.isTentative &&
-                                    schedule.lesson?.number && (
+                                    scheduleToLessonNumber[schedule.id] && (
                                       <span className="shrink-0 rounded-[2px] bg-black/10 px-1 py-0.5 font-black opacity-80">
-                                        ({schedule.lesson.number})
+                                        ({scheduleToLessonNumber[schedule.id]})
                                       </span>
                                     )}
                                 </div>
