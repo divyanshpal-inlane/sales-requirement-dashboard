@@ -116,9 +116,13 @@ export default function AdminSchedules() {
     }: {
       learnerId: string;
       schedules: Schedule[];
-      courseId: string;
+      courseId: string | null;
       rescheduleLessonNumber?: number;
     }) => {
+      // Check if this is a demo/custom course (virtual lessons)
+      const isVirtualLessons =
+        schedules.length > 0 &&
+        schedules[0]?.lessonId?.startsWith?.("virtual-lesson-");
       console.log("=== CREATE SCHEDULE MUTATION ===");
       console.log("learnerId:", learnerId);
       console.log("schedules:", schedules);
@@ -214,10 +218,16 @@ export default function AdminSchedules() {
             const endHours = (hours + 1) % 24;
             const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
+            // For virtual lessons (demo/custom), set lesson_id to null
+            const lessonId =
+              schedule.lessonId?.startsWith?.("virtual-lesson-")
+                ? null
+                : schedule.lessonId;
+
             return {
               learner_id: learnerId,
               course_id: courseId,
-              lesson_id: schedule.lessonId,
+              lesson_id: lessonId,
               instructor_id: schedule.instructorId,
               date: schedule.date.toISOString().split("T")[0],
               start_time: schedule.start_time,
@@ -235,8 +245,8 @@ export default function AdminSchedules() {
       if (error) throw error;
 
       // Only renumber lessons for NEW schedule creation, NOT for reschedules
-      // During reschedule, lessons should keep their original numbers
-      if (!rescheduleLessonNumber) {
+      // Skip for demo/custom courses (they don't have real lessons to renumber)
+      if (!rescheduleLessonNumber && !isVirtualLessons && courseId) {
         // Renumber lessons based on chronological order after schedule creation
         // Fetch all schedules for this learner+course with Lesson data
         const { data: allSchedules, error: fetchError } = await supabase
@@ -341,7 +351,7 @@ export default function AdminSchedules() {
 
   const handleScheduleCreate = async (
     schedules: Schedule[],
-    courseId: string,
+    courseId: string | null,
   ) => {
     if (!selectedRequest) return;
 
