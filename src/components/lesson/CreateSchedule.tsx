@@ -178,12 +178,128 @@ interface CreateScheduleProps {
   learnerId: string;
   learnerArea: string;
   request: SchedulingRequests[number];
-  onScheduleCreate: (schedules: Schedule[], courseId: string) => void;
+  onScheduleCreate: (schedules: Schedule[], courseId: string | null) => void;
   learnerDetails?: {
     address_lat: number;
     address_lng: number;
     has_a_DL?: boolean | null;
   } | null;
+}
+
+// Check if learner has marked a time slot as unavailable
+// Defined outside components so it can be used by both CreateScheduleWithInstructor and CreateSchedule
+function isLearnerTimeSlotUnavailable(
+  learnerUnavailability: any,
+  day: Date,
+  hour: number,
+  minute: number,
+): boolean {
+  if (!learnerUnavailability) return false;
+
+  // Make sure unavailability is an array
+  const unavailability = Array.isArray(learnerUnavailability)
+    ? learnerUnavailability
+    : typeof learnerUnavailability === "string"
+      ? JSON.parse(learnerUnavailability)
+      : [];
+
+  if (unavailability.length === 0) return false;
+
+  const currentTime = new Date(day);
+  currentTime.setHours(hour, minute);
+  const dayOfWeek = format(day, "EEEE").toLowerCase();
+  const formattedDate = format(day, "yyyy-MM-dd");
+
+  return unavailability.some((u: any) => {
+    // Case 1: Single day, all day
+    if (u.booked_date && u.all_day) {
+      return formattedDate === u.booked_date;
+    }
+
+    // Case 2: Single day, specific time slot
+    if (
+      u.booked_date &&
+      u.booked_start_time &&
+      u.booked_end_time &&
+      !u.all_day
+    ) {
+      const unavailableStart = new Date(
+        `${u.booked_date}T${u.booked_start_time}`,
+      );
+      const unavailableEnd = new Date(`${u.booked_date}T${u.booked_end_time}`);
+      return (
+        formattedDate === u.booked_date &&
+        currentTime >= unavailableStart &&
+        currentTime < unavailableEnd
+      );
+    }
+
+    // Case 3a: Weekly recurring on specific day of week (all day)
+    if (u.day_of_week && u.all_day) {
+      return u.day_of_week === dayOfWeek;
+    }
+
+    // Case 3b: Weekly recurring on specific day of week (specific time)
+    if (
+      u.day_of_week &&
+      u.booked_start_time &&
+      u.booked_end_time &&
+      !u.all_day
+    ) {
+      if (u.day_of_week === dayOfWeek) {
+        const [startHour, startMinute] = u.booked_start_time
+          .split(":")
+          .map(Number);
+        const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
+        const unavailableStart = new Date(day);
+        unavailableStart.setHours(startHour, startMinute);
+
+        const unavailableEnd = new Date(day);
+        unavailableEnd.setHours(endHour, endMinute);
+
+        return currentTime >= unavailableStart && currentTime < unavailableEnd;
+      }
+    }
+
+    // Case 4a: Date range (all day)
+    if (u.start_date && u.end_date && u.range_all_day) {
+      const rangeStart = new Date(u.start_date);
+      const rangeEnd = new Date(u.end_date);
+      rangeEnd.setHours(23, 59, 59);
+      return currentTime >= rangeStart && currentTime <= rangeEnd;
+    }
+
+    // Case 4b: Date range (specific time)
+    if (
+      u.start_date &&
+      u.end_date &&
+      !u.range_all_day &&
+      u.range_start_time &&
+      u.range_end_time
+    ) {
+      const rangeStart = new Date(u.start_date);
+      const rangeEnd = new Date(u.end_date);
+      rangeEnd.setHours(23, 59, 59);
+
+      if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+        const [startHour, startMinute] = u.range_start_time
+          .split(":")
+          .map(Number);
+        const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+
+        const todayStart = new Date(day);
+        todayStart.setHours(startHour, startMinute);
+
+        const todayEnd = new Date(day);
+        todayEnd.setHours(endHour, endMinute);
+
+        return currentTime >= todayStart && currentTime < todayEnd;
+      }
+    }
+
+    return false;
+  });
 }
 
 export default function CreateScheduleWithInstructor({
@@ -881,125 +997,6 @@ export default function CreateScheduleWithInstructor({
         const rangeEnd = new Date(u.end_date);
         rangeEnd.setHours(23, 59, 59); // Set to end of day
         return currentTime >= rangeStart && currentTime <= rangeEnd;
-      }
-
-      return false;
-    });
-  };
-
-  // Check if learner has marked a time slot as unavailable
-  const isLearnerTimeSlotUnavailable = (
-    learnerUnavailability: any,
-    day: Date,
-    hour: number,
-    minute: number,
-  ): boolean => {
-    if (!learnerUnavailability) return false;
-
-    // Make sure unavailability is an array
-    const unavailability = Array.isArray(learnerUnavailability)
-      ? learnerUnavailability
-      : typeof learnerUnavailability === "string"
-        ? JSON.parse(learnerUnavailability)
-        : [];
-
-    if (unavailability.length === 0) return false;
-
-    const currentTime = new Date(day);
-    currentTime.setHours(hour, minute);
-    const dayOfWeek = format(day, "EEEE").toLowerCase();
-    const formattedDate = format(day, "yyyy-MM-dd");
-
-    return unavailability.some((u: any) => {
-      // Case 1: Single day, all day
-      if (u.booked_date && u.all_day) {
-        return formattedDate === u.booked_date;
-      }
-
-      // Case 2: Single day, specific time slot
-      if (
-        u.booked_date &&
-        u.booked_start_time &&
-        u.booked_end_time &&
-        !u.all_day
-      ) {
-        const unavailableStart = new Date(
-          `${u.booked_date}T${u.booked_start_time}`,
-        );
-        const unavailableEnd = new Date(
-          `${u.booked_date}T${u.booked_end_time}`,
-        );
-        return (
-          formattedDate === u.booked_date &&
-          currentTime >= unavailableStart &&
-          currentTime < unavailableEnd
-        );
-      }
-
-      // Case 3a: Weekly recurring on specific day of week (all day)
-      if (u.day_of_week && u.all_day) {
-        return u.day_of_week === dayOfWeek;
-      }
-
-      // Case 3b: Weekly recurring on specific day of week (specific time)
-      if (
-        u.day_of_week &&
-        u.booked_start_time &&
-        u.booked_end_time &&
-        !u.all_day
-      ) {
-        if (u.day_of_week === dayOfWeek) {
-          const [startHour, startMinute] = u.booked_start_time
-            .split(":")
-            .map(Number);
-          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
-
-          const unavailableStart = new Date(day);
-          unavailableStart.setHours(startHour, startMinute);
-
-          const unavailableEnd = new Date(day);
-          unavailableEnd.setHours(endHour, endMinute);
-
-          return (
-            currentTime >= unavailableStart && currentTime < unavailableEnd
-          );
-        }
-      }
-
-      // Case 4a: Date range (all day)
-      if (u.start_date && u.end_date && u.range_all_day) {
-        const rangeStart = new Date(u.start_date);
-        const rangeEnd = new Date(u.end_date);
-        rangeEnd.setHours(23, 59, 59);
-        return currentTime >= rangeStart && currentTime <= rangeEnd;
-      }
-
-      // Case 4b: Date range (specific time)
-      if (
-        u.start_date &&
-        u.end_date &&
-        !u.range_all_day &&
-        u.range_start_time &&
-        u.range_end_time
-      ) {
-        const rangeStart = new Date(u.start_date);
-        const rangeEnd = new Date(u.end_date);
-        rangeEnd.setHours(23, 59, 59);
-
-        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
-          const [startHour, startMinute] = u.range_start_time
-            .split(":")
-            .map(Number);
-          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
-
-          const todayStart = new Date(day);
-          todayStart.setHours(startHour, startMinute);
-
-          const todayEnd = new Date(day);
-          todayEnd.setHours(endHour, endMinute);
-
-          return currentTime >= todayStart && currentTime < todayEnd;
-        }
       }
 
       return false;
@@ -1802,10 +1799,26 @@ function CreateSchedule({
       source: "default",
     };
   };
+  // Check if this is a demo/custom course with virtual lesson IDs
+  const isVirtualLessons =
+    request.lesson_ids.length > 0 &&
+    request.lesson_ids[0]?.startsWith?.("virtual-lesson-");
+
   // Fetch lessons for the selected course
   const { data: allLessons } = useQuery({
-    queryKey: ["lessons", request.lesson_ids],
+    queryKey: ["lessons", request.lesson_ids, isVirtualLessons],
     queryFn: async () => {
+      // For demo/custom courses with virtual lesson IDs, create mock lesson objects
+      if (isVirtualLessons) {
+        return request.lesson_ids.map((id, index) => ({
+          id,
+          number: index + 1,
+          course_id: null,
+          name: `Lesson ${index + 1}`,
+          created_at: new Date().toISOString(),
+        }));
+      }
+
       const { data: lesson1, error: lesson1Error } = await supabase
         .from("Lesson")
         .select("*")
@@ -2823,6 +2836,11 @@ function CreateSchedule({
       return;
     }
 
+    // For demo/custom courses with virtual lessons, pass null as courseId
+    const courseIdToPass = isVirtualLessons
+      ? null
+      : (allLessons?.[0]?.course_id ?? "");
+
     // Get all existing schedules for the course (excluding ones being rescheduled)
     const existingCourseSchedules =
       existingLearnerSchedules?.filter(
@@ -3477,7 +3495,7 @@ function CreateSchedule({
 
           // Call onScheduleCreate to save data to database before sending emails
           // This ensures the schedules are in the database when the emails are sent
-          onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+          onScheduleCreate(finalSchedules, courseIdToPass);
 
           // Wait a moment to ensure database write is complete
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -3559,7 +3577,7 @@ function CreateSchedule({
         }
       } else {
         // No events to send, just save schedules
-        onScheduleCreate(finalSchedules, courseLessons[0]?.course_id ?? "");
+        onScheduleCreate(finalSchedules, courseIdToPass);
       }
     } catch (error) {
       console.error("Error in handleCreateSchedule:", error);
