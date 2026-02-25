@@ -4942,6 +4942,48 @@ function isBlockedByImportedEvent(
   });
 }
 
+// Get imported calendar events for a specific hour slot
+function getImportedEventsForSlot(
+  importedEvents: any[] | null | undefined,
+  day: Date,
+  hour: number,
+): any[] {
+  if (
+    !importedEvents ||
+    !Array.isArray(importedEvents) ||
+    importedEvents.length === 0
+  ) {
+    return [];
+  }
+
+  const formattedDate = format(day, "yyyy-MM-dd");
+  const slotStart = new Date(day);
+  slotStart.setHours(hour, 0, 0, 0);
+  const slotEnd = new Date(day);
+  slotEnd.setHours(hour + 1, 0, 0, 0);
+
+  return importedEvents.filter((event) => {
+    const eventDateStr = event.start?.dateTime || event.start?.date;
+    if (!eventDateStr) return false;
+
+    const eventDate = eventDateStr.split("T")[0];
+    if (eventDate !== formattedDate) return false;
+
+    // All-day event - show in all slots
+    if (event.start?.date && !event.start?.dateTime) {
+      return hour === 8; // Only show all-day events in 8 AM slot to avoid duplication
+    }
+
+    // Timed event - check if event starts in this hour slot
+    if (event.start?.dateTime) {
+      const eventStart = new Date(event.start.dateTime);
+      return eventStart >= slotStart && eventStart < slotEnd;
+    }
+
+    return false;
+  });
+}
+
 export const InstructorSchedulePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -5662,6 +5704,11 @@ export const InstructorSchedulePage = () => {
                         s.date === dateStr &&
                         s.start_time.split(":")[0] === slot.hour24,
                     );
+                    const slotImportedEvents = getImportedEventsForSlot(
+                      importedCalendarEvents,
+                      date,
+                      parseInt(slot.hour24),
+                    );
                     const isTopUnavailable =
                       isTimeUnavailable(
                         instructor?.unavailability,
@@ -5817,6 +5864,71 @@ export const InstructorSchedulePage = () => {
                                     "h:mm a",
                                   )}
                                 </div>
+                              </div>
+                            );
+                          })}
+                          {/* Imported Calendar Events */}
+                          {slotImportedEvents.map((event, idx) => {
+                            const isAllDay =
+                              event.start?.date && !event.start?.dateTime;
+                            let startMin = 0;
+                            let duration = 60;
+
+                            if (!isAllDay && event.start?.dateTime) {
+                              const eventStart = new Date(event.start.dateTime);
+                              startMin = eventStart.getMinutes();
+
+                              if (event.end?.dateTime) {
+                                const eventEnd = new Date(event.end.dateTime);
+                                duration = Math.max(
+                                  30,
+                                  differenceInMinutes(eventEnd, eventStart),
+                                );
+                              }
+                            }
+
+                            return (
+                              <div
+                                key={event.id || `imported-${idx}`}
+                                className="group/grid pointer-events-auto absolute flex flex-col rounded-sm border-l-2 border-slate-600 bg-slate-400 p-1 text-slate-900 shadow-md transition-all"
+                                style={{
+                                  left: `${(slotSchedules.length + idx) * 10}%`,
+                                  width: "90%",
+                                  top: isAllDay ? "0%" : `${(startMin / 60) * 100}%`,
+                                  height: isAllDay
+                                    ? "100%"
+                                    : `${Math.min((duration / 60) * 100, 100)}%`,
+                                  zIndex: 40 + idx,
+                                  minHeight: "24px",
+                                }}
+                                title={event.summary || "Imported Event"}
+                              >
+                                <div className="mb-0.5 truncate text-[8px] font-bold leading-none">
+                                  {event.summary || "Imported Event"}
+                                </div>
+                                {!isAllDay && event.start?.dateTime && (
+                                  <div className="flex items-center gap-0.5 text-[7px] font-medium opacity-90">
+                                    <Clock className="h-1.5 w-1.5" />
+                                    {format(
+                                      new Date(event.start.dateTime),
+                                      "h:mm a",
+                                    )}
+                                    {event.end?.dateTime && (
+                                      <>
+                                        {" - "}
+                                        {format(
+                                          new Date(event.end.dateTime),
+                                          "h:mm a",
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                                {isAllDay && (
+                                  <div className="text-[7px] font-medium opacity-90">
+                                    All day
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

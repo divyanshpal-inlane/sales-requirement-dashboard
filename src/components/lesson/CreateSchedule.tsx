@@ -886,6 +886,126 @@ export default function CreateScheduleWithInstructor({
       return false;
     });
   };
+
+  // Check if learner has marked a time slot as unavailable
+  const isLearnerTimeSlotUnavailable = (
+    learnerUnavailability: any,
+    day: Date,
+    hour: number,
+    minute: number,
+  ): boolean => {
+    if (!learnerUnavailability) return false;
+
+    // Make sure unavailability is an array
+    const unavailability = Array.isArray(learnerUnavailability)
+      ? learnerUnavailability
+      : typeof learnerUnavailability === "string"
+        ? JSON.parse(learnerUnavailability)
+        : [];
+
+    if (unavailability.length === 0) return false;
+
+    const currentTime = new Date(day);
+    currentTime.setHours(hour, minute);
+    const dayOfWeek = format(day, "EEEE").toLowerCase();
+    const formattedDate = format(day, "yyyy-MM-dd");
+
+    return unavailability.some((u: any) => {
+      // Case 1: Single day, all day
+      if (u.booked_date && u.all_day) {
+        return formattedDate === u.booked_date;
+      }
+
+      // Case 2: Single day, specific time slot
+      if (
+        u.booked_date &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        const unavailableStart = new Date(
+          `${u.booked_date}T${u.booked_start_time}`,
+        );
+        const unavailableEnd = new Date(
+          `${u.booked_date}T${u.booked_end_time}`,
+        );
+        return (
+          formattedDate === u.booked_date &&
+          currentTime >= unavailableStart &&
+          currentTime < unavailableEnd
+        );
+      }
+
+      // Case 3a: Weekly recurring on specific day of week (all day)
+      if (u.day_of_week && u.all_day) {
+        return u.day_of_week === dayOfWeek;
+      }
+
+      // Case 3b: Weekly recurring on specific day of week (specific time)
+      if (
+        u.day_of_week &&
+        u.booked_start_time &&
+        u.booked_end_time &&
+        !u.all_day
+      ) {
+        if (u.day_of_week === dayOfWeek) {
+          const [startHour, startMinute] = u.booked_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.booked_end_time.split(":").map(Number);
+
+          const unavailableStart = new Date(day);
+          unavailableStart.setHours(startHour, startMinute);
+
+          const unavailableEnd = new Date(day);
+          unavailableEnd.setHours(endHour, endMinute);
+
+          return (
+            currentTime >= unavailableStart && currentTime < unavailableEnd
+          );
+        }
+      }
+
+      // Case 4a: Date range (all day)
+      if (u.start_date && u.end_date && u.range_all_day) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59);
+        return currentTime >= rangeStart && currentTime <= rangeEnd;
+      }
+
+      // Case 4b: Date range (specific time)
+      if (
+        u.start_date &&
+        u.end_date &&
+        !u.range_all_day &&
+        u.range_start_time &&
+        u.range_end_time
+      ) {
+        const rangeStart = new Date(u.start_date);
+        const rangeEnd = new Date(u.end_date);
+        rangeEnd.setHours(23, 59, 59);
+
+        if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+          const [startHour, startMinute] = u.range_start_time
+            .split(":")
+            .map(Number);
+          const [endHour, endMinute] = u.range_end_time.split(":").map(Number);
+
+          const todayStart = new Date(day);
+          todayStart.setHours(startHour, startMinute);
+
+          const todayEnd = new Date(day);
+          todayEnd.setHours(endHour, endMinute);
+
+          return currentTime >= todayStart && currentTime < todayEnd;
+        }
+      }
+
+      return false;
+    });
+  };
+
   // ADD THESE NEW STATE VARIABLES
   const [instructorDialogOpen, setInstructorDialogOpen] = useState(false);
   const [selectedSlotForDialog, setSelectedSlotForDialog] =
@@ -1836,20 +1956,12 @@ function CreateSchedule({
       if (!existingSchedules)
         return [toChange, laterScheduleOfLearnerToChange, []];
 
-      // schedules of other learners
-      // existingShcedules has all schedules from the current start date of the
-      // calender view upto the 9 days of any instructor or learner
-      // hence others contains schedules of any instructor and learner except the current learner
-      // that has use when for a selected slot, other learner schedules are required to get instructor
-      // availablility
-      // that has faulty behaviour when it's used to calculate dynamic location of the previous
-      // location of the instructor because if the previous schedule of the same learner
-      // that's not listed on the other schedules and previous location's calculated only if there was another schedule from
-      // different learner. Also, otherSchedules only contains schedules from calender view start date
-      // not the previous schedules, hence it anyways does not contains the required info until the slot selected
-      // different from the 0th startDate of the calender view
+      // For instructor availability checking, we need ALL schedules (not just other learners)
+      // This ensures we don't double-book an instructor even if the same learner has another booking
+      // Filter out only the schedules that are being changed (to allow rescheduling those specific slots)
+      const schedulesToChangeIds = toChange.map((s) => s.id);
       const others = existingSchedules.filter(
-        (s) => s.learner_id !== learnerId,
+        (s) => !schedulesToChangeIds.includes(s.id),
       );
 
       return [toChange, laterScheduleOfLearnerToChange, others];
@@ -1927,6 +2039,14 @@ function CreateSchedule({
             parseInt(s.start_time.split(":")[1] || "0") === minute &&
             s.learner_id === learnerId &&
             !request.lesson_ids.includes(s.lesson_id ?? ""),
+        );
+
+        // Check if learner has marked this time slot as unavailable
+        const isLearnerUnavailable = isLearnerTimeSlotUnavailable(
+          learnerDetails?.unavailability,
+          date,
+          hour,
+          minute,
         );
 
         // console.log("selectedInstr: ", defaultInstructorId);
@@ -2013,6 +2133,7 @@ function CreateSchedule({
               availableInstructors.length > 0 &&
               !selectedInstrUnvailable &&
               !isLearnerSchedule &&
+              !isLearnerUnavailable && // Check learner's blocked times
               // !isDayBlocked && // same day re-scheduling available
               !isInPast, // Add this condition to prevent selecting past slots
             isSelected: selectedSlots.some(
@@ -2024,6 +2145,7 @@ function CreateSchedule({
             isPreferred: !!isPreferred,
             isCurrentSchedule,
             isLearnerSchedule,
+            isLearnerUnavailable, // Add to state for UI indication
             existingSchedule,
             availableInstructors,
             isCurrentInstrUnavailable: selectedInstrUnvailable,

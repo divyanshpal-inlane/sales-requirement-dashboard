@@ -142,6 +142,54 @@ export default function AdminSchedules() {
 
       if (deleteError) throw deleteError;
 
+      // VALIDATION: Check for conflicts before creating schedules
+      const conflicts: string[] = [];
+
+      for (const schedule of schedules) {
+        const dateStr = schedule.date.toISOString().split("T")[0];
+        const [hours, minutes] = schedule.start_time.split(":").map(Number);
+        const endHours = (hours + 1) % 24;
+        const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+        // Check if instructor already has a booking at this time
+        const { data: existingInstructorSchedules, error: checkError } =
+          await supabase
+            .from("Schedule")
+            .select("id, date, start_time, end_time, Learner(name)")
+            .eq("instructor_id", schedule.instructorId)
+            .eq("date", dateStr)
+            .neq("status", "paused")
+            .not("isTentative", "eq", true);
+
+        if (!checkError && existingInstructorSchedules) {
+          for (const existing of existingInstructorSchedules) {
+            // Check for time overlap
+            const existingStart = existing.start_time;
+            const existingEnd = existing.end_time;
+
+            // Check if times overlap
+            if (
+              (schedule.start_time >= existingStart &&
+                schedule.start_time < existingEnd) ||
+              (endTime > existingStart && endTime <= existingEnd) ||
+              (schedule.start_time <= existingStart && endTime >= existingEnd)
+            ) {
+              const learnerName = (existing.Learner as any)?.name || "Unknown";
+              conflicts.push(
+                `Instructor already booked on ${dateStr} at ${existingStart} for ${learnerName}`,
+              );
+            }
+          }
+        }
+      }
+
+      // If there are conflicts, throw an error
+      if (conflicts.length > 0) {
+        throw new Error(
+          `Scheduling conflicts detected:\n${conflicts.join("\n")}`,
+        );
+      }
+
       // Create schedules
       // In the createScheduleMutation function:
 
