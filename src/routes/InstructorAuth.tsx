@@ -79,10 +79,12 @@ export default function InstructorAuth() {
     e.preventDefault();
     setErrorMessage("");
     try {
+      // Format phone with +91 prefix to match how instructor accounts are created
+      const formattedPhone = `+91${phone.replace(/\D/g, "")}`;
       if (active === "login") {
-        await login(phone, password, "instructor");
+        await login(formattedPhone, password, "instructor");
       } else if (active === "signup") {
-        await signUp(phone, password, "instructor");
+        await signUp(formattedPhone, password, "instructor");
       } else if (active === "forgot-password") {
         if (!resetRequested) {
           if (!phone || phone.trim().length < 10) {

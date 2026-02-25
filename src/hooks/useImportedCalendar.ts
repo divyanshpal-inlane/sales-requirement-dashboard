@@ -44,11 +44,14 @@ export function useImportedCalendar({
     setError(null);
 
     try {
+      // Normalize phone number - remove +91 prefix if present to match Instructor table format
+      const normalizedPhone = instructorPhone.replace(/^\+91/, "");
+
       // Use type assertion since column may not be in TypeScript types yet
       const { data, error: fetchError } = await supabase
         .from("Instructor")
         .select("*")
-        .eq("phone", instructorPhone)
+        .eq("phone", normalizedPhone)
         .single();
 
       if (fetchError) {
@@ -85,6 +88,9 @@ export function useImportedCalendar({
       setError(null);
 
       try {
+        // Normalize phone number - remove +91 prefix if present to match Instructor table format
+        const normalizedPhone = instructorPhone.replace(/^\+91/, "");
+
         // Use type assertion since column may not be in TypeScript types yet
         const { error: updateError } = await supabase
           .from("Instructor")
@@ -92,7 +98,7 @@ export function useImportedCalendar({
             imported_calendar_events: events,
             imported_calendar_updated_at: new Date().toISOString(),
           } as any)
-          .eq("phone", instructorPhone);
+          .eq("phone", normalizedPhone);
 
         if (updateError) {
           console.error("Error saving calendar events:", updateError);
@@ -120,6 +126,9 @@ export function useImportedCalendar({
     setError(null);
 
     try {
+      // Normalize phone number - remove +91 prefix if present to match Instructor table format
+      const normalizedPhone = instructorPhone.replace(/^\+91/, "");
+
       // Use type assertion since column may not be in TypeScript types yet
       const { error: updateError } = await supabase
         .from("Instructor")
@@ -127,7 +136,7 @@ export function useImportedCalendar({
           imported_calendar_events: [],
           imported_calendar_updated_at: null,
         } as any)
-        .eq("phone", instructorPhone);
+        .eq("phone", normalizedPhone);
 
       if (updateError) {
         console.error("Error clearing calendar events:", updateError);

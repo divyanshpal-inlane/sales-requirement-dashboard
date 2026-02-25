@@ -359,13 +359,36 @@ function Instructor() {
     schedule: null,
     learner: null,
   });
+  // Transform imported calendar events to match the calendar event format
+  const processImportedCalendarEvents = (events: any[]) => {
+    if (!events || !Array.isArray(events)) return [];
+
+    return events.map((event, index) => ({
+      id: event.id || `imported-${index}`,
+      title: event.summary || "Imported Event",
+      summary: event.summary || "Imported Event",
+      start: event.start,
+      end: event.end,
+      allDay: !event.start?.dateTime && !!event.start?.date,
+      type: "imported",
+      description: event.description || "",
+      location: event.location || "",
+    }));
+  };
+
   useEffect(() => {
     const unavailabilityEvents = processUnavailability(
       instructorData?.unavailability,
     );
-    const combinedEvents = [...googleEvents, ...unavailabilityEvents];
+    const processedImportedEvents =
+      processImportedCalendarEvents(importedCalendarEvents);
+    const combinedEvents = [
+      ...googleEvents,
+      ...unavailabilityEvents,
+      ...processedImportedEvents,
+    ];
     setCalendarEvents(combinedEvents);
-  }, [googleEvents, instructorData?.unavailability]);
+  }, [googleEvents, instructorData?.unavailability, importedCalendarEvents]);
 
   // Initialize Google APIs
   useEffect(() => {
@@ -972,7 +995,9 @@ function Instructor() {
                 className={`cursor-pointer truncate rounded p-1 text-xs ${
                   event.type === "unavailability"
                     ? "bg-red-100 text-red-800"
-                    : "bg-orange-100 text-orange-800"
+                    : event.type === "imported"
+                      ? "bg-slate-200 text-slate-800"
+                      : "bg-orange-100 text-orange-800"
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1154,7 +1179,9 @@ function Instructor() {
                                       ? "bg-amber-200 text-amber-800"
                                       : "bg-primary text-white"
                                 : calendarEvent
-                                  ? "bg-orange-200 text-orange-800"
+                                  ? calendarEvent.type === "imported"
+                                    ? "bg-slate-300 text-slate-800"
+                                    : "bg-orange-200 text-orange-800"
                                   : isUnavailable
                                     ? "bg-gray-400 text-red-800"
                                     : isEmpty
