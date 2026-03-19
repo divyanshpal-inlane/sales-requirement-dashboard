@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/tooltip";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase } from "@/lib/supabaseClient";
-import { useUpdateScheduleStatus } from "@/queries/instructor";
+// useUpdateScheduleStatus removed — lesson status changes are handled by instructor OTP flow only
 import {
   useLearner,
   useLearnerEnrollment,
@@ -100,7 +100,6 @@ export default function Home() {
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [showEndLessonDialog, setShowEndLessonDialog] = useState(false);
   const [showNoLLConfirmDialog, setShowNoLLConfirmDialog] = useState(false);
-  const [isFinishingLesson, setIsFinishingLesson] = useState(false);
   const { data: lessonSchedule } = useLessonSchedule({
     lessonId: LessonData?.upcomingLesson?.id,
   });
@@ -112,10 +111,7 @@ export default function Home() {
   const { data: completedReschedules } = useCompletedRescheduleRequests(
     learner?.id,
   );
-  const {
-    mutateAsync: updateScheduleStatusAsync,
-    isPending: isUpdateScheduleLoading,
-  } = useUpdateScheduleStatus();
+  // Lesson status updates are handled exclusively by instructor OTP verification
   const { mutate: updateLearner } = useLearnerUpdate();
   const queryClient = useQueryClient();
   const maxNumLessonsOnHalfInstallment = 1;
@@ -645,23 +641,20 @@ export default function Home() {
                       lessonSchedule?.status?.toUpperCase() === "PAUSED" ||
                       !enabledLessonForInstallmentStatus(
                         LessonData?.upcomingLesson?.number,
-                      ) ||
-                      isFinishingLesson
+                      )
                     }
                   >
-                    {isFinishingLesson
-                      ? "Wait for end lesson"
-                      : lessonSchedule?.status?.toUpperCase() === "ONGOING"
-                        ? "End lesson"
-                        : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
-                          ? "Lesson Completed"
-                          : !enabledLessonForInstallmentStatus(
-                                LessonData?.upcomingLesson?.number,
-                              )
-                            ? "Lesson locked"
-                            : lessonSchedule?.status?.toUpperCase() === "PAUSED"
-                              ? "Lesson Paused"
-                              : "Start Lesson"}
+                    {lessonSchedule?.status?.toUpperCase() === "ONGOING"
+                      ? "End lesson"
+                      : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
+                        ? "Lesson Completed"
+                        : !enabledLessonForInstallmentStatus(
+                              LessonData?.upcomingLesson?.number,
+                            )
+                          ? "Lesson locked"
+                          : lessonSchedule?.status?.toUpperCase() === "PAUSED"
+                            ? "Lesson Paused"
+                            : "Start Lesson"}
                   </Button>
                 </TooltipTrigger>
                 {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
@@ -850,13 +843,19 @@ export default function Home() {
             <DialogTitle>Start Lesson</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <h2 className="col-span-4 text-left text-lg font-medium">
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-muted-foreground">
                 Lesson {LessonData?.upcomingLesson?.number} -{" "}
                 {LessonData?.course?.name}
-                <br />
-                Lesson OTP: {LessonData?.upcomingSchedule?.otp}
-              </h2>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Share this OTP with your instructor to start the lesson
+              </p>
+              <div className="rounded-lg bg-green-50 px-6 py-4">
+                <p className="text-center text-3xl font-bold tracking-widest text-green-600">
+                  {LessonData?.upcomingSchedule?.otp}
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -869,18 +868,15 @@ export default function Home() {
     );
   };
 
-  const handleEndLessonDetailsSave = async (
-    scheduleId: string,
-    learnerId: string,
-  ) => {
-    // console.log("Ending lesson for scheduleId:", scheduleId, "learnerId:", learnerId);
-    await handleFinishLesson(scheduleId, learnerId);
-  };
+  // End lesson is handled by instructor via OTP verification only
   const handleEndLessonDetailsClose = () => {
     console.log("schedule details ", LessonData?.upcomingSchedule);
     setShowEndLessonDialog(false);
   };
   const renderEndLessonDialog = () => {
+    const endOtp =
+      LessonData?.upcomingSchedule?.otp_end ||
+      LessonData?.upcomingSchedule?.otp;
     return (
       <Dialog open={showEndLessonDialog} onOpenChange={setShowEndLessonDialog}>
         <DialogContent className="sm:max-w-[425px]">
@@ -888,31 +884,22 @@ export default function Home() {
             <DialogTitle>End Lesson</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <h2 className="col-span-4 text-left text-lg font-medium">
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-muted-foreground">
                 Lesson {LessonData?.upcomingLesson?.number} -{" "}
                 {LessonData?.course?.name}
-                <br />
-                Tell OTP {LessonData?.upcomingSchedule?.otp_end} to end lesson
-              </h2>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Share this OTP with your instructor to end the lesson
+              </p>
+              <div className="rounded-lg bg-orange-50 px-6 py-4">
+                <p className="text-center text-3xl font-bold tracking-widest text-orange-600">
+                  {endOtp}
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              onClick={async () => {
-                await handleEndLessonDetailsSave(
-                  LessonData.upcomingSchedule?.id.toString(),
-                  learner.id,
-                );
-                setShowEndLessonDialog(false);
-                toast.success("Lesson ended successfully");
-                window.location.reload();
-              }}
-              variant="secondary"
-              disabled={isFinishingLesson}
-            >
-              {isFinishingLesson ? "Ending lesson..." : "Confirm"}
-            </Button>
             <Button onClick={handleEndLessonDetailsClose} variant="secondary">
               Close
             </Button>
@@ -922,50 +909,7 @@ export default function Home() {
     );
   };
 
-  const handleFinishLesson = async (scheduleId: string, learnerId: string) => {
-    setIsFinishingLesson(true);
-    try {
-      await updateScheduleStatusAsync({
-        scheduleId,
-        status: "completed",
-        started_at: "",
-        ended_at: `${String(new Date().getDate()).padStart(2, "0")}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}:${String(new Date().getSeconds()).padStart(2, "0")}`,
-      });
-
-      const { data: learnerSchedules, error: schedulesError } = await supabase
-        .from("Schedule")
-        .select("id, status")
-        .eq("learner_id", learnerId);
-
-      if (schedulesError) {
-        return;
-      }
-
-      const totalLessons = learnerSchedules.length;
-      const completedLessons = learnerSchedules.filter(
-        (schedule) => schedule.status === "completed",
-      ).length;
-
-      if (totalLessons > 0 && completedLessons === totalLessons) {
-        const { data, error } = await supabase.functions.invoke(
-          "send-message",
-          {
-            body: {
-              message_type: "WEBAPP_LESSONS_DONE_REVIEW_PLEASE",
-              learner_id: learnerId,
-            },
-          },
-        );
-
-        if (error) {
-          return;
-        }
-      }
-
-      queryClient.invalidateQueries(["instructorSchedule"]);
-    } catch (error) {}
-    setIsFinishingLesson(false);
-  };
+  // Lesson completion is handled exclusively by instructor via OTP verification
 
   return (
     <div className="flex min-h-screen flex-col">

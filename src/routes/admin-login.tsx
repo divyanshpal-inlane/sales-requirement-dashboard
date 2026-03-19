@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/context/auth-context";
+import { useAuth, supabaseAdmin } from "@/context/auth-context";
 
 export default function AdminLogin() {
   const { login } = useAuth();
@@ -29,11 +29,39 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      await login(formData.phone, formData.password, "admin");
+      const rawDigits = formData.phone.replace(/\D/g, "");
+      const withoutCountry = rawDigits.replace(/^91/, "");
+
+      // First, find the actual phone format stored in Supabase auth
+      // by looking up the user via the admin API
+      const { data: usersData } =
+        await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+
+      const matchUser = usersData?.users?.find((u) => {
+        if (!u.phone) return false;
+        const uDigits = u.phone.replace(/\D/g, "");
+        return (
+          uDigits === rawDigits ||
+          uDigits === withoutCountry ||
+          uDigits.endsWith(withoutCountry) ||
+          withoutCountry.endsWith(uDigits.replace(/^91/, ""))
+        );
+      });
+
+      if (!matchUser?.phone) {
+        throw new Error("No account found with this phone number");
+      }
+
+      // Login with the exact phone format from auth
+      await login(matchUser.phone, formData.password, "admin");
       navigate("/admin");
     } catch (error) {
       console.error("Login failed:", error);
-      setError("Invalid credentials or not an admin user");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Invalid credentials or not an admin user",
+      );
     } finally {
       setIsLoading(false);
     }

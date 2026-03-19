@@ -352,7 +352,7 @@ function Instructor() {
     learner: null,
   });
 
-  const { mutate: updateStatus } = useUpdateScheduleStatus();
+  // updateStatus removed — all status changes go through OTP verification
 
   const [scheduleDetailDialog, setScheduleDetailDialog] = useState({
     open: false,
@@ -893,39 +893,7 @@ function Instructor() {
     return days;
   };
 
-  const scheduleStatusUpdate = ({
-    scheduleId,
-    status,
-    started_at,
-    ended_at,
-  }: {
-    scheduleId: string;
-    status: string;
-    started_at: string;
-    ended_at: string;
-  }) => {
-    updateStatus(
-      {
-        scheduleId,
-        status,
-        started_at,
-        ended_at,
-      },
-      {
-        onSuccess: () => {
-          //console.log("schedule update to", status);
-          toast({
-            title: "Success",
-            description:
-              status === "completed"
-                ? "Lesson ended successfully"
-                : "Lesson started",
-            variant: "success",
-          });
-        },
-      },
-    );
-  };
+  // Status updates are handled via OTP verification flow
 
   const CalendarDay = ({ date }) => {
     const isToday = isSameDay(date, new Date());
@@ -1556,17 +1524,7 @@ function Instructor() {
     navigate(`/otp/end/${learnerId}/${itemId}`);
   };
 
-  // Always require OTP verification for all lessons (both start and end)
-  // Previously this returned false for "non-boundary" lessons (middle of continuous sessions)
-  // which allowed bypassing OTP verification - this was a security issue
-  const checkBoundarySchedule = (
-    instructorSchedules,
-    lessonSchedule,
-    checkStart,
-  ) => {
-    // Always return true to require OTP for every lesson start/end
-    return true;
-  };
+  // All lessons require OTP verification for start and end
   return (
     <div className="flex h-full w-full flex-col">
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
@@ -1696,48 +1654,10 @@ function Instructor() {
                               </div>
                               {isOngoing && (
                                 <Button
-                                  onClick={
-                                    () => {
-                                      // alert("Lesson to be ended by customer");
-                                      console.log(
-                                        "before check",
-                                        instructorData,
-                                        instructorData?.instructorSchedules,
-                                        scheduleData,
-                                        false,
-                                      );
-                                      if (
-                                        checkBoundarySchedule(
-                                          instructorData?.instructorSchedules,
-                                          scheduleData,
-                                          false,
-                                        )
-                                      ) {
-                                        navigate(
-                                          `/otp/end/${learner.id}/${scheduleData.id}`,
-                                        );
-                                      } else {
-                                        // if not boundary, update schedule status without auth
-                                        console.log(
-                                          "update schedule without auth",
-                                        );
-                                        scheduleStatusUpdate({
-                                          scheduleId: scheduleData.id,
-                                          status: "completed",
-                                          started_at: "",
-                                          ended_at: "",
-                                        });
-                                        console.log("Done update schedule");
-                                        // Wait 1 second, the reload
-                                        setTimeout(() => {
-                                          window.location.reload();
-                                        }, 1000);
-                                      }
-                                    }
-                                    // handleFinishLesson(
-                                    //   schedule.id.toString(),
-                                    //   learner.id,
-                                    // )
+                                  onClick={() =>
+                                    navigate(
+                                      `/otp/end/${learner.id}/${scheduleData.id}`,
+                                    )
                                   }
                                   size="sm"
                                   variant="secondary"
@@ -1748,35 +1668,11 @@ function Instructor() {
                               )}
                               {scheduleData.status === "booked" && (
                                 <Button
-                                  onClick={() => {
-                                    if (
-                                      checkBoundarySchedule(
-                                        instructorData.instructorSchedules,
-                                        scheduleData,
-                                        true,
-                                      )
-                                    ) {
-                                      navigate(
-                                        `/otp/start/${learner?.id}/${scheduleData?.id}`,
-                                      );
-                                    } else {
-                                      // if not boundary, update schedule status without auth
-                                      console.log(
-                                        "update schedule without auth",
-                                      );
-                                      scheduleStatusUpdate({
-                                        scheduleId: scheduleData.id,
-                                        status: "ongoing",
-                                        started_at: "",
-                                        ended_at: "",
-                                      });
-                                      console.log("Done update schedule");
-                                      // Wait 1 second, then reload
-                                      setTimeout(() => {
-                                        window.location.reload();
-                                      }, 1000);
-                                    }
-                                  }}
+                                  onClick={() =>
+                                    navigate(
+                                      `/otp/start/${learner?.id}/${scheduleData?.id}`,
+                                    )
+                                  }
                                   size="sm"
                                   className="text-sm"
                                 >

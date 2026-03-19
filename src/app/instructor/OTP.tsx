@@ -1,8 +1,7 @@
 import { ArrowLeft, Check, MapPin, Phone, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { OTPInput } from "@/components/OTP";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -11,7 +10,11 @@ import {
   useVerifyOtp,
 } from "@/queries/instructor";
 
-const SuccessAnimation = (isVerifyStartLesson) => (
+const SuccessAnimation = ({
+  isVerifyStartLesson,
+}: {
+  isVerifyStartLesson: boolean;
+}) => (
   <div className="flex flex-col items-center justify-center space-y-4">
     <div className="relative">
       <div className="absolute inset-0 animate-[ping_1s_ease-in-out_1] rounded-full bg-[#00CE84]/30" />
@@ -20,10 +23,9 @@ const SuccessAnimation = (isVerifyStartLesson) => (
       </div>
     </div>
     <p className="text-center text-xl font-medium text-[#00CE84]">
-      {/* {isVerifyStartLesson ? 
-      "Please start teaching..." :
-      "Lesson ended successfully"} */}
-      Verification Successful
+      {isVerifyStartLesson
+        ? "Lesson Started Successfully"
+        : "Lesson Ended Successfully"}
     </p>
   </div>
 );
@@ -47,59 +49,73 @@ const CountdownRedirect = ({ onComplete }: { onComplete: () => void }) => {
   );
 };
 
-const OTPVerification = ({ isVerifyStartLesson }: boolean) => {
+const OTPVerification = ({
+  isVerifyStartLesson,
+}: {
+  isVerifyStartLesson: boolean;
+}) => {
   const { learnerId, scheduleId } = useParams();
   const [otp, setOTP] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const { data: learnerData, isLoading: isLoadingLearner } =
     useLearnerDetails(learnerId);
-  const { mutate: updateStatus } = useUpdateScheduleStatus();
+  const { mutate: updateStatus, isPending: isSubmitting } =
+    useUpdateScheduleStatus();
 
   const {
     data: verificationData,
     isLoading: isLoadingVerification,
     error,
   } = useVerifyOtp({
-    scheduleId,
+    scheduleId: scheduleId ?? "",
     otp,
     isVerifyStartLesson,
     enabled: otp.length === 6,
   });
 
-  const handleOtpInputChange = (event) => {
+  const handleOtpInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
-
-    // 1. Filter: Only allow digits
     const numericValue = value.replace(/\D/g, "");
-
-    // 2. Limit: Enforce the maximum length
     const finalOtp = numericValue.slice(0, 6);
-
     setOTP(finalOtp);
-    // console.log("otp set to ", finalOtp, otp);
+    setSubmitError(null);
   };
 
-  const handleSubmit = (isVerifyStartLesson) => {
-    if (verificationData?.isValid && scheduleId) {
-      updateStatus(
-        {
-          scheduleId,
-          status: isVerifyStartLesson ? "ongoing" : "completed",
-          started_at: isVerifyStartLesson ? new Date().toISOString() : "",
-          ended_at: isVerifyStartLesson ? "" : new Date().toISOString(),
-        },
-        {
-          onSuccess: () => {
-            setShowSuccess(true);
-          },
-        },
-      );
+  const handleSubmit = () => {
+    if (!verificationData?.isValid) {
+      setSubmitError("Invalid OTP. Please check and try again.");
+      return;
     }
+    if (!scheduleId) {
+      setSubmitError("Schedule not found.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    updateStatus(
+      {
+        scheduleId,
+        status: isVerifyStartLesson ? "ongoing" : "completed",
+        started_at: isVerifyStartLesson ? now : undefined,
+        ended_at: isVerifyStartLesson ? undefined : now,
+      },
+      {
+        onSuccess: () => {
+          setShowSuccess(true);
+        },
+        onError: (err) => {
+          setSubmitError(
+            err?.message || "Failed to update lesson status. Please try again.",
+          );
+        },
+      },
+    );
   };
 
-  if (isLoadingLearner || isLoadingVerification) {
+  if (isLoadingLearner) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00CE84] border-t-transparent" />
@@ -135,8 +151,10 @@ const OTPVerification = ({ isVerifyStartLesson }: boolean) => {
           <div className="w-full max-w-md space-y-6 sm:space-y-8">
             {showSuccess ? (
               <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
-                <SuccessAnimation isVerifyStartLesson />
-                <CountdownRedirect onComplete={() => navigate("/")} />
+                <SuccessAnimation isVerifyStartLesson={isVerifyStartLesson} />
+                <CountdownRedirect
+                  onComplete={() => navigate("/instructor")}
+                />
               </div>
             ) : (
               <>
@@ -203,26 +221,36 @@ const OTPVerification = ({ isVerifyStartLesson }: boolean) => {
                       />
                     </div>
 
-                    {verificationData?.isValid === false && (
-                      <p className="animate-shake text-sm text-red-500 sm:text-base">
-                        ❌ Incorrect OTP, Please try again!
+                    {otp.length === 6 &&
+                      !isLoadingVerification &&
+                      verificationData?.isValid === false && (
+                        <p className="animate-shake text-sm text-red-500 sm:text-base">
+                          Incorrect OTP, please try again!
+                        </p>
+                      )}
+                    {submitError && (
+                      <p className="text-sm text-red-500 sm:text-base">
+                        {submitError}
                       </p>
                     )}
                   </div>
 
                   <Button
                     className="w-full bg-[#00CE84] text-sm transition-all hover:scale-[1.02] hover:bg-[#04A76C] disabled:bg-gray-300 sm:text-base"
-                    onClick={async () => {
-                      await handleSubmit(isVerifyStartLesson);
-                    }}
-                    disabled={otp.length !== 6 || isLoadingVerification}
+                    onClick={handleSubmit}
+                    disabled={
+                      otp.length !== 6 ||
+                      isLoadingVerification ||
+                      !verificationData?.isValid ||
+                      isSubmitting
+                    }
                   >
-                    {isLoadingVerification ? (
+                    {isLoadingVerification || isSubmitting ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : isVerifyStartLesson ? (
-                      "Verify & Start"
+                      "Verify & Start Lesson"
                     ) : (
-                      "Verify & End"
+                      "Verify & End Lesson"
                     )}
                   </Button>
                 </div>

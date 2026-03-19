@@ -1,4 +1,5 @@
 import {
+  BookOpenCheck,
   Bug,
   Calendar,
   ClipboardList,
@@ -116,6 +117,13 @@ const featureConfig: Record<
     icon: Bug,
     link: "/admin/bug-reports",
     color: "text-indigo-500",
+  },
+  instructor_lesson_log: {
+    title: "Instructor Lesson Log",
+    description: "View lesson completions with OTP and timing details",
+    icon: BookOpenCheck,
+    link: "/admin/instructor-lesson-log",
+    color: "text-emerald-500",
   },
 };
 
