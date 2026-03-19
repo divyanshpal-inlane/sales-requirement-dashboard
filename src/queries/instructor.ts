@@ -11,6 +11,7 @@ const getCurrentDate = () => {
 interface UseVerifyOtpParams {
   scheduleId: string;
   otp: string;
+  isVerifyStartLesson: boolean;
   enabled?: boolean;
 }
 
@@ -95,78 +96,31 @@ export const useLesson = (lessonId: string) => {
 
 export const useInstructor = (phone: string) => {
   return useQuery({
-    queryKey: ["instructor", phone],
+    queryKey: ["instructor-profile", phone],
     queryFn: async () => {
-      const currentDate = getCurrentDate();
+      // Normalize phone - try multiple formats to match Instructor table
+      const normalizedPhone = phone.replace(/\D/g, "");
+      const phoneVariants = [
+        phone,
+        normalizedPhone,
+        normalizedPhone.replace(/^91/, ""),
+        `+91${normalizedPhone.replace(/^91/, "")}`,
+      ];
 
-      // Fetch instructor info
-      const { data: instructorInfo, error: instructorError } = await supabase
+      const { data: instructorResults, error: instructorError } = await supabase
         .from("Instructor")
         .select("*")
-        .eq("phone", phone)
-        .single();
+        .in("phone", phoneVariants);
 
       if (instructorError) {
         throw new Error("Failed to fetch instructor info");
       }
+      const instructorInfo = instructorResults?.[0];
       if (!instructorInfo) throw new Error("Instructor not found");
 
-      // Fetch all schedules for the instructor
-      const { data: instructorSchedule, error: scheduleError } = await supabase
-        .from("Schedule")
-        .select("*")
-        .eq("instructor_id", instructorInfo.id_instructor);
-
-      if (scheduleError) {
-        throw new Error("Failed to fetch instructor schedule");
-      }
-
-      // Filter schedules for the current date
-      const instructorScheduleDay = instructorSchedule.filter(
-        (schedule) => schedule.date === currentDate,
-      );
-
-      // Fetch learner and lesson data for each schedule (all schedules)
-      const learnerLesson = await Promise.all(
-        instructorSchedule.map(async (schedule) => {
-          if (!schedule.isTentative) {
-            const { learner, lesson } = await fetchLearnerAndLesson(
-              schedule.learner_id,
-              schedule.lesson_id,
-            );
-            return {
-              schedule,
-              learner,
-              lesson,
-            };
-          }
-        }),
-      );
-
-      // Fetch learner and lesson data for current day schedules
-      const learnerLessonDay = await Promise.all(
-        instructorScheduleDay.map(async (schedule) => {
-          const { learner, lesson } = await fetchLearnerAndLesson(
-            schedule.learner_id,
-            schedule.lesson_id,
-          );
-          return {
-            learner,
-            lesson,
-          };
-        }),
-      );
-
-      console.log("T2_1 learnerLessonDay", learnerLessonDay);
-      return {
-        instructorInfo,
-        instructorSchedule,
-        instructorScheduleDay,
-        learnerLessonDay,
-        learnerLesson,
-        unavailability: instructorInfo.unavailability, // Added this to include all schedules' learner and lesson data
-      };
+      return { instructorInfo };
     },
+    staleTime: Infinity,
   });
 };
 
@@ -182,14 +136,40 @@ export const useInstructorScheduleData = (phone: string) => {
       const startDateStr = format(startDate, "yyyy-MM-dd");
       const endDateStr = format(endDate, "yyyy-MM-dd");
 
-      // Fetch instructor info, with schedules
+      // Normalize phone - try multiple formats to match Instructor table
+      const normalizedPhone = phone.replace(/\D/g, "");
+      const phoneVariants = [
+        phone,                                  // as-is from auth
+        normalizedPhone,                        // digits only e.g. "917676713125"
+        normalizedPhone.replace(/^91/, ""),      // without country code e.g. "7676713125"
+        `+91${normalizedPhone.replace(/^91/, "")}`, // with +91 prefix
+      ];
+
+      // Fetch instructor info independently so it works even with 0 schedules
+      const { data: instructorResults, error: instrError } = await supabase
+        .from("Instructor")
+        .select("id_instructor, name, phone, email, unavailability")
+        .in("phone", phoneVariants);
+
+      if (instrError) {
+        console.error(instrError);
+        throw new Error("Failed to fetch instructor info");
+      }
+
+      const instructorInfo = instructorResults?.[0];
+      if (!instructorInfo) {
+        throw new Error("Instructor not found");
+      }
+
+      // Fetch schedules using instructor id with left joins so tentative
+      // schedules (which may lack a learner/lesson/course) are not dropped
       const { data: instructorSchedules, error: instructorError } =
         await supabase
           .from("Schedule")
           .select(
-            "*, Learner!inner(*), Instructor!inner(name, phone, email, unavailability), Lesson!inner(*), Courses!inner(total_lessons)",
+            "*, Learner(*), Lesson(*), Courses(total_lessons)",
           )
-          .eq("Instructor.phone", phone)
+          .eq("instructor_id", instructorInfo.id_instructor)
           .gte("date", startDateStr)
           .lte("date", endDateStr)
           .order("date", { ascending: true })
@@ -197,21 +177,24 @@ export const useInstructorScheduleData = (phone: string) => {
 
       if (instructorError) {
         console.error(instructorError);
-        throw new Error("Failed to fetch instructor info");
+        throw new Error("Failed to fetch instructor schedules");
       }
-      if (!instructorSchedules) throw new Error("Instructor not found");
+
+      const schedules = instructorSchedules ?? [];
 
       console.log(
         "schedule data from",
         startDate,
         " to ",
         endDate,
-        instructorSchedules,
+        schedules,
       );
 
       // Get unique learner+course combinations from visible schedules
       const learnerCoursePairs = new Set(
-        instructorSchedules.map((s) => `${s.learner_id}|${s.course_id}`),
+        schedules
+          .filter((s) => s.learner_id && s.course_id)
+          .map((s) => `${s.learner_id}|${s.course_id}`),
       );
 
       // Fetch ALL schedules for these learner+course combinations to calculate correct lesson numbers
@@ -251,18 +234,18 @@ export const useInstructorScheduleData = (phone: string) => {
       );
 
       // Update each schedule's Lesson.number with the calculated chronological number
-      const schedulesWithCorrectNumbers = instructorSchedules.map(
-        (schedule) => ({
-          ...schedule,
-          Lesson: schedule.Lesson
-            ? {
-                ...schedule.Lesson,
-                number:
-                  scheduleToLessonNumber[schedule.id] || schedule.Lesson.number,
-              }
-            : null,
-        }),
-      );
+      const schedulesWithCorrectNumbers = schedules.map((schedule) => ({
+        ...schedule,
+        // Attach instructor info to each schedule for backward compatibility
+        Instructor: instructorInfo,
+        Lesson: schedule.Lesson
+          ? {
+              ...schedule.Lesson,
+              number:
+                scheduleToLessonNumber[schedule.id] || schedule.Lesson.number,
+            }
+          : null,
+      }));
 
       // Filter schedules for the current date
       const instructorScheduleDay = schedulesWithCorrectNumbers.filter(
@@ -270,44 +253,24 @@ export const useInstructorScheduleData = (phone: string) => {
       );
 
       // Fetch learner and lesson data for each schedule (all schedules)
-      const learnerLesson = await Promise.all(
-        schedulesWithCorrectNumbers.map(async (scheduleData) => {
-          if (!scheduleData.isTentative) {
-            return {
-              learner: scheduleData.Learner,
-              lesson: scheduleData.Lesson,
-            };
-          }
-          return null; // Ensure the map always returns something
-        }),
-      ).then((results) => results.filter((item) => item !== null)); // Filter out nulls
+      const learnerLesson = schedulesWithCorrectNumbers
+        .filter((s) => !s.isTentative && s.Learner && s.Lesson)
+        .map((s) => ({ learner: s.Learner, lesson: s.Lesson }));
 
       // Fetch learner and lesson data for current day schedules
-      const learnerLessonDay = await Promise.all(
-        instructorScheduleDay.map(async (scheduleData) => {
-          if (!scheduleData.isTentative) {
-            return {
-              learner: scheduleData.Learner,
-              lesson: scheduleData.Lesson,
-            };
-          }
-          return null; // Ensure the map always returns something
-        }),
-      ).then((results) => results.filter((item) => item !== null)); // Filter out nulls
+      const learnerLessonDay = instructorScheduleDay
+        .filter((s) => !s.isTentative && s.Learner && s.Lesson)
+        .map((s) => ({ learner: s.Learner, lesson: s.Lesson }));
 
       console.log("T2_1 learnerLessonDay", learnerLessonDay);
 
-      // --- FIX APPLIED HERE ---
-      const instructorData = schedulesWithCorrectNumbers?.[0]?.Instructor;
-
       return {
-        // You must assign the expression to a key
-        instructor: instructorData,
+        instructor: instructorInfo,
         instructorSchedules: schedulesWithCorrectNumbers,
         instructorScheduleDay,
         learnerLessonDay,
         learnerLesson,
-        unavailability: instructorData?.unavailability,
+        unavailability: instructorInfo?.unavailability,
       };
     },
   });
@@ -401,7 +364,7 @@ export const useVerifyOtp = ({
   enabled = true,
 }: UseVerifyOtpParams) => {
   return useQuery({
-    queryKey: ["verify-otp", scheduleId, otp],
+    queryKey: ["verify-otp", scheduleId, otp, isVerifyStartLesson],
     queryFn: async () => {
       if (!scheduleId || !otp) {
         throw new Error("Schedule ID and OTP are required");
@@ -409,7 +372,7 @@ export const useVerifyOtp = ({
 
       const { data, error } = await supabase
         .from("Schedule")
-        .select("id, otp, otp_end")
+        .select("id, otp, otp_end, status")
         .eq("id", scheduleId)
         .single();
 
@@ -421,26 +384,41 @@ export const useVerifyOtp = ({
         throw new Error("Schedule not found");
       }
 
-      const schedule = data as unknown as ScheduleWithOtp;
+      const schedule = data as unknown as ScheduleWithOtp & { status: string };
+
+      // Validate schedule is in the correct status for the operation
+      if (isVerifyStartLesson && schedule.status !== "booked") {
+        return {
+          isValid: false,
+          schedule,
+          error: "Lesson is not in a startable state",
+        };
+      }
+      if (!isVerifyStartLesson && schedule.status !== "ongoing") {
+        return {
+          isValid: false,
+          schedule,
+          error: "Lesson is not currently ongoing",
+        };
+      }
 
       // For start lesson, verify against otp field
-      // For end lesson, verify against otp_end field
-      // If otp_end is null (legacy schedules), use the start otp as fallback
+      // For end lesson, verify against otp_end field (fallback to otp for legacy schedules)
       const expectedOtp = isVerifyStartLesson
         ? schedule.otp
-        : schedule.otp_end || schedule.otp; // Fallback to start OTP for legacy schedules
+        : schedule.otp_end || schedule.otp;
 
       const isValid = expectedOtp === otp;
 
       return {
         isValid,
         schedule,
+        error: isValid ? null : "Incorrect OTP",
       };
     },
-    enabled: enabled && Boolean(scheduleId) && Boolean(otp),
+    enabled: enabled && Boolean(scheduleId) && otp.length === 6,
     retry: false,
-    staleTime: 0, // Don't cache the result
-    // Remove from cache immediately
+    staleTime: 0,
   });
 };
 
@@ -479,15 +457,18 @@ export const useUpdateScheduleStatus = () => {
     }: {
       scheduleId: string;
       status: string;
-      started_at: string;
-      ended_at: string;
+      started_at?: string;
+      ended_at?: string;
     }) => {
-      // Assuming it's required to update status AND either started_at OR ended_at
-      const updatePayload = {
-        status,
-        ...(started_at && { started_at }), // Include started_at if it exists
-        ...(started_at ? { ended_at: null } : ended_at && { ended_at }), // Include ended_at if it exists
-      };
+      const updatePayload: Record<string, unknown> = { status };
+
+      if (status === "ongoing") {
+        updatePayload.started_at = started_at || new Date().toISOString();
+        updatePayload.ended_at = null;
+      } else if (status === "completed") {
+        updatePayload.ended_at = ended_at || new Date().toISOString();
+      }
+
       const { data, error } = await supabase
         .from("Schedule")
         .update(updatePayload)
@@ -498,9 +479,11 @@ export const useUpdateScheduleStatus = () => {
       if (error) throw new Error(error.message);
       return data as unknown as Schedule;
     },
-    onSuccess: (data) => {
-      // Invalidate and refetch schedule data
-      queryClient.invalidateQueries({ queryKey: ["schedule", data.id] });
+    onSuccess: () => {
+      // Invalidate all schedule and instructor data so dashboards refresh
+      queryClient.invalidateQueries({ queryKey: ["schedule"] });
+      queryClient.invalidateQueries({ queryKey: ["instructor"] });
+      queryClient.invalidateQueries({ queryKey: ["verify-otp"] });
     },
   });
 };

@@ -44,15 +44,22 @@ export function useImportedCalendar({
     setError(null);
 
     try {
-      // Normalize phone number - remove +91 prefix if present to match Instructor table format
-      const normalizedPhone = instructorPhone.replace(/^\+91/, "");
+      // Normalize phone - try multiple formats to match Instructor table
+      const digits = instructorPhone.replace(/\D/g, "");
+      const phoneVariants = [
+        instructorPhone,
+        digits,
+        digits.replace(/^91/, ""),
+        `+91${digits.replace(/^91/, "")}`,
+      ];
 
       // Use type assertion since column may not be in TypeScript types yet
-      const { data, error: fetchError } = await supabase
+      const { data: results, error: fetchError } = await supabase
         .from("Instructor")
         .select("*")
-        .eq("phone", normalizedPhone)
-        .single();
+        .in("phone", phoneVariants);
+
+      const data = results?.[0] ?? null;
 
       if (fetchError) {
         console.error("Error loading calendar events:", fetchError);
@@ -88,8 +95,14 @@ export function useImportedCalendar({
       setError(null);
 
       try {
-        // Normalize phone number - remove +91 prefix if present to match Instructor table format
-        const normalizedPhone = instructorPhone.replace(/^\+91/, "");
+        // Normalize phone - try multiple formats to match Instructor table
+        const digits = instructorPhone.replace(/\D/g, "");
+        const phoneVariants = [
+          instructorPhone,
+          digits,
+          digits.replace(/^91/, ""),
+          `+91${digits.replace(/^91/, "")}`,
+        ];
 
         // Use type assertion since column may not be in TypeScript types yet
         const { error: updateError } = await supabase
@@ -98,7 +111,7 @@ export function useImportedCalendar({
             imported_calendar_events: events,
             imported_calendar_updated_at: new Date().toISOString(),
           } as any)
-          .eq("phone", normalizedPhone);
+          .in("phone", phoneVariants);
 
         if (updateError) {
           console.error("Error saving calendar events:", updateError);
@@ -126,8 +139,14 @@ export function useImportedCalendar({
     setError(null);
 
     try {
-      // Normalize phone number - remove +91 prefix if present to match Instructor table format
-      const normalizedPhone = instructorPhone.replace(/^\+91/, "");
+      // Normalize phone - try multiple formats to match Instructor table
+      const digits = instructorPhone.replace(/\D/g, "");
+      const phoneVariants = [
+        instructorPhone,
+        digits,
+        digits.replace(/^91/, ""),
+        `+91${digits.replace(/^91/, "")}`,
+      ];
 
       // Use type assertion since column may not be in TypeScript types yet
       const { error: updateError } = await supabase
@@ -136,7 +155,7 @@ export function useImportedCalendar({
           imported_calendar_events: [],
           imported_calendar_updated_at: null,
         } as any)
-        .eq("phone", normalizedPhone);
+        .in("phone", phoneVariants);
 
       if (updateError) {
         console.error("Error clearing calendar events:", updateError);

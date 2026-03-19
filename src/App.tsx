@@ -62,6 +62,7 @@ import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
+import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
@@ -276,6 +277,10 @@ export default function App() {
               <Route path="settings" element={<AdminSettings />} />
               <Route path="admin-management" element={<AdminManagement />} />
               <Route path="bug-reports" element={<BugReportsManagement />} />
+              <Route
+                path="instructor-lesson-log"
+                element={<InstructorLessonLog />}
+              />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

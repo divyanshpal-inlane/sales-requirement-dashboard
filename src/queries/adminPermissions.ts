@@ -71,6 +71,13 @@ export const ADMIN_PERMISSIONS = {
       "View and manage bug reports, feature requests, and suggestions",
     route: "/admin/bug-reports",
   },
+  instructor_lesson_log: {
+    key: "instructor_lesson_log",
+    label: "Instructor Lesson Log",
+    description:
+      "View instructor lesson completions with OTP verification and timing details",
+    route: "/admin/instructor-lesson-log",
+  },
 } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;
@@ -99,17 +106,56 @@ export function useCurrentAdmin() {
       } = await supabase.auth.getUser();
 
       if (!user?.phone) {
+        console.log("[useCurrentAdmin] No phone on auth user");
         return null;
       }
 
-      // Get admin record
-      const { data: admin, error: adminError } = await supabase
-        .from("Admin")
-        .select("*")
-        .eq("phone", user.phone)
-        .single();
+      console.log("[useCurrentAdmin] Auth user phone:", user.phone);
 
-      if (adminError || !admin) {
+      // Normalize phone - try multiple formats to match Admin table
+      const digits = user.phone.replace(/\D/g, "");
+      const phoneVariants = [
+        user.phone,
+        digits,
+        digits.replace(/^91/, ""),
+        `+91${digits.replace(/^91/, "")}`,
+      ];
+
+      console.log("[useCurrentAdmin] Trying phone variants:", phoneVariants);
+
+      // Get admin record - fetch ALL admins and match client-side
+      // to avoid phone format issues with Supabase .in() filter
+      const { data: allAdmins, error: adminError } = await supabase
+        .from("Admin")
+        .select("*");
+
+      if (adminError) {
+        console.error("[useCurrentAdmin] Error fetching admins:", adminError);
+        return null;
+      }
+
+      console.log(
+        "[useCurrentAdmin] All admin phones:",
+        allAdmins?.map((a) => a.phone),
+      );
+
+      // Match by comparing digits
+      const admin =
+        allAdmins?.find((a) => {
+          if (!a.phone) return false;
+          const adminDigits = a.phone.replace(/\D/g, "");
+          return phoneVariants.some(
+            (v) =>
+              v === a.phone ||
+              v.replace(/\D/g, "") === adminDigits ||
+              adminDigits.endsWith(digits.replace(/^91/, "")) ||
+              digits.replace(/^91/, "").endsWith(adminDigits),
+          );
+        }) ?? null;
+
+      console.log("[useCurrentAdmin] Matched admin:", admin);
+
+      if (!admin) {
         return null;
       }
 
