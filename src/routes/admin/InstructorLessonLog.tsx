@@ -73,7 +73,41 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-green-100 text-green-800",
   ongoing: "bg-blue-100 text-blue-800",
   booked: "bg-yellow-100 text-yellow-800",
+  penalty: "bg-red-100 text-red-800",
 };
+
+// A lesson is "properly completed" only if it has both started_at AND ended_at
+// (meaning both start and end OTP were verified).
+// A lesson is a "penalty" if its scheduled time has passed but it's missing
+// either the start or end OTP verification.
+function isProperlyCompleted(s: {
+  status: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+}): boolean {
+  return s.status === "completed" && !!s.started_at && !!s.ended_at;
+}
+
+function isPenalty(s: {
+  date: string;
+  end_time: string;
+  status: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+}): boolean {
+  // Check if the lesson time has passed
+  const now = new Date();
+  const lessonEnd = new Date(`${s.date}T${s.end_time}`);
+  const timePassed = lessonEnd < now;
+
+  if (!timePassed) return false;
+
+  // Penalty if: completed without both OTPs, or still booked/ongoing after time passed
+  if (s.status === "completed" && (!s.started_at || !s.ended_at)) return true;
+  if (s.status === "booked" || s.status === "ongoing") return true;
+
+  return false;
+}
 
 // ─── component ──────────────────────────────────────────────────
 export default function InstructorLessonLog() {
@@ -117,7 +151,9 @@ export default function InstructorLessonLog() {
         .order("date", { ascending: false })
         .order("start_time", { ascending: false });
 
-      if (statusFilter !== "all") {
+      // "penalty" and "completed" are computed client-side, so only filter
+      // DB-native statuses at the query level
+      if (statusFilter !== "all" && statusFilter !== "penalty" && statusFilter !== "completed") {
         query = query.eq("status", statusFilter);
       }
       if (dateFilter) {
@@ -150,11 +186,30 @@ export default function InstructorLessonLog() {
   // ── stats for expanded instructor ──
   const stats = useMemo(() => {
     if (!schedules) return null;
-    const completed = schedules.filter((s) => s.status === "completed").length;
+    const properlyCompleted = schedules.filter((s) => isProperlyCompleted(s)).length;
+    const penalties = schedules.filter((s) => isPenalty(s)).length;
     const ongoing = schedules.filter((s) => s.status === "ongoing").length;
     const booked = schedules.filter((s) => s.status === "booked").length;
-    return { total: schedules.length, completed, ongoing, booked };
+    return {
+      total: schedules.length,
+      properlyCompleted,
+      penalties,
+      ongoing,
+      booked,
+    };
   }, [schedules]);
+
+  // ── client-side filter for penalty/completed ──
+  const filteredSchedules = useMemo(() => {
+    if (!schedules) return [];
+    if (statusFilter === "completed") {
+      return schedules.filter((s) => isProperlyCompleted(s));
+    }
+    if (statusFilter === "penalty") {
+      return schedules.filter((s) => isPenalty(s));
+    }
+    return schedules;
+  }, [schedules, statusFilter]);
 
   const toggle = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -264,7 +319,8 @@ export default function InstructorLessonLog() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="completed">Completed (Proper)</SelectItem>
+                          <SelectItem value="penalty">Penalty</SelectItem>
                           <SelectItem value="ongoing">Ongoing</SelectItem>
                           <SelectItem value="booked">Booked</SelectItem>
                         </SelectContent>
@@ -291,16 +347,26 @@ export default function InstructorLessonLog() {
 
                     {/* Stats */}
                     {stats && !schedulesLoading && (
-                      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
                         <div className="rounded-lg bg-muted/50 p-3 text-center">
                           <p className="text-2xl font-bold">{stats.total}</p>
                           <p className="text-xs text-muted-foreground">Total</p>
                         </div>
                         <div className="rounded-lg bg-green-50 p-3 text-center">
                           <p className="text-2xl font-bold text-green-700">
-                            {stats.completed}
+                            {stats.properlyCompleted}
                           </p>
-                          <p className="text-xs text-muted-foreground">Completed</p>
+                          <p className="text-xs text-muted-foreground">
+                            Completed
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-red-50 p-3 text-center">
+                          <p className="text-2xl font-bold text-red-700">
+                            {stats.penalties}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Penalty
+                          </p>
                         </div>
                         <div className="rounded-lg bg-blue-50 p-3 text-center">
                           <p className="text-2xl font-bold text-blue-700">
@@ -322,13 +388,13 @@ export default function InstructorLessonLog() {
                       <div className="flex h-32 items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       </div>
-                    ) : !schedules || schedules.length === 0 ? (
+                    ) : filteredSchedules.length === 0 ? (
                       <p className="py-8 text-center text-muted-foreground">
                         No lessons found
                       </p>
                     ) : (
                       <div className="space-y-3">
-                        {schedules.map((s) => (
+                        {filteredSchedules.map((s) => (
                           <Card key={s.id} className="border shadow-sm">
                             <CardContent className="p-4">
                               <div className="flex flex-col gap-3">
@@ -350,15 +416,39 @@ export default function InstructorLessonLog() {
                                       {fmtTime(s.end_time)}
                                     </p>
                                   </div>
-                                  <Badge
-                                    className={
-                                      STATUS_COLORS[s.status ?? ""] ??
-                                      "bg-gray-100 text-gray-800"
-                                    }
-                                  >
-                                    {s.status?.toUpperCase() ?? "UNKNOWN"}
-                                  </Badge>
+                                  {isPenalty(s) ? (
+                                    <Badge className={STATUS_COLORS.penalty}>
+                                      PENALTY
+                                    </Badge>
+                                  ) : isProperlyCompleted(s) ? (
+                                    <Badge className={STATUS_COLORS.completed}>
+                                      COMPLETED
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      className={
+                                        STATUS_COLORS[s.status ?? ""] ??
+                                        "bg-gray-100 text-gray-800"
+                                      }
+                                    >
+                                      {s.status?.toUpperCase() ?? "UNKNOWN"}
+                                    </Badge>
+                                  )}
                                 </div>
+
+                                {/* Penalty reason */}
+                                {isPenalty(s) && (
+                                  <div className="rounded-lg bg-red-50 p-2 text-xs text-red-700">
+                                    <span className="font-medium">Penalty reason: </span>
+                                    {!s.started_at && !s.ended_at
+                                      ? "No start or end OTP verified"
+                                      : !s.started_at
+                                        ? "Start OTP not verified"
+                                        : !s.ended_at
+                                          ? "End OTP not verified"
+                                          : `Lesson still ${s.status} after scheduled time`}
+                                  </div>
+                                )}
 
                                 {/* Tentative tag */}
                                 {s.isTentative && (
