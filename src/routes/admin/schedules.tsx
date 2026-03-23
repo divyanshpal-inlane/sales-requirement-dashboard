@@ -219,10 +219,9 @@ export default function AdminSchedules() {
             const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
             // For virtual lessons (demo/custom), set lesson_id to null
-            const lessonId =
-              schedule.lessonId?.startsWith?.("virtual-lesson-")
-                ? null
-                : schedule.lessonId;
+            const lessonId = schedule.lessonId?.startsWith?.("virtual-lesson-")
+              ? null
+              : schedule.lessonId;
 
             return {
               learner_id: learnerId,
@@ -1219,6 +1218,51 @@ export const LearnerSchedulesManager = ({
     }
   };
 
+  // Pause or resume ALL upcoming (booked) lessons for this learner
+  const onPauseResumeAll = async (action: "pause" | "resume") => {
+    if (!learner?.schedules) return;
+    try {
+      setIsProcessing(true);
+      const today = format(new Date(), "yyyy-MM-dd");
+
+      // Get IDs of upcoming lessons that need to be toggled
+      const targetStatus = action === "pause" ? "booked" : "paused";
+      const newStatus = action === "pause" ? "paused" : "booked";
+
+      const scheduleIds = learner.schedules
+        .filter((s: any) => s.status === targetStatus && s.date >= today)
+        .map((s: any) => s.id);
+
+      if (scheduleIds.length === 0) {
+        toast({
+          title: "No lessons to update",
+          description: `No ${targetStatus} upcoming lessons found.`,
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("Schedule")
+        .update({ status: newStatus })
+        .in("id", scheduleIds);
+
+      if (error) throw error;
+      await syncData();
+      toast({
+        title: action === "pause" ? "Class Paused" : "Class Resumed",
+        description: `${scheduleIds.length} upcoming lesson(s) marked as ${newStatus}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleRescheduleSubmit = async () => {
     if (!selectedSchedule || !learner) return;
     try {
@@ -1438,12 +1482,46 @@ export const LearnerSchedulesManager = ({
   return (
     <div className="space-y-2 md:col-span-2">
       <Card>
-        <CardHeader className="p-3">
+        <CardHeader className="flex flex-row items-center justify-between p-3">
           <CardTitle className="text-sm">
             {isLoading
               ? "Updating..."
               : `${learner?.name ?? "Learner"}'s Schedule`}
           </CardTitle>
+          {learner?.schedules?.length > 0 && (
+            <div className="flex gap-2">
+              {learner.schedules.some(
+                (s: any) =>
+                  s.status === "booked" &&
+                  s.date >= format(new Date(), "yyyy-MM-dd"),
+              ) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  disabled={isProcessing}
+                  onClick={() => onPauseResumeAll("pause")}
+                >
+                  Pause Class
+                </Button>
+              )}
+              {learner.schedules.some(
+                (s: any) =>
+                  s.status === "paused" &&
+                  s.date >= format(new Date(), "yyyy-MM-dd"),
+              ) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-green-400 bg-green-50 text-green-700 hover:bg-green-100"
+                  disabled={isProcessing}
+                  onClick={() => onPauseResumeAll("resume")}
+                >
+                  Resume Class
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-3 pt-0">
           <div className="space-y-2">

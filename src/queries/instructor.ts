@@ -139,9 +139,9 @@ export const useInstructorScheduleData = (phone: string) => {
       // Normalize phone - try multiple formats to match Instructor table
       const normalizedPhone = phone.replace(/\D/g, "");
       const phoneVariants = [
-        phone,                                  // as-is from auth
-        normalizedPhone,                        // digits only e.g. "917676713125"
-        normalizedPhone.replace(/^91/, ""),      // without country code e.g. "7676713125"
+        phone, // as-is from auth
+        normalizedPhone, // digits only e.g. "917676713125"
+        normalizedPhone.replace(/^91/, ""), // without country code e.g. "7676713125"
         `+91${normalizedPhone.replace(/^91/, "")}`, // with +91 prefix
       ];
 
@@ -166,9 +166,7 @@ export const useInstructorScheduleData = (phone: string) => {
       const { data: instructorSchedules, error: instructorError } =
         await supabase
           .from("Schedule")
-          .select(
-            "*, Learner(*), Lesson(*), Courses(total_lessons)",
-          )
+          .select("*, Learner(*), Lesson(*), Courses(total_lessons)")
           .eq("instructor_id", instructorInfo.id_instructor)
           .gte("date", startDateStr)
           .lte("date", endDateStr)
@@ -180,15 +178,12 @@ export const useInstructorScheduleData = (phone: string) => {
         throw new Error("Failed to fetch instructor schedules");
       }
 
-      const schedules = instructorSchedules ?? [];
-
-      console.log(
-        "schedule data from",
-        startDate,
-        " to ",
-        endDate,
-        schedules,
+      // Filter out paused schedules so they don't appear on the instructor calendar
+      const schedules = (instructorSchedules ?? []).filter(
+        (s) => s.status !== "paused",
       );
+
+      console.log("schedule data from", startDate, " to ", endDate, schedules);
 
       // Get unique learner+course combinations from visible schedules
       const learnerCoursePairs = new Set(
