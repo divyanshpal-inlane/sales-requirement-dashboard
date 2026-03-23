@@ -569,6 +569,42 @@ export default function Home() {
     );
   };
 
+  const renderPausedLesson = () => {
+    return (
+      <div className="flex flex-col items-center gap-4 p-6 text-center">
+        <div className="rounded-full bg-amber-100 p-4">
+          <Clock className="h-10 w-10 text-amber-600" />
+        </div>
+        <h2 className="text-xl font-semibold text-amber-800">
+          Your Class Has Been Paused
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Your upcoming lessons have been paused. Please contact the team to
+          resume your classes.
+        </p>
+        <Card className="w-full max-w-sm border-amber-200 bg-amber-50">
+          <CardContent className="p-4 text-center">
+            <p className="text-sm font-medium text-amber-900">
+              Contact us at{" "}
+              <a
+                href="mailto:team@inlane.in"
+                className="text-primary underline"
+              >
+                team@inlane.in
+              </a>
+            </p>
+            <p className="mt-1 text-sm text-amber-700">
+              or call{" "}
+              <a href="tel:+919876543210" className="text-primary underline">
+                +91 98765 43210
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderUpcomingLesson = () => {
     return (
       <div className="flex flex-col gap-2 p-4 text-center text-xl">
@@ -945,6 +981,9 @@ export default function Home() {
                 </div>
                 {renderScheduleCreationState()}
               </>
+            ) : LessonData?.upcomingSchedule?.status?.toUpperCase() ===
+              "PAUSED" ? (
+              <div className="mb-6">{renderPausedLesson()}</div>
             ) : LessonData?.upcomingLesson ? (
               <div className="mb-6">{renderUpcomingLesson()}</div>
             ) : (
