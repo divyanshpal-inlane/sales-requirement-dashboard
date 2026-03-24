@@ -1868,20 +1868,9 @@ function CreateSchedule({
   // For reschedule/lesson10 requests, lesson_ids come from actual schedules so they're correct
   const totalCourseHours = allLessons?.length ?? request.lesson_ids.length;
 
-  // Check if this is a 10-lesson course where learner doesn't have DL
-  // In this case, lesson 10 should be locked and scheduled separately later
-  const isLesson10Locked =
-    request.type === "new" &&
-    totalCourseHours === 10 &&
-    learnerDetails?.has_a_DL === false;
-
-  // Required lessons to schedule now (9 if lesson 10 is locked, otherwise all)
+  // Required lessons to schedule
   const requiredLessonCount =
-    request.type === "new"
-      ? isLesson10Locked
-        ? 9 // Only schedule 9 lessons if learner doesn't have DL
-        : totalCourseHours
-      : request.lesson_ids.length;
+    request.type === "new" ? totalCourseHours : request.lesson_ids.length;
 
   const minLessonNumber =
     lessons && lessons.length > 0
@@ -2937,12 +2926,13 @@ function CreateSchedule({
     );
 
     // Get available lessons for upcoming slots
-    // IMPORTANT: For reschedule requests, ONLY use the lessons being rescheduled (from request.lesson_ids)
+    // IMPORTANT: For reschedule/lesson10 requests, ONLY use the lessons being rescheduled (from request.lesson_ids)
     // For new schedule requests, use all lessons after the completed ones
-    const isRescheduleRequest = request.type === "reschedule";
+    const isRescheduleRequest =
+      request.type === "reschedule" || request.type === "lesson10";
 
     const availableLessons = courseLessons.filter((l) => {
-      // For reschedule requests, only include lessons that are being rescheduled
+      // For reschedule/lesson10 requests, only include lessons that are being rescheduled
       if (isRescheduleRequest) {
         return request.lesson_ids.includes(l.id);
       }
@@ -3032,9 +3022,6 @@ function CreateSchedule({
       console.error("Error fetching learner:", learnerError);
     }
 
-    const isNinePlusOneCourse =
-      learner?.has_a_DL === false && courseLessons.length === 10;
-
     // Create a map of current lesson assignments
     console.log("Creating map of current lesson assignments...");
 
@@ -3109,29 +3096,7 @@ function CreateSchedule({
         const currentNewSlotIndex = newSlotCounter;
         newSlotCounter++;
 
-        // For 9+1 courses, handle lesson 10 specially
-        if (isNinePlusOneCourse) {
-          // Check if this slot is for lesson 10 (which should always be the last lesson)
-          const isLesson10Slot = request.lesson_ids.some(
-            (id) => courseLessons.find((l) => l.id === id)?.number === 10,
-          );
-
-          if (isLesson10Slot && currentNewSlotIndex === totalNewSlots - 1) {
-            // If this is lesson 10 in a 9+1 course and it's the last NEW slot, use lesson 10
-            const lesson10 = availableLessons.find((l) => l.number === 10);
-            return {
-              date: slot.date,
-              hour: slot.hour,
-              minutes: slot.minutes,
-              instructorId: slot.instructorId,
-              lessonId: lesson10?.id ?? "",
-              lessonNumber: 10,
-              isNew: slot.isNew,
-            };
-          }
-        }
-
-        // For all other cases, assign lessons by position in the sorted available lessons list
+        // For all cases, assign lessons by position in the sorted available lessons list
         // This handles both sequential (1,2,3...) and non-sequential lesson numbering
         const lesson = sortedAvailableLessons[currentNewSlotIndex];
 
@@ -3298,8 +3263,7 @@ function CreateSchedule({
         .single();
 
       if (!learnerData?.email) {
-        console.error("Missing email for learner");
-        return;
+        console.warn("Learner has no email — calendar invites will be skipped");
       }
 
       // Create a map to track which lesson IDs are being rescheduled
@@ -3473,7 +3437,12 @@ function CreateSchedule({
       const allEvents = [...cancellationEvents, ...newEvents];
 
       // Send everything in one go
-      if (allEvents.length > 0) {
+      // STEP 1: ALWAYS SAVE SCHEDULES TO THE DATABASE FIRST
+      console.log("Creating schedules in the database first...");
+      onScheduleCreate(finalSchedules, courseIdToPass);
+
+      // STEP 2: SEND CALENDAR INVITES (only if both instructor and learner have emails)
+      if (allEvents.length > 0 && learnerData?.email) {
         console.log(
           `Sending ${allEvents.length} calendar events (${cancellationEvents.length} cancellations, ${newEvents.length} new/updated)`,
         );
@@ -3482,102 +3451,90 @@ function CreateSchedule({
             ? instructorsData[0].email
             : "";
         if (!primaryInstructorEmail) {
-          console.error(
-            "Missing email for primary instructor",
+          console.warn(
+            "Skipping calendar invites — instructor has no email",
             instructorsData,
           );
-          return;
-        }
-
-        try {
-          // STEP 1: FIRST SAVE ALL SCHEDULES TO THE DATABASE
-          console.log("Creating schedules in the database first...");
-
-          // Call onScheduleCreate to save data to database before sending emails
-          // This ensures the schedules are in the database when the emails are sent
-          onScheduleCreate(finalSchedules, courseIdToPass);
-
+        } else {
           // Wait a moment to ensure database write is complete
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          // STEP 2: NOW SEND CALENDAR INVITES
           console.log("Now sending calendar invites...");
 
-          // SEND CANCELLATION EVENTS FIRST (if any)
-          if (cancellationEvents.length > 0) {
-            console.log(
-              `Sending ${cancellationEvents.length} cancellation events`,
-            );
-            try {
-              await sendMultiEventCalendarInvite(
-                `${learnerData.email}`, // Add Ankit's email here
-                primaryInstructorEmail,
-                cancellationEvents,
-                instructorsData[0]?.name || "Your Instructor",
-                learnerData.name || "Student",
-                learnerData.phone,
-                "cancellation", // ← Just the emailType string
-                learnerData.id, // ← Just the learnerId string
+          try {
+            // SEND CANCELLATION EVENTS FIRST (if any)
+            if (cancellationEvents.length > 0) {
+              console.log(
+                `Sending ${cancellationEvents.length} cancellation events`,
               );
-            } catch (cancelError) {
-              console.error("Error sending cancellation events:", cancelError);
+              try {
+                await sendMultiEventCalendarInvite(
+                  `${learnerData.email}`,
+                  primaryInstructorEmail,
+                  cancellationEvents,
+                  instructorsData[0]?.name || "Your Instructor",
+                  learnerData.name || "Student",
+                  learnerData.phone,
+                  "cancellation",
+                  learnerData.id,
+                );
+              } catch (cancelError) {
+                console.error(
+                  "Error sending cancellation events:",
+                  cancelError,
+                );
+              }
             }
-          }
 
-          // THEN SEND NEW EVENTS
-          if (newEvents.length > 0) {
-            console.log(`Sending ${newEvents.length} new events`);
-            try {
-              // CORRECT - passing strings as expected
-              const uidMap = await sendMultiEventCalendarInvite(
-                `${learnerData.email}`, // Add Ankit's email here
-                primaryInstructorEmail,
-                newEvents,
-                instructorsData[0]?.name || "Your Instructor",
-                learnerData.name || "Student",
-                learnerData.phone,
-                "new", // ← Just the emailType string
-                learnerData.id, // ← Just the learnerId string
-              );
+            // THEN SEND NEW EVENTS
+            if (newEvents.length > 0) {
+              console.log(`Sending ${newEvents.length} new events`);
+              try {
+                const uidMap = await sendMultiEventCalendarInvite(
+                  `${learnerData.email}`,
+                  primaryInstructorEmail,
+                  newEvents,
+                  instructorsData[0]?.name || "Your Instructor",
+                  learnerData.name || "Student",
+                  learnerData.phone,
+                  "new",
+                  learnerData.id,
+                );
 
-              // Update database with calendar UIDs if we got them back
-              if (uidMap) {
-                console.log("Updating schedules with calendar UIDs");
-                for (const schedule of finalSchedules) {
-                  if (uidMap[schedule.lessonNumber]) {
-                    await supabase
-                      .from("Schedule")
-                      .update({
-                        calendar_uid: uidMap[schedule.lessonNumber],
-                        calendar_sequence: 0, // Reset sequence for new UIDs
-                      })
-                      .eq("lesson_id", schedule.lessonId);
-                  }
+                // Update database with calendar UIDs if we got them back
+                if (uidMap) {
+                  console.log("Updating schedules with calendar UIDs");
+                  for (const schedule of finalSchedules) {
+                    if (uidMap[schedule.lessonNumber]) {
+                      await supabase
+                        .from("Schedule")
+                        .update({
+                          calendar_uid: uidMap[schedule.lessonNumber],
+                          calendar_sequence: 0, // Reset sequence for new UIDs
+                        })
+                        .eq("lesson_id", schedule.lessonId);
+                    }
 
-                  // if it lesson 10, set the flag has_lesson10_booked
-                  if (schedule.lessonNumber == 10) {
-                    console.log("Setting lesson10 booked for learner");
-                    await supabase
-                      .from("Learner")
-                      .update({
-                        has_lesson10_booked: true,
-                      })
-                      .eq("id", learnerData.id);
+                    // if it lesson 10, set the flag has_lesson10_booked
+                    if (schedule.lessonNumber == 10) {
+                      console.log("Setting lesson10 booked for learner");
+                      await supabase
+                        .from("Learner")
+                        .update({
+                          has_lesson10_booked: true,
+                        })
+                        .eq("id", learnerData.id);
+                    }
                   }
                 }
+              } catch (newEventError) {
+                console.error("Error sending new events:", newEventError);
               }
-            } catch (newEventError) {
-              console.error("Error sending new events:", newEventError);
             }
+          } catch (error) {
+            console.error("Error handling calendar invites:", error);
           }
-        } catch (error) {
-          console.error("Error handling calendar invites:", error);
-          // If there was an error sending invites but not saving schedules,
-          // we don't need to call onScheduleCreate again since it was already called
         }
-      } else {
-        // No events to send, just save schedules
-        onScheduleCreate(finalSchedules, courseIdToPass);
       }
     } catch (error) {
       console.error("Error in handleCreateSchedule:", error);
@@ -3929,33 +3886,10 @@ function CreateSchedule({
           <div className="text-sm text-gray-500"></div>
         </div>
       </div>
-      {/* Lesson 10 Separate Scheduling Banner */}
-      {isLesson10Locked && (
-        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-          <div className="flex items-start gap-2">
-            <span className="text-lg">📅</span>
-            <div>
-              <p className="font-medium text-blue-800">
-                Lesson 10 will be scheduled separately
-              </p>
-              <p className="text-sm text-blue-700">
-                Schedule 9 lessons now. After completion, the learner can
-                request Lesson 10 scheduling from their home page.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div className="text-md flex flex-col text-gray-500">
           <span>
             Selected: {selectedSlots.length / 2} of {requiredLessonCount} hours
-            {isLesson10Locked && (
-              <span className="ml-2 text-sm text-blue-600">
-                (Course: {totalCourseHours} hrs, Lesson 10 scheduled later)
-              </span>
-            )}
           </span>
         </div>
         <Button
