@@ -308,12 +308,6 @@ export default function Home() {
     ).length || 0;
   const scheduledLessonsCount = scheduledLessons?.length || 0;
 
-  // Check if lesson 10 is locked (no DL for 10-lesson course)
-  const isLesson10LockedForDL =
-    totalCourseLessons === 10 &&
-    learner?.has_a_DL === false &&
-    scheduledLessonsCount === 9;
-
   // For half payment, calculate accessible lessons
   const accessibleLessonsCount =
     enrolledCourse?.payment_status === "half_paid"
@@ -426,22 +420,7 @@ export default function Home() {
                 {totalCourseLessons - accessibleLessonsCount} Locked (Payment)
               </span>
             )}
-
-            {/* Lesson 10 locked indicator */}
-            {isLesson10LockedForDL && (
-              <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
-                <Lock className="h-3 w-3" />
-                Lesson 10 (Pending DL)
-              </span>
-            )}
           </div>
-
-          {/* Lesson 10 explanation for no DL */}
-          {isLesson10LockedForDL && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Lesson 10 will be scheduled after your DL test date is confirmed.
-            </p>
-          )}
         </CardContent>
       </Card>
     );
@@ -1104,20 +1083,6 @@ export default function Home() {
                           : ""}
                         You can apply for the Driver licence test after 30 days
                         of LL date.
-                        {scheduledLessons &&
-                          scheduledLessons.length === 9 &&
-                          isLesson10Completed === undefined && (
-                            <Button
-                              className="mt-4 w-full"
-                              onClick={() =>
-                                navigate(
-                                  "/createSchedule/preferences?type=lesson10",
-                                )
-                              }
-                            >
-                              Schedule Lesson 10
-                            </Button>
-                          )}
                       </div>
                     )
                   ) : (
