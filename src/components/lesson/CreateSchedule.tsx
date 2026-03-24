@@ -178,7 +178,10 @@ interface CreateScheduleProps {
   learnerId: string;
   learnerArea: string;
   request: SchedulingRequests[number];
-  onScheduleCreate: (schedules: Schedule[], courseId: string | null) => void;
+  onScheduleCreate: (
+    schedules: Schedule[],
+    courseId: string | null,
+  ) => void | Promise<void>;
   learnerDetails?: {
     address_lat: number;
     address_lng: number;
@@ -3436,10 +3439,9 @@ function CreateSchedule({
       // Combine all events (cancellations and new/updated)
       const allEvents = [...cancellationEvents, ...newEvents];
 
-      // Send everything in one go
       // STEP 1: ALWAYS SAVE SCHEDULES TO THE DATABASE FIRST
       console.log("Creating schedules in the database first...");
-      onScheduleCreate(finalSchedules, courseIdToPass);
+      await onScheduleCreate(finalSchedules, courseIdToPass);
 
       // STEP 2: SEND CALENDAR INVITES (only if both instructor and learner have emails)
       if (allEvents.length > 0 && learnerData?.email) {

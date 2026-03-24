@@ -386,84 +386,68 @@ export default function AdminSchedules() {
     // (selectedRequest can be cleared by useEffect before onSuccess runs)
     const currentRequest = selectedRequest;
 
-    createScheduleMutation.mutate(
-      {
+    try {
+      await createScheduleMutation.mutateAsync({
         learnerId: selectedRequest.learner_id,
         schedules,
         courseId,
         rescheduleLessonNumber,
-      },
-      {
-        onSuccess: (_, variables) => {
-          toast({
-            title: "Schedule created",
-            description: "The schedule has been created successfully.",
+      });
+
+      toast({
+        title: "Schedule created",
+        description: "The schedule has been created successfully.",
+      });
+      console.log(
+        "Schedule mutation succeeded, completing reschedule request:",
+        currentRequest?.id,
+      );
+
+      if (currentRequest) {
+        try {
+          await completeRescheduleRequestMutation.mutateAsync({
+            requestId: currentRequest.id,
           });
-          console.log(
-            "Schedule mutation succeeded, completing reschedule request:",
-            currentRequest?.id,
-          );
-          if (currentRequest) {
-            completeRescheduleRequestMutation.mutate(
-              {
-                requestId: currentRequest.id,
+          console.log("Reschedule request marked as completed");
+
+          // Send notifications (fire-and-forget, no need to await)
+          if (currentRequest.type === "new") {
+            supabase.functions.invoke("send-message", {
+              body: {
+                message_type: "SCHEDULE_PREPARED",
+                learner_id: currentRequest.learner_id,
+                start_date: format(new Date(schedules[0].date), "dd/MM/yyyy"),
+                start_time: schedules[0].start_time,
               },
-              {
-                onSuccess: () => {
-                  console.log("Reschedule request marked as completed");
-                  const lessonNumber =
-                    currentRequest.type === "reschedule"
-                      ? Math.min(
-                          ...variables.schedules.map((s) => s.lessonNumber),
-                        )
-                      : 1;
-                  if (currentRequest.type === "new") {
-                    supabase.functions.invoke("send-message", {
-                      body: {
-                        message_type: "SCHEDULE_PREPARED",
-                        learner_id: currentRequest.learner_id,
-                        start_date: format(
-                          new Date(variables.schedules[0].date),
-                          "dd/MM/yyyy",
-                        ),
-                        start_time: variables.schedules[0].start_time,
-                      },
-                    });
-                  }
-                  if (currentRequest.type === "reschedule") {
-                    supabase.functions.invoke("send-message", {
-                      body: {
-                        message_type:
-                          "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
-                        learner_id: currentRequest.learner_id,
-                      },
-                    });
-                  }
-                  if (currentRequest.type === "lesson10") {
-                    supabase.functions.invoke("send-message", {
-                      body: {
-                        message_type: "WEBAPP_LESSON_10_SCHEDULED",
-                        learner_id: currentRequest.learner_id,
-                      },
-                    });
-                  }
-                },
-                onError: (error) => {
-                  console.error("Error completing reschedule request:", error);
-                },
-              },
-            );
+            });
           }
-        },
-        onError: (error) => {
-          toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-          });
-        },
-      },
-    );
+          if (currentRequest.type === "reschedule") {
+            supabase.functions.invoke("send-message", {
+              body: {
+                message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+                learner_id: currentRequest.learner_id,
+              },
+            });
+          }
+          if (currentRequest.type === "lesson10") {
+            supabase.functions.invoke("send-message", {
+              body: {
+                message_type: "WEBAPP_LESSON_10_SCHEDULED",
+                learner_id: currentRequest.learner_id,
+              },
+            });
+          }
+        } catch (error) {
+          console.error("Error completing reschedule request:", error);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const newRequests = useMemo(
