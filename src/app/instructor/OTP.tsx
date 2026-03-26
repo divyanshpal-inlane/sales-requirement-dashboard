@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/lib/supabaseClient";
 import {
   useLearnerDetails,
   useUpdateScheduleStatus,
@@ -60,10 +61,47 @@ const OTPVerification = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const [otpSent, setOtpSent] = useState(false);
+
   const { data: learnerData, isLoading: isLoadingLearner } =
     useLearnerDetails(learnerId);
   const { mutate: updateStatus, isPending: isSubmitting } =
     useUpdateScheduleStatus();
+
+  // Send OTP to learner via WhatsApp when instructor opens the start lesson page
+  useEffect(() => {
+    if (!isVerifyStartLesson || !scheduleId || !learnerId || otpSent) return;
+
+    (async () => {
+      try {
+        // Fetch the OTP from the schedule
+        const { data: schedule, error: scheduleError } = await supabase
+          .from("Schedule")
+          .select("otp")
+          .eq("id", Number(scheduleId))
+          .single();
+
+        if (scheduleError || !schedule?.otp) {
+          console.error("Could not fetch OTP for schedule:", scheduleError);
+          return;
+        }
+
+        // Send OTP to learner via WhatsApp
+        await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: "LESSON_START_OTP",
+            learner_id: learnerId,
+            otp: schedule.otp,
+          },
+        });
+
+        setOtpSent(true);
+        console.log("OTP sent to learner via WhatsApp");
+      } catch (err) {
+        console.error("Error sending OTP to learner:", err);
+      }
+    })();
+  }, [isVerifyStartLesson, scheduleId, learnerId, otpSent]);
 
   const {
     data: verificationData,
