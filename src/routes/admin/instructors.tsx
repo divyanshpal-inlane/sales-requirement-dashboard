@@ -5040,12 +5040,12 @@ export const InstructorSchedulePage = () => {
         .from("Instructor")
         .select(
           `
-          *, 
+          *,
           schedules:Schedule (
-            *, 
+            *,
             learner:learner_id (
               name, phone, pick_up_location, address_lat, address_lng
-            ), 
+            ),
             lesson:lesson_id (number)
           )
         `,
@@ -5053,6 +5053,14 @@ export const InstructorSchedulePage = () => {
         .eq("id_instructor", id)
         .single();
       if (error) throw error;
+
+      // Filter out paused schedules
+      if (data?.schedules) {
+        data.schedules = data.schedules.filter(
+          (s: any) => s.status !== "paused",
+        );
+      }
+
       return data;
     },
   });
