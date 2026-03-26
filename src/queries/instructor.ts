@@ -168,6 +168,7 @@ export const useInstructorScheduleData = (phone: string) => {
           .from("Schedule")
           .select("*, Learner(*), Lesson(*), Courses(total_lessons)")
           .eq("instructor_id", instructorInfo.id_instructor)
+          .neq("status", "paused")
           .gte("date", startDateStr)
           .lte("date", endDateStr)
           .order("date", { ascending: true })
@@ -178,10 +179,7 @@ export const useInstructorScheduleData = (phone: string) => {
         throw new Error("Failed to fetch instructor schedules");
       }
 
-      // Filter out paused schedules so they don't appear on the instructor calendar
-      const schedules = (instructorSchedules ?? []).filter(
-        (s) => s.status !== "paused",
-      );
+      const schedules = instructorSchedules ?? [];
 
       console.log("schedule data from", startDate, " to ", endDate, schedules);
 
