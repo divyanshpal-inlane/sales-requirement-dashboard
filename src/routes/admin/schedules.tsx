@@ -1338,9 +1338,9 @@ export const LearnerSchedulesManager = ({
         }
       }
 
-      // 7. Send calendar invites and notification in parallel for performance
-      const calendarInvitePromise = (async () => {
-        if (learner.email && instructorEmail) {
+      // 7. Send calendar invites in background (fire-and-forget to avoid blocking UI)
+      if (learner.email && instructorEmail) {
+        (async () => {
           try {
             const pickupLocation =
               learner.pick_up_location ||
@@ -1395,7 +1395,7 @@ export const LearnerSchedulesManager = ({
               endTime: newEndDate,
               lessonNumber: lessonNumber,
               pickupLocation: pickupLocation,
-              uid: calendarUid || undefined, // Reuse UID if exists, otherwise generate new
+              uid: calendarUid || undefined,
               sequence: newSequence,
               isCancellation: false,
               instructorName: instructorName,
@@ -1404,7 +1404,6 @@ export const LearnerSchedulesManager = ({
               instructorId: instructorId,
             });
 
-            // Send calendar invites
             const uidMap = await sendMultiEventCalendarInvite(
               learner.email,
               instructorEmail,
@@ -1416,7 +1415,6 @@ export const LearnerSchedulesManager = ({
               learner.id,
             );
 
-            // Update the schedule with the new calendar_uid if one was generated
             if (uidMap && uidMap[lessonNumber] && !calendarUid) {
               await supabase
                 .from("Schedule")
@@ -1427,30 +1425,28 @@ export const LearnerSchedulesManager = ({
             console.log("Calendar invites sent successfully for reschedule");
           } catch (calendarError) {
             console.error("Error sending calendar invites:", calendarError);
-            // Don't fail the entire operation if calendar invites fail
           }
-        } else {
-          console.warn("Missing email addresses, skipping calendar invites");
-        }
-      })();
+        })();
+      }
 
-      // 8. Send notification to customer about reschedule
-      const notificationPromise = supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
-          learner_id: learner.id,
-        },
-      });
-
-      // Wait for both calendar and notification to complete
-      await Promise.all([calendarInvitePromise, notificationPromise]);
+      // 8. Send notification to customer about reschedule (fire-and-forget)
+      supabase.functions
+        .invoke("send-message", {
+          body: {
+            message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+            learner_id: learner.id,
+          },
+        })
+        .catch((err) =>
+          console.error("Error sending reschedule notification:", err),
+        );
 
       setIsRescheduleModalOpen(false);
       await syncData();
       toast({
         title: "Rescheduled",
         description:
-          "Lesson rescheduled, calendar updated, and customer notified.",
+          "Lesson rescheduled. Calendar invite and notification are being sent.",
       });
     } catch (error: any) {
       toast({

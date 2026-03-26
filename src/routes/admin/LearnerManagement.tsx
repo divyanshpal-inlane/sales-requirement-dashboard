@@ -25,6 +25,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 
+import { HalfPaidTracker } from "./HalfPaidTracker";
 import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
 
 // Course type options
@@ -541,6 +542,9 @@ export default function LearnerManagement() {
 
           {/* Incomplete Payments Card */}
           <IncompletePaymentsCard />
+
+          {/* 50% Payment Tracker */}
+          <HalfPaidTracker />
 
           {/* Dialog for Creating Learner */}
           <Dialog
