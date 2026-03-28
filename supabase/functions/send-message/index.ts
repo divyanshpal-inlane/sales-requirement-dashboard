@@ -28,10 +28,13 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    console.error(error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    console.error("send-message error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message, stack: error.stack }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      },
+    );
   }
 });

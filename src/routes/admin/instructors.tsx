@@ -505,6 +505,82 @@ export default function InstructorsManagement() {
   // instructor search bar
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Delete instructor
+  const [deleteConfirmInstructorId, setDeleteConfirmInstructorId] = useState<
+    string | null
+  >(null);
+
+  const deleteInstructorMutation = useMutation({
+    mutationFn: async (instructorId: string) => {
+      const today = new Date().toISOString().split("T")[0];
+
+      // 1. Get all future booked/ongoing schedules for this instructor
+      const { data: futureSchedules, error: fetchError } = await supabase
+        .from("Schedule")
+        .select("id, learner_id, status")
+        .eq("instructor_id", instructorId)
+        .gte("date", today)
+        .in("status", ["booked"]);
+
+      if (fetchError) throw new Error(fetchError.message);
+
+      // 2. Collect unique learner IDs that need rescheduling
+      const learnerIds = [
+        ...new Set(
+          (futureSchedules || [])
+            .map((s: any) => s.learner_id)
+            .filter(Boolean),
+        ),
+      ];
+
+      // 3. Delete the future booked schedules
+      if (futureSchedules && futureSchedules.length > 0) {
+        const scheduleIds = futureSchedules.map((s: any) => s.id);
+        const { error: deleteScheduleError } = await supabase
+          .from("Schedule")
+          .delete()
+          .in("id", scheduleIds);
+
+        if (deleteScheduleError) throw new Error(deleteScheduleError.message);
+      }
+
+      // 4. Set needs_scheduling = true for affected learners
+      if (learnerIds.length > 0) {
+        const { error: learnerUpdateError } = await supabase
+          .from("Learner")
+          .update({ needs_scheduling: true } as any)
+          .in("id", learnerIds);
+
+        if (learnerUpdateError) throw new Error(learnerUpdateError.message);
+      }
+
+      // 5. Delete the instructor
+      const { error: deleteError } = await supabase
+        .from("Instructor")
+        .delete()
+        .eq("id_instructor", instructorId);
+
+      if (deleteError) throw new Error(deleteError.message);
+
+      return { deletedSchedules: futureSchedules?.length || 0, affectedLearners: learnerIds.length };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["instructors"] });
+      toast({
+        title: "Instructor Deleted",
+        description: `Instructor deleted. ${result.deletedSchedules} upcoming schedule(s) removed. ${result.affectedLearners} learner(s) marked for rescheduling.`,
+      });
+      setDeleteConfirmInstructorId(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Add tentative schedule info
   // Fetch all servicable areas for suggestions
   const { data: serviceableAreas, isLoading: areasLoading } = useQuery({
@@ -1116,7 +1192,69 @@ export default function InstructorsManagement() {
                 >
                   Edit Details
                 </Button>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() =>
+                    setDeleteConfirmInstructorId(instructor.id_instructor)
+                  }
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Instructor
+                </Button>
               </div>
+
+              {/* Delete Confirmation Dialog */}
+              {deleteConfirmInstructorId === instructor.id_instructor && (
+                <Dialog
+                  open={true}
+                  onOpenChange={() => setDeleteConfirmInstructorId(null)}
+                >
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Instructor</DialogTitle>
+                      <DialogDescription>
+                        Are you sure you want to delete{" "}
+                        <strong>{instructor.name}</strong>? This will:
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-left">
+                          <li>
+                            Remove all upcoming booked schedules for this
+                            instructor
+                          </li>
+                          <li>
+                            Mark affected learners as needing rescheduling
+                          </li>
+                          <li>Permanently delete the instructor record</li>
+                        </ul>
+                        <p className="mt-2 font-semibold text-destructive">
+                          This action cannot be undone.
+                        </p>
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setDeleteConfirmInstructorId(null)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        disabled={deleteInstructorMutation.isPending}
+                        onClick={() =>
+                          deleteInstructorMutation.mutate(
+                            instructor.id_instructor,
+                          )
+                        }
+                      >
+                        {deleteInstructorMutation.isPending
+                          ? "Deleting..."
+                          : "Delete"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {/* Schedule Dialog */}
               {openScheduleDialogId === instructor.id_instructor && (

@@ -439,6 +439,50 @@ export const useLearnerDetails = (learnerId: string | undefined) => {
   });
 };
 
+// Mutation to send OTP to learner via WhatsApp
+export const useSendOtpToLearner = () => {
+  return useMutation({
+    mutationFn: async ({
+      learnerId,
+      scheduleId,
+      isStart,
+    }: {
+      learnerId: string;
+      scheduleId: string;
+      isStart: boolean;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("send-message", {
+        body: {
+          message_type: isStart ? "CLASS_START_OTP" : "CLASS_END_OTP",
+          learner_id: learnerId,
+          schedule_id: scheduleId,
+        },
+      });
+
+      if (error) {
+        // Try to read the response body for detailed error
+        const context = error.context;
+        if (context?.json) {
+          try {
+            const body = await context.json();
+            console.error("Send OTP edge function error body:", body);
+            throw new Error(body.error || error.message);
+          } catch {
+            // fall through
+          }
+        }
+        console.error("Send OTP error:", error);
+        throw new Error(error.message);
+      }
+      if (data?.error) {
+        console.error("Send OTP edge function error:", data.error);
+        throw new Error(data.error);
+      }
+      return data;
+    },
+  });
+};
+
 // Mutation to update schedule status
 export const useUpdateScheduleStatus = () => {
   const queryClient = useQueryClient();

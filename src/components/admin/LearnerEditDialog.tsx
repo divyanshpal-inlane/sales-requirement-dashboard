@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -12,7 +12,9 @@ import {
   Save,
   User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -107,6 +109,243 @@ interface LearnerEditDialogProps {
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
+}
+
+function LocationTab({
+  formData,
+  updateField,
+}: {
+  formData: LearnerEditData;
+  updateField: (field: keyof LearnerEditData, value: any) => void;
+}) {
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [areaSearch, setAreaSearch] = useState("");
+
+  const { data: serviceableAreas } = useQuery({
+    queryKey: ["serviceable-areas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Serviceable_Areas")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filteredAreas = serviceableAreas?.filter((a) =>
+    a.name.toLowerCase().includes(areaSearch.toLowerCase()),
+  );
+
+  // Initialize Google Places autocomplete
+  useEffect(() => {
+    let listener: google.maps.MapsEventListener | null = null;
+
+    googleMapsLoader.load().then(() => {
+      if (!addressInputRef.current || autocompleteRef.current) return;
+
+      autocompleteRef.current = new google.maps.places.Autocomplete(
+        addressInputRef.current,
+        {
+          componentRestrictions: { country: "IN" },
+          fields: ["address_components", "formatted_address", "geometry"],
+        },
+      );
+
+      listener = autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (!place?.formatted_address || !place.geometry?.location) return;
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+
+        updateField("pick_up_location", place.formatted_address);
+        updateField("address_lat", lat);
+        updateField("address_lng", lng);
+
+        // Extract city and pincode from address components
+        const components = place.address_components || [];
+        const cityComp = components.find(
+          (c) =>
+            c.types.includes("locality") ||
+            c.types.includes("administrative_area_level_2"),
+        );
+        const pincodeComp = components.find((c) =>
+          c.types.includes("postal_code"),
+        );
+        const sublocalityComp = components.find(
+          (c) =>
+            c.types.includes("sublocality_level_1") ||
+            c.types.includes("sublocality"),
+        );
+
+        if (cityComp) updateField("city", cityComp.long_name);
+        if (pincodeComp) updateField("pincode", pincodeComp.long_name);
+        if (sublocalityComp) {
+          updateField("area", sublocalityComp.long_name);
+          setAreaSearch(sublocalityComp.long_name);
+        }
+      });
+    });
+
+    return () => {
+      if (listener) google.maps.event.removeListener(listener);
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div className="grid gap-4">
+      {/* Google Places Address Search */}
+      <div>
+        <Label
+          htmlFor="pick_up_location"
+          className="flex items-center gap-2"
+        >
+          <MapPin className="h-4 w-4" />
+          Pickup Location / Address
+        </Label>
+        <Input
+          id="pick_up_location"
+          ref={addressInputRef}
+          defaultValue={formData.pick_up_location || ""}
+          onChange={(e) => updateField("pick_up_location", e.target.value)}
+          className="mt-1"
+          placeholder="Start typing an address..."
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Type to search with Google Places — lat/lng, city, pincode auto-fill
+        </p>
+      </div>
+
+      {/* Area Dropdown */}
+      <div>
+        <Label htmlFor="area">Area</Label>
+        <div className="relative mt-1">
+          <Input
+            id="area"
+            value={areaSearch || formData.area || ""}
+            onChange={(e) => {
+              setAreaSearch(e.target.value);
+              updateField("area", e.target.value);
+            }}
+            placeholder="Search or select area..."
+          />
+          {areaSearch && filteredAreas && filteredAreas.length > 0 && (
+            <div className="absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-white shadow-lg">
+              {filteredAreas.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                  onClick={() => {
+                    updateField("area", a.name);
+                    setAreaSearch("");
+                  }}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            value={formData.city || ""}
+            onChange={(e) => updateField("city", e.target.value)}
+            className="mt-1"
+            placeholder="e.g., Bangalore"
+          />
+        </div>
+        <div>
+          <Label htmlFor="pincode">Pincode</Label>
+          <Input
+            id="pincode"
+            value={formData.pincode || ""}
+            onChange={(e) => updateField("pincode", e.target.value)}
+            className="mt-1"
+            placeholder="e.g., 560034"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="address_lat">Latitude</Label>
+          <Input
+            id="address_lat"
+            type="number"
+            step="any"
+            value={formData.address_lat ?? ""}
+            onChange={(e) =>
+              updateField(
+                "address_lat",
+                e.target.value ? parseFloat(e.target.value) : null,
+              )
+            }
+            className="mt-1 bg-muted"
+            placeholder="Auto-filled"
+            readOnly
+          />
+        </div>
+        <div>
+          <Label htmlFor="address_lng">Longitude</Label>
+          <Input
+            id="address_lng"
+            type="number"
+            step="any"
+            value={formData.address_lng ?? ""}
+            onChange={(e) =>
+              updateField(
+                "address_lng",
+                e.target.value ? parseFloat(e.target.value) : null,
+              )
+            }
+            className="mt-1 bg-muted"
+            placeholder="Auto-filled"
+            readOnly
+          />
+        </div>
+      </div>
+
+      {formData.address_lat && formData.address_lng && (
+        <a
+          href={`https://maps.google.com/?q=${formData.address_lat},${formData.address_lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+        >
+          <MapPin className="h-4 w-4" />
+          View on Google Maps
+        </a>
+      )}
+
+      <div className="flex items-center justify-between rounded-lg border p-4">
+        <div>
+          <Label>Address Change Required</Label>
+          <p className="text-sm text-muted-foreground">
+            Does the learner need to change their address for DL?
+          </p>
+        </div>
+        <Switch
+          checked={formData.address_change_required || false}
+          onCheckedChange={(checked) =>
+            updateField("address_change_required", checked)
+          }
+        />
+      </div>
+    </div>
+  );
 }
 
 export function LearnerEditDialog({
@@ -268,124 +507,10 @@ export function LearnerEditDialog({
 
           {/* Location Tab */}
           <TabsContent value="location" className="space-y-4 pt-4">
-            <div className="grid gap-4">
-              <div>
-                <Label
-                  htmlFor="pick_up_location"
-                  className="flex items-center gap-2"
-                >
-                  <MapPin className="h-4 w-4" />
-                  Pickup Location / Address
-                </Label>
-                <Input
-                  id="pick_up_location"
-                  value={formData.pick_up_location || ""}
-                  onChange={(e) =>
-                    updateField("pick_up_location", e.target.value)
-                  }
-                  className="mt-1"
-                  placeholder="Enter full address"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="area">Area</Label>
-                <Input
-                  id="area"
-                  value={formData.area || ""}
-                  onChange={(e) => updateField("area", e.target.value)}
-                  className="mt-1"
-                  placeholder="e.g., Koramangala"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={formData.city || ""}
-                    onChange={(e) => updateField("city", e.target.value)}
-                    className="mt-1"
-                    placeholder="e.g., Bangalore"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="pincode">Pincode</Label>
-                  <Input
-                    id="pincode"
-                    value={formData.pincode || ""}
-                    onChange={(e) => updateField("pincode", e.target.value)}
-                    className="mt-1"
-                    placeholder="e.g., 560034"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="address_lat">Latitude</Label>
-                  <Input
-                    id="address_lat"
-                    type="number"
-                    step="any"
-                    value={formData.address_lat || ""}
-                    onChange={(e) =>
-                      updateField(
-                        "address_lat",
-                        e.target.value ? parseFloat(e.target.value) : null,
-                      )
-                    }
-                    className="mt-1"
-                    placeholder="e.g., 12.9716"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="address_lng">Longitude</Label>
-                  <Input
-                    id="address_lng"
-                    type="number"
-                    step="any"
-                    value={formData.address_lng || ""}
-                    onChange={(e) =>
-                      updateField(
-                        "address_lng",
-                        e.target.value ? parseFloat(e.target.value) : null,
-                      )
-                    }
-                    className="mt-1"
-                    placeholder="e.g., 77.5946"
-                  />
-                </div>
-              </div>
-
-              {formData.address_lat && formData.address_lng && (
-                <a
-                  href={`https://maps.google.com/?q=${formData.address_lat},${formData.address_lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  <MapPin className="h-4 w-4" />
-                  View on Google Maps
-                </a>
-              )}
-
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                  <Label>Address Change Required</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Does the learner need to change their address for DL?
-                  </p>
-                </div>
-                <Switch
-                  checked={formData.address_change_required || false}
-                  onCheckedChange={(checked) =>
-                    updateField("address_change_required", checked)
-                  }
-                />
-              </div>
-            </div>
+            <LocationTab
+              formData={formData}
+              updateField={updateField}
+            />
           </TabsContent>
 
           {/* Preferences Tab */}

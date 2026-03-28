@@ -630,60 +630,6 @@ export default function Home() {
 
         <div className="mt-6 flex flex-col gap-4">
           <div className="flex flex-row flex-wrap gap-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={async () => {
-                      if (
-                        LessonData?.upcomingSchedule?.status?.toUpperCase() ===
-                        "ONGOING"
-                      ) {
-                        if (!learner) return;
-                        else {
-                          setShowEndLessonDialog(true);
-                        }
-                      } else if (
-                        LessonData?.upcomingSchedule?.status?.toUpperCase() ===
-                        "BOOKED"
-                      ) {
-                        setShowLessonDialog(true);
-                      }
-                    }}
-                    className="w-full"
-                    disabled={
-                      lessonSchedule?.status?.toUpperCase() === "COMPLETED" ||
-                      lessonSchedule?.status?.toUpperCase() === "PAUSED" ||
-                      !enabledLessonForInstallmentStatus(
-                        LessonData?.upcomingLesson?.number,
-                      )
-                    }
-                  >
-                    {lessonSchedule?.status?.toUpperCase() === "ONGOING"
-                      ? "End lesson"
-                      : lessonSchedule?.status?.toUpperCase() === "COMPLETED"
-                        ? "Lesson Completed"
-                        : !enabledLessonForInstallmentStatus(
-                              LessonData?.upcomingLesson?.number,
-                            )
-                          ? "Lesson locked"
-                          : lessonSchedule?.status?.toUpperCase() === "PAUSED"
-                            ? "Lesson Paused"
-                            : "Start Lesson"}
-                  </Button>
-                </TooltipTrigger>
-                {(lessonSchedule?.status?.toUpperCase() === "ONGOING" ||
-                  lessonSchedule?.status?.toUpperCase() === "COMPLETED") && (
-                  <TooltipContent>
-                    <p>
-                      {lessonSchedule.status.toUpperCase() === "ONGOING"
-                        ? "Session is already in progress"
-                        : "Session has been completed"}
-                    </p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
             <Button
               onClick={() => {
                 navigate(`/lesson/${LessonData?.upcomingLesson?.id}`);
@@ -745,8 +691,7 @@ export default function Home() {
             </div>
           )}
 
-          {showLessonDialog && renderStartLessonDialog()}
-          {showEndLessonDialog && renderEndLessonDialog()}
+          {/* OTP is now sent directly to learner's WhatsApp by the instructor */}
         </div>
       </div>
     );
