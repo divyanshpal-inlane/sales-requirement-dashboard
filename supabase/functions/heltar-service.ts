@@ -413,6 +413,18 @@ class HeltarMessageService {
           );
         }
 
+        // Reuses PASSWORD_RESET_OTP template until a dedicated lesson OTP template is registered on Heltar
+        case "LESSON_START_OTP": {
+          const { learner_id, otp } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "PASSWORD_RESET_OTP",
+            [learner.name, otp],
+            `lesson-start-otp-${learner_id}-${Date.now()}`,
+          );
+        }
+
         case "LL_APPLICATION_UPDATE": {
           const { learner_id } = data;
           const learner = await this.getLearnerDetails(learner_id);
@@ -764,6 +776,71 @@ class HeltarMessageService {
             "MESSAGE_FOR_CLASS_END",
             [schedule.otp_end || schedule.otp],
             `class-end-otp-${learner_id}-${schedule_id}-${Date.now()}`,
+          );
+        }
+
+        case "REMINDER_CUSTOMER_FOR_CLASS_FINAL": {
+          const {
+            learner_phone,
+            learner_name,
+            start_time,
+            instructor_name,
+            instructor_phone,
+            date,
+          } = data;
+          return this.sendTemplate(
+            learner_phone,
+            "REMINDER_CUSTOMER_FOR_CLASS",
+            [
+              learner_name,
+              date || "tomorrow",
+              start_time,
+              instructor_name,
+              instructor_phone,
+            ],
+            `class-reminder-final-${learner_phone}-${Date.now()}`,
+          );
+        }
+
+        case "REMINDER_LESSON_RESCHEDULE_WINDOW_TIME": {
+          const { learner_phone, learner_name, final_time, date } = data;
+          return this.sendTemplate(
+            learner_phone,
+            "REMINDER_CUSTOMER_FOR_CLASS",
+            [
+              learner_name,
+              date || "tomorrow",
+              `Reschedule window closes at ${final_time}`,
+              "your instructor",
+              "Check the Lane App",
+            ],
+            `reschedule-window-${learner_phone}-${Date.now()}`,
+          );
+        }
+
+        case "REMINDER_INSTRUCTOR_FOR_CLASS_FINAL": {
+          const {
+            instructor_phone,
+            instructor_name,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          } = data;
+          return this.sendTemplate(
+            instructor_phone,
+            "INSTRUCTOR_DAILY_SCHEDULE",
+            [
+              instructor_name,
+              arg1 || " ",
+              arg2 || " ",
+              arg3 || " ",
+              arg4 || " ",
+              arg5 || " ",
+              " ",
+            ],
+            `instructor-reminder-final-${instructor_phone}-${Date.now()}`,
           );
         }
 

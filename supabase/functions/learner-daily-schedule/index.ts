@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
         .from("Schedule")
         .select(`learner_id`)
         .eq("date", nextDayString)
+        .neq("status", "paused")
         .order("learner_id");
 
     if (learnersError) {
@@ -95,6 +96,7 @@ Deno.serve(async (req) => {
         )
         .eq("learner_id", learner_id)
         .eq("date", nextDayString)
+        .neq("status", "paused")
         .order("start_time");
 
       if (schedulesError) {

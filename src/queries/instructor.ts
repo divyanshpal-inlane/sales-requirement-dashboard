@@ -266,6 +266,8 @@ export const useInstructorScheduleData = (phone: string) => {
         unavailability: instructorInfo?.unavailability,
       };
     },
+    refetchInterval: 30_000, // Refetch every 30s so paused/rescheduled lessons update promptly
+    refetchOnWindowFocus: true,
   });
 };
 
