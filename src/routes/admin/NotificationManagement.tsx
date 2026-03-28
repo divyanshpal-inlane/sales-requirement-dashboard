@@ -465,34 +465,6 @@ function LearnerNotificationCard() {
   }, []);
 
   return (
-    <div
-      className="min-h-screen bg-white p-8"
-      style={{
-        backgroundImage: 'url("/assets/bg_pattern.svg")',
-        backgroundRepeat: "repeat",
-        backgroundSize: "cover",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div className="container mx-auto">
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/admin")}
-            className="h-10 w-10"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-4xl font-bold tracking-tight">
-            Daily Notification Management
-          </h1>
-          <p className="mt-2 text-lg text-muted-foreground">
-            Send reminders and notifications to selected learners and
-            instructors
-          </p>
-        </div>
-
         <Card className="transition-all hover:shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-xl">
@@ -552,8 +524,6 @@ function LearnerNotificationCard() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
   );
 }
 
