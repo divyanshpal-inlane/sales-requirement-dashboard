@@ -18,6 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -386,7 +393,7 @@ function LearnerNotificationCard() {
           Learner(name, phone, email, pick_up_location, address_lat, address_lng),
           Instructor(name, phone, email),
           Courses(name, duration),
-          Lesson(description, number)`,
+          Lesson(id, description, number)`,
         )
         .gte("date", endDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0])
@@ -396,6 +403,56 @@ function LearnerNotificationCard() {
         .order("start_time", { ascending: true });
 
       if (error) throw error;
+
+      // Fix lesson numbers: calculate chronological position per learner+course
+      if (data && data.length > 0) {
+        // Get unique learner+course combos
+        const combos = new Set(
+          data.map((s: any) => `${s.learner_id}__${s.course_id}`),
+        );
+
+        // Fetch all schedules for these learner+course combos to determine correct order
+        const learnerIds = [...new Set(data.map((s: any) => s.learner_id).filter(Boolean))];
+        const { data: allSchedules } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, learner_id, course_id, lesson_id, Lesson(id, number)")
+          .in("learner_id", learnerIds)
+          .neq("status", "paused")
+          .or("isTentative.eq.false,isTentative.is.null")
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (allSchedules) {
+          // Group by learner+course and assign chronological numbers
+          const lessonNumberMap = new Map<number, number>(); // schedule.id -> correct lesson number
+          const grouped: Record<string, any[]> = {};
+          for (const s of allSchedules) {
+            const key = `${s.learner_id}__${s.course_id}`;
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(s);
+          }
+          for (const schedules of Object.values(grouped)) {
+            schedules
+              .sort(
+                (a: any, b: any) =>
+                  new Date(`${a.date}T${a.start_time}`).getTime() -
+                  new Date(`${b.date}T${b.start_time}`).getTime(),
+              )
+              .forEach((s: any, i: number) => {
+                lessonNumberMap.set(s.id, i + 1);
+              });
+          }
+
+          // Apply correct lesson numbers to tomorrow's schedules
+          for (const schedule of data as any[]) {
+            const correctNumber = lessonNumberMap.get(schedule.id);
+            if (correctNumber && schedule.Lesson) {
+              schedule.Lesson.number = correctNumber;
+            }
+          }
+        }
+      }
+
       setSchedulesList(data || []);
       return data;
     } catch (err) {
@@ -415,34 +472,6 @@ function LearnerNotificationCard() {
   }, []);
 
   return (
-    <div
-      className="min-h-screen bg-white p-8"
-      style={{
-        backgroundImage: 'url("/assets/bg_pattern.svg")',
-        backgroundRepeat: "repeat",
-        backgroundSize: "cover",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div className="container mx-auto">
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/admin")}
-            className="h-10 w-10"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-4xl font-bold tracking-tight">
-            Daily Notification Management
-          </h1>
-          <p className="mt-2 text-lg text-muted-foreground">
-            Send reminders and notifications to selected learners and
-            instructors
-          </p>
-        </div>
-
         <Card className="transition-all hover:shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-xl">
@@ -502,8 +531,6 @@ function LearnerNotificationCard() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
   );
 }
 
