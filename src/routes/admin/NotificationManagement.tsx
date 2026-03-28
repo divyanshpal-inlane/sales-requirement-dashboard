@@ -1,6 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { addDays, format, formatDate, parse } from "date-fns";
-import { Delete, Mail, RefreshCcw, Send, UserPlus } from "lucide-react";
+import { Delete, Mail, RefreshCcw, Search, Send, UserPlus } from "lucide-react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -80,11 +80,311 @@ export default function NotificationManagement() {
         </div>
 
         <div className="grid gap-6">
+          {/* Individual Notification */}
+          <IndividualNotificationCard />
           {/* Class Schedule */}
           <LearnerNotificationCard />
         </div>
       </div>
     </div>
+  );
+}
+
+// Templates that make sense for individual sending (no extra variables needed beyond learner name)
+const LEARNER_TEMPLATES = [
+  { key: "SIGN_UP_ON_APP", label: "Sign Up on App Reminder" },
+  { key: "LL_DETAILS_BOOK_APPOINTMENT", label: "LL Details - Book Appointment" },
+  { key: "LL_APPLICATION_UPDATE", label: "LL Application Update" },
+  { key: "LL_RECEIVED", label: "LL Received - Share Availability" },
+  { key: "SIGN_UP_DONE_NEED_SCHEDULE", label: "Sign Up Done - Need Schedule" },
+  { key: "THANKS_FOR_AVAILABILITY", label: "Thanks for Availability" },
+  { key: "WEBAPP_RESCHEDULE_REQUEST", label: "Reschedule Request Received" },
+  { key: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE", label: "Reschedule Done - Check New Schedule" },
+  { key: "WEBAPP_SCHEDULE_LESSON_10", label: "Schedule Lesson 10" },
+  { key: "WEBAPP_LESSON_10_SCHEDULED", label: "Lesson 10 Scheduled" },
+  { key: "WEBAPP_DL_TEST_NOT_PASSED_IT_IS_ALRIGHT", label: "DL Test Not Passed - Encouragement" },
+  { key: "WEBAPP_CONGRATULATIONS_ON_PASSING_THE_DL_TEST", label: "Congratulations on DL Test" },
+  { key: "WEBAPP_LESSONS_DONE_REVIEW_PLEASE", label: "Lessons Done - Review Request" },
+  { key: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST", label: "Thank You for Signing Up (LL First)" },
+  { key: "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS", label: "Thank You - Availability for Lessons" },
+  { key: "WEBAPP_RESTEST_LL", label: "LL Retest Encouragement" },
+  { key: "WEBAPP_LL_DOCS_APPROVED_TEST_DONE_AND_RESULT", label: "LL Docs Approved - Test Done" },
+  { key: "WEBAPP_PLEASE_FILL_LL_FORM_AND_BOOK_APPOINTMENT", label: "Please Fill LL Form & Book Appointment" },
+];
+
+function IndividualNotificationCard() {
+  const { toast } = useToast();
+  const [recipientType, setRecipientType] = useState<"learner" | "instructor">("learner");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPeople, setSelectedPeople] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState({ sent: 0, failed: 0, total: 0 });
+
+  // Search learners
+  const { data: learnerResults, isLoading: searchingLearners } = useQuery({
+    queryKey: ["search-learners", searchQuery],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Learner")
+        .select("id, name, phone")
+        .or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recipientType === "learner" && searchQuery.length >= 2,
+  });
+
+  // Search instructors
+  const { data: instructorResults, isLoading: searchingInstructors } = useQuery({
+    queryKey: ["search-instructors", searchQuery],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select("id_instructor, name, phone")
+        .or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recipientType === "instructor" && searchQuery.length >= 2,
+  });
+
+  const searchResults = recipientType === "learner" ? learnerResults : instructorResults;
+  const isSearching = recipientType === "learner" ? searchingLearners : searchingInstructors;
+
+  const getPersonId = (person: any) =>
+    recipientType === "learner" ? person.id : person.id_instructor;
+
+  const isAlreadySelected = (person: any) =>
+    selectedPeople.some((p) => getPersonId(p) === getPersonId(person));
+
+  const addPerson = (person: any) => {
+    if (!isAlreadySelected(person)) {
+      setSelectedPeople((prev) => [...prev, person]);
+    }
+    setSearchQuery("");
+  };
+
+  const removePerson = (person: any) => {
+    setSelectedPeople((prev) =>
+      prev.filter((p) => getPersonId(p) !== getPersonId(person)),
+    );
+  };
+
+  const handleSendNotification = async () => {
+    if (selectedPeople.length === 0 || !selectedTemplate) {
+      toast({
+        title: "Missing info",
+        description: "Please select at least one person and a template",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSending(true);
+    const progress = { sent: 0, failed: 0, total: selectedPeople.length };
+    setSendProgress(progress);
+
+    for (const person of selectedPeople) {
+      try {
+        const learnerId = getPersonId(person);
+        const { error } = await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: selectedTemplate,
+            learner_id: learnerId,
+          },
+        });
+        if (error) throw error;
+        progress.sent++;
+      } catch (err) {
+        console.error(`Error sending to ${person.name}:`, err);
+        progress.failed++;
+      }
+      setSendProgress({ ...progress });
+    }
+
+    setIsSending(false);
+    toast({
+      title: "Done",
+      description: `Sent: ${progress.sent}, Failed: ${progress.failed} out of ${progress.total}`,
+      variant: progress.failed > 0 ? "destructive" : undefined,
+    });
+    setSelectedTemplate("");
+  };
+
+  return (
+    <Card className="transition-all hover:shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-xl">Send Notification</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Send a WhatsApp notification to one or more learners / instructors
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Recipient type toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={recipientType === "learner" ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setRecipientType("learner");
+              setSelectedPeople([]);
+              setSearchQuery("");
+            }}
+          >
+            Learner
+          </Button>
+          <Button
+            variant={recipientType === "instructor" ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setRecipientType("instructor");
+              setSelectedPeople([]);
+              setSearchQuery("");
+            }}
+          >
+            Instructor
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={`Search ${recipientType} by name or phone...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Search results dropdown */}
+        {searchQuery.length >= 2 && (
+          <div className="max-h-48 overflow-y-auto rounded-md border">
+            {isSearching ? (
+              <div className="flex items-center justify-center p-3">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : searchResults && searchResults.length > 0 ? (
+              searchResults.map((person: any) => {
+                const alreadySelected = isAlreadySelected(person);
+                return (
+                  <button
+                    key={person.id || person.id_instructor}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
+                      alreadySelected
+                        ? "bg-green-50 text-green-700"
+                        : "hover:bg-muted"
+                    }`}
+                    onClick={() => !alreadySelected && addPerson(person)}
+                    disabled={alreadySelected}
+                  >
+                    <span className="font-medium">{person.name}</span>
+                    <span className="text-muted-foreground">
+                      {alreadySelected ? "Added" : person.phone}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="p-3 text-center text-sm text-muted-foreground">
+                No results found
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Selected people chips */}
+        {selectedPeople.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Selected ({selectedPeople.length})
+              </span>
+              <button
+                className="text-xs text-red-500 hover:text-red-700"
+                onClick={() => setSelectedPeople([])}
+              >
+                Clear all
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedPeople.map((person) => (
+                <span
+                  key={getPersonId(person)}
+                  className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700"
+                >
+                  {person.name}
+                  <button
+                    className="ml-1 text-green-500 hover:text-green-800"
+                    onClick={() => removePerson(person)}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Template selection */}
+        <div>
+          <Label className="mb-2 block text-sm font-medium">
+            Notification Template
+          </Label>
+          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a template..." />
+            </SelectTrigger>
+            <SelectContent>
+              {LEARNER_TEMPLATES.map((t) => (
+                <SelectItem key={t.key} value={t.key}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Progress bar while sending */}
+        {isSending && (
+          <div className="space-y-1">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{
+                  width: `${((sendProgress.sent + sendProgress.failed) / sendProgress.total) * 100}%`,
+                }}
+              />
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              {sendProgress.sent + sendProgress.failed} / {sendProgress.total} sent
+            </p>
+          </div>
+        )}
+
+        {/* Send button */}
+        <Button
+          onClick={handleSendNotification}
+          disabled={selectedPeople.length === 0 || !selectedTemplate || isSending}
+          className="w-full"
+        >
+          {isSending ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Sending {sendProgress.sent + sendProgress.failed}/{sendProgress.total}...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Send className="h-4 w-4" />
+              Send to {selectedPeople.length || ""} {recipientType}{selectedPeople.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

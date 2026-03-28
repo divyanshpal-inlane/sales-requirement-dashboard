@@ -9,8 +9,10 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -543,6 +545,11 @@ function LearnerEditor({ learner }: { learner: Learner }) {
     name: learner.name || "",
     phone: learner.phone || "",
     area: learner.area || "",
+    pick_up_location: learner.pick_up_location || "",
+    address_lat: learner.address_lat,
+    address_lng: learner.address_lng,
+    city: learner.city || "",
+    pincode: learner.pincode || "",
     has_a_DL: learner.has_a_DL || false,
     LL_result: learner.LL_result,
     LL_received: learner.LL_received || false,
@@ -552,6 +559,68 @@ function LearnerEditor({ learner }: { learner: Learner }) {
     dob: learner.dob || "",
     comments: learner.comments || "",
   });
+
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [areaSearch, setAreaSearch] = useState("");
+
+  // Initialize Google Places autocomplete
+  useEffect(() => {
+    let listener: google.maps.MapsEventListener | null = null;
+
+    googleMapsLoader.load().then(() => {
+      if (!addressInputRef.current || autocompleteRef.current) return;
+
+      autocompleteRef.current = new google.maps.places.Autocomplete(
+        addressInputRef.current,
+        {
+          componentRestrictions: { country: "IN" },
+          fields: ["address_components", "formatted_address", "geometry"],
+        },
+      );
+
+      listener = autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (!place?.formatted_address || !place.geometry?.location) return;
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const components = place.address_components || [];
+        const cityComp = components.find(
+          (c) =>
+            c.types.includes("locality") ||
+            c.types.includes("administrative_area_level_2"),
+        );
+        const pincodeComp = components.find((c) =>
+          c.types.includes("postal_code"),
+        );
+        const sublocalityComp = components.find(
+          (c) =>
+            c.types.includes("sublocality_level_1") ||
+            c.types.includes("sublocality"),
+        );
+
+        setFormData((prev) => ({
+          ...prev,
+          pick_up_location: place.formatted_address!,
+          address_lat: lat,
+          address_lng: lng,
+          city: cityComp?.long_name || prev.city,
+          pincode: pincodeComp?.long_name || prev.pincode,
+          area: sublocalityComp?.long_name || prev.area,
+        }));
+        if (sublocalityComp) setAreaSearch(sublocalityComp.long_name);
+      });
+    });
+
+    return () => {
+      if (listener) google.maps.event.removeListener(listener);
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSave = () => {
     updateMutation.mutate({
@@ -581,12 +650,51 @@ function LearnerEditor({ learner }: { learner: Learner }) {
             className="h-8 text-sm"
           />
         </div>
+        <div className="col-span-2 space-y-1">
+          <Label className="text-xs">Pickup Address</Label>
+          <Input
+            ref={addressInputRef}
+            defaultValue={formData.pick_up_location}
+            onChange={(e) =>
+              setFormData({ ...formData, pick_up_location: e.target.value })
+            }
+            className="h-8 text-sm"
+            placeholder="Type to search address..."
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Google Places — auto-fills area, city, pincode, lat/lng
+          </p>
+        </div>
         <div className="space-y-1">
           <Label className="text-xs">Area</Label>
           <Input
             value={formData.area}
-            onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, area: e.target.value });
+              setAreaSearch(e.target.value);
+            }}
             className="h-8 text-sm"
+            placeholder="e.g., Koramangala"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">City</Label>
+          <Input
+            value={formData.city}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            className="h-8 text-sm"
+            placeholder="e.g., Bangalore"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Pincode</Label>
+          <Input
+            value={formData.pincode}
+            onChange={(e) =>
+              setFormData({ ...formData, pincode: e.target.value })
+            }
+            className="h-8 text-sm"
+            placeholder="e.g., 560034"
           />
         </div>
         <div className="space-y-1">
@@ -598,6 +706,18 @@ function LearnerEditor({ learner }: { learner: Learner }) {
             className="h-8 text-sm"
           />
         </div>
+        {formData.address_lat && formData.address_lng && (
+          <div className="col-span-2">
+            <a
+              href={`https://maps.google.com/?q=${formData.address_lat},${formData.address_lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              View on Google Maps ({formData.address_lat.toFixed(4)}, {formData.address_lng.toFixed(4)})
+            </a>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3">

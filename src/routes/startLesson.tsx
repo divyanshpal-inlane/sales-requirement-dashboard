@@ -194,11 +194,7 @@ export default function StartLesson() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>
-                {lessonSchedule?.status?.toUpperCase() === "BOOKED"
-                  ? "OTP for Instructor"
-                  : "Session Status"}
-              </span>
+              <span>Session Status</span>
               <Badge variant="default">
                 {lessonSchedule?.status
                   ? lessonSchedule?.status.toUpperCase()
@@ -208,14 +204,15 @@ export default function StartLesson() {
           </CardHeader>
           <CardContent>
             {lessonSchedule?.status?.toUpperCase() === "BOOKED" ? (
-              <>
-                <div className="text-center text-3xl font-bold">
-                  {data?.upcomingSchedule?.otp}
+              <div className="text-center">
+                <div className="text-2xl font-semibold text-primary">
+                  Lesson Scheduled
                 </div>
-                <p className="mt-2 text-center text-sm">
-                  Share this OTP with your instructor to start the lesson
+                <p className="mt-2 text-sm text-gray-600">
+                  Your instructor will start the lesson. You will receive the
+                  OTP on WhatsApp.
                 </p>
-              </>
+              </div>
             ) : lessonSchedule?.status?.toUpperCase() === "ONGOING" ? (
               <div className="text-center">
                 <div className="text-2xl font-semibold text-green-600">
@@ -224,19 +221,6 @@ export default function StartLesson() {
                 <p className="mt-2 text-sm text-gray-600">
                   Your driving lesson is currently in progress
                 </p>
-                {/* Show end OTP for instructor to complete the lesson */}
-                <div className="mt-4 rounded-lg bg-orange-50 p-4">
-                  <p className="mb-2 text-sm font-medium text-orange-800">
-                    End Lesson OTP
-                  </p>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {data?.upcomingSchedule?.otp_end ||
-                      data?.upcomingSchedule?.otp}
-                  </div>
-                  <p className="mt-2 text-xs text-orange-700">
-                    Share this OTP with your instructor to end the lesson
-                  </p>
-                </div>
               </div>
             ) : lessonSchedule?.status?.toUpperCase() === "COMPLETED" ? (
               <div className="text-center">

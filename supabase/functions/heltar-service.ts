@@ -204,6 +204,16 @@ export const TEMPLATES = {
     content:
       "Hey {{1}} 😊\n\nGreetings for the lovely day! Wohoooo 🥳🥳 Thank you so much for making the payment of {{2}}. We are so pumped up to be your driving buddy 🚗🚗\n\nPlease do sign up on the *Lane App* and have a fun time exploring our cool modules and get started with your learning process ☺️☺️\n\nWe are super excited for this. Ping us for any support, if needed ⭐️\n\nYour driving buddy,\nLane 🚘🛣",
   },
+  MESSAGE_FOR_CLASS_START: {
+    name: "message_for_class_start",
+    language: "en",
+    content: "{{1}}",
+  },
+  MESSAGE_FOR_CLASS_END: {
+    name: "message_for_class_end",
+    language: "en",
+    content: "{{1}}",
+  },
 };
 
 // Helper functions
@@ -708,6 +718,52 @@ class HeltarMessageService {
             "WEBAPP_LESSON_10_SCHEDULED",
             [learner.name],
             `lesson-10-scheduled-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "CLASS_START_OTP": {
+          const { learner_id, schedule_id } = data;
+          console.log("CLASS_START_OTP called with:", { learner_id, schedule_id });
+          const learner = await this.getLearnerDetails(learner_id);
+          console.log("Learner fetched:", learner.name, learner.phone);
+          const { data: schedule, error: scheduleError } =
+            await this.supabaseClient
+              .from("Schedule")
+              .select("otp")
+              .eq("id", Number(schedule_id))
+              .single();
+          if (scheduleError) {
+            console.error("Schedule fetch error:", scheduleError);
+            throw scheduleError;
+          }
+          console.log("Schedule OTP found:", schedule.otp);
+          return this.sendTemplate(
+            learner.phone,
+            "MESSAGE_FOR_CLASS_START",
+            [schedule.otp],
+            `class-start-otp-${learner_id}-${schedule_id}-${Date.now()}`,
+          );
+        }
+
+        case "CLASS_END_OTP": {
+          const { learner_id, schedule_id } = data;
+          console.log("CLASS_END_OTP called with:", { learner_id, schedule_id });
+          const learner = await this.getLearnerDetails(learner_id);
+          const { data: schedule, error: scheduleError } =
+            await this.supabaseClient
+              .from("Schedule")
+              .select("otp_end, otp")
+              .eq("id", Number(schedule_id))
+              .single();
+          if (scheduleError) {
+            console.error("Schedule fetch error:", scheduleError);
+            throw scheduleError;
+          }
+          return this.sendTemplate(
+            learner.phone,
+            "MESSAGE_FOR_CLASS_END",
+            [schedule.otp_end || schedule.otp],
+            `class-end-otp-${learner_id}-${schedule_id}-${Date.now()}`,
           );
         }
 

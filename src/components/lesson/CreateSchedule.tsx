@@ -2014,34 +2014,36 @@ function CreateSchedule({
 
         if (!timeSlot) continue;
 
-        // Get schedules for this time slot
+        // Get schedules that overlap with this time slot
+        const slotTimeStr = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+        const slotEndHour = (hour + 1) % 24;
+        const slotEndTimeStr = `${slotEndHour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
         const slotSchedules =
-          otherSchedules?.filter(
-            (s) =>
-              s.date === dateStr &&
-              parseInt(s.start_time.split(":")[0]) === hour &&
-              parseInt(s.start_time.split(":")[1] || "0") <= minute,
-          ) ?? [];
+          otherSchedules?.filter((s) => {
+            if (s.date !== dateStr) return false;
+            // Check overlap: existing schedule overlaps if it starts before slot ends AND ends after slot starts
+            return s.start_time < slotEndTimeStr && s.end_time > slotTimeStr;
+          }) ?? [];
 
         // Get learner preferences for this slot
         const isPreferred = preferences?.some(
           (p) => p.day_of_week === date.getDay() && p.time_slot === timeSlot,
         );
 
-        // Check if this slot is currently scheduled for rescheduling
+        // Check if this slot is currently scheduled for rescheduling (overlap check)
         const isCurrentSchedule = schedulesToChange?.some(
           (s) =>
             s.date === dateStr &&
-            parseInt(s.start_time.split(":")[0]) === hour &&
-            parseInt(s.start_time.split(":")[1] || "0") === minute,
+            s.start_time < slotEndTimeStr &&
+            (s.end_time || s.start_time) > slotTimeStr,
         );
 
-        // Check if this slot has other schedules for the same learner
+        // Check if this slot has other schedules for the same learner (overlap check)
         const isLearnerSchedule = existingSchedules?.some(
           (s) =>
             s.date === dateStr &&
-            parseInt(s.start_time.split(":")[0]) === hour &&
-            parseInt(s.start_time.split(":")[1] || "0") === minute &&
+            s.start_time < slotEndTimeStr &&
+            s.end_time > slotTimeStr &&
             s.learner_id === learnerId &&
             !request.lesson_ids.includes(s.lesson_id ?? ""),
         );

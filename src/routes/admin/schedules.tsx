@@ -133,7 +133,7 @@ export default function AdminSchedules() {
         console.warn("WARNING: No schedules to create/update!");
       }
 
-      // delete existing lessonId schedule for learner
+      // Step 1: Delete existing schedules for these lessons
       const { error: deleteError } = await supabase
         .from("Schedule")
         .delete()
@@ -146,79 +146,73 @@ export default function AdminSchedules() {
 
       if (deleteError) throw deleteError;
 
-      // VALIDATION: Check for conflicts before creating schedules
-      const conflicts: string[] = [];
+      // Step 2: Conflict check — one query per unique instructor (not per schedule)
+      const instructorDates = new Map<string, Set<string>>();
+      for (const schedule of schedules) {
+        const dateStr = schedule.date.toISOString().split("T")[0];
+        if (!instructorDates.has(schedule.instructorId)) {
+          instructorDates.set(schedule.instructorId, new Set());
+        }
+        instructorDates.get(schedule.instructorId)!.add(dateStr);
+      }
 
+      // Fetch all instructors' schedules in parallel
+      const conflictResults = await Promise.all(
+        Array.from(instructorDates).map(([instructorId, dates]) =>
+          supabase
+            .from("Schedule")
+            .select("id, date, start_time, end_time, instructor_id, Learner(name)")
+            .eq("instructor_id", instructorId)
+            .in("date", Array.from(dates))
+            .neq("status", "paused")
+            .not("isTentative", "eq", true),
+        ),
+      );
+
+      const allExistingSchedules: any[] = [];
+      for (const result of conflictResults) {
+        if (!result.error && result.data) {
+          allExistingSchedules.push(...result.data);
+        }
+      }
+
+      // Check conflicts in memory
+      const conflicts: string[] = [];
       for (const schedule of schedules) {
         const dateStr = schedule.date.toISOString().split("T")[0];
         const [hours, minutes] = schedule.start_time.split(":").map(Number);
         const endHours = (hours + 1) % 24;
         const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
-        // Check if instructor already has a booking at this time
-        const { data: existingInstructorSchedules, error: checkError } =
-          await supabase
-            .from("Schedule")
-            .select("id, date, start_time, end_time, Learner(name)")
-            .eq("instructor_id", schedule.instructorId)
-            .eq("date", dateStr)
-            .neq("status", "paused")
-            .not("isTentative", "eq", true);
+        for (const existing of allExistingSchedules) {
+          if (existing.instructor_id !== schedule.instructorId || existing.date !== dateStr)
+            continue;
 
-        if (!checkError && existingInstructorSchedules) {
-          for (const existing of existingInstructorSchedules) {
-            // Check for time overlap
-            const existingStart = existing.start_time;
-            const existingEnd = existing.end_time;
-
-            // Check if times overlap
-            if (
-              (schedule.start_time >= existingStart &&
-                schedule.start_time < existingEnd) ||
-              (endTime > existingStart && endTime <= existingEnd) ||
-              (schedule.start_time <= existingStart && endTime >= existingEnd)
-            ) {
-              const learnerName = (existing.Learner as any)?.name || "Unknown";
-              conflicts.push(
-                `Instructor already booked on ${dateStr} at ${existingStart} for ${learnerName}`,
-              );
-            }
+          if (
+            (schedule.start_time >= existing.start_time && schedule.start_time < existing.end_time) ||
+            (endTime > existing.start_time && endTime <= existing.end_time) ||
+            (schedule.start_time <= existing.start_time && endTime >= existing.end_time)
+          ) {
+            const learnerName = (existing.Learner as any)?.name || "Unknown";
+            conflicts.push(
+              `Instructor already booked on ${dateStr} at ${existing.start_time} for ${learnerName}`,
+            );
           }
         }
       }
 
-      // If there are conflicts, throw an error
       if (conflicts.length > 0) {
-        throw new Error(
-          `Scheduling conflicts detected:\n${conflicts.join("\n")}`,
-        );
+        throw new Error(`Scheduling conflicts detected:\n${conflicts.join("\n")}`);
       }
 
-      // Create schedules
-      // In the createScheduleMutation function:
-
-      for (const schedule of schedules) {
-        if (!schedule?.otp || !schedule.otp_end) {
-          console.error("No otp for schedule:", schedule);
-        } else {
-          console.log(
-            "Auth of lesson are generated",
-            schedule.otp,
-            schedule.otp_end,
-          );
-        }
-      }
-      // Create schedules
-      const { error, data: createdSchedules } = await supabase
+      // Step 3: Batch insert all schedules
+      const { error } = await supabase
         .from("Schedule")
         .insert(
           schedules.map((schedule) => {
-            // Parse start time and add 1 hour for end time
             const [hours, minutes] = schedule.start_time.split(":").map(Number);
             const endHours = (hours + 1) % 24;
             const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
-
-            // For virtual lessons (demo/custom), set lesson_id to null
             const lessonId = schedule.lessonId?.startsWith?.("virtual-lesson-")
               ? null
               : schedule.lessonId;
@@ -234,20 +228,16 @@ export default function AdminSchedules() {
               enabled: true,
               otp: schedule.otp,
               otp_end: schedule.otp_end,
-              calendar_uid: schedule.calendar_uid || "", // Include the calendar_uid
-              calendar_sequence: schedule.calendar_sequence || 0, // Include the calendar_sequence
+              calendar_uid: schedule.calendar_uid || "",
+              calendar_sequence: schedule.calendar_sequence || 0,
             };
           }),
-        )
-        .select(); // Add .select() to get the created records
+        );
 
       if (error) throw error;
 
-      // Only renumber lessons for NEW schedule creation, NOT for reschedules
-      // Skip for demo/custom courses (they don't have real lessons to renumber)
+      // Step 4: Renumber lessons (only for new schedules, not reschedules)
       if (!rescheduleLessonNumber && !isVirtualLessons && courseId) {
-        // Renumber lessons based on chronological order after schedule creation
-        // Fetch all schedules for this learner+course with Lesson data
         const { data: allSchedules, error: fetchError } = await supabase
           .from("Schedule")
           .select("id, date, start_time, Lesson!inner(id, number)")
@@ -256,32 +246,22 @@ export default function AdminSchedules() {
           .order("date", { ascending: true })
           .order("start_time", { ascending: true });
 
-        if (fetchError) {
-          console.error(
-            "Error fetching schedules for renumbering:",
-            fetchError,
+        if (!fetchError && allSchedules && allSchedules.length > 0) {
+          const sortedSchedules = [...allSchedules].sort((a, b) =>
+            new Date(`${a.date}T${a.start_time}`).getTime() -
+            new Date(`${b.date}T${b.start_time}`).getTime(),
           );
-        } else if (allSchedules && allSchedules.length > 0) {
-          // Sort schedules by date and time
-          const sortedSchedules = [...allSchedules].sort((a, b) => {
-            const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
-            const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
-            return dateTimeA - dateTimeB;
-          });
 
-          // Update lesson numbers based on chronological order
-          for (let i = 0; i < sortedSchedules.length; i++) {
-            const schedule = sortedSchedules[i];
-            if (schedule.Lesson?.id) {
-              const { error: lessonError } = await supabase
-                .from("Lesson")
-                .update({ number: i + 1 })
-                .eq("id", schedule.Lesson.id);
+          const updates = sortedSchedules
+            .map((s, i) => ({ lessonId: s.Lesson?.id, current: s.Lesson?.number, next: i + 1 }))
+            .filter((u) => u.lessonId && u.current !== u.next);
 
-              if (lessonError) {
-                console.error("Error updating lesson number:", lessonError);
-              }
-            }
+          if (updates.length > 0) {
+            await Promise.all(
+              updates.map((u) =>
+                supabase.from("Lesson").update({ number: u.next }).eq("id", u.lessonId),
+              ),
+            );
           }
         }
       }
@@ -404,39 +384,38 @@ export default function AdminSchedules() {
       );
 
       if (currentRequest) {
-        try {
-          await completeRescheduleRequestMutation.mutateAsync({
-            requestId: currentRequest.id,
-          });
-          console.log("Reschedule request marked as completed");
-
-          // Send notifications (fire-and-forget, no need to await)
-          if (currentRequest.type === "new") {
-            supabase.functions.invoke("send-message", {
-              body: {
+        // Complete request + send notification in parallel (fire-and-forget notification)
+        const notificationBody =
+          currentRequest.type === "new"
+            ? {
                 message_type: "SCHEDULE_PREPARED",
                 learner_id: currentRequest.learner_id,
                 start_date: format(new Date(schedules[0].date), "dd/MM/yyyy"),
                 start_time: schedules[0].start_time,
-              },
-            });
-          }
-          if (currentRequest.type === "reschedule") {
-            supabase.functions.invoke("send-message", {
-              body: {
-                message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
-                learner_id: currentRequest.learner_id,
-              },
-            });
-          }
-          if (currentRequest.type === "lesson10") {
-            supabase.functions.invoke("send-message", {
-              body: {
-                message_type: "WEBAPP_LESSON_10_SCHEDULED",
-                learner_id: currentRequest.learner_id,
-              },
-            });
-          }
+              }
+            : currentRequest.type === "reschedule"
+              ? {
+                  message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+                  learner_id: currentRequest.learner_id,
+                }
+              : currentRequest.type === "lesson10"
+                ? {
+                    message_type: "WEBAPP_LESSON_10_SCHEDULED",
+                    learner_id: currentRequest.learner_id,
+                  }
+                : null;
+
+        try {
+          await Promise.all([
+            completeRescheduleRequestMutation.mutateAsync({
+              requestId: currentRequest.id,
+            }),
+            notificationBody
+              ? supabase.functions.invoke("send-message", {
+                  body: notificationBody,
+                })
+              : Promise.resolve(),
+          ]);
         } catch (error) {
           console.error("Error completing reschedule request:", error);
         }
@@ -467,6 +446,23 @@ export default function AdminSchedules() {
   const [instructorData, setInstructorData] = useState<any[]>([]);
 
   // Fetch learners with active enrollment and their schedules
+  // Fetch instructors separately (they rarely change)
+  const { data: fetchedInstructorData } = useQuery({
+    queryKey: ["all-instructors"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("Instructor").select("*");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  useEffect(() => {
+    if (fetchedInstructorData) {
+      setInstructorData(fetchedInstructorData);
+    }
+  }, [fetchedInstructorData]);
+
   // Fetch learners with active enrollment and their schedules
   const {
     data: activeLearners,
@@ -483,18 +479,13 @@ export default function AdminSchedules() {
 
       if (enrollmentError) throw enrollmentError;
 
-      const { data: fetchInstructorData, error: instructorError } =
-        await supabase.from("Instructor").select("*");
-      if (instructorError) throw instructorError;
-      setInstructorData(fetchInstructorData);
-
       // Directly fetch learners with their schedules in a single query
       const { data: learnersData, error: learnersError } = await supabase
         .from("Learner")
         .select(
           `
-        id, 
-        name, 
+        id,
+        name,
         area,
         phone,
         email,
@@ -507,7 +498,7 @@ export default function AdminSchedules() {
         created_at,
         address_lat,
         address_lng,
-        
+
         schedules:Schedule(
           id,
           date,
@@ -545,6 +536,7 @@ export default function AdminSchedules() {
       return learnersWithSchedules;
     },
     keepPreviousData: true,
+    staleTime: 30 * 1000, // 30 seconds - avoid unnecessary refetches
   });
 
   //useEffect(() => {
@@ -1081,6 +1073,8 @@ export const LearnerSchedulesManager = ({
     useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
+  const [pendingNotification, setPendingNotification] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
 
   // 1. Data Fetching
   const syncData = useCallback(async () => {
@@ -1249,6 +1243,17 @@ export const LearnerSchedulesManager = ({
 
   const handleRescheduleSubmit = async () => {
     if (!selectedSchedule || !learner) return;
+
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedSchedule.date < today) {
+      toast({
+        title: "Invalid Date",
+        description: "Cannot reschedule to a past date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsProcessing(true);
 
@@ -1338,119 +1343,15 @@ export const LearnerSchedulesManager = ({
         }
       }
 
-      // 7. Send calendar invites and notification in parallel for performance
-      const calendarInvitePromise = (async () => {
-        if (learner.email && instructorEmail) {
-          try {
-            const pickupLocation =
-              learner.pick_up_location ||
-              (learner.address_lat && learner.address_lng
-                ? `${learner.address_lat},${learner.address_lng}`
-                : "To be confirmed");
-
-            const events = [];
-
-            // Create cancellation event for old schedule (if we have a calendar_uid)
-            if (calendarUid) {
-              const oldStartDate = new Date(oldDate);
-              const [oldStartHour, oldStartMin] = oldStartTime
-                .split(":")
-                .map(Number);
-              oldStartDate.setHours(oldStartHour, oldStartMin, 0);
-
-              const oldEndDate = new Date(oldDate);
-              const [oldEndHour, oldEndMin] = oldEndTime.split(":").map(Number);
-              oldEndDate.setHours(oldEndHour, oldEndMin, 0);
-
-              events.push({
-                startTime: oldStartDate,
-                endTime: oldEndDate,
-                lessonNumber: lessonNumber,
-                pickupLocation: pickupLocation,
-                uid: calendarUid,
-                sequence: newSequence,
-                isCancellation: true,
-                instructorName: instructorName,
-                instructorPhone: instructorPhone,
-                instructorEmail: instructorEmail,
-                instructorId: instructorId,
-              });
-            }
-
-            // Create new event for the updated schedule
-            const newStartDate = new Date(selectedSchedule.date);
-            const [newStartHour, newStartMin] = selectedSchedule.start_time
-              .split(":")
-              .map(Number);
-            newStartDate.setHours(newStartHour, newStartMin, 0);
-
-            const newEndDate = new Date(selectedSchedule.date);
-            const [newEndHour, newEndMin] = selectedSchedule.end_time
-              .split(":")
-              .map(Number);
-            newEndDate.setHours(newEndHour, newEndMin, 0);
-
-            events.push({
-              startTime: newStartDate,
-              endTime: newEndDate,
-              lessonNumber: lessonNumber,
-              pickupLocation: pickupLocation,
-              uid: calendarUid || undefined, // Reuse UID if exists, otherwise generate new
-              sequence: newSequence,
-              isCancellation: false,
-              instructorName: instructorName,
-              instructorPhone: instructorPhone,
-              instructorEmail: instructorEmail,
-              instructorId: instructorId,
-            });
-
-            // Send calendar invites
-            const uidMap = await sendMultiEventCalendarInvite(
-              learner.email,
-              instructorEmail,
-              events,
-              instructorName,
-              learner.name || "Student",
-              learner.phone || "",
-              "reschedule",
-              learner.id,
-            );
-
-            // Update the schedule with the new calendar_uid if one was generated
-            if (uidMap && uidMap[lessonNumber] && !calendarUid) {
-              await supabase
-                .from("Schedule")
-                .update({ calendar_uid: uidMap[lessonNumber] })
-                .eq("id", selectedSchedule.id);
-            }
-
-            console.log("Calendar invites sent successfully for reschedule");
-          } catch (calendarError) {
-            console.error("Error sending calendar invites:", calendarError);
-            // Don't fail the entire operation if calendar invites fail
-          }
-        } else {
-          console.warn("Missing email addresses, skipping calendar invites");
-        }
-      })();
-
-      // 8. Send notification to customer about reschedule
-      const notificationPromise = supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
-          learner_id: learner.id,
-        },
-      });
-
-      // Wait for both calendar and notification to complete
-      await Promise.all([calendarInvitePromise, notificationPromise]);
+      // Mark that notification needs to be sent (admin sends manually after all reschedules)
+      setPendingNotification(true);
 
       setIsRescheduleModalOpen(false);
       await syncData();
       toast({
         title: "Rescheduled",
         description:
-          "Lesson rescheduled, calendar updated, and customer notified.",
+          "Lesson rescheduled. Click 'Send Notification' when done with all reschedules.",
       });
     } catch (error: any) {
       toast({
@@ -1474,6 +1375,43 @@ export const LearnerSchedulesManager = ({
           </CardTitle>
           {learner?.schedules?.length > 0 && (
             <div className="flex gap-2">
+              {pendingNotification && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  disabled={isSendingNotification}
+                  onClick={async () => {
+                    setIsSendingNotification(true);
+                    try {
+                      await supabase.functions.invoke("send-message", {
+                        body: {
+                          message_type:
+                            "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+                          learner_id: learner.id,
+                        },
+                      });
+                      setPendingNotification(false);
+                      toast({
+                        title: "Notification Sent",
+                        description: `Reschedule notification sent to ${learner.name}`,
+                      });
+                    } catch (err: any) {
+                      toast({
+                        title: "Error",
+                        description:
+                          err.message || "Failed to send notification",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsSendingNotification(false);
+                    }
+                  }}
+                >
+                  {isSendingNotification
+                    ? "Sending..."
+                    : "Send Reschedule Notification"}
+                </Button>
+              )}
               {learner.schedules.some(
                 (s: any) =>
                   s.status === "booked" &&
@@ -1537,57 +1475,63 @@ export const LearnerSchedulesManager = ({
                       </div>
                     </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isProcessing}
-                        >
-                          Actions
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            onUpdateStatus(schedule.id, "completed")
-                          }
-                        >
-                          Mark as Completed
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSelectedSchedule(schedule);
-                            setSelectedInstructorId(schedule.instructor_id);
-                            setIsInstructorChangeModalOpen(true);
-                          }}
-                        >
-                          Change Instructor
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSelectedSchedule({ ...schedule });
-                            setIsRescheduleModalOpen(true);
-                          }}
-                        >
-                          Reschedule
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            onUpdateStatus(
-                              schedule.id,
-                              schedule.status === "paused"
-                                ? "booked"
-                                : "paused",
-                            )
-                          }
-                        >
-                          {schedule.status === "paused"
-                            ? "Resume Lesson"
-                            : "Pause Lesson"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {schedule.status === "completed" ? (
+                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                        Completed
+                      </span>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isProcessing}
+                          >
+                            Actions
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              onUpdateStatus(schedule.id, "completed")
+                            }
+                          >
+                            Mark as Completed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedSchedule(schedule);
+                              setSelectedInstructorId(schedule.instructor_id);
+                              setIsInstructorChangeModalOpen(true);
+                            }}
+                          >
+                            Change Instructor
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedSchedule({ ...schedule });
+                              setIsRescheduleModalOpen(true);
+                            }}
+                          >
+                            Reschedule
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              onUpdateStatus(
+                                schedule.id,
+                                schedule.status === "paused"
+                                  ? "booked"
+                                  : "paused",
+                              )
+                            }
+                          >
+                            {schedule.status === "paused"
+                              ? "Resume Lesson"
+                              : "Pause Lesson"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 ))
             ) : (
@@ -1665,6 +1609,7 @@ export const LearnerSchedulesManager = ({
                   <input
                     type="date"
                     value={selectedSchedule.date || ""}
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={(e) =>
                       setSelectedSchedule((prev: any) => ({
                         ...prev,

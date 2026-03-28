@@ -1,11 +1,12 @@
 import { ArrowLeft, Check, MapPin, Phone, User } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   useLearnerDetails,
+  useSendOtpToLearner,
   useUpdateScheduleStatus,
   useVerifyOtp,
 } from "@/queries/instructor";
@@ -64,6 +65,32 @@ const OTPVerification = ({
     useLearnerDetails(learnerId);
   const { mutate: updateStatus, isPending: isSubmitting } =
     useUpdateScheduleStatus();
+  const {
+    mutate: sendOtp,
+    isPending: isSendingOtp,
+    isSuccess: otpSendSuccess,
+    isError: otpSendError,
+  } = useSendOtpToLearner();
+
+  // Send OTP to learner via WhatsApp when the page loads (ref prevents double-send in StrictMode)
+  const otpSentRef = useRef(false);
+
+  const triggerSendOtp = useCallback(() => {
+    if (learnerId && scheduleId) {
+      sendOtp({
+        learnerId,
+        scheduleId,
+        isStart: isVerifyStartLesson,
+      });
+    }
+  }, [learnerId, scheduleId, isVerifyStartLesson, sendOtp]);
+
+  useEffect(() => {
+    if (learnerId && scheduleId && !otpSentRef.current) {
+      otpSentRef.current = true;
+      triggerSendOtp();
+    }
+  }, [learnerId, scheduleId, triggerSendOtp]);
 
   const {
     data: verificationData,
@@ -202,6 +229,30 @@ const OTPVerification = ({
 
                 <div className="space-y-6">
                   <div className="flex flex-col items-center space-y-4">
+                    {isSendingOtp && (
+                      <p className="text-center text-sm text-amber-600">
+                        Sending OTP to learner's WhatsApp...
+                      </p>
+                    )}
+                    {otpSendSuccess && (
+                      <p className="text-center text-sm text-green-600">
+                        OTP sent to learner's WhatsApp
+                      </p>
+                    )}
+                    {otpSendError && (
+                      <div className="flex flex-col items-center gap-1">
+                        <p className="text-center text-sm text-red-500">
+                          Failed to send OTP via WhatsApp
+                        </p>
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-sm text-[#00CE84]"
+                          onClick={triggerSendOtp}
+                        >
+                          Resend OTP
+                        </Button>
+                      </div>
+                    )}
                     <p className="text-center text-sm text-gray-600 sm:text-base">
                       Enter the 6-digit code to{" "}
                       {isVerifyStartLesson ? "start" : "end"} lesson

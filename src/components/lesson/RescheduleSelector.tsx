@@ -91,13 +91,15 @@ export default function RescheduleSelector({
         <div className="space-y-2">
           {groupedSchedules
             ?.filter((group) => {
-              // Keep groups that have at least one valid schedule
+              // Keep groups that have at least one valid, non-completed schedule
               return group.schedules.some((schedule) => {
                 const now = new Date();
                 const scheduleDateTime = new Date(
                   `${group.date}T${schedule.startTime}`,
                 );
-                return scheduleDateTime > now;
+                return (
+                  scheduleDateTime > now && schedule.status !== "completed"
+                );
               });
             })
             .map((group) => ({
@@ -107,7 +109,9 @@ export default function RescheduleSelector({
                 const scheduleDateTime = new Date(
                   `${group.date}T${schedule.startTime}`,
                 );
-                return scheduleDateTime > now;
+                return (
+                  scheduleDateTime > now && schedule.status !== "completed"
+                );
               }),
             }))
             .map((group) => (
