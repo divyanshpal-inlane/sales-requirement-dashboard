@@ -77,57 +77,77 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const learner_id of uniqueLearnerIds) {
-      // Fetch schedules for this learner for tomorrow
-      const { data: schedules, error: schedulesError } = await supabaseClient
-        .from("Schedule")
-        .select(
-          `
-          *,
-          Instructor (
-            id_instructor,
-            name,
-            phone
-          ),
-          Lesson (
-            id,
-            number
+      // Fetch tomorrow's schedules + ALL schedules for this learner to calculate correct lesson numbers
+      const [tomorrowResult, allResult, learnerResult] = await Promise.all([
+        supabaseClient
+          .from("Schedule")
+          .select(
+            `
+            *,
+            Instructor (
+              id_instructor,
+              name,
+              phone
+            ),
+            Lesson (
+              id,
+              number
+            )
+          `,
           )
-        `,
-        )
-        .eq("learner_id", learner_id)
-        .eq("date", nextDayString)
-        .neq("status", "paused")
-        .order("start_time");
+          .eq("learner_id", learner_id)
+          .eq("date", nextDayString)
+          .neq("status", "paused")
+          .order("start_time"),
+        supabaseClient
+          .from("Schedule")
+          .select("id, date, start_time, course_id, lesson_id")
+          .eq("learner_id", learner_id)
+          .neq("status", "paused")
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true }),
+        supabaseClient
+          .from("Learner")
+          .select("id, name, phone")
+          .eq("id", learner_id)
+          .single(),
+      ]);
 
-      if (schedulesError) {
-        console.error(
-          `Error fetching schedules for learner ${learner_id}:`,
-          schedulesError,
-        );
-        continue;
+      const schedules = tomorrowResult.data;
+      const allSchedules = allResult.data;
+      const learner = learnerResult.data;
+
+      if (tomorrowResult.error || !schedules || schedules.length === 0) continue;
+      if (learnerResult.error || !learner) continue;
+
+      // Calculate chronological lesson numbers per course
+      const scheduleToLessonNumber = new Map<number, number>();
+      if (allSchedules) {
+        const grouped: Record<string, any[]> = {};
+        for (const s of allSchedules) {
+          const key = s.course_id || "no-course";
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(s);
+        }
+        for (const group of Object.values(grouped)) {
+          group
+            .sort(
+              (a, b) =>
+                new Date(`${a.date}T${a.start_time}`).getTime() -
+                new Date(`${b.date}T${b.start_time}`).getTime(),
+            )
+            .forEach((s, i) => {
+              scheduleToLessonNumber.set(s.id, i + 1);
+            });
+        }
       }
 
-      if (schedules.length === 0) {
-        continue; // Skip if no schedules (shouldn't happen based on our first query)
-      }
-
-      // Get the learner details
-      const { data: learner, error: learnerError } = await supabaseClient
-        .from("Learner")
-        .select("id, name, phone")
-        .eq("id", learner_id)
-        .single();
-
-      if (learnerError) {
-        console.error(`Error fetching learner ${learner_id}:`, learnerError);
-        continue;
-      }
-
-      // Format schedule messages for multiple lessons
+      // Format schedule messages with correct lesson numbers
       const scheduleMessages = schedules.map((schedule) => {
         const startTime = formatTime(schedule.start_time);
         const endTime = formatTime(schedule.end_time);
-        return `${startTime} - ${endTime}: Lesson ${schedule.Lesson.number}`;
+        const lessonNum = scheduleToLessonNumber.get(schedule.id) || schedule.Lesson?.number || "?";
+        return `${startTime} - ${endTime}: Lesson ${lessonNum}`;
       });
 
       // Prepare the message payload

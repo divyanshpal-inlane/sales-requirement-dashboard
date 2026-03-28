@@ -113,18 +113,52 @@ Deno.serve(async (req) => {
       }
 
       if (schedules.length === 0) {
-        continue; // Skip if no schedules (shouldn't happen based on our first query)
+        continue;
       }
 
-      // Get the instructor's phone number
+      // Calculate chronological lesson numbers for each learner+course in this batch
+      const learnerIds = [...new Set(schedules.map((s) => s.learner_id).filter(Boolean))];
+      const scheduleToLessonNumber = new Map<number, number>();
+
+      if (learnerIds.length > 0) {
+        const { data: allSchedules } = await supabaseClient
+          .from("Schedule")
+          .select("id, date, start_time, learner_id, course_id")
+          .in("learner_id", learnerIds)
+          .neq("status", "paused")
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (allSchedules) {
+          const grouped: Record<string, any[]> = {};
+          for (const s of allSchedules) {
+            const key = `${s.learner_id}__${s.course_id}`;
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(s);
+          }
+          for (const group of Object.values(grouped)) {
+            group
+              .sort(
+                (a, b) =>
+                  new Date(`${a.date}T${a.start_time}`).getTime() -
+                  new Date(`${b.date}T${b.start_time}`).getTime(),
+              )
+              .forEach((s, i) => {
+                scheduleToLessonNumber.set(s.id, i + 1);
+              });
+          }
+        }
+      }
+
       const instructorPhone = schedules[0].Instructor.phone;
       const instructorName = schedules[0].Instructor.name;
 
-      // Format schedule messages for multiple lessons
+      // Format schedule messages with correct lesson numbers
       const scheduleMessages = schedules.map((schedule) => {
         const startTime = formatTime(schedule.start_time);
         const endTime = formatTime(schedule.end_time);
-        return `${startTime} - ${endTime}: Lesson ${schedule.Lesson.number} with ${schedule.Learner.name}`;
+        const lessonNum = scheduleToLessonNumber.get(schedule.id) || schedule.Lesson?.number || "?";
+        return `${startTime} - ${endTime}: Lesson ${lessonNum} with ${schedule.Learner.name}`;
       });
 
       // Ensure there are 8 slots in the message, filling with empty strings if necessary

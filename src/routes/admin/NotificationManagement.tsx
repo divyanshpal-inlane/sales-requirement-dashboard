@@ -386,7 +386,7 @@ function LearnerNotificationCard() {
           Learner(name, phone, email, pick_up_location, address_lat, address_lng),
           Instructor(name, phone, email),
           Courses(name, duration),
-          Lesson(description, number)`,
+          Lesson(id, description, number)`,
         )
         .gte("date", endDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0])
@@ -396,6 +396,56 @@ function LearnerNotificationCard() {
         .order("start_time", { ascending: true });
 
       if (error) throw error;
+
+      // Fix lesson numbers: calculate chronological position per learner+course
+      if (data && data.length > 0) {
+        // Get unique learner+course combos
+        const combos = new Set(
+          data.map((s: any) => `${s.learner_id}__${s.course_id}`),
+        );
+
+        // Fetch all schedules for these learner+course combos to determine correct order
+        const learnerIds = [...new Set(data.map((s: any) => s.learner_id).filter(Boolean))];
+        const { data: allSchedules } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, learner_id, course_id, lesson_id, Lesson(id, number)")
+          .in("learner_id", learnerIds)
+          .neq("status", "paused")
+          .or("isTentative.eq.false,isTentative.is.null")
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (allSchedules) {
+          // Group by learner+course and assign chronological numbers
+          const lessonNumberMap = new Map<number, number>(); // schedule.id -> correct lesson number
+          const grouped: Record<string, any[]> = {};
+          for (const s of allSchedules) {
+            const key = `${s.learner_id}__${s.course_id}`;
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(s);
+          }
+          for (const schedules of Object.values(grouped)) {
+            schedules
+              .sort(
+                (a: any, b: any) =>
+                  new Date(`${a.date}T${a.start_time}`).getTime() -
+                  new Date(`${b.date}T${b.start_time}`).getTime(),
+              )
+              .forEach((s: any, i: number) => {
+                lessonNumberMap.set(s.id, i + 1);
+              });
+          }
+
+          // Apply correct lesson numbers to tomorrow's schedules
+          for (const schedule of data as any[]) {
+            const correctNumber = lessonNumberMap.get(schedule.id);
+            if (correctNumber && schedule.Lesson) {
+              schedule.Lesson.number = correctNumber;
+            }
+          }
+        }
+      }
+
       setSchedulesList(data || []);
       return data;
     } catch (err) {
