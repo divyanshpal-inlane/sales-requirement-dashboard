@@ -543,11 +543,11 @@ function LearnerTab({
   schedulesList: any[];
   toast: any;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [sendingStatuses, setSendingStatuses] = useState<
-    Record<string, boolean>
+    Record<number, boolean>
   >({});
-  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<number | null>(null);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [rescheduleFinalTime, setRescheduleFinalTime] = useState("");
 
@@ -556,7 +556,7 @@ function LearnerTab({
   const someSelected = selected.size > 0;
   const isSending = Object.values(sendingStatuses).some(Boolean);
 
-  const toggleOne = (id: string) => {
+  const toggleOne = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -569,11 +569,11 @@ function LearnerTab({
     if (allSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(schedulesList.map((s) => s.id)));
+      setSelected(new Set(schedulesList.map((s: any) => s.id as number)));
     }
   };
 
-  const selectedSchedules = schedulesList.filter((s) => selected.has(s.id));
+  const selectedSchedules = schedulesList.filter((s: any) => selected.has(s.id));
 
   // ── Send lesson reminder to selected learners ──
   const sendLessonReminders = async () => {

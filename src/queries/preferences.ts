@@ -84,7 +84,7 @@ export function useSchedulingRequests() {
           `id, learner_id, type, status, lesson_ids, amount, created_at,
           Learner(id, name, phone, email, area, pick_up_location, address_lat, address_lng,
             preferred_start_date, preferred_completion_days, prefers_two_hour_classes,
-            two_hour_days, DL_test_date)`,
+            two_hour_days, DL_test_date, pincode, signed_up, created_at)`,
         )
         .eq("status", "pending")
         .order("created_at", { ascending: false });
