@@ -1,6 +1,5 @@
 import { describe } from "node:test";
 
-import { Loader } from "@googlemaps/js-api-loader";
 import { useQuery } from "@tanstack/react-query";
 import { ControlPosition } from "@vis.gl/react-google-maps";
 import {
@@ -53,6 +52,7 @@ import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
+import { googleMapsLoader } from "@/utils/googleMaps";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
@@ -135,12 +135,7 @@ export async function getDrivingDistanceViaSDK(
   destLng: number,
 ): Promise<number | null> {
   try {
-    const loader = new Loader({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY!,
-      libraries: ["places"],
-    });
-
-    await loader.load();
+    await googleMapsLoader.load();
     // console.log("SDK", originLat, originLng, destLat, destLng);
     const origin = new google.maps.LatLng(originLat, originLng);
     const destination = new google.maps.LatLng(destLat, destLng);
@@ -2310,12 +2305,7 @@ function CreateSchedule({
       destLng,
     ) => {
       try {
-        const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY!,
-          libraries: ["places"],
-        });
-
-        await loader.load();
+        await googleMapsLoader.load();
 
         const origin = new google.maps.LatLng(originLat, originLng);
         const destination = new google.maps.LatLng(destLat, destLng);
