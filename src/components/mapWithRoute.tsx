@@ -1,8 +1,8 @@
-import { Loader } from "@googlemaps/js-api-loader";
 import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 export default function MapWithRoute({
   origin,
@@ -29,15 +29,10 @@ export default function MapWithRoute({
       return;
     }
 
-    const loader = new Loader({
-      apiKey,
-      libraries: ["places"],
-    });
-
     let map;
     setIsLoading(true);
 
-    loader
+    googleMapsLoader
       .load()
       .then(() => {
         map = new window.google.maps.Map(mapRef.current, {

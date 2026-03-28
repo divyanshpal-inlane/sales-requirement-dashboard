@@ -257,6 +257,14 @@ export default function AdminSchedules() {
             .filter((u) => u.lessonId && u.current !== u.next);
 
           if (updates.length > 0) {
+            // Two-pass update to avoid unique constraint (course_id, number) conflicts:
+            // Pass 1: Set all to temporary high numbers
+            await Promise.all(
+              updates.map((u, i) =>
+                supabase.from("Lesson").update({ number: 1000 + i }).eq("id", u.lessonId),
+              ),
+            );
+            // Pass 2: Set to final correct numbers
             await Promise.all(
               updates.map((u) =>
                 supabase.from("Lesson").update({ number: u.next }).eq("id", u.lessonId),
@@ -1323,15 +1331,26 @@ export const LearnerSchedulesManager = ({
             number: index + 1,
           }));
 
-        // 6. Bulk update lessons with new numbers (parallelized for performance)
+        // 6. Two-pass update to avoid unique constraint (course_id, number) conflicts
         if (lessonUpdates.length > 0) {
-          const updatePromises = lessonUpdates.map((update) =>
-            supabase
-              .from("Lesson")
-              .update({ number: update.number })
-              .eq("id", update.id),
+          // Pass 1: Set all to temporary high numbers
+          await Promise.all(
+            lessonUpdates.map((update, i) =>
+              supabase
+                .from("Lesson")
+                .update({ number: 1000 + i })
+                .eq("id", update.id),
+            ),
           );
-          const results = await Promise.all(updatePromises);
+          // Pass 2: Set to final correct numbers
+          const results = await Promise.all(
+            lessonUpdates.map((update) =>
+              supabase
+                .from("Lesson")
+                .update({ number: update.number })
+                .eq("id", update.id),
+            ),
+          );
           results.forEach((result, index) => {
             if (result.error) {
               console.error(
