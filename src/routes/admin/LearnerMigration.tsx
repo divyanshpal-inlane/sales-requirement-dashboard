@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { APIProvider, Map, useMapsLibrary } from "@vis.gl/react-google-maps";
+import { APIProvider, Map } from "@vis.gl/react-google-maps";
+import { googleMapsLoader } from "@/utils/googleMaps";
 import { addDays, format, isBefore, isSameDay, startOfDay } from "date-fns";
 import {
   AlertCircle,
@@ -250,13 +251,13 @@ const TIME_SLOTS = [
   { value: "22:00", label: "10:00 PM" },
 ];
 
-// Address Autocomplete Component using Google Places
+// Address Autocomplete Component using shared Google Maps loader
 function AddressAutocomplete({
-  value,
+  defaultValue,
   onChange,
   onPlaceSelect,
 }: {
-  value: string;
+  defaultValue: string;
   onChange: (value: string) => void;
   onPlaceSelect: (place: {
     address: string;
@@ -267,53 +268,49 @@ function AddressAutocomplete({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const onPlaceSelectRef = useRef(onPlaceSelect);
-  const places = useMapsLibrary("places");
 
-  // Keep the ref updated with the latest callback
   useEffect(() => {
-    onPlaceSelectRef.current = onPlaceSelect;
-  }, [onPlaceSelect]);
+    let listener: google.maps.MapsEventListener | null = null;
 
-  // Initialize autocomplete only once when places library is loaded
-  useEffect(() => {
-    if (!inputRef.current || !places) return;
+    googleMapsLoader.load().then(() => {
+      if (!inputRef.current || autocompleteRef.current) return;
 
-    // Don't re-initialize if already exists
-    if (autocompleteRef.current) return;
-
-    autocompleteRef.current = new places.Autocomplete(inputRef.current, {
-      componentRestrictions: { country: "IN" },
-      fields: ["address_components", "formatted_address", "geometry"],
-    });
-
-    autocompleteRef.current.addListener("place_changed", () => {
-      const place = autocompleteRef.current?.getPlace();
-      if (!place?.formatted_address || !place.geometry?.location) return;
-
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-
-      const postcodeComponent = place.address_components?.find((component) =>
-        component.types.includes("postal_code"),
+      autocompleteRef.current = new google.maps.places.Autocomplete(
+        inputRef.current,
+        {
+          componentRestrictions: { country: "IN" },
+          fields: ["address_components", "formatted_address", "geometry"],
+        },
       );
 
-      // Use the ref to get the latest callback
-      onPlaceSelectRef.current({
-        address: place.formatted_address,
-        pincode: postcodeComponent?.long_name || "",
-        lat,
-        lng,
+      listener = autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (!place?.formatted_address || !place.geometry?.location) return;
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+
+        const postcodeComponent = place.address_components?.find((component) =>
+          component.types.includes("postal_code"),
+        );
+
+        onPlaceSelect({
+          address: place.formatted_address,
+          pincode: postcodeComponent?.long_name || "",
+          lat,
+          lng,
+        });
       });
     });
 
     return () => {
+      if (listener) google.maps.event.removeListener(listener);
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
         autocompleteRef.current = null;
       }
     };
-  }, [places]);
+  }, []);
 
   return (
     <div className="relative">
@@ -322,7 +319,7 @@ function AddressAutocomplete({
         ref={inputRef}
         type="text"
         placeholder="Start typing address..."
-        value={value}
+        defaultValue={defaultValue}
         onChange={(e) => onChange(e.target.value)}
         className="pl-10"
       />
@@ -1271,7 +1268,7 @@ function MigrationFormContent() {
             <div className="space-y-2">
               <Label>Pick-up Location / Address</Label>
               <AddressAutocomplete
-                value={formData.pick_up_location}
+                defaultValue={formData.pick_up_location}
                 onChange={(value) =>
                   updateFormData({ pick_up_location: value })
                 }
@@ -1308,10 +1305,6 @@ function MigrationFormContent() {
                 <div className="relative w-full overflow-hidden rounded-lg border border-gray-200">
                   <Map
                     defaultZoom={17}
-                    defaultCenter={{
-                      lat: formData.address_lat,
-                      lng: formData.address_lng,
-                    }}
                     center={{
                       lat: formData.address_lat,
                       lng: formData.address_lng,
@@ -1319,13 +1312,6 @@ function MigrationFormContent() {
                     gestureHandling="greedy"
                     disableDefaultUI={false}
                     style={mapContainerStyle}
-                    onCameraChanged={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        address_lat: e.detail.center.lat,
-                        address_lng: e.detail.center.lng,
-                      }));
-                    }}
                     onDragend={onMapDragEnd}
                   />
                   <div style={markerStyle}>
