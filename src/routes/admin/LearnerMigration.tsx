@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { APIProvider, Map } from "@vis.gl/react-google-maps";
 import { googleMapsLoader } from "@/utils/googleMaps";
 import { addDays, format, isBefore, isSameDay, startOfDay } from "date-fns";
 import {
@@ -631,39 +630,66 @@ function MigrationFormContent() {
     [],
   );
 
-  // Handle map drag to update location
-  const onMapDragEnd = useCallback((ev: any) => {
-    const center = ev.map.getCenter();
-    if (!center) return;
-    const lat = center.lat();
-    const lng = center.lng();
+  // Map ref and initialization
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
 
-    // Reverse geocode to get address and pincode
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      if (status === "OK" && results?.[0]) {
-        const result = results[0];
-        const postcodeComponent = result.address_components?.find((component) =>
-          component.types.includes("postal_code"),
-        );
+  // Initialize or update map when coordinates change
+  useEffect(() => {
+    if (!formData.address_lat || !formData.address_lng || !mapContainerRef.current) return;
 
-        setFormData((prev) => ({
-          ...prev,
-          address_lat: lat,
-          address_lng: lng,
-          pick_up_location: result.formatted_address,
-          pincode: postcodeComponent?.long_name || "",
-        }));
-      } else {
-        // If geocoding fails, at least update coordinates
-        setFormData((prev) => ({
-          ...prev,
-          address_lat: lat,
-          address_lng: lng,
-        }));
-      }
+    const center = { lat: formData.address_lat, lng: formData.address_lng };
+
+    if (mapInstanceRef.current) {
+      // Map already exists, just pan to new center
+      mapInstanceRef.current.panTo(center);
+      return;
+    }
+
+    googleMapsLoader.load().then(() => {
+      if (!mapContainerRef.current) return;
+
+      const map = new google.maps.Map(mapContainerRef.current, {
+        zoom: 17,
+        center,
+        gestureHandling: "greedy",
+        disableDefaultUI: false,
+      });
+
+      map.addListener("dragend", () => {
+        const newCenter = map.getCenter();
+        if (!newCenter) return;
+        const lat = newCenter.lat();
+        const lng = newCenter.lng();
+
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === "OK" && results?.[0]) {
+            const result = results[0];
+            const postcodeComponent = result.address_components?.find(
+              (component) => component.types.includes("postal_code"),
+            );
+
+            setFormData((prev) => ({
+              ...prev,
+              address_lat: lat,
+              address_lng: lng,
+              pick_up_location: result.formatted_address,
+              pincode: postcodeComponent?.long_name || "",
+            }));
+          } else {
+            setFormData((prev) => ({
+              ...prev,
+              address_lat: lat,
+              address_lng: lng,
+            }));
+          }
+        });
+      });
+
+      mapInstanceRef.current = map;
     });
-  }, []);
+  }, [formData.address_lat, formData.address_lng]);
 
   // Validation for each step
   const validateStep = (step: number): { valid: boolean; errors: string[] } => {
@@ -1303,16 +1329,9 @@ function MigrationFormContent() {
                   Drag the map to fine-tune the exact pick-up location
                 </p>
                 <div className="relative w-full overflow-hidden rounded-lg border border-gray-200">
-                  <Map
-                    defaultZoom={17}
-                    center={{
-                      lat: formData.address_lat,
-                      lng: formData.address_lng,
-                    }}
-                    gestureHandling="greedy"
-                    disableDefaultUI={false}
+                  <div
+                    ref={mapContainerRef}
                     style={mapContainerStyle}
-                    onDragend={onMapDragEnd}
                   />
                   <div style={markerStyle}>
                     <MapPin
@@ -2409,11 +2428,7 @@ function MigrationFormContent() {
   );
 }
 
-// Main export with APIProvider wrapper for Google Maps
+// Main export - uses shared googleMapsLoader, no APIProvider needed
 export default function LearnerMigration() {
-  return (
-    <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-      <MigrationFormContent />
-    </APIProvider>
-  );
+  return <MigrationFormContent />;
 }
