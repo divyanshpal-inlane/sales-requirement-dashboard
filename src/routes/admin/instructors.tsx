@@ -5172,7 +5172,7 @@ export const InstructorSchedulePage = () => {
   }, []);
 
   const { data: instructor, isLoading } = useQuery({
-    queryKey: ["instructor-full", id, format(weekStart, "yyyy-MM-dd")],
+    queryKey: ["instructor-full", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("Instructor")
