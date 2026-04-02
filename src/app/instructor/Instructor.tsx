@@ -37,6 +37,7 @@ import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar";
 import { useNavigate } from "react-router-dom";
 
 import CourseFeedbackPage from "@/app/instructor/CourseFeedback";
+import Chatbot from "@/components/chatbot";
 import { CalendarImport } from "@/components/instructor/CalendarImport";
 import { LessonPlan } from "@/components/lesson/plan";
 import { Button } from "@/components/ui/button";
@@ -380,8 +381,9 @@ function Instructor() {
     const unavailabilityEvents = processUnavailability(
       instructorData?.unavailability,
     );
-    const processedImportedEvents =
-      processImportedCalendarEvents(importedCalendarEvents);
+    const processedImportedEvents = processImportedCalendarEvents(
+      importedCalendarEvents,
+    );
     const combinedEvents = [
       ...googleEvents,
       ...unavailabilityEvents,
@@ -1526,7 +1528,8 @@ function Instructor() {
 
   // All lessons require OTP verification for start and end
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="relative flex h-full w-full flex-col">
+      <Chatbot variant="instructor" />
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
         <div className="flex-1 overflow-hidden p-6 pb-2">
           <TabsContent value="calendar" className="m-0 h-full overflow-y-auto">

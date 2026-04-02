@@ -1,6 +1,7 @@
 import { Calendar, HelpCircle, HomeIcon, Library } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import Chatbot from "@/components/chatbot";
 import GreenGradient from "@/components/layout/greenGradient";
 
 export default function MainLayout() {
@@ -8,6 +9,7 @@ export default function MainLayout() {
     <GreenGradient>
       <div className="relative h-full">
         <Outlet />
+        <Chatbot />
       </div>
       <footer className="sticky bottom-0 w-full border-t border-gray-400 bg-white/50 backdrop-blur-lg backdrop-filter">
         <nav className="flex justify-around px-2">

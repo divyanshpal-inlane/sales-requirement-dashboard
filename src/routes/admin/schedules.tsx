@@ -161,7 +161,9 @@ export default function AdminSchedules() {
         Array.from(instructorDates).map(([instructorId, dates]) =>
           supabase
             .from("Schedule")
-            .select("id, date, start_time, end_time, instructor_id, Learner(name)")
+            .select(
+              "id, date, start_time, end_time, instructor_id, Learner(name)",
+            )
             .eq("instructor_id", instructorId)
             .in("date", Array.from(dates))
             .neq("status", "paused")
@@ -185,13 +187,18 @@ export default function AdminSchedules() {
         const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
         for (const existing of allExistingSchedules) {
-          if (existing.instructor_id !== schedule.instructorId || existing.date !== dateStr)
+          if (
+            existing.instructor_id !== schedule.instructorId ||
+            existing.date !== dateStr
+          )
             continue;
 
           if (
-            (schedule.start_time >= existing.start_time && schedule.start_time < existing.end_time) ||
+            (schedule.start_time >= existing.start_time &&
+              schedule.start_time < existing.end_time) ||
             (endTime > existing.start_time && endTime <= existing.end_time) ||
-            (schedule.start_time <= existing.start_time && endTime >= existing.end_time)
+            (schedule.start_time <= existing.start_time &&
+              endTime >= existing.end_time)
           ) {
             const learnerName = (existing.Learner as any)?.name || "Unknown";
             conflicts.push(
@@ -202,37 +209,37 @@ export default function AdminSchedules() {
       }
 
       if (conflicts.length > 0) {
-        throw new Error(`Scheduling conflicts detected:\n${conflicts.join("\n")}`);
+        throw new Error(
+          `Scheduling conflicts detected:\n${conflicts.join("\n")}`,
+        );
       }
 
       // Step 3: Batch insert all schedules
-      const { error } = await supabase
-        .from("Schedule")
-        .insert(
-          schedules.map((schedule) => {
-            const [hours, minutes] = schedule.start_time.split(":").map(Number);
-            const endHours = (hours + 1) % 24;
-            const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
-            const lessonId = schedule.lessonId?.startsWith?.("virtual-lesson-")
-              ? null
-              : schedule.lessonId;
+      const { error } = await supabase.from("Schedule").insert(
+        schedules.map((schedule) => {
+          const [hours, minutes] = schedule.start_time.split(":").map(Number);
+          const endHours = (hours + 1) % 24;
+          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+          const lessonId = schedule.lessonId?.startsWith?.("virtual-lesson-")
+            ? null
+            : schedule.lessonId;
 
-            return {
-              learner_id: learnerId,
-              course_id: courseId,
-              lesson_id: lessonId,
-              instructor_id: schedule.instructorId,
-              date: schedule.date.toISOString().split("T")[0],
-              start_time: schedule.start_time,
-              end_time: endTime,
-              enabled: true,
-              otp: schedule.otp,
-              otp_end: schedule.otp_end,
-              calendar_uid: schedule.calendar_uid || "",
-              calendar_sequence: schedule.calendar_sequence || 0,
-            };
-          }),
-        );
+          return {
+            learner_id: learnerId,
+            course_id: courseId,
+            lesson_id: lessonId,
+            instructor_id: schedule.instructorId,
+            date: schedule.date.toISOString().split("T")[0],
+            start_time: schedule.start_time,
+            end_time: endTime,
+            enabled: true,
+            otp: schedule.otp,
+            otp_end: schedule.otp_end,
+            calendar_uid: schedule.calendar_uid || "",
+            calendar_sequence: schedule.calendar_sequence || 0,
+          };
+        }),
+      );
 
       if (error) throw error;
 
@@ -247,13 +254,18 @@ export default function AdminSchedules() {
           .order("start_time", { ascending: true });
 
         if (!fetchError && allSchedules && allSchedules.length > 0) {
-          const sortedSchedules = [...allSchedules].sort((a, b) =>
-            new Date(`${a.date}T${a.start_time}`).getTime() -
-            new Date(`${b.date}T${b.start_time}`).getTime(),
+          const sortedSchedules = [...allSchedules].sort(
+            (a, b) =>
+              new Date(`${a.date}T${a.start_time}`).getTime() -
+              new Date(`${b.date}T${b.start_time}`).getTime(),
           );
 
           const updates = sortedSchedules
-            .map((s, i) => ({ lessonId: s.Lesson?.id, current: s.Lesson?.number, next: i + 1 }))
+            .map((s, i) => ({
+              lessonId: s.Lesson?.id,
+              current: s.Lesson?.number,
+              next: i + 1,
+            }))
             .filter((u) => u.lessonId && u.current !== u.next);
 
           if (updates.length > 0) {
@@ -261,13 +273,19 @@ export default function AdminSchedules() {
             // Pass 1: Set all to temporary high numbers
             await Promise.all(
               updates.map((u, i) =>
-                supabase.from("Lesson").update({ number: 1000 + i }).eq("id", u.lessonId),
+                supabase
+                  .from("Lesson")
+                  .update({ number: 1000 + i })
+                  .eq("id", u.lessonId),
               ),
             );
             // Pass 2: Set to final correct numbers
             await Promise.all(
               updates.map((u) =>
-                supabase.from("Lesson").update({ number: u.next }).eq("id", u.lessonId),
+                supabase
+                  .from("Lesson")
+                  .update({ number: u.next })
+                  .eq("id", u.lessonId),
               ),
             );
           }
@@ -487,58 +505,74 @@ export default function AdminSchedules() {
 
       if (enrollmentError) throw enrollmentError;
 
-      // Directly fetch learners with their schedules in a single query
-      const { data: learnersData, error: learnersError } = await supabase
-        .from("Learner")
-        .select(
-          `
-        id,
-        name,
-        area,
-        phone,
-        email,
-        preferred_start_date,
-        preferred_completion_days,
-        prefers_two_hour_classes,
-        two_hour_days,
-        DL_test_date,
-        pick_up_location,
-        created_at,
-        address_lat,
-        address_lng,
+      const learnerIds = enrollmentData.map((e) => e.learner_id);
 
-        schedules:Schedule(
-          id,
-          date,
-          start_time,
-          end_time,
-          instructor_id,
-          lesson_id,
-          course_id,
-          learner_id,
-          status,
-          Lesson!inner(
-            id,
-            number
-          ),
-          Instructor(
-            name
-          )
-        )
+      // Batch learner IDs into chunks to avoid URL length limits
+      const BATCH_SIZE = 50;
+      const batches: string[][] = [];
+      for (let i = 0; i < learnerIds.length; i += BATCH_SIZE) {
+        batches.push(learnerIds.slice(i, i + BATCH_SIZE));
+      }
 
-      `,
-        )
-        .in(
-          "id",
-          enrollmentData.map((e) => e.learner_id),
-        )
-        .order("created_at", { ascending: false });
+      const allLearners = await Promise.all(
+        batches.map(async (batch) => {
+          const { data, error } = await supabase
+            .from("Learner")
+            .select(
+              `
+              id,
+              name,
+              area,
+              phone,
+              email,
+              preferred_start_date,
+              preferred_completion_days,
+              prefers_two_hour_classes,
+              two_hour_days,
+              DL_test_date,
+              pick_up_location,
+              created_at,
+              address_lat,
+              address_lng,
 
-      if (learnersError) throw learnersError;
+              schedules:Schedule(
+                id,
+                date,
+                start_time,
+                end_time,
+                instructor_id,
+                lesson_id,
+                course_id,
+                learner_id,
+                status,
+                Lesson!inner(
+                  id,
+                  number
+                ),
+                Instructor(
+                  name
+                )
+              )
+            `,
+            )
+            .in("id", batch)
+            .order("created_at", { ascending: false });
+
+          if (error) throw error;
+          return data;
+        }),
+      );
+
+      const learnersData = allLearners.flat();
 
       // Filter out learners who don't have any schedules
       const learnersWithSchedules = learnersData.filter(
         (learner) => learner.schedules && learner.schedules.length > 0,
+      );
+
+      // Sort by created_at descending (since batching may lose overall order)
+      learnersWithSchedules.sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
       );
 
       return learnersWithSchedules;
