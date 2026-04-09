@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   ArrowLeft,
+  Download,
   Loader2,
   MoreHorizontal,
   RefreshCcw,
@@ -593,6 +594,137 @@ export default function AdminSchedules() {
     return learnerMatches; // || instructorMatches;
   });
 
+  // Export dialog state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportLearnerCount, setExportLearnerCount] = useState<string>("all");
+  const [exportSchedulePeriod, setExportSchedulePeriod] = useState<string>("all");
+  const [exportStatuses, setExportStatuses] = useState<string[]>([
+    "booked",
+    "ongoing",
+    "completed",
+    "cancelled",
+  ]);
+
+  const toggleExportStatus = (status: string) => {
+    setExportStatuses((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status],
+    );
+  };
+
+  const handleExportActiveLearnersCsv = () => {
+    if (!activeLearners || activeLearners.length === 0) return;
+
+    // 1. Apply instructor filter from the main UI
+    let learnersToExport = activeLearners.filter((learner) => {
+      if (!selectedFilterInstructorId) return true;
+      return learner.schedules?.some(
+        (s) => s.instructor_id === selectedFilterInstructorId,
+      );
+    });
+
+    // 2. Apply learner count limit
+    if (exportLearnerCount !== "all") {
+      const count = parseInt(exportLearnerCount, 10);
+      learnersToExport = learnersToExport.slice(0, count);
+    }
+
+    // 3. Determine schedule date cutoff
+    let dateCutoff: Date | null = null;
+    if (exportSchedulePeriod !== "all") {
+      dateCutoff = new Date();
+      dateCutoff.setDate(
+        dateCutoff.getDate() - parseInt(exportSchedulePeriod, 10),
+      );
+    }
+
+    // Build one row per schedule entry so each lesson is its own row
+    const rows: string[][] = [];
+    const headers = [
+      "Learner Name",
+      "Email",
+      "Phone",
+      "Area",
+      "Pick-up Location",
+      "Preferred Start Date",
+      "Preferred Completion Days",
+      "Prefers 2-Hour Classes",
+      "2-Hour Days",
+      "DL Test Date",
+      "Created At",
+      "Lesson Number",
+      "Schedule Date",
+      "Start Time",
+      "End Time",
+      "Schedule Status",
+      "Instructor Name",
+    ];
+    rows.push(headers);
+
+    const buildLearnerCells = (learner: (typeof learnersToExport)[0]) => [
+      learner.name || "",
+      learner.email || "",
+      learner.phone || "",
+      learner.area || "",
+      learner.pick_up_location || "",
+      learner.preferred_start_date || "",
+      learner.preferred_completion_days?.toString() || "",
+      learner.prefers_two_hour_classes ? "Yes" : "No",
+      learner.two_hour_days || "",
+      learner.DL_test_date || "",
+      learner.created_at || "",
+    ];
+
+    for (const learner of learnersToExport) {
+      // Filter schedules by status and date period
+      const filteredSchedules = [...(learner.schedules || [])]
+        .filter((s) => {
+          if (exportStatuses.length > 0 && !exportStatuses.includes(s.status || ""))
+            return false;
+          if (dateCutoff && s.date) {
+            const scheduleDate = new Date(s.date);
+            if (scheduleDate < dateCutoff) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => (a.Lesson?.number ?? 0) - (b.Lesson?.number ?? 0));
+
+      if (filteredSchedules.length === 0) {
+        // Still include learner row with empty schedule columns
+        rows.push([...buildLearnerCells(learner), "", "", "", "", "", ""]);
+      } else {
+        for (const schedule of filteredSchedules) {
+          rows.push([
+            ...buildLearnerCells(learner),
+            schedule.Lesson?.number?.toString() || "",
+            schedule.date || "",
+            schedule.start_time || "",
+            schedule.end_time || "",
+            schedule.status || "",
+            schedule.Instructor?.name || "",
+          ]);
+        }
+      }
+    }
+
+    // Convert to CSV string with proper escaping
+    const csvContent = rows
+      .map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `active_learners_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowExportDialog(false);
+  };
+
   return (
     <div
       className="h-flex flex min-h-screen flex-col bg-white p-4"
@@ -909,6 +1041,158 @@ export default function AdminSchedules() {
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="ml-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowExportDialog(true)}
+                    disabled={!activeLearners || activeLearners.length === 0}
+                  >
+                    <Download size={16} className="mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                {/* Export Filters Dialog */}
+                <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Export Active Learners</DialogTitle>
+                      <DialogDescription>
+                        Choose filters to customize your CSV export.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-5 py-2">
+                      {/* Learner Count */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Number of Learners
+                        </label>
+                        <Select
+                          value={exportLearnerCount}
+                          onValueChange={setExportLearnerCount}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">Latest 10 Learners</SelectItem>
+                            <SelectItem value="25">Latest 25 Learners</SelectItem>
+                            <SelectItem value="50">Latest 50 Learners</SelectItem>
+                            <SelectItem value="100">Latest 100 Learners</SelectItem>
+                            <SelectItem value="all">All Learners</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Schedule Date Period */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Schedule Period
+                        </label>
+                        <Select
+                          value={exportSchedulePeriod}
+                          onValueChange={setExportSchedulePeriod}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="7">Last 7 Days</SelectItem>
+                            <SelectItem value="10">Last 10 Days</SelectItem>
+                            <SelectItem value="30">Last 30 Days</SelectItem>
+                            <SelectItem value="60">Last 60 Days</SelectItem>
+                            <SelectItem value="90">Last 90 Days</SelectItem>
+                            <SelectItem value="all">All Time</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Lesson Status Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Lesson Status
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: "booked", label: "Booked" },
+                            { value: "ongoing", label: "Ongoing" },
+                            { value: "completed", label: "Completed" },
+                            { value: "cancelled", label: "Cancelled" },
+                          ].map((status) => (
+                            <label
+                              key={status.value}
+                              className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={exportStatuses.includes(status.value)}
+                                onChange={() => toggleExportStatus(status.value)}
+                                className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                              />
+                              {status.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Summary */}
+                      <div className="rounded-md bg-gray-50 p-3 text-xs text-gray-600">
+                        Export{" "}
+                        <span className="font-medium">
+                          {exportLearnerCount === "all"
+                            ? `all ${activeLearners?.length || 0}`
+                            : `latest ${exportLearnerCount}`}
+                        </span>{" "}
+                        learners with{" "}
+                        <span className="font-medium">
+                          {exportStatuses.length === 4
+                            ? "all"
+                            : exportStatuses.length === 0
+                              ? "no"
+                              : exportStatuses.join(", ")}
+                        </span>{" "}
+                        lesson statuses from{" "}
+                        <span className="font-medium">
+                          {exportSchedulePeriod === "all"
+                            ? "all time"
+                            : `last ${exportSchedulePeriod} days`}
+                        </span>
+                        {selectedFilterInstructorId && (
+                          <>
+                            , filtered by{" "}
+                            <span className="font-medium">
+                              {instructorData?.find(
+                                (i) =>
+                                  i.id_instructor === selectedFilterInstructorId,
+                              )?.name || "selected instructor"}
+                            </span>
+                          </>
+                        )}
+                        .
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowExportDialog(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleExportActiveLearnersCsv}
+                        disabled={exportStatuses.length === 0}
+                      >
+                        <Download size={16} className="mr-2" />
+                        Download CSV
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 
