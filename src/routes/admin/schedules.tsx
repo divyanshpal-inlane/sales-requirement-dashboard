@@ -1829,8 +1829,9 @@ export const LearnerSchedulesManager = ({
   const topupRemainingClasses = topupTotalClasses - topupAssignedHours;
 
   const handleTopupSubmit = async () => {
-    const courseId = learner?.schedules?.[0]?.course_id;
-    if (!courseId || !learner) return;
+    if (!learner) return;
+    // For demo learners, course_id is null — that's valid
+    const courseId = learner?.schedules?.[0]?.course_id ?? null;
 
     // Validate total hours match
     if (topupRemainingClasses !== 0) {
