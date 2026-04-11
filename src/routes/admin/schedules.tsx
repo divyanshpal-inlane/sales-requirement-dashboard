@@ -2002,7 +2002,7 @@ export const LearnerSchedulesManager = ({
                     : "Send Reschedule Notification"}
                 </Button>
               )}
-              {learner.schedules.some(
+              {learner?.schedules?.some(
                 (s: any) =>
                   s.status === "booked" &&
                   s.date >= format(new Date(), "yyyy-MM-dd"),
@@ -2017,7 +2017,7 @@ export const LearnerSchedulesManager = ({
                   Pause Class
                 </Button>
               )}
-              {learner.schedules.some(
+              {learner?.schedules?.some(
                 (s: any) =>
                   s.status === "paused" &&
                   s.date >= format(new Date(), "yyyy-MM-dd"),
