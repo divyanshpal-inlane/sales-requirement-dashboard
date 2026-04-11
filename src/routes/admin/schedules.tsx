@@ -1407,6 +1407,7 @@ export const LearnerSchedulesManager = ({
     null,
   );
   const [routeMapLabel, setRouteMapLabel] = useState("");
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const [topupSlots, setTopupSlots] = useState<
     Array<{
@@ -1945,6 +1946,14 @@ export const LearnerSchedulesManager = ({
                 }}
               >
                 + Topup
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-indigo-400 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                onClick={() => setShowAnalytics(true)}
+              >
+                Analytics
               </Button>
             </div>
           )}
@@ -2558,6 +2567,21 @@ export const LearnerSchedulesManager = ({
         onClose={() => setRouteMapScheduleId(null)}
         lessonLabel={routeMapLabel}
       />
+
+      {/* Instructor Analytics Dialog — shows for the primary instructor of this learner */}
+      {(() => {
+        const primaryInstructorId = learner?.schedules?.[0]?.instructor_id;
+        const primaryInstructorName =
+          learner?.schedules?.[0]?.Instructor?.name ?? "Instructor";
+        return primaryInstructorId ? (
+          <InstructorAnalytics
+            instructorId={primaryInstructorId}
+            instructorName={primaryInstructorName}
+            open={showAnalytics}
+            onClose={() => setShowAnalytics(false)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 };
