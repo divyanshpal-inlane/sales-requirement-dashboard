@@ -1805,6 +1805,8 @@ export const LearnerSchedulesManager = ({
       });
 
       setShowUpgradeDialog(false);
+      setUpgradeSelectedCourse("");
+      await syncData();
       toast({
         title: "Upgrade Initiated",
         description: `${learner.name} enrolled in ${course.name}. Payment link sent. Demo ₹${DEMO_CREDIT} credit will be applied.`,
@@ -1960,7 +1962,7 @@ export const LearnerSchedulesManager = ({
               ? "Updating..."
               : `${learner?.name ?? "Learner"}'s Schedule`}
           </CardTitle>
-          {learner?.schedules?.length > 0 && (
+          {(learner?.schedules?.length > 0 || isDemo) && (
             <div className="flex gap-2">
               {pendingNotification && (
                 <Button
@@ -2058,19 +2060,16 @@ export const LearnerSchedulesManager = ({
               >
                 Analytics
               </Button>
-              {isDemo &&
-                learner?.schedules?.some(
-                  (s: any) => s.status === "completed",
-                ) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
-                    onClick={() => setShowUpgradeDialog(true)}
-                  >
-                    Upgrade to Course
-                  </Button>
-                )}
+              {isDemo && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
+                  onClick={() => setShowUpgradeDialog(true)}
+                >
+                  Upgrade to Course
+                </Button>
+              )}
             </div>
           )}
         </CardHeader>
