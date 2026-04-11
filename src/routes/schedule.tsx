@@ -259,8 +259,28 @@ export default function Schedule() {
               {/* Status indicators */}
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
-                  {completedLessonsCount} Completed
+                  {scheduledLessons?.filter(
+                    (l) =>
+                      l.status?.toUpperCase() === "COMPLETED" &&
+                      l.startedAt &&
+                      l.endedAt,
+                  ).length || 0}{" "}
+                  OTP Verified
                 </span>
+                {(scheduledLessons?.filter(
+                  (l) =>
+                    l.status?.toUpperCase() === "COMPLETED" &&
+                    (!l.startedAt || !l.endedAt),
+                ).length || 0) > 0 && (
+                  <span className="rounded-full bg-orange-100 px-2 py-1 text-orange-700">
+                    {scheduledLessons?.filter(
+                      (l) =>
+                        l.status?.toUpperCase() === "COMPLETED" &&
+                        (!l.startedAt || !l.endedAt),
+                    ).length || 0}{" "}
+                    Manually Done
+                  </span>
+                )}
                 <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
                   {scheduledLessonsCount - completedLessonsCount} Scheduled
                 </span>
