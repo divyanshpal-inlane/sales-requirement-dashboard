@@ -58,9 +58,11 @@ export default function Schedule() {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const learnerId = learner?.id;
   const { data: enrollment } = useLearnerEnrollment({ learnerId });
+  const isDemoEnrollment = enrollment?.progress?.type === "demo";
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId,
     courseId: enrollment?.course_id,
+    isDemo: isDemoEnrollment,
   });
   const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useRescheduleLearnerLessonRequests(learner?.id);
@@ -102,15 +104,19 @@ export default function Schedule() {
     console.log("date < ", isPast, date, startOfDay(subDays(new Date(), 30)));
     let dayColorClasses = "";
 
+    const hasPendingPayment = lessonsForDay.some(
+      (l) => l.status === "pending_payment",
+    );
+
     if (isPast) {
-      // Gray for past days
       dayColorClasses = "bg-gray-300 text-gray-600";
+    } else if (hasPendingPayment) {
+      dayColorClasses =
+        "bg-amber-400 hover:bg-amber-500 focus:bg-amber-400 text-amber-900";
     } else if (isRescheduleDay) {
-      // High priority: Yellow color for reschedule status
       dayColorClasses =
         "bg-yellow-500 hover:bg-yellow-500 focus:bg-yellow-500 text-gray-800";
     } else {
-      // Default: Primary color for future days
       dayColorClasses = "bg-primary text-primary-foreground";
     }
 
@@ -154,9 +160,28 @@ export default function Schedule() {
                     {format(new Date(`2000-01-01T${lesson.endTime}`), "h:mm a")}
                   </span>
                   <span
-                    className={`${isLessonPast ? "text-gray-400" : "text-accent-purple"}`}
+                    className={`${
+                      lesson.status === "pending_payment"
+                        ? "font-semibold text-amber-700"
+                        : isLessonPast
+                          ? "text-gray-400"
+                          : "text-accent-purple"
+                    }`}
                   >
-                    Lesson {lesson.lesson?.number}
+                    {lesson.status === "pending_payment"
+                      ? "Demo Lesson — Pay ₹599 to activate"
+                      : `Lesson ${lesson.lesson?.number}`}
+                    {lesson.status === "pending_payment" ? (
+                      <Button
+                        variant="link"
+                        className="text-amber-700"
+                        onClick={() =>
+                          navigate(`/payment?phone=${learner?.phone}&type=demo`)
+                        }
+                      >
+                        Pay Now
+                      </Button>
+                    ) : (
                     <Button
                       variant="link"
                       onClick={() => {
@@ -174,6 +199,7 @@ export default function Schedule() {
                     >
                       Reschedule
                     </Button>
+                    )}
                   </span>
                 </p>
               );

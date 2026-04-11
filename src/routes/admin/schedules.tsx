@@ -1921,6 +1921,8 @@ export const LearnerSchedulesManager = ({
       }
 
       // Insert topup schedule records
+      // Demo topups require payment first (pending_payment status)
+      const scheduleStatus = isDemo ? "pending_payment" : "topup";
       const records = topupSlots.map((slot) => ({
         learner_id: learner.id,
         course_id: courseId,
@@ -1930,7 +1932,7 @@ export const LearnerSchedulesManager = ({
         start_time: slot.start_time,
         end_time: slot.end_time,
         enabled: true,
-        status: "topup",
+        status: scheduleStatus,
         otp: generateRandomOTP(),
         otp_end: generateRandomOTP(),
       }));
@@ -1938,11 +1940,30 @@ export const LearnerSchedulesManager = ({
       const { error } = await supabase.from("Schedule").insert(records);
       if (error) throw error;
 
+      // For demo topups, send payment link to learner
+      if (isDemo && learner.phone) {
+        const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`;
+        try {
+          await supabase.functions.invoke("send-message", {
+            body: {
+              message_type: "PAYMENT_LINK",
+              learner_id: learner.id,
+              payment_link: paymentLink,
+              course_name: "Demo Lesson (₹599)",
+            },
+          });
+        } catch (e) {
+          console.error("Failed to send payment link:", e);
+        }
+      }
+
       setIsTopupDialogOpen(false);
       await syncData();
       toast({
-        title: "Topup Added",
-        description: `${topupTotalClasses} topup class(es) added across ${topupSlots.length} slot(s).`,
+        title: isDemo ? "Demo Scheduled" : "Topup Added",
+        description: isDemo
+          ? `Demo lesson scheduled. Payment link sent to ${learner.name}.`
+          : `${topupTotalClasses} topup class(es) added across ${topupSlots.length} slot(s).`,
       });
     } catch (error: any) {
       toast({
@@ -2107,10 +2128,19 @@ export const LearnerSchedulesManager = ({
                             Topup
                           </span>
                         )}
+                        {schedule.status === "pending_payment" && (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">
+                            Awaiting Payment
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {schedule.status === "completed" ? (
+                    {schedule.status === "pending_payment" ? (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        Payment Pending
+                      </span>
+                    ) : schedule.status === "completed" ? (
                       <div className="flex items-center gap-2">
                         {schedule.started_at && schedule.ended_at ? (
                           <>

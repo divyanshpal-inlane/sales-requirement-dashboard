@@ -921,6 +921,36 @@ export default function Home() {
             ) : LessonData?.upcomingSchedule?.status?.toUpperCase() ===
               "PAUSED" ? (
               <div className="mb-6">{renderPausedLesson()}</div>
+            ) : LessonData?.upcomingSchedule?.status === "pending_payment" ? (
+              <div className="mb-6">
+                <Card className="border-amber-300 bg-amber-50">
+                  <CardContent className="flex flex-col items-center gap-4 p-6">
+                    <div className="rounded-full bg-amber-100 p-3">
+                      <Clock size={32} className="text-amber-600" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-amber-800">
+                      Demo Lesson Scheduled
+                    </h2>
+                    <p className="text-center text-sm text-amber-700">
+                      Pay ₹599 to activate your demo lesson on{" "}
+                      {LessonData?.upcomingSchedule?.date
+                        ? format(
+                            new Date(LessonData.upcomingSchedule.date),
+                            "EEE, do MMM",
+                          )
+                        : ""}
+                    </p>
+                    <Button
+                      className="w-full bg-amber-600 hover:bg-amber-700"
+                      onClick={() =>
+                        navigate(`/payment?phone=${learner?.phone}&type=demo`)
+                      }
+                    >
+                      Pay ₹599 Now
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             ) : LessonData?.upcomingLesson ? (
               <div className="mb-6">{renderUpcomingLesson()}</div>
             ) : (
