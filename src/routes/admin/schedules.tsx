@@ -73,6 +73,7 @@ export type Schedule = {
   otp: string;
   calendar_uid?: string;
   calendar_sequence?: number;
+  duration?: number; // 1 or 2 hours (defaults to 1)
 };
 
 type RequestType = "new" | "reschedule" | "lesson10";
@@ -184,9 +185,7 @@ export default function AdminSchedules() {
       const conflicts: string[] = [];
       for (const schedule of schedules) {
         const dateStr = schedule.date.toISOString().split("T")[0];
-        const [hours, minutes] = schedule.start_time.split(":").map(Number);
-        const endHours = (hours + 1) % 24;
-        const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+        const endTime = schedule.end_time;
 
         for (const existing of allExistingSchedules) {
           if (
@@ -219,9 +218,6 @@ export default function AdminSchedules() {
       // Step 3: Batch insert all schedules
       const { error } = await supabase.from("Schedule").insert(
         schedules.map((schedule) => {
-          const [hours, minutes] = schedule.start_time.split(":").map(Number);
-          const endHours = (hours + 1) % 24;
-          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
           const lessonId = schedule.lessonId?.startsWith?.("virtual-lesson-")
             ? null
             : schedule.lessonId;
@@ -233,7 +229,7 @@ export default function AdminSchedules() {
             instructor_id: schedule.instructorId,
             date: schedule.date.toISOString().split("T")[0],
             start_time: schedule.start_time,
-            end_time: endTime,
+            end_time: schedule.end_time,
             enabled: true,
             otp: schedule.otp,
             otp_end: schedule.otp_end,
@@ -2139,8 +2135,25 @@ export const LearnerSchedulesManager = ({
                           .split(":")
                           .map(Number);
 
-                        // Default end time to 1 hour later
-                        const endHours = (hours + 1) % 24;
+                        // Preserve original duration (calculate from existing start/end)
+                        const [oldStartH, oldStartM] = (
+                          selectedSchedule.start_time || "00:00:00"
+                        )
+                          .split(":")
+                          .map(Number);
+                        const [oldEndH, oldEndM] = (
+                          selectedSchedule.end_time || "01:00:00"
+                        )
+                          .split(":")
+                          .map(Number);
+                        const durationMinutes =
+                          oldEndH * 60 + oldEndM - (oldStartH * 60 + oldStartM);
+                        const durHours = Math.max(
+                          1,
+                          Math.round(durationMinutes / 60),
+                        );
+
+                        const endHours = (hours + durHours) % 24;
                         const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
                         setSelectedSchedule((prev: any) => ({

@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 import MapWithRoute from "@/components/mapWithRoute";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ interface InstructorSelectionDialogProps {
     area: string;
     name: string;
   } | null;
-  onInstructorSelect: (instructorId: string) => void;
+  onInstructorSelect: (instructorId: string, duration: number) => void;
 }
 
 function InstructorCard({ instructor, selectedSlot, learnerDetail, onSelect }) {
@@ -143,19 +144,56 @@ export default function InstructorSelectionDialog({
   learnerDetail,
   onInstructorSelect,
 }: InstructorSelectionDialogProps) {
+  const [selectedDuration, setSelectedDuration] = useState(1);
+
   // Safety check - don't render if learnerDetail is invalid
   if (!learnerDetail?.address_lat || !learnerDetail?.address_lng) {
     return null;
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) setSelectedDuration(1);
+        onClose();
+      }}
+    >
       <DialogContent className="max-h-[80vh] max-w-4xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             Select Instructor for {selectedSlot?.toLocaleString()}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Duration selector */}
+        <div className="flex items-center gap-3 rounded-lg border bg-gray-50 px-4 py-2">
+          <span className="text-sm font-medium text-gray-700">
+            Class duration:
+          </span>
+          <div className="flex gap-2">
+            <button
+              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                selectedDuration === 1
+                  ? "bg-primary text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100"
+              }`}
+              onClick={() => setSelectedDuration(1)}
+            >
+              1 Hour
+            </button>
+            <button
+              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                selectedDuration === 2
+                  ? "bg-primary text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100"
+              }`}
+              onClick={() => setSelectedDuration(2)}
+            >
+              2 Hours
+            </button>
+          </div>
+        </div>
 
         <div className="max-h-[60vh] space-y-4 overflow-y-auto">
           {availableInstructors.map((instructor) => (
@@ -164,7 +202,10 @@ export default function InstructorSelectionDialog({
               instructor={instructor}
               selectedSlot={selectedSlot}
               learnerDetail={learnerDetail}
-              onSelect={() => onInstructorSelect(instructor.id_instructor)}
+              onSelect={() => {
+                onInstructorSelect(instructor.id_instructor, selectedDuration);
+                setSelectedDuration(1);
+              }}
             />
           ))}
         </div>

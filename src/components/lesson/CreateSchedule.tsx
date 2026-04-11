@@ -92,7 +92,7 @@ interface TimeSlotSelectionDialogProps {
   slot: HourlySlot | null;
   date: Date | null;
   instructors: any[] | null;
-  onConfirm: (instructorId: string) => void;
+  onConfirm: (instructorId: string, duration: number) => void;
 }
 // Add interface for instructor with distance information
 interface InstructorWithDistance {
@@ -1653,6 +1653,10 @@ function CreateSchedule({
   const [selectedSlots, setSelectedSlots] = useState<
     Array<Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId: string }>
   >([]);
+  // Track duration (1 or 2 hours) per slotGroupId
+  const [slotDurations, setSlotDurations] = useState<Map<string, number>>(
+    new Map(),
+  );
   const [scheduleDetails, setScheduleDetails] = useState<
     TimeSlotState["existingSchedule"] | null
   >(null);
@@ -2176,6 +2180,7 @@ function CreateSchedule({
     const [instructorId, setInstructorId] = useState<string>(
       selectedInstructorId || slot?.state.availableInstructors[0] || "",
     );
+    const [classDuration, setClassDuration] = useState(1);
     const [dynamicInstructors, setDynamicInstructors] = useState<any[]>([]);
     const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
@@ -2392,7 +2397,8 @@ function CreateSchedule({
     ]);
 
     const handleConfirm = () => {
-      onConfirm(instructorId);
+      onConfirm(instructorId, classDuration);
+      setClassDuration(1);
       onClose();
     };
 
@@ -2612,17 +2618,46 @@ function CreateSchedule({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={!instructorId || filteredInstructors.length === 0}
-            >
-              Confirm Selection
-            </Button>
+          {/* Duration + Action Buttons */}
+          <div className="flex items-center justify-between border-t pt-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">
+                Class duration:
+              </span>
+              <div className="flex gap-1">
+                <button
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    classDuration === 1
+                      ? "bg-primary text-white"
+                      : "border bg-white text-gray-600 hover:bg-gray-100"
+                  }`}
+                  onClick={() => setClassDuration(1)}
+                >
+                  1 Hour
+                </button>
+                <button
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    classDuration === 2
+                      ? "bg-primary text-white"
+                      : "border bg-white text-gray-600 hover:bg-gray-100"
+                  }`}
+                  onClick={() => setClassDuration(2)}
+                >
+                  2 Hours
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirm}
+                disabled={!instructorId || filteredInstructors.length === 0}
+              >
+                Confirm Selection
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -2684,17 +2719,26 @@ function CreateSchedule({
       // If slot is selected, unselect it and its paired slot
       if (slot.state.isSelected) {
         alert("Slot is already selected");
-        setSelectedSlots((prev) => {
-          const hour = slot.timestamp.getHours();
-          const minute = slot.timestamp.getMinutes();
-          const dateStr = format(date, "yyyy-MM-dd");
+        const hour = slot.timestamp.getHours();
+        const minute = slot.timestamp.getMinutes();
+        const dateStr = format(date, "yyyy-MM-dd");
 
-          const groupId = prev.find(
-            (s) =>
-              format(s.date, "yyyy-MM-dd") === dateStr &&
-              s.hour === hour &&
-              s.minutes === minute,
-          )?.slotGroupId;
+        const groupId = selectedSlots.find(
+          (s) =>
+            format(s.date, "yyyy-MM-dd") === dateStr &&
+            s.hour === hour &&
+            s.minutes === minute,
+        )?.slotGroupId;
+
+        if (groupId) {
+          setSlotDurations((prev) => {
+            const next = new Map(prev);
+            next.delete(groupId);
+            return next;
+          });
+        }
+
+        setSelectedSlots((prev) => {
           console.log("prev and groupId of slot are", prev, groupId);
           return prev.filter((s) => s.slotGroupId !== groupId);
         });
@@ -2722,74 +2766,64 @@ function CreateSchedule({
     setSelectionDialogOpen(true);
   };
 
-  // Handle instructor selection from dialog
-  const handleInstructorSelect = (instructorId: string) => {
+  // Handle instructor selection from dialog (with duration: 1 or 2 hours)
+  const handleInstructorSelect = (instructorId: string, duration: number = 1) => {
     if (!selectedSlot || !selectedDate) return;
 
     const hour = selectedSlot.timestamp.getHours();
     const minute = selectedSlot.timestamp.getMinutes();
     const isStartSlot = minute === 0;
 
-    setSelectedSlots((prev) => {
-      // Generate truly unique ID using timestamp + random + date/hour to prevent collisions
-      // This fixes the bug where selecting slots quickly would cause them to merge
-      const dateStr = selectedDate.toISOString().split("T")[0];
-      const slotGroupId = `${dateStr}-${hour}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Validate end-of-day for the selected duration
+    const numHalfHourSlots = duration * 2;
+    if (checkOverlapEndOfDay(hour, minute, numHalfHourSlots)) {
+      alert("Cannot select this duration: lesson would exceed end of day.");
+      return;
+    }
 
-      // When selecting, add both slots that make up the full hour
-      if (isStartSlot) {
-        // If selecting a XX:00 slot, also select the XX:30 slot
-        return [
-          ...prev,
-          {
-            date: selectedDate,
-            hour,
-            minutes: 0,
-            instructorId,
-            slotGroupId,
-          },
-          {
-            date: selectedDate,
-            hour,
-            minutes: 30,
-            instructorId,
-            slotGroupId,
-          },
-        ];
-      } else {
-        // If selecting a XX:30 slot, also select the (XX+1):00 slot
-        return [
-          ...prev,
-          {
-            date: selectedDate,
-            hour,
-            minutes: 30,
-            instructorId,
-            slotGroupId,
-          },
-          {
-            date: selectedDate,
-            hour: hour + 1,
-            minutes: 0,
-            instructorId,
-            slotGroupId,
-          },
-        ];
+    // Generate truly unique ID using timestamp + random + date/hour to prevent collisions
+    const dateStr = selectedDate.toISOString().split("T")[0];
+    const slotGroupId = `${dateStr}-${hour}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Track this slot group's duration
+    setSlotDurations((prev) => new Map(prev).set(slotGroupId, duration));
+
+    setSelectedSlots((prev) => {
+      // Build all half-hour slots for the selected duration
+      const startMinutes = isStartSlot ? 0 : 30;
+      const startTotalMinutes = hour * 60 + startMinutes;
+      const slots = [];
+
+      for (let i = 0; i < numHalfHourSlots; i++) {
+        const totalMin = startTotalMinutes + i * 30;
+        slots.push({
+          date: selectedDate,
+          hour: Math.floor(totalMin / 60),
+          minutes: totalMin % 60,
+          instructorId,
+          slotGroupId,
+        });
       }
+
+      return [...prev, ...slots];
     });
   };
 
-  // Helper function to count unique hourly slots (treating pairs as one)
+
+  // Helper function to count total class hours (a 2hr slot = 2 classes)
   const countUniqueHourlySlots = (
     slots: Array<
       Omit<Schedule, "lessonId"> & { minutes: number; slotGroupId?: string }
     >,
   ) => {
-    // Count by unique slotGroupIds
     const uniqueGroups = new Set(
       slots.map((s) => s.slotGroupId).filter(Boolean),
     );
-    return uniqueGroups.size;
+    // Sum durations: each group counts as its duration (1 or 2 hours)
+    return Array.from(uniqueGroups).reduce(
+      (sum, gid) => sum + (slotDurations.get(gid) || 1),
+      0,
+    );
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
@@ -2854,26 +2888,29 @@ function CreateSchedule({
     console.log("Unique slotGroupIds:", Object.keys(selectedSlotGroups).length);
     console.log("===========================");
 
-    // Convert each pair of 30-minute slots into a single hour entry
+    // Convert each group of 30-minute slots into a single entry with duration
     // We'll use the first slot in each group as the starting point
-    const newSlots = Object.values(selectedSlotGroups).map((group) => {
-      // Sort the slots to ensure the earlier one comes first
-      const sortedGroup = [...group].sort((a, b) => {
-        const timeA = new Date(a.date).setHours(a.hour, a.minutes);
-        const timeB = new Date(b.date).setHours(b.hour, b.minutes);
-        return timeA - timeB;
-      });
+    const newSlots = Object.entries(selectedSlotGroups).map(
+      ([groupId, group]) => {
+        // Sort the slots to ensure the earlier one comes first
+        const sortedGroup = [...group].sort((a, b) => {
+          const timeA = new Date(a.date).setHours(a.hour, a.minutes);
+          const timeB = new Date(b.date).setHours(b.hour, b.minutes);
+          return timeA - timeB;
+        });
 
-      // Use the first slot as the start time
-      const firstSlot = sortedGroup[0];
-      return {
-        date: firstSlot.date,
-        hour: firstSlot.hour,
-        minutes: firstSlot.minutes,
-        instructorId: firstSlot.instructorId,
-        isNew: true as const,
-      };
-    });
+        // Use the first slot as the start time
+        const firstSlot = sortedGroup[0];
+        return {
+          date: firstSlot.date,
+          hour: firstSlot.hour,
+          minutes: firstSlot.minutes,
+          instructorId: firstSlot.instructorId,
+          duration: slotDurations.get(groupId) || 1,
+          isNew: true as const,
+        };
+      },
+    );
 
     console.log("newSlots count after grouping:", newSlots.length);
 
@@ -3087,9 +3124,11 @@ function CreateSchedule({
           };
         }
 
-        // Get the current new slot index and increment for next iteration
+        // Get the current new slot index and increment by duration
+        // A 2hr slot consumes 2 lessons
         const currentNewSlotIndex = newSlotCounter;
-        newSlotCounter++;
+        const slotDuration = ("duration" in slot ? slot.duration : 1) || 1;
+        newSlotCounter += slotDuration;
 
         // For all cases, assign lessons by position in the sorted available lessons list
         // This handles both sequential (1,2,3...) and non-sequential lesson numbering
@@ -3124,6 +3163,7 @@ function CreateSchedule({
           instructorId: slot.instructorId,
           lessonId: lesson?.id ?? "",
           lessonNumber: lesson?.number ?? 0,
+          duration: slotDuration,
           isNew: slot.isNew,
         };
       },
@@ -3208,16 +3248,18 @@ function CreateSchedule({
     console.log("========================");
 
     // Create final schedules array
-    // console.log("finalscheudules from schedules to update", schedulesToUpdate);
     const finalSchedules = schedulesToUpdate
       .filter((schedule) => schedule.lessonId) // Only include schedules with valid lesson IDs
       .map((schedule) => {
         // Format the start_time correctly with hours and minutes
         const formattedHour = String(schedule.hour).padStart(2, "0");
         const formattedMinutes = String(schedule.minutes || 0).padStart(2, "0");
-        const endHour =
-          schedule.minutes === 30 ? schedule.hour + 1 : schedule.hour;
-        const endMinutes = schedule.minutes === 30 ? "00" : "30";
+        // Calculate end time based on duration (1 or 2 hours)
+        const dur = ("duration" in schedule ? schedule.duration : 1) || 1;
+        const startTotalMinutes = schedule.hour * 60 + (schedule.minutes || 0);
+        const endTotalMinutes = startTotalMinutes + dur * 60;
+        const endHour = Math.floor(endTotalMinutes / 60) % 24;
+        const endMinutes = endTotalMinutes % 60;
 
         return {
           date: schedule.date,
@@ -3226,11 +3268,12 @@ function CreateSchedule({
           lessonId: schedule.lessonId,
           lessonNumber: schedule.lessonNumber,
           start_time: `${formattedHour}:${formattedMinutes}:00`,
-          end_time: `${String(endHour).padStart(2, "0")}:${endMinutes}:00`,
+          end_time: `${String(endHour).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}:00`,
           status: "booked",
           otp: generateRandomOTP(),
           otp_end: generateRandomOTP(),
           calendar_uid: "", // Will be populated for schedules only
+          duration: dur,
         };
       });
 
@@ -3968,7 +4011,7 @@ interface TimeSlotSelectionDialogProps {
   date: Date | null;
   instructorsWithDistance: InstructorWithDistance[];
   otherSchedules: any[];
-  onConfirm: (instructorId: string) => void;
+  onConfirm: (instructorId: string, duration: number) => void;
   learnerDetails: {
     // Add proper type definition
     address_lat: number;
