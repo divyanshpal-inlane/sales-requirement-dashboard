@@ -113,7 +113,7 @@ export async function sendMultiEventCalendarInvite(
 
         const learnerICS = generateICSFile(
           event.startTime,
-          new Date(event.startTime.getTime() + 60 * 60 * 1000),
+          event.endTime,
           summary,
           description,
           event.pickupLocation,
@@ -128,7 +128,7 @@ export async function sendMultiEventCalendarInvite(
 
         const instructorICS = generateICSFile(
           event.startTime,
-          new Date(event.startTime.getTime() + 60 * 60 * 1000),
+          event.endTime,
           summary,
           description,
           event.pickupLocation,

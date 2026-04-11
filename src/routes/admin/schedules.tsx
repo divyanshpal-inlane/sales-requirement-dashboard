@@ -19,6 +19,8 @@ import {
   LearnerInfoCard,
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
+import InstructorAnalytics from "@/components/admin/InstructorAnalytics";
+import LessonRouteMap from "@/components/admin/LessonRouteMap";
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import CreateScheduleWithInstructor from "@/components/lesson/CreateSchedule";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
+import { generateRandomOTP } from "@/lib/utils";
 import { useMutationCompleteRescheduleRequest } from "@/queries/learner";
 import {
   SchedulingRequests,
@@ -72,6 +75,7 @@ export type Schedule = {
   otp: string;
   calendar_uid?: string;
   calendar_sequence?: number;
+  duration?: number; // 1 or 2 hours (defaults to 1)
 };
 
 type RequestType = "new" | "reschedule" | "lesson10";
@@ -183,9 +187,7 @@ export default function AdminSchedules() {
       const conflicts: string[] = [];
       for (const schedule of schedules) {
         const dateStr = schedule.date.toISOString().split("T")[0];
-        const [hours, minutes] = schedule.start_time.split(":").map(Number);
-        const endHours = (hours + 1) % 24;
-        const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+        const endTime = schedule.end_time;
 
         for (const existing of allExistingSchedules) {
           if (
@@ -218,9 +220,6 @@ export default function AdminSchedules() {
       // Step 3: Batch insert all schedules
       const { error } = await supabase.from("Schedule").insert(
         schedules.map((schedule) => {
-          const [hours, minutes] = schedule.start_time.split(":").map(Number);
-          const endHours = (hours + 1) % 24;
-          const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
           const lessonId = schedule.lessonId?.startsWith?.("virtual-lesson-")
             ? null
             : schedule.lessonId;
@@ -232,7 +231,7 @@ export default function AdminSchedules() {
             instructor_id: schedule.instructorId,
             date: schedule.date.toISOString().split("T")[0],
             start_time: schedule.start_time,
-            end_time: endTime,
+            end_time: schedule.end_time,
             enabled: true,
             otp: schedule.otp,
             otp_end: schedule.otp_end,
@@ -498,10 +497,10 @@ export default function AdminSchedules() {
   } = useQuery({
     queryKey: ["activeLearners"],
     queryFn: async () => {
-      // First, get active enrollment learner IDs
+      // First, get active enrollment learner IDs with progress info
       const { data: enrollmentData, error: enrollmentError } = await supabase
         .from("enrollment")
-        .select("learner_id")
+        .select("learner_id, progress")
         .eq("status", "active");
 
       if (enrollmentError) throw enrollmentError;
@@ -546,7 +545,9 @@ export default function AdminSchedules() {
                 course_id,
                 learner_id,
                 status,
-                Lesson!inner(
+                started_at,
+                ended_at,
+                Lesson(
                   id,
                   number
                 ),
@@ -566,10 +567,24 @@ export default function AdminSchedules() {
 
       const learnersData = allLearners.flat();
 
-      // Filter out learners who don't have any schedules
-      const learnersWithSchedules = learnersData.filter(
-        (learner) => learner.schedules && learner.schedules.length > 0,
+      // Build a set of demo learner IDs
+      const demoLearnerIds = new Set(
+        enrollmentData
+          .filter((e: any) => e.progress?.type === "demo")
+          .map((e: any) => e.learner_id),
       );
+
+      // Include learners with schedules OR demo learners (even without schedules)
+      const learnersWithSchedules = learnersData.filter(
+        (learner) =>
+          (learner.schedules && learner.schedules.length > 0) ||
+          demoLearnerIds.has(learner.id),
+      );
+
+      // Tag demo learners
+      learnersWithSchedules.forEach((learner: any) => {
+        learner.isDemo = demoLearnerIds.has(learner.id);
+      });
 
       // Sort by created_at descending (since batching may lose overall order)
       learnersWithSchedules.sort((a, b) =>
@@ -1272,20 +1287,29 @@ export default function AdminSchedules() {
                         })
                         .map((learner) => (
                           <div key={learner.id} className="mb-2">
-                            <LearnerInfoCard
-                              learner={{
-                                id: learner.id || "",
-                                name: learner.name || "",
-                              }}
-                              // Highlight the selected learner
-                              className={
-                                selectedRequest?.id === learner.id
-                                  ? "border-indigo-500 bg-indigo-50"
-                                  : ""
-                              }
-                              compact={true}
-                              onClick={() => handleActiveLearnerSelect(learner)}
-                            />
+                            <div className="relative">
+                              {(learner as any).isDemo && (
+                                <span className="absolute -top-1 right-1 z-10 rounded bg-purple-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                  DEMO
+                                </span>
+                              )}
+                              <LearnerInfoCard
+                                learner={{
+                                  id: learner.id || "",
+                                  name: learner.name || "",
+                                }}
+                                // Highlight the selected learner
+                                className={
+                                  selectedRequest?.id === learner.id
+                                    ? "border-indigo-500 bg-indigo-50"
+                                    : (learner as any).isDemo
+                                      ? "border-purple-300"
+                                      : ""
+                                }
+                                compact={true}
+                                onClick={() => handleActiveLearnerSelect(learner)}
+                              />
+                            </div>
                           </div>
                         ))
                     )}
@@ -1300,6 +1324,7 @@ export default function AdminSchedules() {
                     key={selectedRequest.id} // Key ensures component re-mounts/refreshes for new learner
                     learnerId={selectedRequest.id}
                     instructorData={instructorData}
+                    isDemo={(selectedRequest as any).isDemo || false}
                   />
                 ) : (
                   <Card className="h-full border-dashed">
@@ -1382,11 +1407,13 @@ export const InstructorFilter = ({
 interface LearnerSchedulesManagerProps {
   learnerId: string;
   instructorData: any[];
+  isDemo?: boolean;
 }
 
 export const LearnerSchedulesManager = ({
   learnerId,
   instructorData,
+  isDemo = false,
 }: LearnerSchedulesManagerProps) => {
   const [learner, setLearner] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -1401,6 +1428,22 @@ export const LearnerSchedulesManager = ({
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [pendingNotification, setPendingNotification] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [isTopupDialogOpen, setIsTopupDialogOpen] = useState(false);
+  const [routeMapScheduleId, setRouteMapScheduleId] = useState<number | null>(
+    null,
+  );
+  const [routeMapLabel, setRouteMapLabel] = useState("");
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [topupTotalClasses, setTopupTotalClasses] = useState(1);
+  const [topupSlots, setTopupSlots] = useState<
+    Array<{
+      date: string;
+      start_time: string;
+      end_time: string;
+      duration: number; // 1 or 2 hours (2hr = 2 classes)
+      instructor_id: string;
+    }>
+  >([{ date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" }]);
 
   // 1. Data Fetching
   const syncData = useCallback(async () => {
@@ -1414,8 +1457,8 @@ export const LearnerSchedulesManager = ({
           id, name, area, phone, email, pick_up_location, address_lat, address_lng,
           schedules:Schedule(
             id, date, start_time, end_time, instructor_id,
-            status,
-            Lesson!inner(id, number),
+            status, course_id, started_at, ended_at,
+            Lesson(id, number),
             Instructor(name)
           )
         `,
@@ -1441,12 +1484,10 @@ export const LearnerSchedulesManager = ({
         const schedulesWithCorrectNumbers = sortedSchedules.map(
           (schedule, index) => ({
             ...schedule,
-            Lesson: schedule.Lesson
-              ? {
-                  ...schedule.Lesson,
-                  number: index + 1, // Use chronological position as lesson number
-                }
-              : null,
+            Lesson: {
+              id: schedule.Lesson?.id ?? null,
+              number: index + 1, // Use chronological position as lesson number
+            },
           }),
         );
 
@@ -1626,7 +1667,7 @@ export const LearnerSchedulesManager = ({
         // 3. Fetch all schedules for this learner+course with Lesson data
         const { data: allSchedules, error: fetchError } = await supabase
           .from("Schedule")
-          .select("id, date, start_time, Lesson!inner(id, number)")
+          .select("id, date, start_time, Lesson(id, number)")
           .eq("learner_id", learner.id)
           .eq("course_id", courseId)
           .order("date", { ascending: true })
@@ -1642,6 +1683,7 @@ export const LearnerSchedulesManager = ({
         });
 
         // 5. Prepare lesson updates with new numbering based on chronological order
+        //    Only update schedules that have a linked Lesson (skip topup schedules with null lesson_id)
         const lessonUpdates = sortedSchedules
           .filter((schedule) => schedule.Lesson?.id)
           .map((schedule, index) => ({
@@ -1689,6 +1731,137 @@ export const LearnerSchedulesManager = ({
         title: "Rescheduled",
         description:
           "Lesson rescheduled. Click 'Send Notification' when done with all reschedules.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const topupAssignedHours = topupSlots.reduce(
+    (sum, s) => sum + s.duration,
+    0,
+  );
+  const topupRemainingClasses = topupTotalClasses - topupAssignedHours;
+
+  const handleTopupSubmit = async () => {
+    const courseId = learner?.schedules?.[0]?.course_id;
+    if (!courseId || !learner) return;
+
+    // Validate total hours match
+    if (topupRemainingClasses !== 0) {
+      toast({
+        title: "Error",
+        description: `Total hours across slots must equal ${topupTotalClasses} classes. Currently ${topupAssignedHours} hour(s) assigned.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate all slots have required fields
+    for (const slot of topupSlots) {
+      if (!slot.date || !slot.start_time || !slot.instructor_id) {
+        toast({
+          title: "Error",
+          description: "Please fill all fields for each slot.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    try {
+      setIsProcessing(true);
+
+      // Conflict check per instructor+date
+      const instructorDates = new Map<string, Set<string>>();
+      for (const slot of topupSlots) {
+        if (!instructorDates.has(slot.instructor_id)) {
+          instructorDates.set(slot.instructor_id, new Set());
+        }
+        instructorDates.get(slot.instructor_id)!.add(slot.date);
+      }
+
+      const conflictResults = await Promise.all(
+        Array.from(instructorDates).map(([instructorId, dates]) =>
+          supabase
+            .from("Schedule")
+            .select(
+              "id, date, start_time, end_time, instructor_id, Learner(name)",
+            )
+            .eq("instructor_id", instructorId)
+            .in("date", Array.from(dates))
+            .neq("status", "paused")
+            .not("isTentative", "eq", true),
+        ),
+      );
+
+      const allExisting: any[] = [];
+      for (const result of conflictResults) {
+        if (!result.error && result.data) allExisting.push(...result.data);
+      }
+
+      const conflicts: string[] = [];
+      for (const slot of topupSlots) {
+        for (const existing of allExisting) {
+          if (
+            existing.instructor_id !== slot.instructor_id ||
+            existing.date !== slot.date
+          )
+            continue;
+          if (
+            (slot.start_time >= existing.start_time &&
+              slot.start_time < existing.end_time) ||
+            (slot.end_time > existing.start_time &&
+              slot.end_time <= existing.end_time) ||
+            (slot.start_time <= existing.start_time &&
+              slot.end_time >= existing.end_time)
+          ) {
+            const learnerName = (existing.Learner as any)?.name || "Unknown";
+            conflicts.push(
+              `Instructor already booked on ${slot.date} at ${existing.start_time} for ${learnerName}`,
+            );
+          }
+        }
+      }
+
+      if (conflicts.length > 0) {
+        toast({
+          title: "Scheduling Conflict",
+          description: conflicts.join("\n"),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Insert topup schedule records
+      const records = topupSlots.map((slot) => ({
+        learner_id: learner.id,
+        course_id: courseId,
+        lesson_id: null,
+        instructor_id: slot.instructor_id,
+        date: slot.date,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        enabled: true,
+        status: "topup",
+        otp: generateRandomOTP(),
+        otp_end: generateRandomOTP(),
+      }));
+
+      const { error } = await supabase.from("Schedule").insert(records);
+      if (error) throw error;
+
+      setIsTopupDialogOpen(false);
+      await syncData();
+      toast({
+        title: "Topup Added",
+        description: `${topupTotalClasses} topup class(es) added across ${topupSlots.length} slot(s).`,
       });
     } catch (error: any) {
       toast({
@@ -1779,6 +1952,35 @@ export const LearnerSchedulesManager = ({
                   Resume Class
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                disabled={isProcessing}
+                onClick={() => {
+                  setTopupTotalClasses(1);
+                  setTopupSlots([
+                    {
+                      date: "",
+                      start_time: "",
+                      end_time: "",
+                      duration: 1,
+                      instructor_id: "",
+                    },
+                  ]);
+                  setIsTopupDialogOpen(true);
+                }}
+              >
+                + Topup
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-indigo-400 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                onClick={() => setShowAnalytics(true)}
+              >
+                Analytics
+              </Button>
             </div>
           )}
         </CardHeader>
@@ -1807,15 +2009,41 @@ export const LearnerSchedulesManager = ({
                         <span className="mx-2">|</span>
                         Instructor: {schedule.Instructor?.name ?? "Unassigned"}
                       </div>
-                      <div className="text-xs font-medium uppercase text-gray-600">
+                      <div className="flex items-center gap-1.5 text-xs font-medium uppercase text-gray-600">
                         Status: {schedule.status ?? "N/A"}
+                        {schedule.status === "topup" && (
+                          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-purple-700">
+                            Topup
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {schedule.status === "completed" ? (
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                        Completed
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {schedule.started_at && schedule.ended_at ? (
+                          <>
+                            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                              OTP Verified
+                            </span>
+                            <button
+                              className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-600 hover:bg-blue-100"
+                              onClick={() => {
+                                setRouteMapScheduleId(schedule.id);
+                                setRouteMapLabel(
+                                  `Lesson ${schedule.Lesson?.number ?? ""}`,
+                                );
+                              }}
+                            >
+                              View Route
+                            </button>
+                          </>
+                        ) : (
+                          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                            Manually Done
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1829,9 +2057,15 @@ export const LearnerSchedulesManager = ({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() =>
-                              onUpdateStatus(schedule.id, "completed")
-                            }
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  "This will mark the lesson as completed WITHOUT OTP verification. It will NOT count for instructor payout. Continue?",
+                                )
+                              ) {
+                                onUpdateStatus(schedule.id, "completed");
+                              }
+                            }}
                           >
                             Mark as Completed
                           </DropdownMenuItem>
@@ -1871,6 +2105,18 @@ export const LearnerSchedulesManager = ({
                     )}
                   </div>
                 ))
+            ) : isDemo && !isLoading ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <div className="rounded-full bg-purple-100 p-3">
+                  <Users size={24} className="text-purple-600" />
+                </div>
+                <p className="text-sm font-medium text-purple-700">
+                  Demo Learner — No lesson scheduled yet
+                </p>
+                <p className="text-xs text-gray-500">
+                  Use the Topup button above to schedule the demo lesson
+                </p>
+              </div>
             ) : (
               <div className="py-10 text-center text-gray-500">
                 {isLoading ? "Fetching data..." : "No records found."}
@@ -1971,8 +2217,25 @@ export const LearnerSchedulesManager = ({
                           .split(":")
                           .map(Number);
 
-                        // Default end time to 1 hour later
-                        const endHours = (hours + 1) % 24;
+                        // Preserve original duration (calculate from existing start/end)
+                        const [oldStartH, oldStartM] = (
+                          selectedSchedule.start_time || "00:00:00"
+                        )
+                          .split(":")
+                          .map(Number);
+                        const [oldEndH, oldEndM] = (
+                          selectedSchedule.end_time || "01:00:00"
+                        )
+                          .split(":")
+                          .map(Number);
+                        const durationMinutes =
+                          oldEndH * 60 + oldEndM - (oldStartH * 60 + oldStartM);
+                        const durHours = Math.max(
+                          1,
+                          Math.round(durationMinutes / 60),
+                        );
+
+                        const endHours = (hours + durHours) % 24;
                         const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
 
                         setSelectedSchedule((prev: any) => ({
@@ -2061,6 +2324,302 @@ export const LearnerSchedulesManager = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Topup Dialog */}
+      <Dialog
+        open={isTopupDialogOpen}
+        onOpenChange={(open) => {
+          if (!isProcessing) setIsTopupDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Topup Lessons</DialogTitle>
+            <DialogDescription>
+              Schedule extra classes for {learner?.name}. Each class = 1 hour. A
+              2hr slot counts as 2 classes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Total classes selector */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">
+                Total classes to add:
+              </label>
+              <Select
+                value={String(topupTotalClasses)}
+                onValueChange={(v) => {
+                  const count = Number(v);
+                  setTopupTotalClasses(count);
+                  // Reset slots to a single empty slot when total changes
+                  setTopupSlots([
+                    {
+                      date: "",
+                      start_time: "",
+                      end_time: "",
+                      duration: 1,
+                      instructor_id: "",
+                    },
+                  ]);
+                }}
+              >
+                <SelectTrigger className="w-[80px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Progress indicator */}
+            <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+              <span className="font-medium">{topupAssignedHours}</span> of{" "}
+              <span className="font-medium">{topupTotalClasses}</span> classes
+              assigned
+              {topupRemainingClasses > 0 && (
+                <span className="ml-1 text-amber-600">
+                  ({topupRemainingClasses} remaining)
+                </span>
+              )}
+              {topupRemainingClasses === 0 && (
+                <span className="ml-1 text-green-600">(all assigned)</span>
+              )}
+              {topupRemainingClasses < 0 && (
+                <span className="ml-1 text-red-600">
+                  (exceeded by {Math.abs(topupRemainingClasses)})
+                </span>
+              )}
+            </div>
+
+            {/* Slots */}
+            {topupSlots.map((slot, i) => (
+              <div
+                key={i}
+                className="space-y-3 rounded-md border bg-gray-50 p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">
+                    Slot {i + 1}{" "}
+                    <span className="font-normal text-gray-500">
+                      ({slot.duration}hr)
+                    </span>
+                  </p>
+                  {topupSlots.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                      onClick={() =>
+                        setTopupSlots((prev) =>
+                          prev.filter((_, j) => j !== i),
+                        )
+                      }
+                    >
+                      <X size={14} />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Duration */}
+                <div className="flex items-center gap-2">
+                  <label className="w-20 text-sm text-gray-600">Duration</label>
+                  <Select
+                    value={String(slot.duration)}
+                    onValueChange={(value) => {
+                      const dur = Number(value);
+                      setTopupSlots((prev) =>
+                        prev.map((s, j) => {
+                          if (j !== i) return s;
+                          let endTime = s.end_time;
+                          if (s.start_time) {
+                            const [h, m] = s.start_time
+                              .split(":")
+                              .map(Number);
+                            const endH = (h + dur) % 24;
+                            endTime = `${endH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
+                          }
+                          return { ...s, duration: dur, end_time: endTime };
+                        }),
+                      );
+                    }}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Hour</SelectItem>
+                      <SelectItem value="2">2 Hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Date */}
+                <div className="flex items-center gap-2">
+                  <label className="w-20 text-sm text-gray-600">Date</label>
+                  <input
+                    type="date"
+                    value={slot.date}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) =>
+                      setTopupSlots((prev) =>
+                        prev.map((s, j) =>
+                          j === i ? { ...s, date: e.target.value } : s,
+                        ),
+                      )
+                    }
+                    className="block h-9 flex-1 rounded-md border border-gray-300 px-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Start Time */}
+                <div className="flex items-center gap-2">
+                  <label className="w-20 text-sm text-gray-600">Time</label>
+                  <Select
+                    value={slot.start_time}
+                    onValueChange={(value) => {
+                      const [hours, minutes] = value.split(":").map(Number);
+                      const endHours = (hours + slot.duration) % 24;
+                      const endTime = `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+                      setTopupSlots((prev) =>
+                        prev.map((s, j) =>
+                          j === i
+                            ? { ...s, start_time: value, end_time: endTime }
+                            : s,
+                        ),
+                      );
+                    }}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Start" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }).map((_, hour) =>
+                        [0, 30].map((minute) => {
+                          const val = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:00`;
+                          return (
+                            <SelectItem
+                              key={`topup-${i}-start-${val}`}
+                              value={val}
+                            >
+                              {val.substring(0, 5)}
+                            </SelectItem>
+                          );
+                        }),
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-gray-500">to</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {slot.end_time ? slot.end_time.substring(0, 5) : "--:--"}
+                  </span>
+                </div>
+
+                {/* Instructor */}
+                <div className="flex items-center gap-2">
+                  <label className="w-20 text-sm text-gray-600">
+                    Instructor
+                  </label>
+                  <Select
+                    value={slot.instructor_id}
+                    onValueChange={(value) =>
+                      setTopupSlots((prev) =>
+                        prev.map((s, j) =>
+                          j === i ? { ...s, instructor_id: value } : s,
+                        ),
+                      )
+                    }
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select Instructor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[...(instructorData || [])]
+                        .sort((a, b) =>
+                          (a.name || "").localeCompare(b.name || ""),
+                        )
+                        .map((ins) => (
+                          <SelectItem
+                            key={ins.id_instructor}
+                            value={ins.id_instructor}
+                          >
+                            {ins.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ))}
+
+            {/* Add slot button */}
+            {topupRemainingClasses > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-dashed"
+                onClick={() =>
+                  setTopupSlots((prev) => [
+                    ...prev,
+                    {
+                      date: "",
+                      start_time: "",
+                      end_time: "",
+                      duration: 1,
+                      instructor_id: "",
+                    },
+                  ])
+                }
+              >
+                + Add Slot
+              </Button>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsTopupDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleTopupSubmit}
+                disabled={isProcessing || topupRemainingClasses !== 0}
+              >
+                {isProcessing ? "Adding..." : "Add Topup Lessons"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lesson Route Map Dialog */}
+      <LessonRouteMap
+        scheduleId={routeMapScheduleId ?? 0}
+        open={routeMapScheduleId !== null}
+        onClose={() => setRouteMapScheduleId(null)}
+        lessonLabel={routeMapLabel}
+      />
+
+      {/* Instructor Analytics Dialog — shows for the primary instructor of this learner */}
+      {(() => {
+        const primaryInstructorId = learner?.schedules?.[0]?.instructor_id;
+        const primaryInstructorName =
+          learner?.schedules?.[0]?.Instructor?.name ?? "Instructor";
+        return primaryInstructorId ? (
+          <InstructorAnalytics
+            instructorId={primaryInstructorId}
+            instructorName={primaryInstructorName}
+            open={showAnalytics}
+            onClose={() => setShowAnalytics(false)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 };

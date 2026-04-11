@@ -78,7 +78,7 @@ const SKILL_MODULES = [
 ];
 
 // Demo course config
-const DEMO_CONFIG = { hours: 1, price: 499 };
+const DEMO_CONFIG = { hours: 1, price: 599 };
 
 export default function LearnerManagement() {
   // Course selection state

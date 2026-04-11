@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import {
   ArrowRight,
   BookOpen,
+  CheckCircle,
   Clock,
   Lock,
   RefreshCw,
@@ -104,9 +105,11 @@ export default function Home() {
     lessonId: LessonData?.upcomingLesson?.id,
   });
 
+  const isDemo = enrolledCourse?.progress?.type === "demo";
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
+    isDemo,
   });
   const { data: completedReschedules } = useCompletedRescheduleRequests(
     learner?.id,
@@ -174,7 +177,11 @@ export default function Home() {
   };
 
   // Show DL question if not answered yet (has_a_DL is null/undefined)
-  if (learner?.has_a_DL === null || learner?.has_a_DL === undefined) {
+  // Skip for demo learners — they don't need LL for a demo lesson
+  if (
+    !isDemo &&
+    (learner?.has_a_DL === null || learner?.has_a_DL === undefined)
+  ) {
     return (
       <div className="flex h-full w-full flex-col">
         <header className="relative h-[300px]">
@@ -330,8 +337,9 @@ export default function Home() {
       return null;
     }
 
-    const progressPercentage = Math.round(
-      (completedLessonsCount / totalCourseLessons) * 100,
+    const progressPercentage = Math.min(
+      100,
+      Math.round((completedLessonsCount / totalCourseLessons) * 100),
     );
 
     return (
@@ -921,15 +929,63 @@ export default function Home() {
             {!LessonData?.upcomingLesson &&
               !(scheduleRequests && scheduleRequests.length > 0) && (
                 <>
-                  {learner && !learner.LL_received ? (
+                  {learner && !learner.LL_received && !isDemo ? (
                     <LLFlow />
-                  ) : learner && learner.LL_received ? (
-                    // Check if this is a demo/custom course
-                    (enrolledCourse?.progress?.type === "demo" ||
-                      enrolledCourse?.progress?.type === "custom" ||
+                  ) : learner ? (
+                    // Demo course handling
+                    isDemo ? (
+                      (() => {
+                        const demoCompleted = scheduledLessons?.some(
+                          (l) => l.status?.toUpperCase() === "COMPLETED",
+                        );
+                        if (demoCompleted) {
+                          // Demo done — show upgrade options
+                          return (
+                            <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">
+                              <div className="rounded-full bg-green-100 p-4">
+                                <CheckCircle className="h-12 w-12 text-green-600" />
+                              </div>
+                              <h2 className="text-xl font-semibold">
+                                Demo Lesson Completed!
+                              </h2>
+                              <p className="text-muted-foreground">
+                                Ready to start your full driving course? Choose
+                                a course below. Your demo payment of ₹599 will
+                                be credited.
+                              </p>
+                              <Button className="w-full" asChild>
+                                <Link to="/payment">
+                                  Choose a Course
+                                </Link>
+                              </Button>
+                            </div>
+                          );
+                        }
+                        // Demo not yet scheduled or scheduled but not completed
+                        return (
+                          <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">
+                            <img
+                              src="/assets/clocks.png"
+                              alt="Schedule"
+                              className="w-48 rounded-lg"
+                            />
+                            <h2 className="text-xl font-semibold">
+                              {scheduledLessons && scheduledLessons.length > 0
+                                ? "Your Demo Lesson is Scheduled"
+                                : "Your Demo Lesson is Being Scheduled"}
+                            </h2>
+                            <p className="text-muted-foreground">
+                              {scheduledLessons && scheduledLessons.length > 0
+                                ? "Check your schedule for the upcoming demo lesson details."
+                                : "Our team is scheduling your demo lesson. We'll notify you once it's ready."}
+                            </p>
+                          </div>
+                        );
+                      })()
+                    ) : // Custom course or no course_id
+                    (enrolledCourse?.progress?.type === "custom" ||
                       !enrolledCourse?.course_id) &&
                     learner.preferred_start_date ? (
-                      // Demo/custom course with preferences already submitted
                       <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">
                         <img
                           src="/assets/clocks.png"

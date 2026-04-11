@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
 import { supabase } from "@/lib/supabaseClient";
 import {
   useLearnerDetails,
@@ -68,6 +69,7 @@ const OTPVerification = ({
     useLearnerDetails(learnerId);
   const { mutate: updateStatus, isPending: isSubmitting } =
     useUpdateScheduleStatus();
+  const { capturePoint } = useLessonTracking();
   const {
     mutate: sendOtp,
     isPending: isSendingOtp,
@@ -149,7 +151,7 @@ const OTPVerification = ({
     setSubmitError(null);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!verificationData?.isValid) {
       setSubmitError("Invalid OTP. Please check and try again.");
       return;
@@ -158,6 +160,13 @@ const OTPVerification = ({
       setSubmitError("Schedule not found.");
       return;
     }
+
+    // Capture GPS location at OTP verification (non-blocking)
+    const numericScheduleId = Number(scheduleId);
+    capturePoint(
+      numericScheduleId,
+      isVerifyStartLesson ? "start" : "end",
+    );
 
     const now = new Date().toISOString();
     updateStatus(

@@ -394,18 +394,50 @@ export type Schedule = {
 export function useLearnerSchedule({
   learnerId,
   courseId,
+  isDemo,
 }: {
   learnerId?: string;
   courseId?: string;
+  isDemo?: boolean;
 }) {
   return useQuery<Schedule[]>({
-    queryKey: ["schedule", learnerId, courseId],
+    queryKey: ["schedule", learnerId, courseId, isDemo],
     queryFn: async () => {
-      if (!learnerId || !courseId) return [];
+      if (!learnerId) return [];
+      // For demo enrollments, courseId is null — fetch schedules where course_id IS NULL
+      if (isDemo) {
+        const { data, error } = await supabase
+          .from("Schedule")
+          .select(
+            "id, date, start_time, end_time, lesson_id, status, learner_id, started_at, ended_at, Lesson (id, number, description)",
+          )
+          .eq("learner_id", learnerId)
+          .is("course_id", null)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+        if (error) throw error;
+        return (data || []).map((lesson, index) => ({
+          id: lesson.id,
+          date: lesson.date,
+          startTime: lesson.start_time,
+          learnerId: lesson.learner_id,
+          lessonId: lesson.lesson_id,
+          endTime: lesson.end_time,
+          lesson: {
+            id: lesson.Lesson?.id ?? null,
+            number: index + 1,
+            description: lesson.Lesson?.description ?? "Demo Lesson",
+          },
+          status: lesson.status,
+          startedAt: lesson.started_at,
+          endedAt: lesson.ended_at,
+        }));
+      }
+      if (!courseId) return [];
       const { data, error } = await supabase
         .from("Schedule")
         .select(
-          "id, date, start_time, end_time, lesson_id,status, learner_id, Lesson (id, number, description)",
+          "id, date, start_time, end_time, lesson_id, status, learner_id, started_at, ended_at, Lesson (id, number, description)",
         )
         .eq("learner_id", learnerId)
         .eq("course_id", courseId)
@@ -433,14 +465,16 @@ export function useLearnerSchedule({
         learnerId: lesson.learner_id,
         lessonId: lesson.lesson_id,
         endTime: lesson.end_time,
-        lesson: lesson.Lesson
-          ? {
-              id: lesson.Lesson.id,
-              number: index + 1, // Use chronological position as lesson number
-              description: lesson.Lesson.description,
-            }
-          : null,
+        lesson: {
+          id: lesson.Lesson?.id ?? null,
+          number: index + 1, // Use chronological position as lesson number
+          description:
+            lesson.Lesson?.description ??
+            (lesson.lesson_id === null ? "Topup Lesson" : null),
+        },
         status: lesson.status,
+        startedAt: lesson.started_at,
+        endedAt: lesson.ended_at,
       }));
     },
     staleTime: Infinity,
