@@ -307,13 +307,31 @@ export default function Home() {
       (request) => request.lesson_id === LessonData.upcomingLesson.id,
     );
 
+  // Helper: count lesson-hours (2hr class = 2 lessons)
+  const countLessonHours = (
+    lessons: typeof scheduledLessons,
+    filter?: (l: NonNullable<typeof scheduledLessons>[number]) => boolean,
+  ) => {
+    if (!lessons) return 0;
+    const filtered = filter ? lessons.filter(filter) : lessons;
+    return filtered.reduce((sum, l) => {
+      const sMin =
+        parseInt(l.startTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.startTime?.split(":")[1] || "0");
+      const eMin =
+        parseInt(l.endTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.endTime?.split(":")[1] || "0");
+      return sum + Math.max(1, Math.round((eMin - sMin) / 60));
+    }, 0);
+  };
+
   // Course progress calculations
   const totalCourseLessons = enrolledCourse?.Courses?.total_lessons || 10;
-  const completedLessonsCount =
-    scheduledLessons?.filter(
-      (lesson) => lesson.status?.toUpperCase() === "COMPLETED",
-    ).length || 0;
-  const scheduledLessonsCount = scheduledLessons?.length || 0;
+  const completedLessonsCount = countLessonHours(
+    scheduledLessons,
+    (l) => l.status?.toUpperCase() === "COMPLETED",
+  );
+  const scheduledLessonsCount = countLessonHours(scheduledLessons);
 
   // For half payment, calculate accessible lessons
   const accessibleLessonsCount =

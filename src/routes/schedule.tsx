@@ -236,13 +236,31 @@ export default function Schedule() {
     : undefined;
   const courseLessons = enrollment?.Courses?.Lesson || [];
 
+  // Helper: count lesson-hours for a set of schedules (2hr class = 2 lessons)
+  const countLessonHours = (
+    lessons: typeof scheduledLessons,
+    filter?: (l: NonNullable<typeof scheduledLessons>[number]) => boolean,
+  ) => {
+    if (!lessons) return 0;
+    const filtered = filter ? lessons.filter(filter) : lessons;
+    return filtered.reduce((sum, l) => {
+      const sMin =
+        parseInt(l.startTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.startTime?.split(":")[1] || "0");
+      const eMin =
+        parseInt(l.endTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.endTime?.split(":")[1] || "0");
+      return sum + Math.max(1, Math.round((eMin - sMin) / 60));
+    }, 0);
+  };
+
   // Course progress calculations
   const totalCourseLessons = enrollment?.Courses?.total_lessons || 10;
-  const completedLessonsCount =
-    scheduledLessons?.filter(
-      (lesson) => lesson.status?.toUpperCase() === "COMPLETED",
-    ).length || 0;
-  const scheduledLessonsCount = scheduledLessons?.length || 0;
+  const completedLessonsCount = countLessonHours(
+    scheduledLessons,
+    (l) => l.status?.toUpperCase() === "COMPLETED",
+  );
+  const scheduledLessonsCount = countLessonHours(scheduledLessons);
 
   // Check if lesson 10 is ready to be scheduled (9 lessons done, 10-lesson course, no DL)
   const isLesson10ReadyToSchedule =
@@ -285,25 +303,28 @@ export default function Schedule() {
               {/* Status indicators */}
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
-                  {scheduledLessons?.filter(
+                  {countLessonHours(
+                    scheduledLessons,
                     (l) =>
                       l.status?.toUpperCase() === "COMPLETED" &&
-                      l.startedAt &&
-                      l.endedAt,
-                  ).length || 0}{" "}
+                      !!l.startedAt &&
+                      !!l.endedAt,
+                  )}{" "}
                   OTP Verified
                 </span>
-                {(scheduledLessons?.filter(
+                {countLessonHours(
+                  scheduledLessons,
                   (l) =>
                     l.status?.toUpperCase() === "COMPLETED" &&
                     (!l.startedAt || !l.endedAt),
-                ).length || 0) > 0 && (
+                ) > 0 && (
                   <span className="rounded-full bg-orange-100 px-2 py-1 text-orange-700">
-                    {scheduledLessons?.filter(
+                    {countLessonHours(
+                      scheduledLessons,
                       (l) =>
                         l.status?.toUpperCase() === "COMPLETED" &&
                         (!l.startedAt || !l.endedAt),
-                    ).length || 0}{" "}
+                    )}{" "}
                     Manually Done
                   </span>
                 )}
