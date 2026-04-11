@@ -169,10 +169,14 @@ export function useUpcomingLesson() {
       // Calculate the chronological lesson number by finding this schedule's position
       // among ALL schedules for the same course, sorted by date/time
       let lessonNumber = 1;
-      if (allSchedules && nextSchedule.course_id) {
-        // Filter to only schedules for the same course and sort by date/time
+      if (allSchedules) {
+        // Filter to schedules for the same course (or null course for demo)
         const courseSchedules = allSchedules
-          .filter((s) => s.course_id === nextSchedule.course_id)
+          .filter((s) =>
+            nextSchedule.course_id
+              ? s.course_id === nextSchedule.course_id
+              : s.course_id === null,
+          )
           .sort((a, b) => {
             const dateTimeA = new Date(
               `${a.date}T${a.start_time || "00:00:00"}`,
@@ -195,9 +199,14 @@ export function useUpcomingLesson() {
         upcomingLesson: nextSchedule.Lesson
           ? {
               ...nextSchedule.Lesson,
-              number: lessonNumber, // Use chronological position as lesson number
+              number: lessonNumber,
             }
-          : null,
+          : {
+              // Synthesize lesson for demo/topup schedules with no linked Lesson
+              id: null,
+              number: lessonNumber,
+              description: "Demo Lesson",
+            },
         instructor: nextSchedule.Instructor,
         course: nextSchedule.Courses,
       };
