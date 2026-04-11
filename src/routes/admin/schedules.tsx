@@ -87,6 +87,20 @@ declare module "@/queries/preferences" {
   }
 }
 
+const PREDEFINED_COURSES = [
+  { id: "e129f667-0510-4f07-9847-edb58356dc74", name: "Beginner Course", duration: 10 },
+  { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
+  { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
+  { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
+  { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
+  { id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb", name: "Parking + Flyover", duration: 4 },
+  { id: "abddddb8-3f54-41ea-a64b-5ba55988b12a", name: "Slopes + Parking", duration: 4 },
+  { id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936", name: "Traffic + Parking", duration: 6 },
+  { id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3", name: "Traffic + Flyover", duration: 6 },
+  { id: "b991363c-6791-411e-9cb8-6723e40d0a0a", name: "Traffic + Parking + Flyover", duration: 8 },
+];
+const DEMO_CREDIT = 599;
+
 export default function AdminSchedules() {
   const navigate = useNavigate();
   const { data: requests, isLoading, isRefetching } = useSchedulingRequests();
@@ -1434,6 +1448,9 @@ export const LearnerSchedulesManager = ({
   );
   const [routeMapLabel, setRouteMapLabel] = useState("");
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeSelectedCourse, setUpgradeSelectedCourse] = useState("");
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const [topupSlots, setTopupSlots] = useState<
     Array<{
@@ -1743,6 +1760,66 @@ export const LearnerSchedulesManager = ({
     }
   };
 
+  const handleUpgradeToCourse = async () => {
+    if (!upgradeSelectedCourse || !learner) return;
+    const course = PREDEFINED_COURSES.find(
+      (c) => c.id === upgradeSelectedCourse,
+    );
+    if (!course) return;
+
+    try {
+      setIsUpgrading(true);
+
+      // Create new enrollment for the selected course
+      const { error: enrollError } = await supabase.from("enrollment").insert({
+        learner_id: learner.id,
+        course_id: course.id,
+        status: "pending",
+        payment_status: "pending",
+        installment_mode: "full",
+        unlocked_lessons: Array.from(
+          { length: course.duration },
+          (_, i) => i + 1,
+        ),
+        progress: { type: "course", total_hours: course.duration },
+      });
+      if (enrollError) throw enrollError;
+
+      // Mark demo enrollment as completed
+      const { error: demoError } = await supabase
+        .from("enrollment")
+        .update({ status: "completed" })
+        .eq("learner_id", learner.id)
+        .is("course_id", null);
+      if (demoError) console.error("Failed to close demo enrollment:", demoError);
+
+      // Send payment link via WhatsApp
+      const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
+      await supabase.functions.invoke("send-message", {
+        body: {
+          message_type: "PAYMENT_LINK",
+          learner_id: learner.id,
+          payment_link: paymentLink,
+          course_name: course.name,
+        },
+      });
+
+      setShowUpgradeDialog(false);
+      toast({
+        title: "Upgrade Initiated",
+        description: `${learner.name} enrolled in ${course.name}. Payment link sent. Demo ₹${DEMO_CREDIT} credit will be applied.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
   const topupAssignedHours = topupSlots.reduce(
     (sum, s) => sum + s.duration,
     0,
@@ -1981,6 +2058,19 @@ export const LearnerSchedulesManager = ({
               >
                 Analytics
               </Button>
+              {isDemo &&
+                learner?.schedules?.some(
+                  (s: any) => s.status === "completed",
+                ) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
+                    onClick={() => setShowUpgradeDialog(true)}
+                  >
+                    Upgrade to Course
+                  </Button>
+                )}
             </div>
           )}
         </CardHeader>
@@ -2620,6 +2710,63 @@ export const LearnerSchedulesManager = ({
           />
         ) : null;
       })()}
+
+      {/* Upgrade to Course Dialog */}
+      <Dialog
+        open={showUpgradeDialog}
+        onOpenChange={(open) => {
+          if (!isUpgrading) setShowUpgradeDialog(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upgrade to Full Course</DialogTitle>
+            <DialogDescription>
+              Select a course for {learner?.name}. Demo payment of ₹
+              {DEMO_CREDIT} will be credited toward the course fee.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select
+              value={upgradeSelectedCourse}
+              onValueChange={setUpgradeSelectedCourse}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a course" />
+              </SelectTrigger>
+              <SelectContent>
+                {PREDEFINED_COURSES.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name} — {c.duration} hours
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {upgradeSelectedCourse && (
+              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+                Demo credit of ₹{DEMO_CREDIT} will be applied. A payment link
+                will be sent to the learner for the remaining balance.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowUpgradeDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpgradeToCourse}
+                disabled={!upgradeSelectedCourse || isUpgrading}
+              >
+                {isUpgrading ? "Upgrading..." : "Upgrade & Send Payment Link"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
