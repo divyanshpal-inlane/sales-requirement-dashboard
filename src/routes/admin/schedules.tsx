@@ -519,7 +519,8 @@ export default function AdminSchedules() {
 
       if (enrollmentError) throw enrollmentError;
 
-      const learnerIds = enrollmentData.map((e) => e.learner_id);
+      // Deduplicate learner IDs (a learner may have multiple enrollments)
+      const learnerIds = [...new Set(enrollmentData.map((e) => e.learner_id))];
 
       // Batch learner IDs into chunks to avoid URL length limits
       const BATCH_SIZE = 50;
