@@ -1,7 +1,9 @@
 import { format } from "date-fns";
-import { ExternalLinkIcon, IdCardIcon } from "lucide-react";
+import { ExternalLinkIcon, IdCardIcon, Phone, Loader2 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMaskedCall } from "@/hooks/useMaskedCall";
 import { useLearner } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
@@ -9,14 +11,17 @@ interface SessionDetailsProps {
   schedule: Database["public"]["Tables"]["Schedule"]["Row"];
   instructor: Database["public"]["Tables"]["Instructor"]["Row"];
   lessonNumber: number;
+  lessonLabel?: string;
 }
 
 export function SessionDetails({
   schedule,
   instructor,
   lessonNumber,
+  lessonLabel,
 }: SessionDetailsProps) {
   const { data } = useLearner();
+  const { initiateCall, isCallLoading } = useMaskedCall();
   const pickupLocation = data?.pick_up_location;
   const lat = data?.address_lat;
   const lng = data?.address_lng;
@@ -26,7 +31,9 @@ export function SessionDetails({
         <CardTitle>
           <div className="flex flex-row items-center justify-center gap-3">
             <IdCardIcon />
-            <p className="font-medium">Lesson Number : {lessonNumber} </p>
+            <p className="font-medium">
+              {lessonLabel || `Lesson Number : ${lessonNumber}`}
+            </p>
           </div>
         </CardTitle>
       </CardHeader>
@@ -53,14 +60,24 @@ export function SessionDetails({
             <p className="text-sm font-light">Instructor Name</p>
             <p className="text-sm font-medium">{instructor.name}</p>
           </div>
-          <div className="flex flex-col gap-0">
-            <p className="text-sm font-light">Mobile number</p>
-            <a
-              href={`tel:${instructor.phone}`}
-              className="cursor-pointer text-sm font-medium underline"
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-light">Call Instructor</p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isCallLoading}
+              onClick={() =>
+                initiateCall(data?.phone ?? "", instructor.phone ?? "")
+              }
+              className="flex w-fit items-center gap-1.5 text-sm font-medium"
             >
-              {instructor.phone}
-            </a>
+              {isCallLoading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Phone size={14} />
+              )}
+              {isCallLoading ? "Connecting..." : "Call Now"}
+            </Button>
           </div>
           <div className="flex flex-col gap-0">
             <p className="text-sm font-light">Car Model</p>

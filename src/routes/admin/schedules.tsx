@@ -2052,7 +2052,7 @@ export const LearnerSchedulesManager = ({
                   setIsTopupDialogOpen(true);
                 }}
               >
-                + Topup
+                {isDemo ? "Schedule Demo" : "+ Topup"}
               </Button>
               <Button
                 variant="outline"
@@ -2425,51 +2425,55 @@ export const LearnerSchedulesManager = ({
       >
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Topup Lessons</DialogTitle>
+            <DialogTitle>
+              {isDemo ? "Schedule Demo Lesson" : "Add Topup Lessons"}
+            </DialogTitle>
             <DialogDescription>
-              Schedule extra classes for {learner?.name}. Each class = 1 hour. A
-              2hr slot counts as 2 classes.
+              {isDemo
+                ? `Schedule the demo lesson for ${learner?.name} (1 hour)`
+                : `Schedule extra classes for ${learner?.name}. Each class = 1 hour. A 2hr slot counts as 2 classes.`}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Total classes selector */}
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">
-                Total classes to add:
-              </label>
-              <Select
-                value={String(topupTotalClasses)}
-                onValueChange={(v) => {
-                  const count = Number(v);
-                  setTopupTotalClasses(count);
-                  // Reset slots to a single empty slot when total changes
-                  setTopupSlots([
-                    {
-                      date: "",
-                      start_time: "",
-                      end_time: "",
-                      duration: 1,
-                      instructor_id: "",
-                    },
-                  ]);
-                }}
-              >
-                <SelectTrigger className="w-[80px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Total classes selector — hidden for demo (always 1) */}
+            {!isDemo && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700">
+                  Total classes to add:
+                </label>
+                <Select
+                  value={String(topupTotalClasses)}
+                  onValueChange={(v) => {
+                    const count = Number(v);
+                    setTopupTotalClasses(count);
+                    setTopupSlots([
+                      {
+                        date: "",
+                        start_time: "",
+                        end_time: "",
+                        duration: 1,
+                        instructor_id: "",
+                      },
+                    ]);
+                  }}
+                >
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            {/* Progress indicator */}
-            <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+            {/* Progress indicator — hidden for demo */}
+            {!isDemo && <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
               <span className="font-medium">{topupAssignedHours}</span> of{" "}
               <span className="font-medium">{topupTotalClasses}</span> classes
               assigned
@@ -2486,7 +2490,7 @@ export const LearnerSchedulesManager = ({
                   (exceeded by {Math.abs(topupRemainingClasses)})
                 </span>
               )}
-            </div>
+            </div>}
 
             {/* Slots */}
             {topupSlots.map((slot, i) => (
@@ -2517,8 +2521,8 @@ export const LearnerSchedulesManager = ({
                   )}
                 </div>
 
-                {/* Duration */}
-                <div className="flex items-center gap-2">
+                {/* Duration — hidden for demo (always 1hr) */}
+                {!isDemo && <div className="flex items-center gap-2">
                   <label className="w-20 text-sm text-gray-600">Duration</label>
                   <Select
                     value={String(slot.duration)}
@@ -2548,7 +2552,7 @@ export const LearnerSchedulesManager = ({
                       <SelectItem value="2">2 Hours</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </div>}
 
                 {/* Date */}
                 <div className="flex items-center gap-2">
@@ -2648,8 +2652,8 @@ export const LearnerSchedulesManager = ({
               </div>
             ))}
 
-            {/* Add slot button */}
-            {topupRemainingClasses > 0 && (
+            {/* Add slot button — hidden for demo */}
+            {!isDemo && topupRemainingClasses > 0 && (
               <Button
                 variant="outline"
                 size="sm"

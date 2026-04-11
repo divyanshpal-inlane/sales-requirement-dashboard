@@ -627,6 +627,7 @@ export default function Home() {
               schedule={LessonData.upcomingSchedule}
               instructor={LessonData.instructor}
               lessonNumber={LessonData.upcomingLesson.number ?? 0}
+              lessonLabel={isDemo ? "Demo Lesson" : undefined}
             />
           )}
         <h2 className="text-lg font-semibold">
