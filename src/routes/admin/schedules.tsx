@@ -1962,7 +1962,7 @@ export const LearnerSchedulesManager = ({
               ? "Updating..."
               : `${learner?.name ?? "Learner"}'s Schedule`}
           </CardTitle>
-          {(learner?.schedules?.length > 0 || isDemo) && (
+          {(learner?.schedules?.length > 0 || (isDemo && learner)) && (
             <div className="flex gap-2">
               {pendingNotification && (
                 <Button
