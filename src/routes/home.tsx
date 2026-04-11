@@ -645,6 +645,7 @@ export default function Home() {
               schedule={LessonData.upcomingSchedule}
               instructor={LessonData.instructor}
               lessonNumber={LessonData.upcomingLesson.number ?? 0}
+              lessonEndNumber={LessonData.upcomingLesson.endNumber}
               lessonLabel={isDemo ? "Demo Lesson" : undefined}
             />
           )}
@@ -836,7 +837,7 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">
                 {isDemo
                   ? "Demo Lesson"
-                  : `Lesson ${LessonData?.upcomingLesson?.number} - ${LessonData?.course?.name}`}
+                  : `Lesson ${LessonData?.upcomingLesson?.number}${LessonData?.upcomingLesson?.endNumber ? ` & ${LessonData.upcomingLesson.endNumber}` : ""} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to start the lesson
@@ -878,7 +879,7 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">
                 {isDemo
                   ? "Demo Lesson"
-                  : `Lesson ${LessonData?.upcomingLesson?.number} - ${LessonData?.course?.name}`}
+                  : `Lesson ${LessonData?.upcomingLesson?.number}${LessonData?.upcomingLesson?.endNumber ? ` & ${LessonData.upcomingLesson.endNumber}` : ""} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to end the lesson

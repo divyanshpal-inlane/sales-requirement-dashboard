@@ -194,17 +194,29 @@ export function useUpcomingLesson() {
         lessonNumber = index >= 0 ? index + 1 : 1;
       }
 
+      // Calculate duration to determine if this covers multiple lessons
+      const sMin =
+        parseInt(nextSchedule.start_time?.split(":")[0] || "0") * 60 +
+        parseInt(nextSchedule.start_time?.split(":")[1] || "0");
+      const eMin =
+        parseInt(nextSchedule.end_time?.split(":")[0] || "0") * 60 +
+        parseInt(nextSchedule.end_time?.split(":")[1] || "0");
+      const durHours = Math.max(1, Math.round((eMin - sMin) / 60));
+      const endNumber =
+        durHours > 1 ? lessonNumber + durHours - 1 : null;
+
       return {
         upcomingSchedule: nextSchedule,
         upcomingLesson: nextSchedule.Lesson
           ? {
               ...nextSchedule.Lesson,
               number: lessonNumber,
+              endNumber,
             }
           : {
-              // Synthesize lesson for demo/topup schedules with no linked Lesson
               id: null,
               number: lessonNumber,
+              endNumber,
               description: "Demo Lesson",
             },
         instructor: nextSchedule.Instructor,

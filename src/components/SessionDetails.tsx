@@ -11,6 +11,7 @@ interface SessionDetailsProps {
   schedule: Database["public"]["Tables"]["Schedule"]["Row"];
   instructor: Database["public"]["Tables"]["Instructor"]["Row"];
   lessonNumber: number;
+  lessonEndNumber?: number | null;
   lessonLabel?: string;
 }
 
@@ -18,6 +19,7 @@ export function SessionDetails({
   schedule,
   instructor,
   lessonNumber,
+  lessonEndNumber,
   lessonLabel,
 }: SessionDetailsProps) {
   const { data } = useLearner();
@@ -32,7 +34,8 @@ export function SessionDetails({
           <div className="flex flex-row items-center justify-center gap-3">
             <IdCardIcon />
             <p className="font-medium">
-              {lessonLabel || `Lesson Number : ${lessonNumber}`}
+              {lessonLabel ||
+                `Lesson ${lessonNumber}${lessonEndNumber ? ` & ${lessonEndNumber}` : ""}`}
             </p>
           </div>
         </CardTitle>
