@@ -497,10 +497,10 @@ export default function AdminSchedules() {
   } = useQuery({
     queryKey: ["activeLearners"],
     queryFn: async () => {
-      // First, get active enrollment learner IDs
+      // First, get active enrollment learner IDs with progress info
       const { data: enrollmentData, error: enrollmentError } = await supabase
         .from("enrollment")
-        .select("learner_id")
+        .select("learner_id, progress")
         .eq("status", "active");
 
       if (enrollmentError) throw enrollmentError;
@@ -567,10 +567,24 @@ export default function AdminSchedules() {
 
       const learnersData = allLearners.flat();
 
-      // Filter out learners who don't have any schedules
-      const learnersWithSchedules = learnersData.filter(
-        (learner) => learner.schedules && learner.schedules.length > 0,
+      // Build a set of demo learner IDs
+      const demoLearnerIds = new Set(
+        enrollmentData
+          .filter((e: any) => e.progress?.type === "demo")
+          .map((e: any) => e.learner_id),
       );
+
+      // Include learners with schedules OR demo learners (even without schedules)
+      const learnersWithSchedules = learnersData.filter(
+        (learner) =>
+          (learner.schedules && learner.schedules.length > 0) ||
+          demoLearnerIds.has(learner.id),
+      );
+
+      // Tag demo learners
+      learnersWithSchedules.forEach((learner: any) => {
+        learner.isDemo = demoLearnerIds.has(learner.id);
+      });
 
       // Sort by created_at descending (since batching may lose overall order)
       learnersWithSchedules.sort((a, b) =>
@@ -1273,20 +1287,29 @@ export default function AdminSchedules() {
                         })
                         .map((learner) => (
                           <div key={learner.id} className="mb-2">
-                            <LearnerInfoCard
-                              learner={{
-                                id: learner.id || "",
-                                name: learner.name || "",
-                              }}
-                              // Highlight the selected learner
-                              className={
-                                selectedRequest?.id === learner.id
-                                  ? "border-indigo-500 bg-indigo-50"
-                                  : ""
-                              }
-                              compact={true}
-                              onClick={() => handleActiveLearnerSelect(learner)}
-                            />
+                            <div className="relative">
+                              {(learner as any).isDemo && (
+                                <span className="absolute -top-1 right-1 z-10 rounded bg-purple-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                  DEMO
+                                </span>
+                              )}
+                              <LearnerInfoCard
+                                learner={{
+                                  id: learner.id || "",
+                                  name: learner.name || "",
+                                }}
+                                // Highlight the selected learner
+                                className={
+                                  selectedRequest?.id === learner.id
+                                    ? "border-indigo-500 bg-indigo-50"
+                                    : (learner as any).isDemo
+                                      ? "border-purple-300"
+                                      : ""
+                                }
+                                compact={true}
+                                onClick={() => handleActiveLearnerSelect(learner)}
+                              />
+                            </div>
                           </div>
                         ))
                     )}
@@ -1301,6 +1324,7 @@ export default function AdminSchedules() {
                     key={selectedRequest.id} // Key ensures component re-mounts/refreshes for new learner
                     learnerId={selectedRequest.id}
                     instructorData={instructorData}
+                    isDemo={(selectedRequest as any).isDemo || false}
                   />
                 ) : (
                   <Card className="h-full border-dashed">
@@ -1383,11 +1407,13 @@ export const InstructorFilter = ({
 interface LearnerSchedulesManagerProps {
   learnerId: string;
   instructorData: any[];
+  isDemo?: boolean;
 }
 
 export const LearnerSchedulesManager = ({
   learnerId,
   instructorData,
+  isDemo = false,
 }: LearnerSchedulesManagerProps) => {
   const [learner, setLearner] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -2079,6 +2105,18 @@ export const LearnerSchedulesManager = ({
                     )}
                   </div>
                 ))
+            ) : isDemo && !isLoading ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <div className="rounded-full bg-purple-100 p-3">
+                  <Users size={24} className="text-purple-600" />
+                </div>
+                <p className="text-sm font-medium text-purple-700">
+                  Demo Learner — No lesson scheduled yet
+                </p>
+                <p className="text-xs text-gray-500">
+                  Use the Topup button above to schedule the demo lesson
+                </p>
+              </div>
             ) : (
               <div className="py-10 text-center text-gray-500">
                 {isLoading ? "Fetching data..." : "No records found."}
