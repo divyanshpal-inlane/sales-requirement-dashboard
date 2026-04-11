@@ -19,6 +19,8 @@ import {
   LearnerInfoCard,
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
+import InstructorAnalytics from "@/components/admin/InstructorAnalytics";
+import LessonRouteMap from "@/components/admin/LessonRouteMap";
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import CreateScheduleWithInstructor from "@/components/lesson/CreateSchedule";
 import { Button } from "@/components/ui/button";
@@ -543,6 +545,8 @@ export default function AdminSchedules() {
                 course_id,
                 learner_id,
                 status,
+                started_at,
+                ended_at,
                 Lesson(
                   id,
                   number
@@ -1399,6 +1403,10 @@ export const LearnerSchedulesManager = ({
   const [pendingNotification, setPendingNotification] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [isTopupDialogOpen, setIsTopupDialogOpen] = useState(false);
+  const [routeMapScheduleId, setRouteMapScheduleId] = useState<number | null>(
+    null,
+  );
+  const [routeMapLabel, setRouteMapLabel] = useState("");
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const [topupSlots, setTopupSlots] = useState<
     Array<{
@@ -1422,7 +1430,7 @@ export const LearnerSchedulesManager = ({
           id, name, area, phone, email, pick_up_location, address_lat, address_lng,
           schedules:Schedule(
             id, date, start_time, end_time, instructor_id,
-            status, course_id,
+            status, course_id, started_at, ended_at,
             Lesson(id, number),
             Instructor(name)
           )
@@ -1977,9 +1985,30 @@ export const LearnerSchedulesManager = ({
                     </div>
 
                     {schedule.status === "completed" ? (
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                        Completed
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {schedule.started_at && schedule.ended_at ? (
+                          <>
+                            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                              OTP Verified
+                            </span>
+                            <button
+                              className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-600 hover:bg-blue-100"
+                              onClick={() => {
+                                setRouteMapScheduleId(schedule.id);
+                                setRouteMapLabel(
+                                  `Lesson ${schedule.Lesson?.number ?? ""}`,
+                                );
+                              }}
+                            >
+                              View Route
+                            </button>
+                          </>
+                        ) : (
+                          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                            Manually Done
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1993,9 +2022,15 @@ export const LearnerSchedulesManager = ({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() =>
-                              onUpdateStatus(schedule.id, "completed")
-                            }
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  "This will mark the lesson as completed WITHOUT OTP verification. It will NOT count for instructor payout. Continue?",
+                                )
+                              ) {
+                                onUpdateStatus(schedule.id, "completed");
+                              }
+                            }}
                           >
                             Mark as Completed
                           </DropdownMenuItem>
@@ -2515,6 +2550,14 @@ export const LearnerSchedulesManager = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Lesson Route Map Dialog */}
+      <LessonRouteMap
+        scheduleId={routeMapScheduleId ?? 0}
+        open={routeMapScheduleId !== null}
+        onClose={() => setRouteMapScheduleId(null)}
+        lessonLabel={routeMapLabel}
+      />
     </div>
   );
 };

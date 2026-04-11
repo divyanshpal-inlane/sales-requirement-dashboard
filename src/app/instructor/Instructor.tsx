@@ -25,6 +25,8 @@ import {
   Clock,
   ExternalLinkIcon,
   Link,
+  Loader2,
+  Phone,
   PhoneOutgoing,
   Plus,
   Save,
@@ -64,6 +66,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { LESSON_CONTENT } from "@/constants/Lesson";
 import { supabase, useUser } from "@/context/auth-context";
 import { useImportedCalendar } from "@/hooks/useImportedCalendar";
+import { useLessonTracking } from "@/hooks/useLessonTracking";
+import { useMaskedCall } from "@/hooks/useMaskedCall";
 import {
   useInstructor,
   useInstructorScheduleData,
@@ -252,8 +256,23 @@ function Instructor() {
     error: instructorError,
   } = useInstructorScheduleData(phone ?? "");
   const updateScheduleStatus = useUpdateScheduleStatus();
+  const { initiateCall, isCallLoading } = useMaskedCall();
+  const { startTracking, stopTracking, isTracking, permissionDenied } =
+    useLessonTracking();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Track GPS during ongoing lessons
+  const ongoingSchedule = instructorData?.instructorSchedules?.find(
+    (s: any) => s.status === "ongoing",
+  );
+  useEffect(() => {
+    if (ongoingSchedule && !isTracking) {
+      startTracking(ongoingSchedule.id);
+    } else if (!ongoingSchedule && isTracking) {
+      stopTracking();
+    }
+  }, [ongoingSchedule?.id, isTracking, startTracking, stopTracking]);
 
   // Calendar import functionality
   const {
@@ -937,7 +956,9 @@ function Instructor() {
                 key={`schedule-${idx}`}
                 className={`cursor-pointer truncate rounded p-1 text-xs ${
                   schedule.status === "completed"
-                    ? "bg-green-100 text-green-800"
+                    ? schedule.started_at && schedule.ended_at
+                      ? "bg-green-100 text-green-800"
+                      : "bg-orange-100 text-orange-800"
                     : schedule.status === "ongoing"
                       ? "bg-blue-100 text-blue-800"
                       : "bg-purple-100 text-purple-800"
@@ -1219,14 +1240,18 @@ function Instructor() {
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
     // 1. Create a helper for consistent colors
-    const getStatusStyles = (status) => {
+    const getStatusStyles = (status, started_at?: string | null, ended_at?: string | null) => {
+      if (status === "completed") {
+        if (started_at && ended_at) {
+          return "bg-green-200 text-green-800 border-green-300"; // OTP verified
+        }
+        return "bg-orange-200 text-orange-800 border-orange-300"; // Manually completed
+      }
       switch (status) {
-        case "completed":
-          return "bg-green-200 text-green-800 border-green-300";
         case "ongoing":
           return "bg-blue-200 text-blue-800 border-blue-300";
         case "paused":
-          return "bg-amber-200 text-amber-900 border-amber-400"; // Specific Amber
+          return "bg-amber-200 text-amber-900 border-amber-400";
         default:
           return "bg-primary text-white border-transparent";
       }
@@ -1283,7 +1308,7 @@ function Instructor() {
                       isUnavailable && !timeSlotSchedules.length
                         ? "bg-gray-400"
                         : timeSlotSchedules.length > 0
-                          ? getStatusStyles(timeSlotSchedules[0].status) // Applied here
+                          ? getStatusStyles(timeSlotSchedules[0].status, timeSlotSchedules[0].started_at, timeSlotSchedules[0].ended_at)
                           : isEmpty
                             ? "cursor-pointer hover:bg-blue-50"
                             : ""
@@ -1530,6 +1555,21 @@ function Instructor() {
   return (
     <div className="relative flex h-full w-full flex-col">
       <Chatbot variant="instructor" />
+      {/* GPS tracking banner during ongoing lesson */}
+      {isTracking && (
+        <div className="flex items-center gap-2 bg-green-600 px-4 py-2 text-sm text-white">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+          </span>
+          Location tracking active — keep app open for route recording
+        </div>
+      )}
+      {permissionDenied && ongoingSchedule && (
+        <div className="bg-amber-500 px-4 py-2 text-sm text-white">
+          Location permission denied — route tracking unavailable for this lesson
+        </div>
+      )}
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
         <div className="flex-1 overflow-hidden p-6 pb-2">
           <TabsContent value="calendar" className="m-0 h-full overflow-y-auto">
@@ -1611,15 +1651,30 @@ function Instructor() {
                               <p>{learner?.name}</p>
                             </div>
                             <div className="flex flex-row items-center gap-2">
-                              <p className="text-muted-foreground">
-                                Contact Learner :{" "}
-                              </p>
-                              <p>{learner?.phone}</p>
-                              <div className="ml-1">
-                                <a href={`tel:+91${learner?.phone}`}>
-                                  <PhoneOutgoing size={14} />
-                                </a>
-                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isCallLoading}
+                                onClick={() =>
+                                  initiateCall(
+                                    phone ?? "",
+                                    learner?.phone ?? "",
+                                  )
+                                }
+                                className="flex items-center gap-1.5 text-xs"
+                              >
+                                {isCallLoading ? (
+                                  <Loader2
+                                    size={14}
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Phone size={14} />
+                                )}
+                                {isCallLoading
+                                  ? "Connecting..."
+                                  : "Call Learner"}
+                              </Button>
                             </div>
 
                             <Button
@@ -1777,15 +1832,25 @@ function Instructor() {
                           <p>{learner?.name}</p>
                         </div>
                         <div className="flex flex-row items-center gap-1">
-                          <p className="text-muted-foreground">
-                            Contact Learner :{" "}
-                          </p>
-                          <p>{learner?.phone}</p>
-                          <div className="ml-1">
-                            <a href={`tel:+91${learner?.phone}`}>
-                              <PhoneOutgoing size={14} />
-                            </a>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isCallLoading}
+                            onClick={() =>
+                              initiateCall(
+                                phone ?? "",
+                                learner?.phone ?? "",
+                              )
+                            }
+                            className="flex items-center gap-1.5 text-xs"
+                          >
+                            {isCallLoading ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Phone size={14} />
+                            )}
+                            {isCallLoading ? "Connecting..." : "Call Learner"}
+                          </Button>
                         </div>
 
                         {lessonSchedule.status && (
@@ -2344,18 +2409,25 @@ function Instructor() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-500">
-                        Phone:
-                      </span>
-                      <span className="text-sm text-gray-700">
-                        {scheduleDetailDialog.learner.phone}
-                      </span>
-                      <a
-                        href={`tel:+91${scheduleDetailDialog.learner.phone}`}
-                        className="text-blue-600 hover:text-blue-800"
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isCallLoading}
+                        onClick={() =>
+                          initiateCall(
+                            phone ?? "",
+                            scheduleDetailDialog.learner!.phone ?? "",
+                          )
+                        }
+                        className="flex items-center gap-1.5 text-xs"
                       >
-                        <PhoneOutgoing className="h-4 w-4" />
-                      </a>
+                        {isCallLoading ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Phone size={14} />
+                        )}
+                        {isCallLoading ? "Connecting..." : "Call Learner"}
+                      </Button>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="text-sm font-medium text-gray-500">

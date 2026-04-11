@@ -405,7 +405,7 @@ export function useLearnerSchedule({
       const { data, error } = await supabase
         .from("Schedule")
         .select(
-          "id, date, start_time, end_time, lesson_id,status, learner_id, Lesson (id, number, description)",
+          "id, date, start_time, end_time, lesson_id, status, learner_id, started_at, ended_at, Lesson (id, number, description)",
         )
         .eq("learner_id", learnerId)
         .eq("course_id", courseId)
@@ -441,6 +441,8 @@ export function useLearnerSchedule({
             (lesson.lesson_id === null ? "Topup Lesson" : null),
         },
         status: lesson.status,
+        startedAt: lesson.started_at,
+        endedAt: lesson.ended_at,
       }));
     },
     staleTime: Infinity,
