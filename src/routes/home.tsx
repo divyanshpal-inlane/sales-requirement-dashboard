@@ -539,11 +539,12 @@ export default function Home() {
           <small>(Reschedule requested)</small>
         </p>
         <h2 className="text-lg font-semibold">
-          {
-            LESSON_CONTENT[
-              LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
-            ].content.title
-          }
+          {isDemo
+            ? "Demo Lesson"
+            : LESSON_CONTENT[
+                LessonData?.upcomingLesson
+                  ?.number as keyof typeof LESSON_CONTENT
+              ]?.content?.title ?? `Lesson ${LessonData?.upcomingLesson?.number}`}
         </h2>
         <Button
           onClick={() => navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)}
@@ -629,11 +630,12 @@ export default function Home() {
             />
           )}
         <h2 className="text-lg font-semibold">
-          {
-            LESSON_CONTENT[
-              LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
-            ].content.title
-          }
+          {isDemo
+            ? "Demo Lesson"
+            : LESSON_CONTENT[
+                LessonData?.upcomingLesson
+                  ?.number as keyof typeof LESSON_CONTENT
+              ]?.content?.title ?? `Lesson ${LessonData?.upcomingLesson?.number}`}
         </h2>
 
         <div className="mt-6 flex flex-col gap-4">
@@ -813,8 +815,9 @@ export default function Home() {
           <div className="grid gap-4 py-4">
             <div className="flex flex-col items-center gap-3">
               <p className="text-sm text-muted-foreground">
-                Lesson {LessonData?.upcomingLesson?.number} -{" "}
-                {LessonData?.course?.name}
+                {isDemo
+                  ? "Demo Lesson"
+                  : `Lesson ${LessonData?.upcomingLesson?.number} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to start the lesson
@@ -854,8 +857,9 @@ export default function Home() {
           <div className="grid gap-4 py-4">
             <div className="flex flex-col items-center gap-3">
               <p className="text-sm text-muted-foreground">
-                Lesson {LessonData?.upcomingLesson?.number} -{" "}
-                {LessonData?.course?.name}
+                {isDemo
+                  ? "Demo Lesson"
+                  : `Lesson ${LessonData?.upcomingLesson?.number} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to end the lesson
