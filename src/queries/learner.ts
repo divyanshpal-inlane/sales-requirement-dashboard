@@ -433,13 +433,13 @@ export function useLearnerSchedule({
         learnerId: lesson.learner_id,
         lessonId: lesson.lesson_id,
         endTime: lesson.end_time,
-        lesson: lesson.Lesson
-          ? {
-              id: lesson.Lesson.id,
-              number: index + 1, // Use chronological position as lesson number
-              description: lesson.Lesson.description,
-            }
-          : null,
+        lesson: {
+          id: lesson.Lesson?.id ?? null,
+          number: index + 1, // Use chronological position as lesson number
+          description:
+            lesson.Lesson?.description ??
+            (lesson.lesson_id === null ? "Topup Lesson" : null),
+        },
         status: lesson.status,
       }));
     },

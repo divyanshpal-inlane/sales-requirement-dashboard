@@ -330,8 +330,9 @@ export default function Home() {
       return null;
     }
 
-    const progressPercentage = Math.round(
-      (completedLessonsCount / totalCourseLessons) * 100,
+    const progressPercentage = Math.min(
+      100,
+      Math.round((completedLessonsCount / totalCourseLessons) * 100),
     );
 
     return (
