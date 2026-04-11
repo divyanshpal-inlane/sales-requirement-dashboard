@@ -170,7 +170,7 @@ export default function Schedule() {
                   >
                     {lesson.status === "pending_payment"
                       ? "Demo Lesson — Pay ₹599 to activate"
-                      : `Lesson ${lesson.lesson?.number}`}
+                      : `Lesson ${lesson.lesson?.number}${lesson.lesson?.endNumber ? ` & ${lesson.lesson.endNumber}` : ""}`}
                     {lesson.status === "pending_payment" ? (
                       <Button
                         variant="link"

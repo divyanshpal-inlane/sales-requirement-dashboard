@@ -1499,14 +1499,34 @@ export const LearnerSchedulesManager = ({
         });
 
         // Assign lesson numbers based on chronological position
+        // A 2hr class covers 2 lesson numbers (e.g., "Lesson 1 & 2")
+        let lessonCounter = 1;
         const schedulesWithCorrectNumbers = sortedSchedules.map(
-          (schedule, index) => ({
-            ...schedule,
-            Lesson: {
-              id: schedule.Lesson?.id ?? null,
-              number: index + 1, // Use chronological position as lesson number
-            },
-          }),
+          (schedule) => {
+            const startMinutes =
+              parseInt(schedule.start_time?.split(":")[0] || "0") * 60 +
+              parseInt(schedule.start_time?.split(":")[1] || "0");
+            const endMinutes =
+              parseInt(schedule.end_time?.split(":")[0] || "0") * 60 +
+              parseInt(schedule.end_time?.split(":")[1] || "0");
+            const durationHours = Math.max(
+              1,
+              Math.round((endMinutes - startMinutes) / 60),
+            );
+            const startLesson = lessonCounter;
+            lessonCounter += durationHours;
+            return {
+              ...schedule,
+              Lesson: {
+                id: schedule.Lesson?.id ?? null,
+                number: startLesson,
+                endNumber:
+                  durationHours > 1
+                    ? startLesson + durationHours - 1
+                    : null,
+              },
+            };
+          },
         );
 
         setLearner({ ...data, schedules: schedulesWithCorrectNumbers });
@@ -2112,8 +2132,11 @@ export const LearnerSchedulesManager = ({
                   >
                     <div className="space-y-0.5">
                       <div className="text-xs font-medium md:text-sm">
-                        Lesson {schedule.Lesson?.number ?? "N/A"} —{" "}
-                        {schedule.date ?? "N/A"}
+                        Lesson {schedule.Lesson?.number ?? "N/A"}
+                        {schedule.Lesson?.endNumber
+                          ? ` & ${schedule.Lesson.endNumber}`
+                          : ""}{" "}
+                        — {schedule.date ?? "N/A"}
                       </div>
                       <div className="text-xs text-gray-500 md:text-sm">
                         {schedule.start_time?.substring(0, 5) ?? "N/A"} -{" "}

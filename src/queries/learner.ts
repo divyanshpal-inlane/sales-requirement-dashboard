@@ -425,22 +425,35 @@ export function useLearnerSchedule({
           .order("date", { ascending: true })
           .order("start_time", { ascending: true });
         if (error) throw error;
-        return (data || []).map((lesson, index) => ({
-          id: lesson.id,
-          date: lesson.date,
-          startTime: lesson.start_time,
-          learnerId: lesson.learner_id,
-          lessonId: lesson.lesson_id,
-          endTime: lesson.end_time,
-          lesson: {
-            id: lesson.Lesson?.id ?? null,
-            number: index + 1,
-            description: lesson.Lesson?.description ?? "Demo Lesson",
-          },
-          status: lesson.status,
-          startedAt: lesson.started_at,
-          endedAt: lesson.ended_at,
-        }));
+        let demoCounter = 1;
+        return (data || []).map((lesson) => {
+          const sMin =
+            parseInt(lesson.start_time?.split(":")[0] || "0") * 60 +
+            parseInt(lesson.start_time?.split(":")[1] || "0");
+          const eMin =
+            parseInt(lesson.end_time?.split(":")[0] || "0") * 60 +
+            parseInt(lesson.end_time?.split(":")[1] || "0");
+          const dur = Math.max(1, Math.round((eMin - sMin) / 60));
+          const start = demoCounter;
+          demoCounter += dur;
+          return {
+            id: lesson.id,
+            date: lesson.date,
+            startTime: lesson.start_time,
+            learnerId: lesson.learner_id,
+            lessonId: lesson.lesson_id,
+            endTime: lesson.end_time,
+            lesson: {
+              id: lesson.Lesson?.id ?? null,
+              number: start,
+              endNumber: dur > 1 ? start + dur - 1 : null,
+              description: lesson.Lesson?.description ?? "Demo Lesson",
+            },
+            status: lesson.status,
+            startedAt: lesson.started_at,
+            endedAt: lesson.ended_at,
+          };
+        });
       }
       if (!courseId) return [];
       const { data, error } = await supabase
@@ -466,8 +479,21 @@ export function useLearnerSchedule({
         return dateTimeA - dateTimeB;
       });
 
-      // Calculate lesson numbers based on chronological position (1, 2, 3, ...)
-      return sortedData.map((lesson, index) => ({
+      // Calculate lesson numbers based on chronological position
+      // A 2hr class covers 2 lesson numbers
+      let lessonCounter = 1;
+      return sortedData.map((lesson) => {
+        const startMin =
+          parseInt(lesson.start_time?.split(":")[0] || "0") * 60 +
+          parseInt(lesson.start_time?.split(":")[1] || "0");
+        const endMin =
+          parseInt(lesson.end_time?.split(":")[0] || "0") * 60 +
+          parseInt(lesson.end_time?.split(":")[1] || "0");
+        const durHours = Math.max(1, Math.round((endMin - startMin) / 60));
+        const startLesson = lessonCounter;
+        lessonCounter += durHours;
+
+        return {
         id: lesson.id,
         date: lesson.date,
         startTime: lesson.start_time,
@@ -476,7 +502,8 @@ export function useLearnerSchedule({
         endTime: lesson.end_time,
         lesson: {
           id: lesson.Lesson?.id ?? null,
-          number: index + 1, // Use chronological position as lesson number
+          number: startLesson,
+          endNumber: durHours > 1 ? startLesson + durHours - 1 : null,
           description:
             lesson.Lesson?.description ??
             (lesson.lesson_id === null ? "Topup Lesson" : null),
@@ -484,7 +511,8 @@ export function useLearnerSchedule({
         status: lesson.status,
         startedAt: lesson.started_at,
         endedAt: lesson.ended_at,
-      }));
+      };
+      });
     },
     staleTime: Infinity,
     enabled: !!learnerId,
