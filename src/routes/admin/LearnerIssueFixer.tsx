@@ -844,8 +844,13 @@ function EnrollmentEditor({
     existingProgress?.total_hours ||
     10;
   const courseType = getCourseType();
-  // Calculate half payment lessons (half of total, rounded down)
-  const halfPaymentLessons = Math.floor(actualTotalLessons / 2);
+  // Calculate half payment lessons: 10→8, 8→6, 6→4, 4→2, 2→1
+  const halfPaymentLessons =
+    actualTotalLessons <= 1
+      ? 1
+      : actualTotalLessons === 2
+        ? 1
+        : actualTotalLessons - 2;
   // Full payment lessons (total minus 1 for regular 10-lesson course, or all for others)
   const fullPaymentLessons =
     courseType === "regular" && actualTotalLessons === 10

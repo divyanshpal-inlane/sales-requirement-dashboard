@@ -169,10 +169,14 @@ export function useUpcomingLesson() {
       // Calculate the chronological lesson number by finding this schedule's position
       // among ALL schedules for the same course, sorted by date/time
       let lessonNumber = 1;
-      if (allSchedules && nextSchedule.course_id) {
-        // Filter to only schedules for the same course and sort by date/time
+      if (allSchedules) {
+        // Filter to schedules for the same course (or null course for demo)
         const courseSchedules = allSchedules
-          .filter((s) => s.course_id === nextSchedule.course_id)
+          .filter((s) =>
+            nextSchedule.course_id
+              ? s.course_id === nextSchedule.course_id
+              : s.course_id === null,
+          )
           .sort((a, b) => {
             const dateTimeA = new Date(
               `${a.date}T${a.start_time || "00:00:00"}`,
@@ -190,14 +194,30 @@ export function useUpcomingLesson() {
         lessonNumber = index >= 0 ? index + 1 : 1;
       }
 
+      // Calculate duration to determine if this covers multiple lessons
+      const sMin =
+        parseInt(nextSchedule.start_time?.split(":")[0] || "0") * 60 +
+        parseInt(nextSchedule.start_time?.split(":")[1] || "0");
+      const eMin =
+        parseInt(nextSchedule.end_time?.split(":")[0] || "0") * 60 +
+        parseInt(nextSchedule.end_time?.split(":")[1] || "0");
+      const durHours = Math.max(1, Math.round((eMin - sMin) / 60));
+      const endNumber = durHours > 1 ? lessonNumber + durHours - 1 : null;
+
       return {
         upcomingSchedule: nextSchedule,
         upcomingLesson: nextSchedule.Lesson
           ? {
               ...nextSchedule.Lesson,
-              number: lessonNumber, // Use chronological position as lesson number
+              number: lessonNumber,
+              endNumber,
             }
-          : null,
+          : {
+              id: null,
+              number: lessonNumber,
+              endNumber,
+              description: "Demo Lesson",
+            },
         instructor: nextSchedule.Instructor,
         course: nextSchedule.Courses,
       };
@@ -416,22 +436,35 @@ export function useLearnerSchedule({
           .order("date", { ascending: true })
           .order("start_time", { ascending: true });
         if (error) throw error;
-        return (data || []).map((lesson, index) => ({
-          id: lesson.id,
-          date: lesson.date,
-          startTime: lesson.start_time,
-          learnerId: lesson.learner_id,
-          lessonId: lesson.lesson_id,
-          endTime: lesson.end_time,
-          lesson: {
-            id: lesson.Lesson?.id ?? null,
-            number: index + 1,
-            description: lesson.Lesson?.description ?? "Demo Lesson",
-          },
-          status: lesson.status,
-          startedAt: lesson.started_at,
-          endedAt: lesson.ended_at,
-        }));
+        let demoCounter = 1;
+        return (data || []).map((lesson) => {
+          const sMin =
+            parseInt(lesson.start_time?.split(":")[0] || "0") * 60 +
+            parseInt(lesson.start_time?.split(":")[1] || "0");
+          const eMin =
+            parseInt(lesson.end_time?.split(":")[0] || "0") * 60 +
+            parseInt(lesson.end_time?.split(":")[1] || "0");
+          const dur = Math.max(1, Math.round((eMin - sMin) / 60));
+          const start = demoCounter;
+          demoCounter += dur;
+          return {
+            id: lesson.id,
+            date: lesson.date,
+            startTime: lesson.start_time,
+            learnerId: lesson.learner_id,
+            lessonId: lesson.lesson_id,
+            endTime: lesson.end_time,
+            lesson: {
+              id: lesson.Lesson?.id ?? null,
+              number: start,
+              endNumber: dur > 1 ? start + dur - 1 : null,
+              description: lesson.Lesson?.description ?? "Demo Lesson",
+            },
+            status: lesson.status,
+            startedAt: lesson.started_at,
+            endedAt: lesson.ended_at,
+          };
+        });
       }
       if (!courseId) return [];
       const { data, error } = await supabase
@@ -457,25 +490,40 @@ export function useLearnerSchedule({
         return dateTimeA - dateTimeB;
       });
 
-      // Calculate lesson numbers based on chronological position (1, 2, 3, ...)
-      return sortedData.map((lesson, index) => ({
-        id: lesson.id,
-        date: lesson.date,
-        startTime: lesson.start_time,
-        learnerId: lesson.learner_id,
-        lessonId: lesson.lesson_id,
-        endTime: lesson.end_time,
-        lesson: {
-          id: lesson.Lesson?.id ?? null,
-          number: index + 1, // Use chronological position as lesson number
-          description:
-            lesson.Lesson?.description ??
-            (lesson.lesson_id === null ? "Topup Lesson" : null),
-        },
-        status: lesson.status,
-        startedAt: lesson.started_at,
-        endedAt: lesson.ended_at,
-      }));
+      // Calculate lesson numbers based on chronological position
+      // A 2hr class covers 2 lesson numbers
+      let lessonCounter = 1;
+      return sortedData.map((lesson) => {
+        const startMin =
+          parseInt(lesson.start_time?.split(":")[0] || "0") * 60 +
+          parseInt(lesson.start_time?.split(":")[1] || "0");
+        const endMin =
+          parseInt(lesson.end_time?.split(":")[0] || "0") * 60 +
+          parseInt(lesson.end_time?.split(":")[1] || "0");
+        const durHours = Math.max(1, Math.round((endMin - startMin) / 60));
+        const startLesson = lessonCounter;
+        lessonCounter += durHours;
+
+        return {
+          id: lesson.id,
+          date: lesson.date,
+          startTime: lesson.start_time,
+          learnerId: lesson.learner_id,
+          lessonId: lesson.lesson_id,
+          endTime: lesson.end_time,
+          lesson: {
+            id: lesson.Lesson?.id ?? null,
+            number: startLesson,
+            endNumber: durHours > 1 ? startLesson + durHours - 1 : null,
+            description:
+              lesson.Lesson?.description ??
+              (lesson.lesson_id === null ? "Topup Lesson" : null),
+          },
+          status: lesson.status,
+          startedAt: lesson.started_at,
+          endedAt: lesson.ended_at,
+        };
+      });
     },
     staleTime: Infinity,
     enabled: !!learnerId,

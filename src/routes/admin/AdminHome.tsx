@@ -3,6 +3,7 @@ import {
   Bug,
   Calendar,
   ClipboardList,
+  CreditCard,
   Loader2,
   LogOut,
   PhoneCall,
@@ -124,6 +125,13 @@ const featureConfig: Record<
     icon: BookOpenCheck,
     link: "/admin/instructor-lesson-log",
     color: "text-emerald-500",
+  },
+  payment_tracker: {
+    title: "Payment Tracker",
+    description: "Track payments, lesson progress, and follow-up urgency",
+    icon: CreditCard,
+    link: "/admin/payment-tracker",
+    color: "text-blue-500",
   },
 };
 

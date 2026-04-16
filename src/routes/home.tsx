@@ -307,13 +307,31 @@ export default function Home() {
       (request) => request.lesson_id === LessonData.upcomingLesson.id,
     );
 
+  // Helper: count lesson-hours (2hr class = 2 lessons)
+  const countLessonHours = (
+    lessons: typeof scheduledLessons,
+    filter?: (l: NonNullable<typeof scheduledLessons>[number]) => boolean,
+  ) => {
+    if (!lessons) return 0;
+    const filtered = filter ? lessons.filter(filter) : lessons;
+    return filtered.reduce((sum, l) => {
+      const sMin =
+        parseInt(l.startTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.startTime?.split(":")[1] || "0");
+      const eMin =
+        parseInt(l.endTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.endTime?.split(":")[1] || "0");
+      return sum + Math.max(1, Math.round((eMin - sMin) / 60));
+    }, 0);
+  };
+
   // Course progress calculations
   const totalCourseLessons = enrolledCourse?.Courses?.total_lessons || 10;
-  const completedLessonsCount =
-    scheduledLessons?.filter(
-      (lesson) => lesson.status?.toUpperCase() === "COMPLETED",
-    ).length || 0;
-  const scheduledLessonsCount = scheduledLessons?.length || 0;
+  const completedLessonsCount = countLessonHours(
+    scheduledLessons,
+    (l) => l.status?.toUpperCase() === "COMPLETED",
+  );
+  const scheduledLessonsCount = countLessonHours(scheduledLessons);
 
   // For half payment, calculate accessible lessons
   const accessibleLessonsCount =
@@ -539,11 +557,12 @@ export default function Home() {
           <small>(Reschedule requested)</small>
         </p>
         <h2 className="text-lg font-semibold">
-          {
-            LESSON_CONTENT[
-              LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
-            ].content.title
-          }
+          {isDemo
+            ? "Demo Lesson"
+            : LESSON_CONTENT[
+                LessonData?.upcomingLesson
+                  ?.number as keyof typeof LESSON_CONTENT
+              ]?.content?.title ?? `Lesson ${LessonData?.upcomingLesson?.number}`}
         </h2>
         <Button
           onClick={() => navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)}
@@ -626,14 +645,17 @@ export default function Home() {
               schedule={LessonData.upcomingSchedule}
               instructor={LessonData.instructor}
               lessonNumber={LessonData.upcomingLesson.number ?? 0}
+              lessonEndNumber={LessonData.upcomingLesson.endNumber}
+              lessonLabel={isDemo ? "Demo Lesson" : undefined}
             />
           )}
         <h2 className="text-lg font-semibold">
-          {
-            LESSON_CONTENT[
-              LessonData?.upcomingLesson?.number as keyof typeof LESSON_CONTENT
-            ].content.title
-          }
+          {isDemo
+            ? "Demo Lesson"
+            : LESSON_CONTENT[
+                LessonData?.upcomingLesson
+                  ?.number as keyof typeof LESSON_CONTENT
+              ]?.content?.title ?? `Lesson ${LessonData?.upcomingLesson?.number}`}
         </h2>
 
         <div className="mt-6 flex flex-col gap-4">
@@ -813,8 +835,9 @@ export default function Home() {
           <div className="grid gap-4 py-4">
             <div className="flex flex-col items-center gap-3">
               <p className="text-sm text-muted-foreground">
-                Lesson {LessonData?.upcomingLesson?.number} -{" "}
-                {LessonData?.course?.name}
+                {isDemo
+                  ? "Demo Lesson"
+                  : `Lesson ${LessonData?.upcomingLesson?.number}${LessonData?.upcomingLesson?.endNumber ? ` & ${LessonData.upcomingLesson.endNumber}` : ""} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to start the lesson
@@ -854,8 +877,9 @@ export default function Home() {
           <div className="grid gap-4 py-4">
             <div className="flex flex-col items-center gap-3">
               <p className="text-sm text-muted-foreground">
-                Lesson {LessonData?.upcomingLesson?.number} -{" "}
-                {LessonData?.course?.name}
+                {isDemo
+                  ? "Demo Lesson"
+                  : `Lesson ${LessonData?.upcomingLesson?.number}${LessonData?.upcomingLesson?.endNumber ? ` & ${LessonData.upcomingLesson.endNumber}` : ""} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to end the lesson
@@ -916,6 +940,36 @@ export default function Home() {
             ) : LessonData?.upcomingSchedule?.status?.toUpperCase() ===
               "PAUSED" ? (
               <div className="mb-6">{renderPausedLesson()}</div>
+            ) : LessonData?.upcomingSchedule?.status === "pending_payment" ? (
+              <div className="mb-6">
+                <Card className="border-amber-300 bg-amber-50">
+                  <CardContent className="flex flex-col items-center gap-4 p-6">
+                    <div className="rounded-full bg-amber-100 p-3">
+                      <Clock size={32} className="text-amber-600" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-amber-800">
+                      {isDemo ? "Demo Lesson" : "Topup Class"} Scheduled
+                    </h2>
+                    <p className="text-center text-sm text-amber-700">
+                      Pay ₹599 to activate your {isDemo ? "demo lesson" : "topup class"} on{" "}
+                      {LessonData?.upcomingSchedule?.date
+                        ? format(
+                            new Date(LessonData.upcomingSchedule.date),
+                            "EEE, do MMM",
+                          )
+                        : ""}
+                    </p>
+                    <Button
+                      className="w-full bg-amber-600 hover:bg-amber-700"
+                      onClick={() =>
+                        navigate(`/payment?phone=${learner?.phone}&type=demo`)
+                      }
+                    >
+                      Pay ₹599 Now
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             ) : LessonData?.upcomingLesson ? (
               <div className="mb-6">{renderUpcomingLesson()}</div>
             ) : (

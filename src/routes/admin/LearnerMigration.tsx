@@ -922,10 +922,13 @@ function MigrationFormContent() {
       const courseId =
         formData.courseType === "predefined" ? formData.selectedCourseId : null;
 
+      // Half payment unlock: 10→8, 8→6, 6→4, 4→2, 2→1
+      const halfPaymentUnlock =
+        totalLessons <= 1 ? 1 : totalLessons === 2 ? 1 : totalLessons - 2;
       const unlockedCount =
         formData.paymentStatus === "completed"
           ? totalLessons
-          : Math.min(completedLessonsNumSubmit + 1, totalLessons);
+          : Math.max(Math.min(completedLessonsNumSubmit + 1, totalLessons), halfPaymentUnlock);
 
       const enrollmentData = {
         learner_id: createdLearner.id,

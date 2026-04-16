@@ -95,6 +95,7 @@ function PaymentPage() {
   useEffect(() => {
     const fetchLearnerDetails = async () => {
       const phone = searchParams.get("phone");
+      const urlType = searchParams.get("type");
       if (phone && phone !== "undefined" && phone !== "null") {
         try {
           const { data: learner, error } = await supabase
@@ -107,6 +108,26 @@ function PaymentPage() {
 
           if (error || !learner)
             throw new Error("Failed to fetch learner details");
+
+          // If URL has type=demo, auto-select demo course with pre-filled info
+          if (urlType === "demo") {
+            setPaymentDetails((prev) => ({
+              ...prev,
+              email: learner.email || "",
+              phone: learner.phone || "",
+              name: learner.name || "",
+              learnerId: learner.id,
+              paymentType: "demo",
+              courseId: "",
+              amount: DEMO_COURSE.price,
+              totalAmount: DEMO_COURSE.price,
+              totalHours: DEMO_COURSE.hours,
+              selectedModules: [],
+            }));
+            setCourseSelectionType("demo");
+            setIsPrefilled(true);
+            return;
+          }
 
           // Check if there's an existing enrollment for this learner
           const { data: enrollments, error: enrollmentError } = await supabase
@@ -881,8 +902,18 @@ function PaymentPage() {
               </>
             )}
 
-            {/* Show simple course dropdown if already enrolled (prefilled) */}
-            {type === "course" && isPrefilled && (
+            {/* Show demo info when opened via topup payment link */}
+            {isPrefilled && courseSelectionType === "demo" && (
+              <Alert>
+                <AlertDescription>
+                  <strong>Demo Lesson</strong> - {DEMO_COURSE.hours}-hour
+                  introductory lesson for ₹{DEMO_COURSE.price}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Show simple course dropdown if already enrolled (prefilled), but not for demo */}
+            {type === "course" && isPrefilled && courseSelectionType !== "demo" && (
               <div>
                 <label
                   htmlFor="courseId"

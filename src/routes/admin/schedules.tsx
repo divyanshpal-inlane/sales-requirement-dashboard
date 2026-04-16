@@ -87,6 +87,44 @@ declare module "@/queries/preferences" {
   }
 }
 
+const PREDEFINED_COURSES = [
+  {
+    id: "e129f667-0510-4f07-9847-edb58356dc74",
+    name: "Beginner Course",
+    duration: 10,
+  },
+  { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
+  { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
+  { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
+  { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
+  {
+    id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb",
+    name: "Parking + Flyover",
+    duration: 4,
+  },
+  {
+    id: "abddddb8-3f54-41ea-a64b-5ba55988b12a",
+    name: "Slopes + Parking",
+    duration: 4,
+  },
+  {
+    id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936",
+    name: "Traffic + Parking",
+    duration: 6,
+  },
+  {
+    id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3",
+    name: "Traffic + Flyover",
+    duration: 6,
+  },
+  {
+    id: "b991363c-6791-411e-9cb8-6723e40d0a0a",
+    name: "Traffic + Parking + Flyover",
+    duration: 8,
+  },
+];
+const DEMO_CREDIT = 599;
+
 export default function AdminSchedules() {
   const navigate = useNavigate();
   const { data: requests, isLoading, isRefetching } = useSchedulingRequests();
@@ -500,12 +538,13 @@ export default function AdminSchedules() {
       // First, get active enrollment learner IDs with progress info
       const { data: enrollmentData, error: enrollmentError } = await supabase
         .from("enrollment")
-        .select("learner_id, progress")
+        .select("learner_id, progress, Courses(total_lessons, duration)")
         .eq("status", "active");
 
       if (enrollmentError) throw enrollmentError;
 
-      const learnerIds = enrollmentData.map((e) => e.learner_id);
+      // Deduplicate learner IDs (a learner may have multiple enrollments)
+      const learnerIds = [...new Set(enrollmentData.map((e) => e.learner_id))];
 
       // Batch learner IDs into chunks to avoid URL length limits
       const BATCH_SIZE = 50;
@@ -574,6 +613,21 @@ export default function AdminSchedules() {
           .map((e: any) => e.learner_id),
       );
 
+      // Build map of learner_id -> total allotted lessons
+      const learnerTotalLessons: Record<string, number> = {};
+      enrollmentData.forEach((e: any) => {
+        const total =
+          e.Courses?.total_lessons ||
+          e.Courses?.duration ||
+          e.progress?.total_hours ||
+          10;
+        // Use the max if learner has multiple enrollments
+        learnerTotalLessons[e.learner_id] = Math.max(
+          learnerTotalLessons[e.learner_id] || 0,
+          total,
+        );
+      });
+
       // Include learners with schedules OR demo learners (even without schedules)
       const learnersWithSchedules = learnersData.filter(
         (learner) =>
@@ -581,9 +635,19 @@ export default function AdminSchedules() {
           demoLearnerIds.has(learner.id),
       );
 
-      // Tag demo learners
+      // Tag demo learners, completion status, and topup payment status
       learnersWithSchedules.forEach((learner: any) => {
         learner.isDemo = demoLearnerIds.has(learner.id);
+        const totalLessons = learnerTotalLessons[learner.id] || 10;
+        const completedCount =
+          learner.schedules?.filter((s: any) => s.status === "completed")
+            .length || 0;
+        learner.totalLessons = totalLessons;
+        learner.completedLessons = completedCount;
+        learner.isAllCompleted = completedCount >= totalLessons;
+        learner.hasTopupPending =
+          learner.schedules?.some((s: any) => s.status === "pending_payment") ||
+          false;
       });
 
       // Sort by created_at descending (since batching may lose overall order)
@@ -628,25 +692,26 @@ export default function AdminSchedules() {
   console.log(activeLearners);
   const filteredLearners = activeLearners?.filter((learner) => {
     const search = searchTerm.toLowerCase();
-
-    // 1. Check Learner's own details
     const learnerMatches =
       learner.name?.toLowerCase().includes(search) ||
       learner.email?.toLowerCase().includes(search) ||
       learner.phone?.includes(searchTerm);
-
-    // 2. Check ALL instructors linked to this learner's schedules
-    // const instructorMatches = learner.schedules?.some((schedule) =>
-    //   schedule.Instructor?.name?.toLowerCase().includes(search)
-    // );
-
-    return learnerMatches; // || instructorMatches;
+    return learnerMatches;
   });
+
+  // Split into active (still in progress) vs completed (all lessons done)
+  const activeOnlyLearners = filteredLearners?.filter(
+    (l: any) => !l.isAllCompleted,
+  );
+  const completedLearners = filteredLearners?.filter(
+    (l: any) => l.isAllCompleted,
+  );
 
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportLearnerCount, setExportLearnerCount] = useState<string>("all");
-  const [exportSchedulePeriod, setExportSchedulePeriod] = useState<string>("all");
+  const [exportSchedulePeriod, setExportSchedulePeriod] =
+    useState<string>("all");
   const [exportStatuses, setExportStatuses] = useState<string[]>([
     "booked",
     "ongoing",
@@ -729,7 +794,10 @@ export default function AdminSchedules() {
       // Filter schedules by status and date period
       const filteredSchedules = [...(learner.schedules || [])]
         .filter((s) => {
-          if (exportStatuses.length > 0 && !exportStatuses.includes(s.status || ""))
+          if (
+            exportStatuses.length > 0 &&
+            !exportStatuses.includes(s.status || "")
+          )
             return false;
           if (dateCutoff && s.date) {
             const scheduleDate = new Date(s.date);
@@ -816,7 +884,10 @@ export default function AdminSchedules() {
               10th Lesson Requests {tenthLessonRequests?.length || 0}
             </TabsTrigger>
             <TabsTrigger value="active">
-              Active Learners {activeLearners?.length || 0}
+              Active Learners {activeOnlyLearners?.length || 0}
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completed Learners {completedLearners?.length || 0}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1103,7 +1174,10 @@ export default function AdminSchedules() {
                 </div>
 
                 {/* Export Filters Dialog */}
-                <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                <Dialog
+                  open={showExportDialog}
+                  onOpenChange={setShowExportDialog}
+                >
                   <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Export Active Learners</DialogTitle>
@@ -1126,10 +1200,18 @@ export default function AdminSchedules() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="10">Latest 10 Learners</SelectItem>
-                            <SelectItem value="25">Latest 25 Learners</SelectItem>
-                            <SelectItem value="50">Latest 50 Learners</SelectItem>
-                            <SelectItem value="100">Latest 100 Learners</SelectItem>
+                            <SelectItem value="10">
+                              Latest 10 Learners
+                            </SelectItem>
+                            <SelectItem value="25">
+                              Latest 25 Learners
+                            </SelectItem>
+                            <SelectItem value="50">
+                              Latest 50 Learners
+                            </SelectItem>
+                            <SelectItem value="100">
+                              Latest 100 Learners
+                            </SelectItem>
                             <SelectItem value="all">All Learners</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1177,7 +1259,9 @@ export default function AdminSchedules() {
                               <input
                                 type="checkbox"
                                 checked={exportStatuses.includes(status.value)}
-                                onChange={() => toggleExportStatus(status.value)}
+                                onChange={() =>
+                                  toggleExportStatus(status.value)
+                                }
                                 className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                               />
                               {status.label}
@@ -1214,7 +1298,8 @@ export default function AdminSchedules() {
                             <span className="font-medium">
                               {instructorData?.find(
                                 (i) =>
-                                  i.id_instructor === selectedFilterInstructorId,
+                                  i.id_instructor ===
+                                  selectedFilterInstructorId,
                               )?.name || "selected instructor"}
                             </span>
                           </>
@@ -1270,12 +1355,12 @@ export default function AdminSchedules() {
                         <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
                         Loading...
                       </div>
-                    ) : filteredLearners?.length === 0 ? (
+                    ) : activeOnlyLearners?.length === 0 ? (
                       <div className="flex items-center justify-center py-10 text-sm text-gray-500">
                         No learners found matching "{searchTerm}"
                       </div>
                     ) : (
-                      filteredLearners
+                      activeOnlyLearners
                         // Filter learners locally if an instructor is selected
                         ?.filter((learner) => {
                           if (!selectedFilterInstructorId) return true;
@@ -1293,6 +1378,11 @@ export default function AdminSchedules() {
                                   DEMO
                                 </span>
                               )}
+                              {(learner as any).hasTopupPending && (
+                                <span className="absolute -top-1 left-1 z-10 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                  ₹ PENDING
+                                </span>
+                              )}
                               <LearnerInfoCard
                                 learner={{
                                   id: learner.id || "",
@@ -1307,7 +1397,9 @@ export default function AdminSchedules() {
                                       : ""
                                 }
                                 compact={true}
-                                onClick={() => handleActiveLearnerSelect(learner)}
+                                onClick={() =>
+                                  handleActiveLearnerSelect(learner)
+                                }
                               />
                             </div>
                           </div>
@@ -1341,6 +1433,98 @@ export default function AdminSchedules() {
                         <p className="max-w-[250px] text-sm">
                           Select a learner from the list to manage their
                           schedule and instructor assignments.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Completed Learners Tab */}
+          <TabsContent value="completed" className="h-full space-y-2">
+            <div className="grid h-full grid-cols-1 gap-2 p-4 md:grid-cols-3">
+              {/* LEFT BAR: Completed Learners List */}
+              <Card className="md:col-span-1">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm">Completed Learners</CardTitle>
+                  <div className="mt-1">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2 h-4 w-4 text-gray-500" />
+                      <Input
+                        placeholder="Search..."
+                        className="h-8 pl-8 text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 pt-0">
+                  <ScrollArea className="h-[calc(100vh-320px)]">
+                    {isLoadingActiveLearners ? (
+                      <div className="flex items-center justify-center py-10 text-gray-500">
+                        <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : completedLearners?.length === 0 ? (
+                      <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                        No completed learners found
+                      </div>
+                    ) : (
+                      completedLearners?.map((learner) => (
+                        <div key={learner.id} className="mb-2">
+                          <div className="relative">
+                            <span className="absolute -top-1 right-1 z-10 rounded bg-green-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                              {(learner as any).completedLessons}/
+                              {(learner as any).totalLessons}
+                            </span>
+                            <LearnerInfoCard
+                              learner={{
+                                id: learner.id || "",
+                                name: learner.name || "",
+                              }}
+                              className={
+                                selectedRequest?.id === learner.id
+                                  ? "border-green-500 bg-green-50"
+                                  : "border-green-200"
+                              }
+                              compact={true}
+                              onClick={() => handleActiveLearnerSelect(learner)}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* RIGHT BAR: Schedule Details */}
+              <div className="md:col-span-2">
+                {selectedRequest ? (
+                  <LearnerSchedulesManager
+                    key={selectedRequest.id}
+                    learnerId={selectedRequest.id}
+                    instructorData={instructorData}
+                    isDemo={(selectedRequest as any).isDemo || false}
+                  />
+                ) : (
+                  <Card className="h-full border-dashed">
+                    <CardHeader className="p-3">
+                      <CardTitle className="text-sm text-gray-400">
+                        Schedule Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0">
+                      <div className="flex h-[calc(100vh-280px)] flex-col items-center justify-center text-center text-gray-400">
+                        <div className="mb-3 rounded-full bg-gray-50 p-4">
+                          <Users size={36} className="text-gray-200" />
+                        </div>
+                        <p className="max-w-[250px] text-sm">
+                          Select a completed learner to view their schedule
+                          history.
                         </p>
                       </div>
                     </CardContent>
@@ -1434,6 +1618,9 @@ export const LearnerSchedulesManager = ({
   );
   const [routeMapLabel, setRouteMapLabel] = useState("");
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeSelectedCourse, setUpgradeSelectedCourse] = useState("");
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const [topupSlots, setTopupSlots] = useState<
     Array<{
@@ -1443,7 +1630,9 @@ export const LearnerSchedulesManager = ({
       duration: number; // 1 or 2 hours (2hr = 2 classes)
       instructor_id: string;
     }>
-  >([{ date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" }]);
+  >([
+    { date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" },
+  ]);
 
   // 1. Data Fetching
   const syncData = useCallback(async () => {
@@ -1481,15 +1670,31 @@ export const LearnerSchedulesManager = ({
         });
 
         // Assign lesson numbers based on chronological position
-        const schedulesWithCorrectNumbers = sortedSchedules.map(
-          (schedule, index) => ({
+        // A 2hr class covers 2 lesson numbers (e.g., "Lesson 1 & 2")
+        let lessonCounter = 1;
+        const schedulesWithCorrectNumbers = sortedSchedules.map((schedule) => {
+          const startMinutes =
+            parseInt(schedule.start_time?.split(":")[0] || "0") * 60 +
+            parseInt(schedule.start_time?.split(":")[1] || "0");
+          const endMinutes =
+            parseInt(schedule.end_time?.split(":")[0] || "0") * 60 +
+            parseInt(schedule.end_time?.split(":")[1] || "0");
+          const durationHours = Math.max(
+            1,
+            Math.round((endMinutes - startMinutes) / 60),
+          );
+          const startLesson = lessonCounter;
+          lessonCounter += durationHours;
+          return {
             ...schedule,
             Lesson: {
               id: schedule.Lesson?.id ?? null,
-              number: index + 1, // Use chronological position as lesson number
+              number: startLesson,
+              endNumber:
+                durationHours > 1 ? startLesson + durationHours - 1 : null,
             },
-          }),
-        );
+          };
+        });
 
         setLearner({ ...data, schedules: schedulesWithCorrectNumbers });
       } else {
@@ -1517,6 +1722,55 @@ export const LearnerSchedulesManager = ({
         .eq("id", selectedSchedule.id);
 
       if (error) throw error;
+
+      // Renumber lessons in the database so class numbers stay correct
+      const courseId = selectedSchedule.course_id;
+      if (courseId && learner) {
+        const { data: allSchedules, error: fetchError } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, Lesson(id, number)")
+          .eq("learner_id", learner.id)
+          .eq("course_id", courseId)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (fetchError) throw fetchError;
+
+        const sortedSchedules = [...(allSchedules || [])].sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+          return dateTimeA - dateTimeB;
+        });
+
+        const lessonUpdates = sortedSchedules
+          .filter((schedule) => schedule.Lesson?.id)
+          .map((schedule, index) => ({
+            id: schedule.Lesson.id,
+            number: index + 1,
+          }));
+
+        if (lessonUpdates.length > 0) {
+          // Pass 1: Set all to temporary high numbers to avoid unique constraint conflicts
+          await Promise.all(
+            lessonUpdates.map((update, i) =>
+              supabase
+                .from("Lesson")
+                .update({ number: 1000 + i })
+                .eq("id", update.id),
+            ),
+          );
+          // Pass 2: Set to final correct numbers
+          await Promise.all(
+            lessonUpdates.map((update) =>
+              supabase
+                .from("Lesson")
+                .update({ number: update.number })
+                .eq("id", update.id),
+            ),
+          );
+        }
+      }
+
       setIsInstructorChangeModalOpen(false);
       await syncData();
       toast({ title: "Updated", description: "Instructor changed." });
@@ -1610,16 +1864,6 @@ export const LearnerSchedulesManager = ({
 
   const handleRescheduleSubmit = async () => {
     if (!selectedSchedule || !learner) return;
-
-    const today = new Date().toISOString().split("T")[0];
-    if (selectedSchedule.date < today) {
-      toast({
-        title: "Invalid Date",
-        description: "Cannot reschedule to a past date.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     try {
       setIsProcessing(true);
@@ -1743,15 +1987,76 @@ export const LearnerSchedulesManager = ({
     }
   };
 
-  const topupAssignedHours = topupSlots.reduce(
-    (sum, s) => sum + s.duration,
-    0,
-  );
+  const handleUpgradeToCourse = async () => {
+    if (!upgradeSelectedCourse || !learner) return;
+    const course = PREDEFINED_COURSES.find(
+      (c) => c.id === upgradeSelectedCourse,
+    );
+    if (!course) return;
+
+    try {
+      setIsUpgrading(true);
+
+      // Create new enrollment for the selected course
+      const { error: enrollError } = await supabase.from("enrollment").insert({
+        learner_id: learner.id,
+        course_id: course.id,
+        status: "pending",
+        payment_status: "pending",
+        installment_mode: "full",
+        unlocked_lessons: Array.from(
+          { length: course.duration },
+          (_, i) => i + 1,
+        ),
+        progress: { type: "course", total_hours: course.duration },
+      });
+      if (enrollError) throw enrollError;
+
+      // Mark demo enrollment as completed
+      const { error: demoError } = await supabase
+        .from("enrollment")
+        .update({ status: "completed" })
+        .eq("learner_id", learner.id)
+        .is("course_id", null);
+      if (demoError)
+        console.error("Failed to close demo enrollment:", demoError);
+
+      // Send payment link via WhatsApp
+      const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
+      await supabase.functions.invoke("send-message", {
+        body: {
+          message_type: "PAYMENT_LINK",
+          learner_id: learner.id,
+          payment_link: paymentLink,
+          course_name: course.name,
+        },
+      });
+
+      setShowUpgradeDialog(false);
+      setUpgradeSelectedCourse("");
+      await syncData();
+      toast({
+        title: "Upgrade Initiated",
+        description: `${learner.name} enrolled in ${course.name}. Payment link sent. Demo ₹${DEMO_CREDIT} credit will be applied.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  const topupAssignedHours = topupSlots.reduce((sum, s) => sum + s.duration, 0);
   const topupRemainingClasses = topupTotalClasses - topupAssignedHours;
 
   const handleTopupSubmit = async () => {
-    const courseId = learner?.schedules?.[0]?.course_id;
-    if (!courseId || !learner) return;
+    if (!learner) return;
+    // For demo learners, course_id is null — that's valid
+    const courseId = learner?.schedules?.[0]?.course_id ?? null;
 
     // Validate total hours match
     if (topupRemainingClasses !== 0) {
@@ -1840,6 +2145,8 @@ export const LearnerSchedulesManager = ({
       }
 
       // Insert topup schedule records
+      // All topups require ₹599 payment first
+      const scheduleStatus = "pending_payment";
       const records = topupSlots.map((slot) => ({
         learner_id: learner.id,
         course_id: courseId,
@@ -1849,7 +2156,7 @@ export const LearnerSchedulesManager = ({
         start_time: slot.start_time,
         end_time: slot.end_time,
         enabled: true,
-        status: "topup",
+        status: scheduleStatus,
         otp: generateRandomOTP(),
         otp_end: generateRandomOTP(),
       }));
@@ -1857,11 +2164,35 @@ export const LearnerSchedulesManager = ({
       const { error } = await supabase.from("Schedule").insert(records);
       if (error) throw error;
 
+      // Send payment link to learner for all topups (₹599 fixed)
+      if (learner.phone) {
+        const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`;
+        const totalHours = topupSlots.reduce((sum, slot) => {
+          const start = parseInt(slot.start_time.split(":")[0]);
+          const end = parseInt(slot.end_time.split(":")[0]);
+          return sum + (end - start);
+        }, 0);
+        try {
+          await supabase.functions.invoke("send-message", {
+            body: {
+              message_type: "PAYMENT_LINK",
+              learner_id: learner.id,
+              payment_link: paymentLink,
+              course_name: isDemo ? "Demo Lesson" : "Topup Classes",
+              payment_amount: 599,
+              duration: totalHours,
+            },
+          });
+        } catch (e) {
+          console.error("Failed to send payment link:", e);
+        }
+      }
+
       setIsTopupDialogOpen(false);
       await syncData();
       toast({
-        title: "Topup Added",
-        description: `${topupTotalClasses} topup class(es) added across ${topupSlots.length} slot(s).`,
+        title: isDemo ? "Demo Scheduled" : "Topup Added",
+        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹599) sent to ${learner.name}.`,
       });
     } catch (error: any) {
       toast({
@@ -1883,7 +2214,7 @@ export const LearnerSchedulesManager = ({
               ? "Updating..."
               : `${learner?.name ?? "Learner"}'s Schedule`}
           </CardTitle>
-          {learner?.schedules?.length > 0 && (
+          {(learner?.schedules?.length > 0 || (isDemo && learner)) && (
             <div className="flex gap-2">
               {pendingNotification && (
                 <Button
@@ -1922,7 +2253,7 @@ export const LearnerSchedulesManager = ({
                     : "Send Reschedule Notification"}
                 </Button>
               )}
-              {learner.schedules.some(
+              {learner?.schedules?.some(
                 (s: any) =>
                   s.status === "booked" &&
                   s.date >= format(new Date(), "yyyy-MM-dd"),
@@ -1937,7 +2268,7 @@ export const LearnerSchedulesManager = ({
                   Pause Class
                 </Button>
               )}
-              {learner.schedules.some(
+              {learner?.schedules?.some(
                 (s: any) =>
                   s.status === "paused" &&
                   s.date >= format(new Date(), "yyyy-MM-dd"),
@@ -1971,7 +2302,7 @@ export const LearnerSchedulesManager = ({
                   setIsTopupDialogOpen(true);
                 }}
               >
-                + Topup
+                {isDemo ? "Schedule Demo" : "+ Topup"}
               </Button>
               <Button
                 variant="outline"
@@ -1981,6 +2312,16 @@ export const LearnerSchedulesManager = ({
               >
                 Analytics
               </Button>
+              {isDemo && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
+                  onClick={() => setShowUpgradeDialog(true)}
+                >
+                  Upgrade to Course
+                </Button>
+              )}
             </div>
           )}
         </CardHeader>
@@ -2000,8 +2341,11 @@ export const LearnerSchedulesManager = ({
                   >
                     <div className="space-y-0.5">
                       <div className="text-xs font-medium md:text-sm">
-                        Lesson {schedule.Lesson?.number ?? "N/A"} —{" "}
-                        {schedule.date ?? "N/A"}
+                        Lesson {schedule.Lesson?.number ?? "N/A"}
+                        {schedule.Lesson?.endNumber
+                          ? ` & ${schedule.Lesson.endNumber}`
+                          : ""}{" "}
+                        — {schedule.date ?? "N/A"}
                       </div>
                       <div className="text-xs text-gray-500 md:text-sm">
                         {schedule.start_time?.substring(0, 5) ?? "N/A"} -{" "}
@@ -2016,10 +2360,19 @@ export const LearnerSchedulesManager = ({
                             Topup
                           </span>
                         )}
+                        {schedule.status === "pending_payment" && (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">
+                            Awaiting Payment
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {schedule.status === "completed" ? (
+                    {schedule.status === "pending_payment" ? (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        Payment Pending
+                      </span>
+                    ) : schedule.status === "completed" ? (
                       <div className="flex items-center gap-2">
                         {schedule.started_at && schedule.ended_at ? (
                           <>
@@ -2334,68 +2687,74 @@ export const LearnerSchedulesManager = ({
       >
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Topup Lessons</DialogTitle>
+            <DialogTitle>
+              {isDemo ? "Schedule Demo Lesson" : "Add Topup Lessons"}
+            </DialogTitle>
             <DialogDescription>
-              Schedule extra classes for {learner?.name}. Each class = 1 hour. A
-              2hr slot counts as 2 classes.
+              {isDemo
+                ? `Schedule the demo lesson for ${learner?.name} (1 hour)`
+                : `Schedule extra classes for ${learner?.name}. Each class = 1 hour. A 2hr slot counts as 2 classes.`}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Total classes selector */}
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">
-                Total classes to add:
-              </label>
-              <Select
-                value={String(topupTotalClasses)}
-                onValueChange={(v) => {
-                  const count = Number(v);
-                  setTopupTotalClasses(count);
-                  // Reset slots to a single empty slot when total changes
-                  setTopupSlots([
-                    {
-                      date: "",
-                      start_time: "",
-                      end_time: "",
-                      duration: 1,
-                      instructor_id: "",
-                    },
-                  ]);
-                }}
-              >
-                <SelectTrigger className="w-[80px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Total classes selector — hidden for demo (always 1) */}
+            {!isDemo && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700">
+                  Total classes to add:
+                </label>
+                <Select
+                  value={String(topupTotalClasses)}
+                  onValueChange={(v) => {
+                    const count = Number(v);
+                    setTopupTotalClasses(count);
+                    setTopupSlots([
+                      {
+                        date: "",
+                        start_time: "",
+                        end_time: "",
+                        duration: 1,
+                        instructor_id: "",
+                      },
+                    ]);
+                  }}
+                >
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            {/* Progress indicator */}
-            <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
-              <span className="font-medium">{topupAssignedHours}</span> of{" "}
-              <span className="font-medium">{topupTotalClasses}</span> classes
-              assigned
-              {topupRemainingClasses > 0 && (
-                <span className="ml-1 text-amber-600">
-                  ({topupRemainingClasses} remaining)
-                </span>
-              )}
-              {topupRemainingClasses === 0 && (
-                <span className="ml-1 text-green-600">(all assigned)</span>
-              )}
-              {topupRemainingClasses < 0 && (
-                <span className="ml-1 text-red-600">
-                  (exceeded by {Math.abs(topupRemainingClasses)})
-                </span>
-              )}
-            </div>
+            {/* Progress indicator — hidden for demo */}
+            {!isDemo && (
+              <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+                <span className="font-medium">{topupAssignedHours}</span> of{" "}
+                <span className="font-medium">{topupTotalClasses}</span> classes
+                assigned
+                {topupRemainingClasses > 0 && (
+                  <span className="ml-1 text-amber-600">
+                    ({topupRemainingClasses} remaining)
+                  </span>
+                )}
+                {topupRemainingClasses === 0 && (
+                  <span className="ml-1 text-green-600">(all assigned)</span>
+                )}
+                {topupRemainingClasses < 0 && (
+                  <span className="ml-1 text-red-600">
+                    (exceeded by {Math.abs(topupRemainingClasses)})
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Slots */}
             {topupSlots.map((slot, i) => (
@@ -2416,9 +2775,7 @@ export const LearnerSchedulesManager = ({
                       size="sm"
                       className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
                       onClick={() =>
-                        setTopupSlots((prev) =>
-                          prev.filter((_, j) => j !== i),
-                        )
+                        setTopupSlots((prev) => prev.filter((_, j) => j !== i))
                       }
                     >
                       <X size={14} />
@@ -2426,38 +2783,42 @@ export const LearnerSchedulesManager = ({
                   )}
                 </div>
 
-                {/* Duration */}
-                <div className="flex items-center gap-2">
-                  <label className="w-20 text-sm text-gray-600">Duration</label>
-                  <Select
-                    value={String(slot.duration)}
-                    onValueChange={(value) => {
-                      const dur = Number(value);
-                      setTopupSlots((prev) =>
-                        prev.map((s, j) => {
-                          if (j !== i) return s;
-                          let endTime = s.end_time;
-                          if (s.start_time) {
-                            const [h, m] = s.start_time
-                              .split(":")
-                              .map(Number);
-                            const endH = (h + dur) % 24;
-                            endTime = `${endH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
-                          }
-                          return { ...s, duration: dur, end_time: endTime };
-                        }),
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Hour</SelectItem>
-                      <SelectItem value="2">2 Hours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Duration — hidden for demo (always 1hr) */}
+                {!isDemo && (
+                  <div className="flex items-center gap-2">
+                    <label className="w-20 text-sm text-gray-600">
+                      Duration
+                    </label>
+                    <Select
+                      value={String(slot.duration)}
+                      onValueChange={(value) => {
+                        const dur = Number(value);
+                        setTopupSlots((prev) =>
+                          prev.map((s, j) => {
+                            if (j !== i) return s;
+                            let endTime = s.end_time;
+                            if (s.start_time) {
+                              const [h, m] = s.start_time
+                                .split(":")
+                                .map(Number);
+                              const endH = (h + dur) % 24;
+                              endTime = `${endH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
+                            }
+                            return { ...s, duration: dur, end_time: endTime };
+                          }),
+                        );
+                      }}
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Hour</SelectItem>
+                        <SelectItem value="2">2 Hours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Date */}
                 <div className="flex items-center gap-2">
@@ -2557,8 +2918,8 @@ export const LearnerSchedulesManager = ({
               </div>
             ))}
 
-            {/* Add slot button */}
-            {topupRemainingClasses > 0 && (
+            {/* Add slot button — hidden for demo */}
+            {!isDemo && topupRemainingClasses > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2620,6 +2981,63 @@ export const LearnerSchedulesManager = ({
           />
         ) : null;
       })()}
+
+      {/* Upgrade to Course Dialog */}
+      <Dialog
+        open={showUpgradeDialog}
+        onOpenChange={(open) => {
+          if (!isUpgrading) setShowUpgradeDialog(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upgrade to Full Course</DialogTitle>
+            <DialogDescription>
+              Select a course for {learner?.name}. Demo payment of ₹
+              {DEMO_CREDIT} will be credited toward the course fee.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select
+              value={upgradeSelectedCourse}
+              onValueChange={setUpgradeSelectedCourse}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a course" />
+              </SelectTrigger>
+              <SelectContent>
+                {PREDEFINED_COURSES.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name} — {c.duration} hours
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {upgradeSelectedCourse && (
+              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+                Demo credit of ₹{DEMO_CREDIT} will be applied. A payment link
+                will be sent to the learner for the remaining balance.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowUpgradeDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpgradeToCourse}
+                disabled={!upgradeSelectedCourse || isUpgrading}
+              >
+                {isUpgrading ? "Upgrading..." : "Upgrade & Send Payment Link"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

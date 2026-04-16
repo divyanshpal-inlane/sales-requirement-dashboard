@@ -9,6 +9,17 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
+/**
+ * Calculate how many lessons to unlock for half (first installment) payment.
+ * 10hr→8, 8hr→6, 6hr→4, 4hr→2, 2hr→1. Demo (1hr) = full payment only.
+ */
+function getHalfPaymentLessons(totalHours: number): number[] {
+  if (totalHours <= 1) return [1];
+  if (totalHours === 2) return [1];
+  const count = totalHours - 2;
+  return Array.from({ length: count }, (_, i) => i + 1);
+}
+
 interface VerifyPaymentRequest {
   razorpay_order_id: string;
   razorpay_payment_id: string;
@@ -173,7 +184,7 @@ serve(async (req) => {
         unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
         newPaymentStatus = "full_paid";
       } else if (installmentType === "first_half") {
-        unlockedLessons = [1, 2];
+        unlockedLessons = getHalfPaymentLessons(10);
         newPaymentStatus = "half_paid";
       } else if (
         installmentType === "second_half" &&
@@ -271,7 +282,7 @@ serve(async (req) => {
         );
         newPaymentStatus = "full_paid";
       } else if (installmentType === "first_half") {
-        unlockedLessons = [1, 2];
+        unlockedLessons = getHalfPaymentLessons(totalHours);
         newPaymentStatus = "half_paid";
       } else if (
         installmentType === "second_half" &&

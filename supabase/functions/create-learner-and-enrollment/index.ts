@@ -30,6 +30,8 @@ export async function createLearnerAndEnrollment(data: {
   installment1Amount: number;
   installment2Amount: number;
   unlockedLessons: number[];
+  courseTypeSelection?: string;
+  totalLessons?: number;
 }) {
   const {
     name,
@@ -41,6 +43,8 @@ export async function createLearnerAndEnrollment(data: {
     installment1Amount,
     installment2Amount,
     unlockedLessons,
+    courseTypeSelection,
+    totalLessons,
   } = data;
 
   // Create learner entry
@@ -55,18 +59,27 @@ export async function createLearnerAndEnrollment(data: {
     throw new Error(learnerError?.message || "Failed to create learner");
   }
 
-  // Create enrollment entry
+  // Build progress based on course type
+  const progress =
+    courseTypeSelection === "demo"
+      ? { type: "demo", total_hours: 1 }
+      : courseTypeSelection === "custom"
+        ? { type: "custom", total_hours: totalLessons || 0 }
+        : { type: "course", total_hours: totalLessons || 0 };
+
+  // Create enrollment entry (course_id is NULL for demo/custom courses)
   const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollment")
     .insert([
       {
         learner_id: learners.id,
-        course_id: courseId,
+        course_id: courseId || null,
         amount,
         installment_mode: installmentType,
         installment1_amount: installment1Amount,
         installment2_amount: installment2Amount,
         unlocked_lessons: unlockedLessons,
+        progress,
       },
     ])
     .select()

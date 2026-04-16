@@ -836,8 +836,8 @@ function LearnerTab({
                 <td className="px-2 py-2 text-sm">
                   <div>
                     {schedule.Lesson?.number
-                      ? `Lesson ${schedule.Lesson.number}${schedule.Lesson.description ? ` - ${schedule.Lesson.description}` : ""}`
-                      : schedule.Lesson?.description || "Unknown Lesson"}
+                      ? `Lesson ${schedule.Lesson.number}`
+                      : "Unknown Lesson"}
                   </div>
                   <div className="text-xs text-gray-500">
                     {schedule.Courses?.name || "Demo Class"}

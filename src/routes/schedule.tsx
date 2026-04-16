@@ -58,9 +58,11 @@ export default function Schedule() {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const learnerId = learner?.id;
   const { data: enrollment } = useLearnerEnrollment({ learnerId });
+  const isDemoEnrollment = enrollment?.progress?.type === "demo";
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId,
     courseId: enrollment?.course_id,
+    isDemo: isDemoEnrollment,
   });
   const { data: scheduleRequests, isLoading: scheduleRequestsLoading } =
     useRescheduleLearnerLessonRequests(learner?.id);
@@ -102,15 +104,23 @@ export default function Schedule() {
     console.log("date < ", isPast, date, startOfDay(subDays(new Date(), 30)));
     let dayColorClasses = "";
 
+    const hasPendingPayment = lessonsForDay.some(
+      (l) => l.status === "pending_payment",
+    );
+    const hasPaidTopup = lessonsForDay.some((l) => l.status === "topup");
+
     if (isPast) {
-      // Gray for past days
       dayColorClasses = "bg-gray-300 text-gray-600";
+    } else if (hasPendingPayment) {
+      dayColorClasses =
+        "bg-amber-400 hover:bg-amber-500 focus:bg-amber-400 text-amber-900";
+    } else if (hasPaidTopup) {
+      dayColorClasses =
+        "bg-green-500 hover:bg-green-600 focus:bg-green-500 text-white";
     } else if (isRescheduleDay) {
-      // High priority: Yellow color for reschedule status
       dayColorClasses =
         "bg-yellow-500 hover:bg-yellow-500 focus:bg-yellow-500 text-gray-800";
     } else {
-      // Default: Primary color for future days
       dayColorClasses = "bg-primary text-primary-foreground";
     }
 
@@ -154,26 +164,50 @@ export default function Schedule() {
                     {format(new Date(`2000-01-01T${lesson.endTime}`), "h:mm a")}
                   </span>
                   <span
-                    className={`${isLessonPast ? "text-gray-400" : "text-accent-purple"}`}
+                    className={`${
+                      lesson.status === "pending_payment"
+                        ? "font-semibold text-amber-700"
+                        : lesson.status === "topup"
+                          ? "font-semibold text-green-700"
+                          : isLessonPast
+                            ? "text-gray-400"
+                            : "text-accent-purple"
+                    }`}
                   >
-                    Lesson {lesson.lesson?.number}
-                    <Button
-                      variant="link"
-                      onClick={() => {
-                        if (lesson.status && lesson.status != "completed") {
-                          navigate(`/reschedule/${lesson?.lesson?.id}`);
-                        } else {
-                          alert("Lesson already completed");
+                    {lesson.status === "pending_payment"
+                      ? `${isDemoEnrollment ? "Demo Lesson" : "Topup Class"} — Pay ₹599 to activate`
+                      : lesson.status === "topup"
+                        ? "Topup Class (Paid)"
+                        : `Lesson ${lesson.lesson?.number}${lesson.lesson?.endNumber ? ` & ${lesson.lesson.endNumber}` : ""}`}
+                    {lesson.status === "pending_payment" ? (
+                      <Button
+                        variant="link"
+                        className="text-amber-700"
+                        onClick={() =>
+                          navigate(`/payment?phone=${learner?.phone}&type=demo`)
                         }
-                      }}
-                      disabled={
-                        !lesson ||
-                        !lesson.lesson ||
-                        lesson.status === "completed"
-                      }
-                    >
-                      Reschedule
-                    </Button>
+                      >
+                        Pay Now
+                      </Button>
+                    ) : lesson.status === "topup" ? null : (
+                      <Button
+                        variant="link"
+                        onClick={() => {
+                          if (lesson.status && lesson.status != "completed") {
+                            navigate(`/reschedule/${lesson?.lesson?.id}`);
+                          } else {
+                            alert("Lesson already completed");
+                          }
+                        }}
+                        disabled={
+                          !lesson ||
+                          !lesson.lesson ||
+                          lesson.status === "completed"
+                        }
+                      >
+                        Reschedule
+                      </Button>
+                    )}
                   </span>
                 </p>
               );
@@ -210,13 +244,31 @@ export default function Schedule() {
     : undefined;
   const courseLessons = enrollment?.Courses?.Lesson || [];
 
+  // Helper: count lesson-hours for a set of schedules (2hr class = 2 lessons)
+  const countLessonHours = (
+    lessons: typeof scheduledLessons,
+    filter?: (l: NonNullable<typeof scheduledLessons>[number]) => boolean,
+  ) => {
+    if (!lessons) return 0;
+    const filtered = filter ? lessons.filter(filter) : lessons;
+    return filtered.reduce((sum, l) => {
+      const sMin =
+        parseInt(l.startTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.startTime?.split(":")[1] || "0");
+      const eMin =
+        parseInt(l.endTime?.split(":")[0] || "0") * 60 +
+        parseInt(l.endTime?.split(":")[1] || "0");
+      return sum + Math.max(1, Math.round((eMin - sMin) / 60));
+    }, 0);
+  };
+
   // Course progress calculations
   const totalCourseLessons = enrollment?.Courses?.total_lessons || 10;
-  const completedLessonsCount =
-    scheduledLessons?.filter(
-      (lesson) => lesson.status?.toUpperCase() === "COMPLETED",
-    ).length || 0;
-  const scheduledLessonsCount = scheduledLessons?.length || 0;
+  const completedLessonsCount = countLessonHours(
+    scheduledLessons,
+    (l) => l.status?.toUpperCase() === "COMPLETED",
+  );
+  const scheduledLessonsCount = countLessonHours(scheduledLessons);
 
   // Check if lesson 10 is ready to be scheduled (9 lessons done, 10-lesson course, no DL)
   const isLesson10ReadyToSchedule =
@@ -259,25 +311,28 @@ export default function Schedule() {
               {/* Status indicators */}
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">
-                  {scheduledLessons?.filter(
+                  {countLessonHours(
+                    scheduledLessons,
                     (l) =>
                       l.status?.toUpperCase() === "COMPLETED" &&
-                      l.startedAt &&
-                      l.endedAt,
-                  ).length || 0}{" "}
+                      !!l.startedAt &&
+                      !!l.endedAt,
+                  )}{" "}
                   OTP Verified
                 </span>
-                {(scheduledLessons?.filter(
+                {countLessonHours(
+                  scheduledLessons,
                   (l) =>
                     l.status?.toUpperCase() === "COMPLETED" &&
                     (!l.startedAt || !l.endedAt),
-                ).length || 0) > 0 && (
+                ) > 0 && (
                   <span className="rounded-full bg-orange-100 px-2 py-1 text-orange-700">
-                    {scheduledLessons?.filter(
+                    {countLessonHours(
+                      scheduledLessons,
                       (l) =>
                         l.status?.toUpperCase() === "COMPLETED" &&
                         (!l.startedAt || !l.endedAt),
-                    ).length || 0}{" "}
+                    )}{" "}
                     Manually Done
                   </span>
                 )}
@@ -398,19 +453,22 @@ export default function Schedule() {
                   }}
                 />
 
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-yellow-500" />
-                      <span>Reschedule Requests</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-primary" />
-                      <span>Scheduled Lessons</span>
-                    </div>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-primary" />
+                    <span>Scheduled</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-sm text-gray-500"></div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-amber-400" />
+                    <span>Payment Pending</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-green-500" />
+                    <span>Topup (Paid)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-yellow-500" />
+                    <span>Reschedule</span>
                   </div>
                 </div>
               </CardContent>
