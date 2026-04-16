@@ -9,6 +9,17 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
+/**
+ * Calculate how many lessons to unlock for half (first installment) payment.
+ * 10hr→8, 8hr→6, 6hr→4, 4hr→2, 2hr→1. Demo (1hr) = full payment only.
+ */
+function getHalfPaymentLessons(totalHours: number): number[] {
+  if (totalHours <= 1) return [1];
+  if (totalHours === 2) return [1];
+  const count = totalHours - 2;
+  return Array.from({ length: count }, (_, i) => i + 1);
+}
+
 interface PaymentDetails {
   amount: number;
   email: string;
@@ -212,7 +223,7 @@ serve(async (req) => {
             installment_mode: installmentType,
             installment1_amount: installment1Amount,
             installment2_amount: installment2Amount,
-            unlocked_lessons: installmentType === "first_half" ? [1, 2] : [],
+            unlocked_lessons: installmentType === "first_half" ? getHalfPaymentLessons(10) : [],
           },
         ]);
       }
@@ -260,7 +271,7 @@ serve(async (req) => {
           installment1_amount: installment1Amount,
           installment2_amount: installment2Amount,
           unlocked_lessons:
-            installmentType === "first_half" ? [1, 2] : unlockedLessons,
+            installmentType === "first_half" ? getHalfPaymentLessons(totalHours || 10) : unlockedLessons,
           progress: {
             type: "custom",
             selected_modules: selectedModules,

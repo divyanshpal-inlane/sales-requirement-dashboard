@@ -948,10 +948,10 @@ export default function Home() {
                       <Clock size={32} className="text-amber-600" />
                     </div>
                     <h2 className="text-lg font-semibold text-amber-800">
-                      Demo Lesson Scheduled
+                      {isDemo ? "Demo Lesson" : "Topup Class"} Scheduled
                     </h2>
                     <p className="text-center text-sm text-amber-700">
-                      Pay ₹599 to activate your demo lesson on{" "}
+                      Pay ₹599 to activate your {isDemo ? "demo lesson" : "topup class"} on{" "}
                       {LessonData?.upcomingSchedule?.date
                         ? format(
                             new Date(LessonData.upcomingSchedule.date),

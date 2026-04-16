@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth, supabaseAdmin } from "@/context/auth-context";
+import { useAuth } from "@/context/auth-context";
 
 export default function AdminLogin() {
   const { login } = useAuth();
@@ -32,28 +32,28 @@ export default function AdminLogin() {
       const rawDigits = formData.phone.replace(/\D/g, "");
       const withoutCountry = rawDigits.replace(/^91/, "");
 
-      // First, find the actual phone format stored in Supabase auth
-      // by looking up the user via the admin API
-      const { data: usersData } =
-        await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      // Try common phone formats directly via signInWithPassword
+      const phoneVariants = [
+        `+91${withoutCountry}`,
+        withoutCountry,
+        rawDigits,
+      ];
 
-      const matchUser = usersData?.users?.find((u) => {
-        if (!u.phone) return false;
-        const uDigits = u.phone.replace(/\D/g, "");
-        return (
-          uDigits === rawDigits ||
-          uDigits === withoutCountry ||
-          uDigits.endsWith(withoutCountry) ||
-          withoutCountry.endsWith(uDigits.replace(/^91/, ""))
-        );
-      });
-
-      if (!matchUser?.phone) {
-        throw new Error("No account found with this phone number");
+      let loginSuccess = false;
+      for (const phone of phoneVariants) {
+        try {
+          await login(phone, formData.password, "admin");
+          loginSuccess = true;
+          break;
+        } catch {
+          // Try next variant
+        }
       }
 
-      // Login with the exact phone format from auth
-      await login(matchUser.phone, formData.password, "admin");
+      if (!loginSuccess) {
+        throw new Error("Invalid phone number or password");
+      }
+
       navigate("/admin");
     } catch (error) {
       console.error("Login failed:", error);

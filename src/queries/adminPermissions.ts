@@ -78,6 +78,13 @@ export const ADMIN_PERMISSIONS = {
       "View instructor lesson completions with OTP verification and timing details",
     route: "/admin/instructor-lesson-log",
   },
+  payment_tracker: {
+    key: "payment_tracker",
+    label: "Payment Tracker",
+    description:
+      "Track full and half payments, lesson progress, and follow-up urgency",
+    route: "/admin/payment-tracker",
+  },
 } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;

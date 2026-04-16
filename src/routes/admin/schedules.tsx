@@ -514,7 +514,7 @@ export default function AdminSchedules() {
       // First, get active enrollment learner IDs with progress info
       const { data: enrollmentData, error: enrollmentError } = await supabase
         .from("enrollment")
-        .select("learner_id, progress")
+        .select("learner_id, progress, Courses(total_lessons, duration)")
         .eq("status", "active");
 
       if (enrollmentError) throw enrollmentError;
@@ -589,6 +589,21 @@ export default function AdminSchedules() {
           .map((e: any) => e.learner_id),
       );
 
+      // Build map of learner_id -> total allotted lessons
+      const learnerTotalLessons: Record<string, number> = {};
+      enrollmentData.forEach((e: any) => {
+        const total =
+          e.Courses?.total_lessons ||
+          e.Courses?.duration ||
+          e.progress?.total_hours ||
+          10;
+        // Use the max if learner has multiple enrollments
+        learnerTotalLessons[e.learner_id] = Math.max(
+          learnerTotalLessons[e.learner_id] || 0,
+          total,
+        );
+      });
+
       // Include learners with schedules OR demo learners (even without schedules)
       const learnersWithSchedules = learnersData.filter(
         (learner) =>
@@ -596,9 +611,21 @@ export default function AdminSchedules() {
           demoLearnerIds.has(learner.id),
       );
 
-      // Tag demo learners
+      // Tag demo learners, completion status, and topup payment status
       learnersWithSchedules.forEach((learner: any) => {
         learner.isDemo = demoLearnerIds.has(learner.id);
+        const totalLessons = learnerTotalLessons[learner.id] || 10;
+        const completedCount =
+          learner.schedules?.filter(
+            (s: any) => s.status === "completed",
+          ).length || 0;
+        learner.totalLessons = totalLessons;
+        learner.completedLessons = completedCount;
+        learner.isAllCompleted = completedCount >= totalLessons;
+        learner.hasTopupPending =
+          learner.schedules?.some(
+            (s: any) => s.status === "pending_payment",
+          ) || false;
       });
 
       // Sort by created_at descending (since batching may lose overall order)
@@ -643,20 +670,20 @@ export default function AdminSchedules() {
   console.log(activeLearners);
   const filteredLearners = activeLearners?.filter((learner) => {
     const search = searchTerm.toLowerCase();
-
-    // 1. Check Learner's own details
     const learnerMatches =
       learner.name?.toLowerCase().includes(search) ||
       learner.email?.toLowerCase().includes(search) ||
       learner.phone?.includes(searchTerm);
-
-    // 2. Check ALL instructors linked to this learner's schedules
-    // const instructorMatches = learner.schedules?.some((schedule) =>
-    //   schedule.Instructor?.name?.toLowerCase().includes(search)
-    // );
-
-    return learnerMatches; // || instructorMatches;
+    return learnerMatches;
   });
+
+  // Split into active (still in progress) vs completed (all lessons done)
+  const activeOnlyLearners = filteredLearners?.filter(
+    (l: any) => !l.isAllCompleted,
+  );
+  const completedLearners = filteredLearners?.filter(
+    (l: any) => l.isAllCompleted,
+  );
 
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -831,7 +858,10 @@ export default function AdminSchedules() {
               10th Lesson Requests {tenthLessonRequests?.length || 0}
             </TabsTrigger>
             <TabsTrigger value="active">
-              Active Learners {activeLearners?.length || 0}
+              Active Learners {activeOnlyLearners?.length || 0}
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completed Learners {completedLearners?.length || 0}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1285,12 +1315,12 @@ export default function AdminSchedules() {
                         <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
                         Loading...
                       </div>
-                    ) : filteredLearners?.length === 0 ? (
+                    ) : activeOnlyLearners?.length === 0 ? (
                       <div className="flex items-center justify-center py-10 text-sm text-gray-500">
                         No learners found matching "{searchTerm}"
                       </div>
                     ) : (
-                      filteredLearners
+                      activeOnlyLearners
                         // Filter learners locally if an instructor is selected
                         ?.filter((learner) => {
                           if (!selectedFilterInstructorId) return true;
@@ -1306,6 +1336,11 @@ export default function AdminSchedules() {
                               {(learner as any).isDemo && (
                                 <span className="absolute -top-1 right-1 z-10 rounded bg-purple-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
                                   DEMO
+                                </span>
+                              )}
+                              {(learner as any).hasTopupPending && (
+                                <span className="absolute -top-1 left-1 z-10 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                  ₹ PENDING
                                 </span>
                               )}
                               <LearnerInfoCard
@@ -1356,6 +1391,97 @@ export default function AdminSchedules() {
                         <p className="max-w-[250px] text-sm">
                           Select a learner from the list to manage their
                           schedule and instructor assignments.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Completed Learners Tab */}
+          <TabsContent value="completed" className="h-full space-y-2">
+            <div className="grid h-full grid-cols-1 gap-2 p-4 md:grid-cols-3">
+              {/* LEFT BAR: Completed Learners List */}
+              <Card className="md:col-span-1">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm">Completed Learners</CardTitle>
+                  <div className="mt-1">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2 h-4 w-4 text-gray-500" />
+                      <Input
+                        placeholder="Search..."
+                        className="h-8 pl-8 text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 pt-0">
+                  <ScrollArea className="h-[calc(100vh-320px)]">
+                    {isLoadingActiveLearners ? (
+                      <div className="flex items-center justify-center py-10 text-gray-500">
+                        <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : completedLearners?.length === 0 ? (
+                      <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                        No completed learners found
+                      </div>
+                    ) : (
+                      completedLearners?.map((learner) => (
+                        <div key={learner.id} className="mb-2">
+                          <div className="relative">
+                            <span className="absolute -top-1 right-1 z-10 rounded bg-green-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                              {(learner as any).completedLessons}/{(learner as any).totalLessons}
+                            </span>
+                            <LearnerInfoCard
+                              learner={{
+                                id: learner.id || "",
+                                name: learner.name || "",
+                              }}
+                              className={
+                                selectedRequest?.id === learner.id
+                                  ? "border-green-500 bg-green-50"
+                                  : "border-green-200"
+                              }
+                              compact={true}
+                              onClick={() => handleActiveLearnerSelect(learner)}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* RIGHT BAR: Schedule Details */}
+              <div className="md:col-span-2">
+                {selectedRequest ? (
+                  <LearnerSchedulesManager
+                    key={selectedRequest.id}
+                    learnerId={selectedRequest.id}
+                    instructorData={instructorData}
+                    isDemo={(selectedRequest as any).isDemo || false}
+                  />
+                ) : (
+                  <Card className="h-full border-dashed">
+                    <CardHeader className="p-3">
+                      <CardTitle className="text-sm text-gray-400">
+                        Schedule Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0">
+                      <div className="flex h-[calc(100vh-280px)] flex-col items-center justify-center text-center text-gray-400">
+                        <div className="mb-3 rounded-full bg-gray-50 p-4">
+                          <Users size={36} className="text-gray-200" />
+                        </div>
+                        <p className="max-w-[250px] text-sm">
+                          Select a completed learner to view their schedule
+                          history.
                         </p>
                       </div>
                     </CardContent>
@@ -1555,6 +1681,55 @@ export const LearnerSchedulesManager = ({
         .eq("id", selectedSchedule.id);
 
       if (error) throw error;
+
+      // Renumber lessons in the database so class numbers stay correct
+      const courseId = selectedSchedule.course_id;
+      if (courseId && learner) {
+        const { data: allSchedules, error: fetchError } = await supabase
+          .from("Schedule")
+          .select("id, date, start_time, Lesson(id, number)")
+          .eq("learner_id", learner.id)
+          .eq("course_id", courseId)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (fetchError) throw fetchError;
+
+        const sortedSchedules = [...(allSchedules || [])].sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
+          return dateTimeA - dateTimeB;
+        });
+
+        const lessonUpdates = sortedSchedules
+          .filter((schedule) => schedule.Lesson?.id)
+          .map((schedule, index) => ({
+            id: schedule.Lesson.id,
+            number: index + 1,
+          }));
+
+        if (lessonUpdates.length > 0) {
+          // Pass 1: Set all to temporary high numbers to avoid unique constraint conflicts
+          await Promise.all(
+            lessonUpdates.map((update, i) =>
+              supabase
+                .from("Lesson")
+                .update({ number: 1000 + i })
+                .eq("id", update.id),
+            ),
+          );
+          // Pass 2: Set to final correct numbers
+          await Promise.all(
+            lessonUpdates.map((update) =>
+              supabase
+                .from("Lesson")
+                .update({ number: update.number })
+                .eq("id", update.id),
+            ),
+          );
+        }
+      }
+
       setIsInstructorChangeModalOpen(false);
       await syncData();
       toast({ title: "Updated", description: "Instructor changed." });
@@ -1648,16 +1823,6 @@ export const LearnerSchedulesManager = ({
 
   const handleRescheduleSubmit = async () => {
     if (!selectedSchedule || !learner) return;
-
-    const today = new Date().toISOString().split("T")[0];
-    if (selectedSchedule.date < today) {
-      toast({
-        title: "Invalid Date",
-        description: "Cannot reschedule to a past date.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     try {
       setIsProcessing(true);
@@ -1941,8 +2106,8 @@ export const LearnerSchedulesManager = ({
       }
 
       // Insert topup schedule records
-      // Demo topups require payment first (pending_payment status)
-      const scheduleStatus = isDemo ? "pending_payment" : "topup";
+      // All topups require ₹599 payment first
+      const scheduleStatus = "pending_payment";
       const records = topupSlots.map((slot) => ({
         learner_id: learner.id,
         course_id: courseId,
@@ -1960,16 +2125,23 @@ export const LearnerSchedulesManager = ({
       const { error } = await supabase.from("Schedule").insert(records);
       if (error) throw error;
 
-      // For demo topups, send payment link to learner
-      if (isDemo && learner.phone) {
+      // Send payment link to learner for all topups (₹599 fixed)
+      if (learner.phone) {
         const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`;
+        const totalHours = topupSlots.reduce((sum, slot) => {
+          const start = parseInt(slot.start_time.split(":")[0]);
+          const end = parseInt(slot.end_time.split(":")[0]);
+          return sum + (end - start);
+        }, 0);
         try {
           await supabase.functions.invoke("send-message", {
             body: {
               message_type: "PAYMENT_LINK",
               learner_id: learner.id,
               payment_link: paymentLink,
-              course_name: "Demo Lesson (₹599)",
+              course_name: isDemo ? "Demo Lesson" : "Topup Classes",
+              payment_amount: 599,
+              duration: totalHours,
             },
           });
         } catch (e) {
@@ -1981,9 +2153,7 @@ export const LearnerSchedulesManager = ({
       await syncData();
       toast({
         title: isDemo ? "Demo Scheduled" : "Topup Added",
-        description: isDemo
-          ? `Demo lesson scheduled. Payment link sent to ${learner.name}.`
-          : `${topupTotalClasses} topup class(es) added across ${topupSlots.length} slot(s).`,
+        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹599) sent to ${learner.name}.`,
       });
     } catch (error: any) {
       toast({

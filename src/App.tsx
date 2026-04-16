@@ -64,6 +64,7 @@ import StartLesson from "@/routes/startLesson";
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import NotificationManagement from "./routes/admin/NotificationManagement";
+import PaymentTracker from "./routes/admin/PaymentTracker";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
@@ -281,6 +282,7 @@ export default function App() {
                 path="instructor-lesson-log"
                 element={<InstructorLessonLog />}
               />
+              <Route path="payment-tracker" element={<PaymentTracker />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

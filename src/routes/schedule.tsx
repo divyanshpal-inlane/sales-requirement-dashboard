@@ -107,12 +107,18 @@ export default function Schedule() {
     const hasPendingPayment = lessonsForDay.some(
       (l) => l.status === "pending_payment",
     );
+    const hasPaidTopup = lessonsForDay.some(
+      (l) => l.status === "topup",
+    );
 
     if (isPast) {
       dayColorClasses = "bg-gray-300 text-gray-600";
     } else if (hasPendingPayment) {
       dayColorClasses =
         "bg-amber-400 hover:bg-amber-500 focus:bg-amber-400 text-amber-900";
+    } else if (hasPaidTopup) {
+      dayColorClasses =
+        "bg-green-500 hover:bg-green-600 focus:bg-green-500 text-white";
     } else if (isRescheduleDay) {
       dayColorClasses =
         "bg-yellow-500 hover:bg-yellow-500 focus:bg-yellow-500 text-gray-800";
@@ -163,14 +169,18 @@ export default function Schedule() {
                     className={`${
                       lesson.status === "pending_payment"
                         ? "font-semibold text-amber-700"
-                        : isLessonPast
-                          ? "text-gray-400"
-                          : "text-accent-purple"
+                        : lesson.status === "topup"
+                          ? "font-semibold text-green-700"
+                          : isLessonPast
+                            ? "text-gray-400"
+                            : "text-accent-purple"
                     }`}
                   >
                     {lesson.status === "pending_payment"
-                      ? "Demo Lesson — Pay ₹599 to activate"
-                      : `Lesson ${lesson.lesson?.number}${lesson.lesson?.endNumber ? ` & ${lesson.lesson.endNumber}` : ""}`}
+                      ? `${isDemoEnrollment ? "Demo Lesson" : "Topup Class"} — Pay ₹599 to activate`
+                      : lesson.status === "topup"
+                        ? "Topup Class (Paid)"
+                        : `Lesson ${lesson.lesson?.number}${lesson.lesson?.endNumber ? ` & ${lesson.lesson.endNumber}` : ""}`}
                     {lesson.status === "pending_payment" ? (
                       <Button
                         variant="link"
@@ -181,7 +191,7 @@ export default function Schedule() {
                       >
                         Pay Now
                       </Button>
-                    ) : (
+                    ) : lesson.status === "topup" ? null : (
                     <Button
                       variant="link"
                       onClick={() => {
@@ -445,19 +455,22 @@ export default function Schedule() {
                   }}
                 />
 
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-yellow-500" />
-                      <span>Reschedule Requests</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-primary" />
-                      <span>Scheduled Lessons</span>
-                    </div>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-primary" />
+                    <span>Scheduled</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-sm text-gray-500"></div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-amber-400" />
+                    <span>Payment Pending</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-green-500" />
+                    <span>Topup (Paid)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-yellow-500" />
+                    <span>Reschedule</span>
                   </div>
                 </div>
               </CardContent>
