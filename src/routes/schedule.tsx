@@ -107,9 +107,7 @@ export default function Schedule() {
     const hasPendingPayment = lessonsForDay.some(
       (l) => l.status === "pending_payment",
     );
-    const hasPaidTopup = lessonsForDay.some(
-      (l) => l.status === "topup",
-    );
+    const hasPaidTopup = lessonsForDay.some((l) => l.status === "topup");
 
     if (isPast) {
       dayColorClasses = "bg-gray-300 text-gray-600";
@@ -192,23 +190,23 @@ export default function Schedule() {
                         Pay Now
                       </Button>
                     ) : lesson.status === "topup" ? null : (
-                    <Button
-                      variant="link"
-                      onClick={() => {
-                        if (lesson.status && lesson.status != "completed") {
-                          navigate(`/reschedule/${lesson?.lesson?.id}`);
-                        } else {
-                          alert("Lesson already completed");
+                      <Button
+                        variant="link"
+                        onClick={() => {
+                          if (lesson.status && lesson.status != "completed") {
+                            navigate(`/reschedule/${lesson?.lesson?.id}`);
+                          } else {
+                            alert("Lesson already completed");
+                          }
+                        }}
+                        disabled={
+                          !lesson ||
+                          !lesson.lesson ||
+                          lesson.status === "completed"
                         }
-                      }}
-                      disabled={
-                        !lesson ||
-                        !lesson.lesson ||
-                        lesson.status === "completed"
-                      }
-                    >
-                      Reschedule
-                    </Button>
+                      >
+                        Reschedule
+                      </Button>
                     )}
                   </span>
                 </p>

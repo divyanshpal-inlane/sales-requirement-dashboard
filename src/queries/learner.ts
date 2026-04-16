@@ -202,8 +202,7 @@ export function useUpcomingLesson() {
         parseInt(nextSchedule.end_time?.split(":")[0] || "0") * 60 +
         parseInt(nextSchedule.end_time?.split(":")[1] || "0");
       const durHours = Math.max(1, Math.round((eMin - sMin) / 60));
-      const endNumber =
-        durHours > 1 ? lessonNumber + durHours - 1 : null;
+      const endNumber = durHours > 1 ? lessonNumber + durHours - 1 : null;
 
       return {
         upcomingSchedule: nextSchedule,
@@ -506,24 +505,24 @@ export function useLearnerSchedule({
         lessonCounter += durHours;
 
         return {
-        id: lesson.id,
-        date: lesson.date,
-        startTime: lesson.start_time,
-        learnerId: lesson.learner_id,
-        lessonId: lesson.lesson_id,
-        endTime: lesson.end_time,
-        lesson: {
-          id: lesson.Lesson?.id ?? null,
-          number: startLesson,
-          endNumber: durHours > 1 ? startLesson + durHours - 1 : null,
-          description:
-            lesson.Lesson?.description ??
-            (lesson.lesson_id === null ? "Topup Lesson" : null),
-        },
-        status: lesson.status,
-        startedAt: lesson.started_at,
-        endedAt: lesson.ended_at,
-      };
+          id: lesson.id,
+          date: lesson.date,
+          startTime: lesson.start_time,
+          learnerId: lesson.learner_id,
+          lessonId: lesson.lesson_id,
+          endTime: lesson.end_time,
+          lesson: {
+            id: lesson.Lesson?.id ?? null,
+            number: startLesson,
+            endNumber: durHours > 1 ? startLesson + durHours - 1 : null,
+            description:
+              lesson.Lesson?.description ??
+              (lesson.lesson_id === null ? "Topup Lesson" : null),
+          },
+          status: lesson.status,
+          startedAt: lesson.started_at,
+          endedAt: lesson.ended_at,
+        };
       });
     },
     staleTime: Infinity,

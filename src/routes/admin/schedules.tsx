@@ -88,16 +88,40 @@ declare module "@/queries/preferences" {
 }
 
 const PREDEFINED_COURSES = [
-  { id: "e129f667-0510-4f07-9847-edb58356dc74", name: "Beginner Course", duration: 10 },
+  {
+    id: "e129f667-0510-4f07-9847-edb58356dc74",
+    name: "Beginner Course",
+    duration: 10,
+  },
   { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
   { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
   { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
   { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
-  { id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb", name: "Parking + Flyover", duration: 4 },
-  { id: "abddddb8-3f54-41ea-a64b-5ba55988b12a", name: "Slopes + Parking", duration: 4 },
-  { id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936", name: "Traffic + Parking", duration: 6 },
-  { id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3", name: "Traffic + Flyover", duration: 6 },
-  { id: "b991363c-6791-411e-9cb8-6723e40d0a0a", name: "Traffic + Parking + Flyover", duration: 8 },
+  {
+    id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb",
+    name: "Parking + Flyover",
+    duration: 4,
+  },
+  {
+    id: "abddddb8-3f54-41ea-a64b-5ba55988b12a",
+    name: "Slopes + Parking",
+    duration: 4,
+  },
+  {
+    id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936",
+    name: "Traffic + Parking",
+    duration: 6,
+  },
+  {
+    id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3",
+    name: "Traffic + Flyover",
+    duration: 6,
+  },
+  {
+    id: "b991363c-6791-411e-9cb8-6723e40d0a0a",
+    name: "Traffic + Parking + Flyover",
+    duration: 8,
+  },
 ];
 const DEMO_CREDIT = 599;
 
@@ -616,16 +640,14 @@ export default function AdminSchedules() {
         learner.isDemo = demoLearnerIds.has(learner.id);
         const totalLessons = learnerTotalLessons[learner.id] || 10;
         const completedCount =
-          learner.schedules?.filter(
-            (s: any) => s.status === "completed",
-          ).length || 0;
+          learner.schedules?.filter((s: any) => s.status === "completed")
+            .length || 0;
         learner.totalLessons = totalLessons;
         learner.completedLessons = completedCount;
         learner.isAllCompleted = completedCount >= totalLessons;
         learner.hasTopupPending =
-          learner.schedules?.some(
-            (s: any) => s.status === "pending_payment",
-          ) || false;
+          learner.schedules?.some((s: any) => s.status === "pending_payment") ||
+          false;
       });
 
       // Sort by created_at descending (since batching may lose overall order)
@@ -688,7 +710,8 @@ export default function AdminSchedules() {
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportLearnerCount, setExportLearnerCount] = useState<string>("all");
-  const [exportSchedulePeriod, setExportSchedulePeriod] = useState<string>("all");
+  const [exportSchedulePeriod, setExportSchedulePeriod] =
+    useState<string>("all");
   const [exportStatuses, setExportStatuses] = useState<string[]>([
     "booked",
     "ongoing",
@@ -771,7 +794,10 @@ export default function AdminSchedules() {
       // Filter schedules by status and date period
       const filteredSchedules = [...(learner.schedules || [])]
         .filter((s) => {
-          if (exportStatuses.length > 0 && !exportStatuses.includes(s.status || ""))
+          if (
+            exportStatuses.length > 0 &&
+            !exportStatuses.includes(s.status || "")
+          )
             return false;
           if (dateCutoff && s.date) {
             const scheduleDate = new Date(s.date);
@@ -1148,7 +1174,10 @@ export default function AdminSchedules() {
                 </div>
 
                 {/* Export Filters Dialog */}
-                <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                <Dialog
+                  open={showExportDialog}
+                  onOpenChange={setShowExportDialog}
+                >
                   <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Export Active Learners</DialogTitle>
@@ -1171,10 +1200,18 @@ export default function AdminSchedules() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="10">Latest 10 Learners</SelectItem>
-                            <SelectItem value="25">Latest 25 Learners</SelectItem>
-                            <SelectItem value="50">Latest 50 Learners</SelectItem>
-                            <SelectItem value="100">Latest 100 Learners</SelectItem>
+                            <SelectItem value="10">
+                              Latest 10 Learners
+                            </SelectItem>
+                            <SelectItem value="25">
+                              Latest 25 Learners
+                            </SelectItem>
+                            <SelectItem value="50">
+                              Latest 50 Learners
+                            </SelectItem>
+                            <SelectItem value="100">
+                              Latest 100 Learners
+                            </SelectItem>
                             <SelectItem value="all">All Learners</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1222,7 +1259,9 @@ export default function AdminSchedules() {
                               <input
                                 type="checkbox"
                                 checked={exportStatuses.includes(status.value)}
-                                onChange={() => toggleExportStatus(status.value)}
+                                onChange={() =>
+                                  toggleExportStatus(status.value)
+                                }
                                 className="h-4 w-4 rounded border-gray-300 text-indigo-600"
                               />
                               {status.label}
@@ -1259,7 +1298,8 @@ export default function AdminSchedules() {
                             <span className="font-medium">
                               {instructorData?.find(
                                 (i) =>
-                                  i.id_instructor === selectedFilterInstructorId,
+                                  i.id_instructor ===
+                                  selectedFilterInstructorId,
                               )?.name || "selected instructor"}
                             </span>
                           </>
@@ -1357,7 +1397,9 @@ export default function AdminSchedules() {
                                       : ""
                                 }
                                 compact={true}
-                                onClick={() => handleActiveLearnerSelect(learner)}
+                                onClick={() =>
+                                  handleActiveLearnerSelect(learner)
+                                }
                               />
                             </div>
                           </div>
@@ -1435,7 +1477,8 @@ export default function AdminSchedules() {
                         <div key={learner.id} className="mb-2">
                           <div className="relative">
                             <span className="absolute -top-1 right-1 z-10 rounded bg-green-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                              {(learner as any).completedLessons}/{(learner as any).totalLessons}
+                              {(learner as any).completedLessons}/
+                              {(learner as any).totalLessons}
                             </span>
                             <LearnerInfoCard
                               learner={{
@@ -1587,7 +1630,9 @@ export const LearnerSchedulesManager = ({
       duration: number; // 1 or 2 hours (2hr = 2 classes)
       instructor_id: string;
     }>
-  >([{ date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" }]);
+  >([
+    { date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" },
+  ]);
 
   // 1. Data Fetching
   const syncData = useCallback(async () => {
@@ -1627,33 +1672,29 @@ export const LearnerSchedulesManager = ({
         // Assign lesson numbers based on chronological position
         // A 2hr class covers 2 lesson numbers (e.g., "Lesson 1 & 2")
         let lessonCounter = 1;
-        const schedulesWithCorrectNumbers = sortedSchedules.map(
-          (schedule) => {
-            const startMinutes =
-              parseInt(schedule.start_time?.split(":")[0] || "0") * 60 +
-              parseInt(schedule.start_time?.split(":")[1] || "0");
-            const endMinutes =
-              parseInt(schedule.end_time?.split(":")[0] || "0") * 60 +
-              parseInt(schedule.end_time?.split(":")[1] || "0");
-            const durationHours = Math.max(
-              1,
-              Math.round((endMinutes - startMinutes) / 60),
-            );
-            const startLesson = lessonCounter;
-            lessonCounter += durationHours;
-            return {
-              ...schedule,
-              Lesson: {
-                id: schedule.Lesson?.id ?? null,
-                number: startLesson,
-                endNumber:
-                  durationHours > 1
-                    ? startLesson + durationHours - 1
-                    : null,
-              },
-            };
-          },
-        );
+        const schedulesWithCorrectNumbers = sortedSchedules.map((schedule) => {
+          const startMinutes =
+            parseInt(schedule.start_time?.split(":")[0] || "0") * 60 +
+            parseInt(schedule.start_time?.split(":")[1] || "0");
+          const endMinutes =
+            parseInt(schedule.end_time?.split(":")[0] || "0") * 60 +
+            parseInt(schedule.end_time?.split(":")[1] || "0");
+          const durationHours = Math.max(
+            1,
+            Math.round((endMinutes - startMinutes) / 60),
+          );
+          const startLesson = lessonCounter;
+          lessonCounter += durationHours;
+          return {
+            ...schedule,
+            Lesson: {
+              id: schedule.Lesson?.id ?? null,
+              number: startLesson,
+              endNumber:
+                durationHours > 1 ? startLesson + durationHours - 1 : null,
+            },
+          };
+        });
 
         setLearner({ ...data, schedules: schedulesWithCorrectNumbers });
       } else {
@@ -1977,7 +2018,8 @@ export const LearnerSchedulesManager = ({
         .update({ status: "completed" })
         .eq("learner_id", learner.id)
         .is("course_id", null);
-      if (demoError) console.error("Failed to close demo enrollment:", demoError);
+      if (demoError)
+        console.error("Failed to close demo enrollment:", demoError);
 
       // Send payment link via WhatsApp
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
@@ -2008,10 +2050,7 @@ export const LearnerSchedulesManager = ({
     }
   };
 
-  const topupAssignedHours = topupSlots.reduce(
-    (sum, s) => sum + s.duration,
-    0,
-  );
+  const topupAssignedHours = topupSlots.reduce((sum, s) => sum + s.duration, 0);
   const topupRemainingClasses = topupTotalClasses - topupAssignedHours;
 
   const handleTopupSubmit = async () => {
@@ -2696,24 +2735,26 @@ export const LearnerSchedulesManager = ({
             )}
 
             {/* Progress indicator — hidden for demo */}
-            {!isDemo && <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
-              <span className="font-medium">{topupAssignedHours}</span> of{" "}
-              <span className="font-medium">{topupTotalClasses}</span> classes
-              assigned
-              {topupRemainingClasses > 0 && (
-                <span className="ml-1 text-amber-600">
-                  ({topupRemainingClasses} remaining)
-                </span>
-              )}
-              {topupRemainingClasses === 0 && (
-                <span className="ml-1 text-green-600">(all assigned)</span>
-              )}
-              {topupRemainingClasses < 0 && (
-                <span className="ml-1 text-red-600">
-                  (exceeded by {Math.abs(topupRemainingClasses)})
-                </span>
-              )}
-            </div>}
+            {!isDemo && (
+              <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+                <span className="font-medium">{topupAssignedHours}</span> of{" "}
+                <span className="font-medium">{topupTotalClasses}</span> classes
+                assigned
+                {topupRemainingClasses > 0 && (
+                  <span className="ml-1 text-amber-600">
+                    ({topupRemainingClasses} remaining)
+                  </span>
+                )}
+                {topupRemainingClasses === 0 && (
+                  <span className="ml-1 text-green-600">(all assigned)</span>
+                )}
+                {topupRemainingClasses < 0 && (
+                  <span className="ml-1 text-red-600">
+                    (exceeded by {Math.abs(topupRemainingClasses)})
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Slots */}
             {topupSlots.map((slot, i) => (
@@ -2734,9 +2775,7 @@ export const LearnerSchedulesManager = ({
                       size="sm"
                       className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
                       onClick={() =>
-                        setTopupSlots((prev) =>
-                          prev.filter((_, j) => j !== i),
-                        )
+                        setTopupSlots((prev) => prev.filter((_, j) => j !== i))
                       }
                     >
                       <X size={14} />
@@ -2745,37 +2784,41 @@ export const LearnerSchedulesManager = ({
                 </div>
 
                 {/* Duration — hidden for demo (always 1hr) */}
-                {!isDemo && <div className="flex items-center gap-2">
-                  <label className="w-20 text-sm text-gray-600">Duration</label>
-                  <Select
-                    value={String(slot.duration)}
-                    onValueChange={(value) => {
-                      const dur = Number(value);
-                      setTopupSlots((prev) =>
-                        prev.map((s, j) => {
-                          if (j !== i) return s;
-                          let endTime = s.end_time;
-                          if (s.start_time) {
-                            const [h, m] = s.start_time
-                              .split(":")
-                              .map(Number);
-                            const endH = (h + dur) % 24;
-                            endTime = `${endH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
-                          }
-                          return { ...s, duration: dur, end_time: endTime };
-                        }),
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Hour</SelectItem>
-                      <SelectItem value="2">2 Hours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>}
+                {!isDemo && (
+                  <div className="flex items-center gap-2">
+                    <label className="w-20 text-sm text-gray-600">
+                      Duration
+                    </label>
+                    <Select
+                      value={String(slot.duration)}
+                      onValueChange={(value) => {
+                        const dur = Number(value);
+                        setTopupSlots((prev) =>
+                          prev.map((s, j) => {
+                            if (j !== i) return s;
+                            let endTime = s.end_time;
+                            if (s.start_time) {
+                              const [h, m] = s.start_time
+                                .split(":")
+                                .map(Number);
+                              const endH = (h + dur) % 24;
+                              endTime = `${endH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
+                            }
+                            return { ...s, duration: dur, end_time: endTime };
+                          }),
+                        );
+                      }}
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Hour</SelectItem>
+                        <SelectItem value="2">2 Hours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Date */}
                 <div className="flex items-center gap-2">
