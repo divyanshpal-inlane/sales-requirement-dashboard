@@ -56,18 +56,56 @@ const ScheduleList = ({
           (ll) => ll.lesson.id === schedule.lesson_id,
         );
 
-        if (!learnerLessonPair) {
+        // Demo/topup schedules have lesson_id=NULL and won't have a lesson
+        // pair. Fall back to the schedule's Learner and a virtual lesson so
+        // those classes still show up in the instructor's daily list.
+        const enrollmentType = (schedule as any).enrollmentType;
+        const isVirtual = !learnerLessonPair && !!(schedule as any).Learner;
+        if (!learnerLessonPair && !isVirtual) {
           return null;
         }
 
-        const { learner, lesson } = learnerLessonPair;
+        const learner = learnerLessonPair?.learner ?? (schedule as any).Learner;
+        const lesson = learnerLessonPair?.lesson ?? null;
         const isOngoing = schedule.status === "ongoing";
 
+        const typeTheme =
+          enrollmentType === "demo"
+            ? {
+                border: "border-blue-300",
+                chip: "bg-blue-100 text-blue-800",
+                label: "Demo",
+              }
+            : enrollmentType === "topup"
+              ? {
+                  border: "border-purple-300",
+                  chip: "bg-purple-100 text-purple-800",
+                  label: "Topup",
+                }
+              : null;
+
+        const displayLessonLabel = lesson?.number
+          ? `Lesson ${lesson.number}`
+          : enrollmentType === "demo"
+            ? "Demo Lesson"
+            : enrollmentType === "topup"
+              ? "Topup Class"
+              : "Class";
+
         return (
-          <Card key={index}>
+          <Card key={index} className={typeTheme?.border}>
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center justify-between gap-4">
-                <div>Lesson {lesson?.number}</div>
+                <div className="flex items-center gap-2">
+                  <span>{displayLessonLabel}</span>
+                  {typeTheme && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeTheme.chip}`}
+                    >
+                      {typeTheme.label}
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs">
                   <div className="text-right text-base">
                     {new Date(schedule.date).toLocaleDateString()}

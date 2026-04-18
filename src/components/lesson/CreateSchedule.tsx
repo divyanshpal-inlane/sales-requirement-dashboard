@@ -7,10 +7,8 @@ import {
   addMinutes,
   endOfWeek,
   format,
-  isBefore,
   isSameDay,
   set,
-  startOfDay,
   startOfWeek,
   subDays,
 } from "date-fns";
@@ -1998,8 +1996,8 @@ function CreateSchedule({
         const timestamp = new Date(date);
         timestamp.setHours(hour, minute);
         // console.log("hour and minute", hour, minute, schedulesToChange);
-        // Check if the slot is in the past for today
-        const isInPast = timestamp < startOfDay(subDays(new Date(), 30));
+        // Admin can schedule in past or future — no date restriction
+        const isInPast = false;
         // console.log("inPast",
         //   isInPast,
         //   timestamp,
@@ -2706,8 +2704,7 @@ function CreateSchedule({
         alert(
           "Unavailable slot time. It means at least one of the following \n" +
             " already there's schedule on the slot or \n" +
-            " selected instructor not available or \n" +
-            " the time falls in the past \n",
+            " selected instructor not available \n",
         );
         return;
       }
@@ -2827,12 +2824,6 @@ function CreateSchedule({
   };
 
   const handleDateChange = (direction: "prev" | "next") => {
-    if (
-      direction === "prev" &&
-      isBefore(addDays(startDate, -6), addDays(new Date(), -30))
-    ) {
-      return;
-    }
     const newDate = addDays(startDate, direction === "next" ? 7 : -7);
     setStartDate(newDate);
     onDateChange(newDate); // Sync with parent component
@@ -3603,7 +3594,7 @@ function CreateSchedule({
     const hour = slot.timestamp.getHours();
     const minutes = slot.timestamp.getMinutes();
     const isToday = isSameDay(slot.timestamp, new Date());
-    const isInPast = slot.timestamp < startOfDay(subDays(new Date(), 30));
+    const isInPast = false;
 
     const checkSlotOverlap = (s: Schedule) => {
       const scheduleStartHour = parseInt(s.start_time.split(":")[0]);

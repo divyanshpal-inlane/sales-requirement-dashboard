@@ -9,7 +9,11 @@ import { SessionDetails } from "@/components/SessionDetails";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLessonSchedule, useUpcomingLesson } from "@/queries/learner";
+import {
+  useLearnerEnrollment,
+  useLessonSchedule,
+  useUpcomingLesson,
+} from "@/queries/learner";
 
 export default function StartLesson() {
   // debug refs to keep previous values
@@ -40,6 +44,13 @@ export default function StartLesson() {
     prev.current.upcomingData,
   );
   const { data, isLoading, error } = useUpcomingLesson();
+  const { data: enrollmentRow } = useLearnerEnrollment();
+  const scheduleType: "course" | "demo" | "topup" =
+    enrollmentRow?.progress?.type === "demo"
+      ? "demo"
+      : enrollmentRow?.progress?.type === "topup"
+        ? "topup"
+        : "course";
   console.log(
     "[step] just after calling useUpcomingLesson (sync) - immediate data/isLoading/error:",
     {
@@ -249,6 +260,14 @@ export default function StartLesson() {
             schedule={data.upcomingSchedule}
             instructor={data.instructor}
             lessonNumber={data.upcomingLesson.number}
+            scheduleType={scheduleType}
+            lessonLabel={
+              scheduleType === "topup"
+                ? `Topup Lesson ${data.upcomingLesson.number ?? ""}`
+                : scheduleType === "demo"
+                  ? "Demo Lesson"
+                  : undefined
+            }
           />
         )}
 

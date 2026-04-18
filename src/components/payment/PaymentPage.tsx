@@ -23,13 +23,18 @@ import {
 } from "./GatewaySelectionDialog";
 import { RazorpayCheckout } from "./RazorpayCheckout";
 
-type CourseSelectionType = "predefined" | "custom" | "demo" | "test";
+type CourseSelectionType =
+  | "predefined"
+  | "custom"
+  | "demo"
+  | "test"
+  | "topup";
 
 interface PaymentDetails {
   amount: number;
   email: string;
   phone: string;
-  paymentType: "course" | "reschedule" | "demo" | "custom";
+  paymentType: "course" | "reschedule" | "demo" | "custom" | "topup";
   courseId?: string;
   requestId?: string;
   name: string;
@@ -63,6 +68,7 @@ function PaymentPage() {
     useState<CourseSelectionType>("predefined");
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [hasCompletedDemo, setHasCompletedDemo] = useState(false);
+  const [completedDemoCount, setCompletedDemoCount] = useState(0);
   const [demoPaymentId, setDemoPaymentId] = useState<string | null>(null);
 
   // Gateway selection state
@@ -125,6 +131,30 @@ function PaymentPage() {
               selectedModules: [],
             }));
             setCourseSelectionType("demo");
+            setIsPrefilled(true);
+            return;
+          }
+
+          // If URL has type=topup, prefill topup with N hours × ₹599
+          if (urlType === "topup") {
+            const rawHours = parseInt(searchParams.get("hours") || "1", 10);
+            const topupHours =
+              Number.isFinite(rawHours) && rawHours > 0 ? rawHours : 1;
+            const topupAmount = topupHours * DEMO_COURSE.price;
+            setPaymentDetails((prev) => ({
+              ...prev,
+              email: learner.email || "",
+              phone: learner.phone || "",
+              name: learner.name || "",
+              learnerId: learner.id,
+              paymentType: "topup",
+              courseId: "",
+              amount: topupAmount,
+              totalAmount: topupAmount,
+              totalHours: topupHours,
+              selectedModules: [],
+            }));
+            setCourseSelectionType("topup");
             setIsPrefilled(true);
             return;
           }
@@ -265,19 +295,18 @@ function PaymentPage() {
           // Only mark as prefilled if there's an actual enrollment with a course
           setIsPrefilled(!!courseId);
 
-          // Check if user has completed a demo payment (for upgrade pricing)
+          // Count completed demo payments for upgrade credit pricing
           const { data: demoPayments, error: demoError } = await supabase
             .from("payment")
             .select("id, status, amount")
             .eq("learner_id", learner.id)
             .eq("payment_type", "demo")
             .eq("status", "completed")
-            .order("created_at", { ascending: false })
-            .limit(1);
+            .order("created_at", { ascending: false });
 
-          // Only set demo state if query succeeded (column exists)
           if (!demoError && demoPayments && demoPayments.length > 0) {
             setHasCompletedDemo(true);
+            setCompletedDemoCount(demoPayments.length);
             setDemoPaymentId(demoPayments[0].id);
           } else if (demoError) {
             console.log("Demo payment check skipped:", demoError.message);
@@ -342,9 +371,10 @@ function PaymentPage() {
     const selectedCourse = courses?.find((course) => course.id === courseId);
     const coursePrice = roundPrice(selectedCourse?.price || 0);
 
-    // Apply demo discount if user has completed demo
+    // Apply demo discount: one ₹599 credit per completed demo
+    const demoCreditAmount = completedDemoCount * DEMO_COURSE.price;
     const finalPrice = hasCompletedDemo
-      ? Math.max(0, coursePrice - DEMO_COURSE.price)
+      ? Math.max(0, coursePrice - demoCreditAmount)
       : coursePrice;
 
     const installment1Amount = roundPrice(finalPrice / 2);
@@ -438,9 +468,10 @@ function PaymentPage() {
       }
     });
 
-    // Apply demo discount if user has completed demo
+    // Apply demo discount: one ₹599 credit per completed demo
+    const demoCreditAmount = completedDemoCount * DEMO_COURSE.price;
     const finalPrice = hasCompletedDemo
-      ? Math.max(0, totalPrice - DEMO_COURSE.price)
+      ? Math.max(0, totalPrice - demoCreditAmount)
       : totalPrice;
 
     const installment1Amount = roundPrice(finalPrice / 2);
@@ -474,6 +505,10 @@ function PaymentPage() {
     if (courseSelectionType === "demo") {
       finalAmount = DEMO_COURSE.price;
       finalInstallmentType = "full";
+    } else if (courseSelectionType === "topup") {
+      const topupHours = Math.max(1, paymentDetails.totalHours || 1);
+      finalAmount = topupHours * DEMO_COURSE.price;
+      finalInstallmentType = "full";
     } else if (courseSelectionType === "test") {
       finalAmount = 10;
       finalInstallmentType = "full";
@@ -494,7 +529,7 @@ function PaymentPage() {
       selectedModules:
         courseSelectionType === "custom" ? selectedModules : undefined,
       totalHours:
-        courseSelectionType === "custom"
+        courseSelectionType === "custom" || courseSelectionType === "topup"
           ? paymentDetails.totalHours
           : undefined,
       isDemoUpgrade: hasCompletedDemo && courseSelectionType !== "demo",
@@ -793,8 +828,10 @@ function PaymentPage() {
                     </Select>
                     {hasCompletedDemo && (
                       <p className="mt-1 text-xs text-green-600">
-                        ₹{DEMO_COURSE.price} will be deducted from your course
-                        price (demo upgrade)
+                        ₹{completedDemoCount * DEMO_COURSE.price} credit from
+                        your {completedDemoCount} demo
+                        {completedDemoCount === 1 ? "" : "s"} will be deducted
+                        from the course price
                       </p>
                     )}
                   </div>
@@ -880,7 +917,10 @@ function PaymentPage() {
                         </div>
                         {hasCompletedDemo && (
                           <p className="mt-1 text-xs text-green-600">
-                            Demo discount of ₹{DEMO_COURSE.price} applied!
+                            Demo discount of ₹
+                            {completedDemoCount * DEMO_COURSE.price} applied (
+                            {completedDemoCount} demo
+                            {completedDemoCount === 1 ? "" : "s"})
                           </p>
                         )}
                       </div>
@@ -910,6 +950,50 @@ function PaymentPage() {
                   introductory lesson for ₹{DEMO_COURSE.price}
                 </AlertDescription>
               </Alert>
+            )}
+
+            {/* Topup hour picker */}
+            {isPrefilled && courseSelectionType === "topup" && (
+              <div className="space-y-3">
+                <Alert className="border-blue-200 bg-blue-50">
+                  <AlertDescription>
+                    <strong>Topup Class</strong> - ₹{DEMO_COURSE.price} per hour.
+                    Pick how many hours you want to book.
+                  </AlertDescription>
+                </Alert>
+                <div>
+                  <label
+                    htmlFor="topupHours"
+                    className="mb-1 block text-sm font-medium"
+                  >
+                    Number of hours
+                  </label>
+                  <Input
+                    id="topupHours"
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={paymentDetails.totalHours ?? 1}
+                    onChange={(e) => {
+                      const raw = parseInt(e.target.value || "1", 10);
+                      const hours = Math.min(
+                        20,
+                        Math.max(1, Number.isFinite(raw) ? raw : 1),
+                      );
+                      setPaymentDetails((prev) => ({
+                        ...prev,
+                        totalHours: hours,
+                        amount: hours * DEMO_COURSE.price,
+                        totalAmount: hours * DEMO_COURSE.price,
+                      }));
+                    }}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Total: ₹
+                    {(paymentDetails.totalHours ?? 1) * DEMO_COURSE.price}
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* Show simple course dropdown if already enrolled (prefilled), but not for demo */}

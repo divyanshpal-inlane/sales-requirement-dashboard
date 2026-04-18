@@ -1239,8 +1239,15 @@ function Instructor() {
 
   // Enhanced DayView with click-to-create functionality
   const DayView = () => {
-    // 1. Create a helper for consistent colors
-    const getStatusStyles = (status, started_at?: string | null, ended_at?: string | null) => {
+    // Color by status first (completed/ongoing/paused win over type). For
+    // booked lessons we fall through to enrollment-type colors so instructor
+    // can tell course / demo / topup apart at a glance.
+    const getStatusStyles = (
+      status,
+      started_at?: string | null,
+      ended_at?: string | null,
+      enrollmentType?: string | null,
+    ) => {
       if (status === "completed") {
         if (started_at && ended_at) {
           return "bg-green-200 text-green-800 border-green-300"; // OTP verified
@@ -1253,6 +1260,12 @@ function Instructor() {
         case "paused":
           return "bg-amber-200 text-amber-900 border-amber-400";
         default:
+          if (enrollmentType === "demo") {
+            return "bg-blue-500 text-white border-blue-600";
+          }
+          if (enrollmentType === "topup") {
+            return "bg-purple-500 text-white border-purple-600";
+          }
           return "bg-primary text-white border-transparent";
       }
     };
@@ -1308,7 +1321,12 @@ function Instructor() {
                       isUnavailable && !timeSlotSchedules.length
                         ? "bg-gray-400"
                         : timeSlotSchedules.length > 0
-                          ? getStatusStyles(timeSlotSchedules[0].status, timeSlotSchedules[0].started_at, timeSlotSchedules[0].ended_at)
+                          ? getStatusStyles(
+                              timeSlotSchedules[0].status,
+                              timeSlotSchedules[0].started_at,
+                              timeSlotSchedules[0].ended_at,
+                              (timeSlotSchedules[0] as any).enrollmentType,
+                            )
                           : isEmpty
                             ? "cursor-pointer hover:bg-blue-50"
                             : ""
@@ -1335,8 +1353,16 @@ function Instructor() {
                             handleScheduleClick(schedule, schedule?.Learner);
                           }}
                         >
-                          <div className="font-bold underline decoration-1 underline-offset-2">
-                            {schedule?.Learner?.name || "N/A"}
+                          <div className="flex items-center gap-1 font-bold underline decoration-1 underline-offset-2">
+                            <span className="truncate">
+                              {schedule?.Learner?.name || "N/A"}
+                            </span>
+                            {((schedule as any).enrollmentType === "demo" ||
+                              (schedule as any).enrollmentType === "topup") && (
+                              <span className="rounded bg-white/25 px-1 text-[9px] font-bold uppercase tracking-wide no-underline">
+                                {(schedule as any).enrollmentType}
+                              </span>
+                            )}
                           </div>
                           <div className="mt-1 text-xs">
                             {schedule?.start_time.substring(0, 5)} -{" "}

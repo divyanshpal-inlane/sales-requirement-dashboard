@@ -180,23 +180,42 @@ serve(async (req) => {
       let newPaymentStatus = enrollment.payment_status;
       let unlockedLessons = enrollment.unlocked_lessons || [];
 
+      // Count completed demos to offset lesson numbering after upgrade.
+      // 2 demos done → course unlocks lessons 3..10 (8 lessons, not 10).
+      const { data: completedDemoPayments } = await supabaseClient
+        .from("payment")
+        .select("id")
+        .eq("learner_id", payment.learner_id)
+        .eq("payment_type", "demo")
+        .eq("status", "completed");
+      const demoSkip = Math.min(completedDemoPayments?.length ?? 0, 10);
+      const totalCourseLessons = 10;
+      const remainingLessons = Math.max(0, totalCourseLessons - demoSkip);
+      const fullUnlock = Array.from(
+        { length: remainingLessons },
+        (_, i) => i + 1 + demoSkip,
+      );
+
       if (installmentType === "full") {
-        unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
+        unlockedLessons = fullUnlock;
         newPaymentStatus = "full_paid";
       } else if (installmentType === "first_half") {
-        unlockedLessons = getHalfPaymentLessons(10);
+        unlockedLessons = getHalfPaymentLessons(remainingLessons).map(
+          (n) => n + demoSkip,
+        );
         newPaymentStatus = "half_paid";
       } else if (
         installmentType === "second_half" &&
         enrollment.payment_status === "half_paid"
       ) {
-        unlockedLessons = Array.from({ length: 10 }, (_, i) => i + 1);
+        unlockedLessons = fullUnlock;
         newPaymentStatus = "full_paid";
       }
 
       console.log("Updating enrollment:", {
         paymentStatus: newPaymentStatus,
         unlockedLessons,
+        demoSkip,
         enrollmentId: enrollment.id,
       });
 
@@ -259,6 +278,93 @@ serve(async (req) => {
         .eq("id", enrollment.id);
 
       if (enrollmentError) throw enrollmentError;
+
+      // Surface the paid demo in admin "New Scheduling Requests" tab
+      const { data: existingReq } = await supabaseClient
+        .from("reschedule_requests")
+        .select("id")
+        .eq("learner_id", payment.learner_id)
+        .eq("type", "new")
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (!existingReq) {
+        const { error: rescheduleRequestError } = await supabaseClient
+          .from("reschedule_requests")
+          .insert({
+            learner_id: payment.learner_id,
+            lesson_ids: ["virtual-lesson-1"],
+            amount: 0,
+            status: "pending",
+            type: "new",
+          });
+
+        if (rescheduleRequestError) {
+          console.error(
+            "Error creating scheduling request for demo:",
+            rescheduleRequestError,
+          );
+        }
+      }
+    } else if (paymentType === "topup") {
+      const { data: enrollment, error: enrollmentQueryError } =
+        await supabaseClient
+          .from("enrollment")
+          .select("*")
+          .eq("payment_id", paymentId)
+          .single();
+
+      if (enrollmentQueryError) throw enrollmentQueryError;
+      if (!enrollment) throw new Error("Topup enrollment not found");
+
+      const topupHours = enrollment.progress?.total_hours || 1;
+      const unlockedLessons = Array.from(
+        { length: topupHours },
+        (_, i) => i + 1,
+      );
+
+      const { error: enrollmentError } = await supabaseClient
+        .from("enrollment")
+        .update({
+          payment_status: "full_paid",
+          unlocked_lessons: unlockedLessons,
+          status: "active",
+          progress: {
+            type: "topup",
+            total_hours: topupHours,
+            completed_lessons: [],
+            current_lesson: 1,
+            last_accessed: new Date().toISOString(),
+          },
+        })
+        .eq("id", enrollment.id);
+
+      if (enrollmentError) throw enrollmentError;
+
+      // Surface the paid topup in admin "New Scheduling Requests" tab.
+      // Uses virtual-lesson-N IDs so CreateSchedule's existing virtual-lesson
+      // path constructs N mock lessons. Topup identity lives on the enrollment.
+      const lessonIds = Array.from(
+        { length: topupHours },
+        (_, i) => `virtual-lesson-${i + 1}`,
+      );
+
+      const { error: rescheduleRequestError } = await supabaseClient
+        .from("reschedule_requests")
+        .insert({
+          learner_id: payment.learner_id,
+          lesson_ids: lessonIds,
+          amount: 0,
+          status: "pending",
+          type: "new",
+        });
+
+      if (rescheduleRequestError) {
+        console.error(
+          "Error creating scheduling request for topup:",
+          rescheduleRequestError,
+        );
+      }
     } else if (paymentType === "custom") {
       const { data: enrollment, error: enrollmentQueryError } =
         await supabaseClient

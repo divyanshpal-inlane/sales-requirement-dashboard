@@ -398,6 +398,32 @@ export default function LearnerManagement() {
             enrollmentId,
           }));
           setIsPaymentDialogOpen(true);
+
+          // Auto-dispatch the payment link immediately so the learner doesn't wait
+          // on the admin to click a button. Dialog still opens as an acknowledgement
+          // + gives admin a "resend" path if needed.
+          const paymentAmount =
+            learnerData.installmentType === "installment"
+              ? learnerData.installment1Amount
+              : learnerData.amount || dataToSend.amount;
+          sendPaymentLink(
+            {
+              id: data.learner.id,
+              name: learnerData.name,
+              email: learnerData.email,
+              phone: learnerData.phone,
+            },
+            {
+              name: dataToSend.courseName,
+              duration: totalLessons,
+            },
+            paymentAmount,
+            learnerData.installmentType,
+            enrollmentId,
+            courseType,
+          ).catch((err) => {
+            console.error("Auto payment link dispatch failed:", err);
+          });
         }
       } else {
         throw new Error("No learner ID returned");
@@ -418,13 +444,15 @@ export default function LearnerManagement() {
     amount,
     installmentMode,
     enrollmentId,
+    linkCourseType?: CourseType,
   ) => {
     // Close the payment dialog if it's open (for newly created learners)
     if (isPaymentDialogOpen) {
       setIsPaymentDialogOpen(false);
     }
     try {
-      const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
+      const typeParam = linkCourseType === "demo" ? "&type=demo" : "";
+      const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}${typeParam}`;
       console.log(
         "Use edge function for email ",
         learner.email,
@@ -916,6 +944,7 @@ export default function LearnerManagement() {
                       paymentAmount,
                       learnerData.installmentType,
                       learnerData.enrollmentId,
+                      courseType,
                     );
                   }}
                 >
