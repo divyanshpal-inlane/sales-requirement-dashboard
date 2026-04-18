@@ -244,44 +244,60 @@ serve(async (req) => {
         );
       }
 
-      await supabaseClient.from("enrollment").insert([
-        {
-          learner_id: learnerId,
-          course_id: null,
-          payment_id: paymentRecord.id,
-          status: "pending",
-          payment_status: "pending",
-          installment_mode: "full",
-          unlocked_lessons: [1],
-          progress: {
-            type: "demo",
-            total_hours: 1,
+      const { error: demoEnrollError } = await supabaseClient
+        .from("enrollment")
+        .insert([
+          {
+            learner_id: learnerId,
+            course_id: null,
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: "full",
+            unlocked_lessons: [1],
+            progress: {
+              type: "demo",
+              total_hours: 1,
+            },
           },
-        },
-      ]);
+        ]);
+      if (demoEnrollError) {
+        console.error("Demo enrollment insert failed:", demoEnrollError);
+        throw new Error(
+          `Failed to create demo enrollment: ${demoEnrollError.message}`,
+        );
+      }
     }
 
     // Handle topup payment (N × ₹599 hour(s) for existing or completed-demo learners)
     if (paymentType === "topup") {
       const topupHours = Math.max(1, totalHours || 1);
-      await supabaseClient.from("enrollment").insert([
-        {
-          learner_id: learnerId,
-          course_id: null,
-          payment_id: paymentRecord.id,
-          status: "pending",
-          payment_status: "pending",
-          installment_mode: "full",
-          unlocked_lessons: Array.from(
-            { length: topupHours },
-            (_, i) => i + 1,
-          ),
-          progress: {
-            type: "topup",
-            total_hours: topupHours,
+      const { error: topupEnrollError } = await supabaseClient
+        .from("enrollment")
+        .insert([
+          {
+            learner_id: learnerId,
+            course_id: null,
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: "full",
+            unlocked_lessons: Array.from(
+              { length: topupHours },
+              (_, i) => i + 1,
+            ),
+            progress: {
+              type: "topup",
+              total_hours: topupHours,
+            },
           },
-        },
-      ]);
+        ]);
+      if (topupEnrollError) {
+        console.error("Topup enrollment insert failed:", topupEnrollError);
+        throw new Error(
+          `Failed to create topup enrollment: ${topupEnrollError.message}`,
+        );
+      }
     }
 
     // Handle custom course payment
