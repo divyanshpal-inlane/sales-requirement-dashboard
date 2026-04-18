@@ -97,6 +97,42 @@ export function useSchedulingRequests() {
   });
 }
 
+// Fetches latest enrollment.progress.type per learner so the admin queue can
+// sub-categorize "new" scheduling requests into course / demo / topup.
+export function useEnrollmentTypesByLearner(learnerIds: string[]) {
+  return useQuery({
+    queryKey: ["enrollment-types-by-learner", [...learnerIds].sort()],
+    enabled: learnerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("enrollment")
+        .select("learner_id, course_id, progress, created_at")
+        .in("learner_id", learnerIds)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const latestByLearner = new Map<
+        string,
+        { type: string | null; hours: number | null }
+      >();
+      for (const e of data || []) {
+        if (latestByLearner.has(e.learner_id)) continue;
+        const progress = e.progress as
+          | { type?: string; total_hours?: number }
+          | null
+          | undefined;
+        latestByLearner.set(e.learner_id, {
+          type: progress?.type ?? (e.course_id ? "course" : null),
+          hours: progress?.total_hours ?? null,
+        });
+      }
+      return latestByLearner;
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
 export function useLearnerSchedulePreferences(learnerId: string | undefined) {
   return useQuery({
     queryKey: ["learnerSchedulePreferences", learnerId],

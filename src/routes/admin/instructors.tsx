@@ -3081,8 +3081,17 @@ function WeeklyScheduleView({
                               divClasses += ` bg-orange-500 text-white`; // Normal tentative
                             }
                           } else {
-                            // Confirmed Schedule (Green)
-                            divClasses += ` bg-green-500 text-white`;
+                            // Confirmed Schedule — color by enrollment type so
+                            // instructor can tell what they're teaching at a glance
+                            const enrollmentType = (schedule as any)
+                              .enrollmentType;
+                            if (enrollmentType === "demo") {
+                              divClasses += ` bg-blue-500 text-white`;
+                            } else if (enrollmentType === "topup") {
+                              divClasses += ` bg-purple-500 text-white`;
+                            } else {
+                              divClasses += ` bg-green-500 text-white`;
+                            }
                           }
                         } else if (unavailable) {
                           // Unavailable Slot (Darker Slate Gray)
@@ -3117,7 +3126,13 @@ function WeeklyScheduleView({
                                     ? "bg-orange-300 text-black"
                                     : isOverdueOngoing
                                       ? "bg-yellow-200 text-black"
-                                      : "bg-green-500 text-white" // Default confirmed color
+                                      : (schedule as any).enrollmentType ===
+                                          "demo"
+                                        ? "bg-blue-500 text-white"
+                                        : (schedule as any).enrollmentType ===
+                                            "topup"
+                                          ? "bg-purple-500 text-white"
+                                          : "bg-green-500 text-white"
                                   : unavailable
                                     ? "bg-gray-300 text-red-800"
                                     : ""
@@ -3222,10 +3237,20 @@ function WeeklyScheduleView({
                                   ) : (
                                     // Confirmed Details - Conditional Display Logic
                                     <>
-                                      {/* Line 1: Name */}
-                                      <div className="w-full select-none truncate text-[0.6rem] font-medium text-white">
-                                        {schedule.learner?.name || "Booked"} (
-                                        {schedule?.lesson?.number})
+                                      {/* Line 1: Name + type tag */}
+                                      <div className="flex w-full select-none items-center gap-1 truncate text-[0.6rem] font-medium text-white">
+                                        <span className="truncate">
+                                          {schedule.learner?.name || "Booked"} (
+                                          {schedule?.lesson?.number})
+                                        </span>
+                                        {((schedule as any).enrollmentType ===
+                                          "demo" ||
+                                          (schedule as any).enrollmentType ===
+                                            "topup") && (
+                                          <span className="rounded bg-white/20 px-1 text-[0.5rem] font-bold uppercase">
+                                            {(schedule as any).enrollmentType}
+                                          </span>
+                                        )}
                                       </div>
 
                                       {/* Line 2: Status and Map Link (Status removed if very zoomed out) */}

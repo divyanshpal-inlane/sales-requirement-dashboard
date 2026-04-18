@@ -7,13 +7,40 @@ import { useMaskedCall } from "@/hooks/useMaskedCall";
 import { useLearner } from "@/queries/learner";
 import { Database } from "@/types/database.types";
 
+type ScheduleType = "course" | "demo" | "topup";
+
 interface SessionDetailsProps {
   schedule: Database["public"]["Tables"]["Schedule"]["Row"];
   instructor: Database["public"]["Tables"]["Instructor"]["Row"];
   lessonNumber: number;
   lessonEndNumber?: number | null;
   lessonLabel?: string;
+  scheduleType?: ScheduleType;
 }
+
+const TYPE_THEME: Record<
+  ScheduleType,
+  { card: string; header: string; chip: string; label: string }
+> = {
+  course: {
+    card: "border-green-200",
+    header: "bg-green-50",
+    chip: "bg-green-100 text-green-800",
+    label: "Course",
+  },
+  demo: {
+    card: "border-blue-200",
+    header: "bg-blue-50",
+    chip: "bg-blue-100 text-blue-800",
+    label: "Demo",
+  },
+  topup: {
+    card: "border-purple-200",
+    header: "bg-purple-50",
+    chip: "bg-purple-100 text-purple-800",
+    label: "Topup",
+  },
+};
 
 export function SessionDetails({
   schedule,
@@ -21,15 +48,17 @@ export function SessionDetails({
   lessonNumber,
   lessonEndNumber,
   lessonLabel,
+  scheduleType = "course",
 }: SessionDetailsProps) {
   const { data } = useLearner();
   const { initiateCall, isCallLoading } = useMaskedCall();
   const pickupLocation = data?.pick_up_location;
   const lat = data?.address_lat;
   const lng = data?.address_lng;
+  const theme = TYPE_THEME[scheduleType];
   return (
-    <Card className="mb-6 text-start">
-      <CardHeader>
+    <Card className={`mb-6 text-start ${theme.card}`}>
+      <CardHeader className={theme.header}>
         <CardTitle>
           <div className="flex flex-row items-center justify-center gap-3">
             <IdCardIcon />
@@ -37,6 +66,11 @@ export function SessionDetails({
               {lessonLabel ||
                 `Lesson ${lessonNumber}${lessonEndNumber ? ` & ${lessonEndNumber}` : ""}`}
             </p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${theme.chip}`}
+            >
+              {theme.label}
+            </span>
           </div>
         </CardTitle>
       </CardHeader>

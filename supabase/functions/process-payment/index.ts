@@ -24,7 +24,7 @@ interface PaymentDetails {
   amount: number;
   email: string;
   phone: string;
-  paymentType: "course" | "demo" | "custom";
+  paymentType: "course" | "demo" | "custom" | "topup";
   courseId?: string;
   name: string;
   learnerId?: string;
@@ -283,6 +283,19 @@ serve(async (req) => {
 
     // 3b. Handle demo payment
     if (paymentType === "demo") {
+      // Enforce demo cap: max 4 completed demos per learner
+      const { data: existingDemos } = await supabaseClient
+        .from("payment")
+        .select("id")
+        .eq("learner_id", learnerId)
+        .eq("payment_type", "demo")
+        .eq("status", "completed");
+      if ((existingDemos?.length ?? 0) >= 4) {
+        throw new Error(
+          "Demo limit reached (max 4). Please choose a course or topup instead.",
+        );
+      }
+
       const { error: demoError } = await supabaseClient
         .from("enrollment")
         .insert([
@@ -302,6 +315,33 @@ serve(async (req) => {
         ]);
 
       if (demoError) throw demoError;
+    }
+
+    // 3b-topup. Handle topup payment (N × ₹599 hours)
+    if (paymentType === "topup") {
+      const topupHours = Math.max(1, totalHours || 1);
+      const { error: topupError } = await supabaseClient
+        .from("enrollment")
+        .insert([
+          {
+            learner_id: learnerId,
+            course_id: null,
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: "full",
+            unlocked_lessons: Array.from(
+              { length: topupHours },
+              (_, i) => i + 1,
+            ),
+            progress: {
+              type: "topup",
+              total_hours: topupHours,
+            },
+          },
+        ]);
+
+      if (topupError) throw topupError;
     }
 
     // 3c. Handle custom course payment

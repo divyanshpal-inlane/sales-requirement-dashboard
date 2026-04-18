@@ -226,34 +226,97 @@ export const useInstructorScheduleData = (phone: string) => {
         }),
       );
 
+      // Fetch each learner's latest enrollment so schedules can be tagged as
+      // course / demo / topup. Instructors and admins use this to color-code
+      // their calendar (green = course, blue = demo, purple = topup).
+      const uniqueLearnerIds = Array.from(
+        new Set(
+          schedules.map((s) => s.learner_id).filter((id): id is string => !!id),
+        ),
+      );
+
+      const enrollmentTypeByLearner = new Map<
+        string,
+        { type: string | null; hours: number | null }
+      >();
+
+      if (uniqueLearnerIds.length > 0) {
+        const { data: enrollmentRows } = await supabase
+          .from("enrollment")
+          .select("learner_id, course_id, progress, created_at")
+          .in("learner_id", uniqueLearnerIds)
+          .order("created_at", { ascending: false });
+
+        for (const e of enrollmentRows || []) {
+          if (enrollmentTypeByLearner.has(e.learner_id)) continue;
+          const progress = e.progress as
+            | { type?: string; total_hours?: number }
+            | null
+            | undefined;
+          enrollmentTypeByLearner.set(e.learner_id, {
+            type: progress?.type ?? (e.course_id ? "course" : null),
+            hours: progress?.total_hours ?? null,
+          });
+        }
+      }
+
       // Update each schedule's Lesson.number with the calculated chronological number
-      const schedulesWithCorrectNumbers = schedules.map((schedule) => ({
-        ...schedule,
-        // Attach instructor info to each schedule for backward compatibility
-        Instructor: instructorInfo,
-        Lesson: schedule.Lesson
-          ? {
-              ...schedule.Lesson,
-              number:
-                scheduleToLessonNumber[schedule.id] || schedule.Lesson.number,
-            }
-          : null,
-      }));
+      const schedulesWithCorrectNumbers = schedules.map((schedule) => {
+        const enrollmentInfo = schedule.learner_id
+          ? enrollmentTypeByLearner.get(schedule.learner_id)
+          : null;
+        return {
+          ...schedule,
+          // Attach instructor info to each schedule for backward compatibility
+          Instructor: instructorInfo,
+          Lesson: schedule.Lesson
+            ? {
+                ...schedule.Lesson,
+                number:
+                  scheduleToLessonNumber[schedule.id] || schedule.Lesson.number,
+              }
+            : null,
+          // Derived: 'course' | 'demo' | 'topup' | null (null = no enrollment info)
+          enrollmentType: enrollmentInfo?.type ?? null,
+          enrollmentHours: enrollmentInfo?.hours ?? null,
+        };
+      });
 
       // Filter schedules for the current date
       const instructorScheduleDay = schedulesWithCorrectNumbers.filter(
         (schedule) => schedule.date === currentDate,
       );
 
-      // Fetch learner and lesson data for each schedule (all schedules)
-      const learnerLesson = schedulesWithCorrectNumbers
-        .filter((s) => !s.isTentative && s.Learner && s.Lesson)
-        .map((s) => ({ learner: s.Learner, lesson: s.Lesson }));
+      // Fetch learner and lesson data for each schedule (all schedules).
+      // Demo/topup schedules legitimately have lesson_id=NULL, so we
+      // synthesize a virtual lesson pointer keyed on the schedule id so the
+      // UI can still render them.
+      const virtualLessonFor = (s: any) => ({
+        id: `virtual-${s.id}`,
+        number: null,
+        course_id: null,
+        name:
+          s.enrollmentType === "demo"
+            ? "Demo Lesson"
+            : s.enrollmentType === "topup"
+              ? "Topup Class"
+              : "Class",
+        created_at: s.created_at ?? new Date().toISOString(),
+      });
 
-      // Fetch learner and lesson data for current day schedules
+      const learnerLesson = schedulesWithCorrectNumbers
+        .filter((s) => !s.isTentative && s.Learner)
+        .map((s) => ({
+          learner: s.Learner,
+          lesson: s.Lesson ?? virtualLessonFor(s),
+        }));
+
       const learnerLessonDay = instructorScheduleDay
-        .filter((s) => !s.isTentative && s.Learner && s.Lesson)
-        .map((s) => ({ learner: s.Learner, lesson: s.Lesson }));
+        .filter((s) => !s.isTentative && s.Learner)
+        .map((s) => ({
+          learner: s.Learner,
+          lesson: s.Lesson ?? virtualLessonFor(s),
+        }));
 
       console.log("T2_1 learnerLessonDay", learnerLessonDay);
 

@@ -65,15 +65,54 @@ const LessonList = ({ instructorData, LESSON_CONTENT }: LessonListProps) => {
           return dateA.getTime() - dateB.getTime();
         })
         .map(({ learner, lesson }, index) => {
-          const lessonSchedule = instructorData.instructorSchedule.find(
-            (s) => s.lesson_id === lesson?.id,
-          );
+          // For demo/topup, lesson is a virtual placeholder (id starts with
+          // `virtual-`). Match against learner_id instead of lesson_id.
+          const isVirtual =
+            typeof lesson?.id === "string" && lesson.id.startsWith("virtual-");
+          const lessonSchedule = isVirtual
+            ? instructorData.instructorSchedule.find(
+                (s) => `virtual-${s.id}` === lesson?.id,
+              )
+            : instructorData.instructorSchedule.find(
+                (s) => s.lesson_id === lesson?.id,
+              );
+          const enrollmentType = (lessonSchedule as any)?.enrollmentType;
+          const typeTheme =
+            enrollmentType === "demo"
+              ? {
+                  border: "border-blue-300",
+                  chip: "bg-blue-100 text-blue-800",
+                  label: "Demo",
+                }
+              : enrollmentType === "topup"
+                ? {
+                    border: "border-purple-300",
+                    chip: "bg-purple-100 text-purple-800",
+                    label: "Topup",
+                  }
+                : null;
+          const displayLabel = lesson?.number
+            ? `Lesson ${lesson.number}`
+            : enrollmentType === "demo"
+              ? "Demo Lesson"
+              : enrollmentType === "topup"
+                ? "Topup Class"
+                : "Class";
 
           return (
-            <Card key={index}>
+            <Card key={index} className={typeTheme?.border}>
               <CardHeader>
                 <CardTitle className="flex flex-wrap items-center justify-between gap-4">
-                  <div>Lesson {lesson?.number}</div>
+                  <div className="flex items-center gap-2">
+                    <span>{displayLabel}</span>
+                    {typeTheme && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeTheme.chip}`}
+                      >
+                        {typeTheme.label}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs">
                     <div className="text-right text-base">
                       {lessonSchedule

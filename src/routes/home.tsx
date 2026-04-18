@@ -646,7 +646,20 @@ export default function Home() {
               instructor={LessonData.instructor}
               lessonNumber={LessonData.upcomingLesson.number ?? 0}
               lessonEndNumber={LessonData.upcomingLesson.endNumber}
-              lessonLabel={isDemo ? "Demo Lesson" : undefined}
+              lessonLabel={
+                isDemo
+                  ? "Demo Lesson"
+                  : enrolledCourse?.progress?.type === "topup"
+                    ? `Topup Lesson ${LessonData.upcomingLesson.number ?? ""}`
+                    : undefined
+              }
+              scheduleType={
+                isDemo
+                  ? "demo"
+                  : enrolledCourse?.progress?.type === "topup"
+                    ? "topup"
+                    : "course"
+              }
             />
           )}
         <h2 className="text-lg font-semibold">
@@ -837,16 +850,29 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">
                 {isDemo
                   ? "Demo Lesson"
-                  : `Lesson ${LessonData?.upcomingLesson?.number}${LessonData?.upcomingLesson?.endNumber ? ` & ${LessonData.upcomingLesson.endNumber}` : ""} - ${LessonData?.course?.name}`}
+                  : enrolledCourse?.progress?.type === "topup"
+                    ? `Topup Lesson ${LessonData?.upcomingLesson?.number ?? ""}`
+                    : `Lesson ${LessonData?.upcomingLesson?.number}${LessonData?.upcomingLesson?.endNumber ? ` & ${LessonData.upcomingLesson.endNumber}` : ""} - ${LessonData?.course?.name}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 Share this OTP with your instructor to start the lesson
               </p>
-              <div className="rounded-lg bg-green-50 px-6 py-4">
-                <p className="text-center text-3xl font-bold tracking-widest text-green-600">
-                  {LessonData?.upcomingSchedule?.otp}
-                </p>
-              </div>
+              {(() => {
+                const otpTheme = isDemo
+                  ? { bg: "bg-blue-50", text: "text-blue-600" }
+                  : enrolledCourse?.progress?.type === "topup"
+                    ? { bg: "bg-purple-50", text: "text-purple-600" }
+                    : { bg: "bg-green-50", text: "text-green-600" };
+                return (
+                  <div className={`rounded-lg ${otpTheme.bg} px-6 py-4`}>
+                    <p
+                      className={`text-center text-3xl font-bold tracking-widest ${otpTheme.text}`}
+                    >
+                      {LessonData?.upcomingSchedule?.otp}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <DialogFooter>
@@ -989,29 +1015,96 @@ export default function Home() {
                     // Demo course handling
                     isDemo ? (
                       (() => {
-                        const demoCompleted = scheduledLessons?.some(
-                          (l) => l.status?.toUpperCase() === "COMPLETED",
-                        );
+                        const completedDemoCount =
+                          scheduledLessons?.filter(
+                            (l) => l.status?.toUpperCase() === "COMPLETED",
+                          ).length ?? 0;
+                        const demoCompleted = completedDemoCount > 0;
+                        const canBookAnotherDemo = completedDemoCount < 4;
+                        const demoCredit = completedDemoCount * 599;
                         if (demoCompleted) {
-                          // Demo done — show upgrade options
                           return (
-                            <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">
-                              <div className="rounded-full bg-green-100 p-4">
-                                <CheckCircle className="h-12 w-12 text-green-600" />
+                            <div className="flex grow flex-col items-stretch gap-4 p-4 pb-0">
+                              <div className="flex flex-col items-center gap-2 text-center">
+                                <div className="rounded-full bg-green-100 p-4">
+                                  <CheckCircle className="h-12 w-12 text-green-600" />
+                                </div>
+                                <h2 className="text-xl font-semibold">
+                                  {completedDemoCount === 1
+                                    ? "Demo Lesson Completed!"
+                                    : `${completedDemoCount} Demo Lessons Completed!`}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                  What would you like to do next?
+                                </p>
                               </div>
-                              <h2 className="text-xl font-semibold">
-                                Demo Lesson Completed!
-                              </h2>
-                              <p className="text-muted-foreground">
-                                Ready to start your full driving course? Choose
-                                a course below. Your demo payment of ₹599 will
-                                be credited.
-                              </p>
-                              <Button className="w-full" asChild>
-                                <Link to="/payment">
-                                  Choose a Course
-                                </Link>
-                              </Button>
+
+                              <Link
+                                to={`/payment?phone=${learner?.phone}&type=demo`}
+                                className={
+                                  canBookAnotherDemo
+                                    ? ""
+                                    : "pointer-events-none"
+                                }
+                              >
+                                <Card
+                                  className={
+                                    canBookAnotherDemo
+                                      ? "transition hover:border-primary hover:shadow-sm"
+                                      : "opacity-50"
+                                  }
+                                >
+                                  <CardContent className="flex items-center justify-between p-4">
+                                    <div className="text-left">
+                                      <div className="font-semibold">
+                                        Another Demo Lesson
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {canBookAnotherDemo
+                                          ? `₹599 · ${4 - completedDemoCount} left (max 4)`
+                                          : "You've used all 4 demo lessons"}
+                                      </div>
+                                    </div>
+                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                                  </CardContent>
+                                </Card>
+                              </Link>
+
+                              <Link
+                                to={`/payment?phone=${learner?.phone}&type=topup&hours=1`}
+                              >
+                                <Card className="transition hover:border-primary hover:shadow-sm">
+                                  <CardContent className="flex items-center justify-between p-4">
+                                    <div className="text-left">
+                                      <div className="font-semibold">
+                                        Topup Class
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        ₹599/hr · Pick any number of hours
+                                      </div>
+                                    </div>
+                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                                  </CardContent>
+                                </Card>
+                              </Link>
+
+                              <Link to={`/payment?phone=${learner?.phone}`}>
+                                <Card className="border-primary transition hover:shadow-sm">
+                                  <CardContent className="flex items-center justify-between p-4">
+                                    <div className="text-left">
+                                      <div className="font-semibold">
+                                        Upgrade to Full Course
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        ₹{demoCredit} credit from your {completedDemoCount} demo
+                                        {completedDemoCount === 1 ? "" : "s"}{" "}
+                                        applied
+                                      </div>
+                                    </div>
+                                    <ArrowRight className="h-5 w-5 text-primary" />
+                                  </CardContent>
+                                </Card>
+                              </Link>
                             </div>
                           );
                         }

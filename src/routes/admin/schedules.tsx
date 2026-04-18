@@ -55,6 +55,7 @@ import { generateRandomOTP } from "@/lib/utils";
 import { useMutationCompleteRescheduleRequest } from "@/queries/learner";
 import {
   SchedulingRequests,
+  useEnrollmentTypesByLearner,
   useSchedulingRequests,
 } from "@/queries/preferences";
 import {
@@ -140,6 +141,10 @@ export default function AdminSchedules() {
     useState<LearnerInfo | null>(null);
 
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+
+  const [newRequestFilter, setNewRequestFilter] = useState<
+    "all" | "course" | "demo" | "topup"
+  >("all");
 
   useEffect(() => {
     if (!isRefetching) {
@@ -497,6 +502,62 @@ export default function AdminSchedules() {
     () => requests?.filter((r) => (r.type as string) === "new"),
     [requests],
   );
+  const newRequestLearnerIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (newRequests || [])
+            .map((r) => r.learner_id)
+            .filter((id): id is string => !!id),
+        ),
+      ),
+    [newRequests],
+  );
+  const { data: enrollmentTypeMap } = useEnrollmentTypesByLearner(
+    newRequestLearnerIds,
+  );
+  const getEnrollmentType = (learnerId: string | null | undefined) =>
+    (learnerId && enrollmentTypeMap?.get(learnerId)?.type) || null;
+  const getEnrollmentHours = (learnerId: string | null | undefined) =>
+    (learnerId && enrollmentTypeMap?.get(learnerId)?.hours) || null;
+  const newCourseRequests = useMemo(
+    () =>
+      newRequests?.filter((r) => {
+        const t = getEnrollmentType(r.learner_id);
+        return t !== "demo" && t !== "topup";
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [newRequests, enrollmentTypeMap],
+  );
+  const newDemoRequests = useMemo(
+    () =>
+      newRequests?.filter(
+        (r) => getEnrollmentType(r.learner_id) === "demo",
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [newRequests, enrollmentTypeMap],
+  );
+  const newTopupRequests = useMemo(
+    () =>
+      newRequests?.filter(
+        (r) => getEnrollmentType(r.learner_id) === "topup",
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [newRequests, enrollmentTypeMap],
+  );
+  const filteredNewRequests = useMemo(() => {
+    if (!newRequests) return newRequests;
+    if (newRequestFilter === "course") return newCourseRequests;
+    if (newRequestFilter === "demo") return newDemoRequests;
+    if (newRequestFilter === "topup") return newTopupRequests;
+    return newRequests;
+  }, [
+    newRequestFilter,
+    newRequests,
+    newCourseRequests,
+    newDemoRequests,
+    newTopupRequests,
+  ]);
   const rescheduleRequests = useMemo(
     () => requests?.filter((r) => (r.type as string) === "reschedule"),
     [requests],
@@ -901,11 +962,54 @@ export default function AdminSchedules() {
                   <CardTitle className="text-sm">
                     Learners Needing Schedule
                   </CardTitle>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(
+                      [
+                        ["all", newRequests?.length ?? 0],
+                        ["course", newCourseRequests?.length ?? 0],
+                        ["demo", newDemoRequests?.length ?? 0],
+                        ["topup", newTopupRequests?.length ?? 0],
+                      ] as const
+                    ).map(([key, count]) => (
+                      <button
+                        key={key}
+                        onClick={() => setNewRequestFilter(key)}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition ${
+                          newRequestFilter === key
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/70"
+                        }`}
+                      >
+                        {key} {count}
+                      </button>
+                    ))}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                  <ScrollArea className="h-[calc(100vh-240px)]">
-                    {newRequests?.map((request) => (
-                      <div key={request.id} className="mb-2">
+                  <ScrollArea className="h-[calc(100vh-280px)]">
+                    {filteredNewRequests?.map((request) => {
+                      const enrollmentType = getEnrollmentType(
+                        request.learner_id,
+                      );
+                      const enrollmentHours = getEnrollmentHours(
+                        request.learner_id,
+                      );
+                      return (
+                      <div key={request.id} className="relative mb-2">
+                        {(enrollmentType === "demo" ||
+                          enrollmentType === "topup") && (
+                          <span
+                            className={`absolute right-2 top-2 z-10 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                              enrollmentType === "demo"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-purple-100 text-purple-700"
+                            }`}
+                          >
+                            {enrollmentType === "topup"
+                              ? `Topup${enrollmentHours ? ` ${enrollmentHours}h` : ""}`
+                              : "Demo"}
+                          </span>
+                        )}
                         <LearnerInfoCard
                           learner={{
                             id: request.Learner?.id || "",
@@ -935,7 +1039,8 @@ export default function AdminSchedules() {
                           }}
                         />
                       </div>
-                    ))}
+                      );
+                    })}
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -2021,7 +2126,10 @@ export const LearnerSchedulesManager = ({
       if (demoError)
         console.error("Failed to close demo enrollment:", demoError);
 
-      // Send payment link via WhatsApp
+      // Send payment link via WhatsApp. Pre-enrolled course is the latest
+      // enrollment for this learner, so PaymentPage will auto-prefill via
+      // the existing enrollment lookup (no need for a type param here).
+      // Admin sees demo credit applied automatically on the learner side.
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
       await supabase.functions.invoke("send-message", {
         body: {
@@ -2029,6 +2137,11 @@ export const LearnerSchedulesManager = ({
           learner_id: learner.id,
           payment_link: paymentLink,
           course_name: course.name,
+          payment_amount: Math.max(
+            0,
+            (course as any).price ?? 0,
+          ),
+          duration: course.duration,
         },
       });
 
@@ -2164,14 +2277,19 @@ export const LearnerSchedulesManager = ({
       const { error } = await supabase.from("Schedule").insert(records);
       if (error) throw error;
 
-      // Send payment link to learner for all topups (₹599 fixed)
+      // Send payment link to learner. Demo uses ?type=demo (1hr @ ₹599);
+      // topup uses ?type=topup&hours=N (N × ₹599) so PaymentPage prefills
+      // the right flow instead of showing the generic course selector.
+      const totalHours = topupSlots.reduce((sum, slot) => {
+        const start = parseInt(slot.start_time.split(":")[0]);
+        const end = parseInt(slot.end_time.split(":")[0]);
+        return sum + (end - start);
+      }, 0);
       if (learner.phone) {
-        const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`;
-        const totalHours = topupSlots.reduce((sum, slot) => {
-          const start = parseInt(slot.start_time.split(":")[0]);
-          const end = parseInt(slot.end_time.split(":")[0]);
-          return sum + (end - start);
-        }, 0);
+        const paymentLink = isDemo
+          ? `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`
+          : `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=topup&hours=${totalHours}`;
+        const paymentAmount = isDemo ? 599 : 599 * totalHours;
         try {
           await supabase.functions.invoke("send-message", {
             body: {
@@ -2179,7 +2297,7 @@ export const LearnerSchedulesManager = ({
               learner_id: learner.id,
               payment_link: paymentLink,
               course_name: isDemo ? "Demo Lesson" : "Topup Classes",
-              payment_amount: 599,
+              payment_amount: paymentAmount,
               duration: totalHours,
             },
           });
@@ -2190,9 +2308,10 @@ export const LearnerSchedulesManager = ({
 
       setIsTopupDialogOpen(false);
       await syncData();
+      const topupPrice = isDemo ? 599 : 599 * totalHours;
       toast({
         title: isDemo ? "Demo Scheduled" : "Topup Added",
-        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹599) sent to ${learner.name}.`,
+        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹${topupPrice}) sent to ${learner.name}.`,
       });
     } catch (error: any) {
       toast({
@@ -2545,7 +2664,6 @@ export const LearnerSchedulesManager = ({
                   <input
                     type="date"
                     value={selectedSchedule.date || ""}
-                    min={new Date().toISOString().split("T")[0]}
                     onChange={(e) =>
                       setSelectedSchedule((prev: any) => ({
                         ...prev,
