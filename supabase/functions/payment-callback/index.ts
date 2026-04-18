@@ -341,28 +341,51 @@ serve(async (req) => {
               .from("enrollment")
               .select("*")
               .eq("payment_id", paymentId)
-              .single();
+              .maybeSingle();
 
           if (enrollmentQueryError) throw enrollmentQueryError;
-          if (!enrollment) throw new Error("Demo enrollment not found");
 
-          const { error: enrollmentError } = await supabaseClient
-            .from("enrollment")
-            .update({
-              payment_status: "full_paid",
-              unlocked_lessons: [1],
-              status: "active",
-              progress: {
-                type: "demo",
-                total_hours: 1,
-                completed_lessons: [],
-                current_lesson: 1,
-                last_accessed: new Date().toISOString(),
-              },
-            })
-            .eq("id", enrollment.id);
+          const demoProgress = {
+            type: "demo",
+            total_hours: 1,
+            completed_lessons: [],
+            current_lesson: 1,
+            last_accessed: new Date().toISOString(),
+          };
 
-          if (enrollmentError) throw enrollmentError;
+          if (!enrollment) {
+            console.warn(
+              "Demo enrollment missing for payment; recreating",
+              paymentId,
+            );
+            const { error: recreateError } = await supabaseClient
+              .from("enrollment")
+              .insert([
+                {
+                  learner_id: payment.learner_id,
+                  course_id: null,
+                  payment_id: paymentId,
+                  status: "active",
+                  payment_status: "full_paid",
+                  installment_mode: "full",
+                  unlocked_lessons: [1],
+                  progress: demoProgress,
+                },
+              ]);
+            if (recreateError) throw recreateError;
+          } else {
+            const { error: enrollmentError } = await supabaseClient
+              .from("enrollment")
+              .update({
+                payment_status: "full_paid",
+                unlocked_lessons: [1],
+                status: "active",
+                progress: demoProgress,
+              })
+              .eq("id", enrollment.id);
+
+            if (enrollmentError) throw enrollmentError;
+          }
 
           // Surface the paid demo in admin "New Scheduling Requests" tab
           const { data: existingReq } = await supabaseClient
@@ -397,34 +420,58 @@ serve(async (req) => {
               .from("enrollment")
               .select("*")
               .eq("payment_id", paymentId)
-              .single();
+              .maybeSingle();
 
           if (enrollmentQueryError) throw enrollmentQueryError;
-          if (!enrollment) throw new Error("Topup enrollment not found");
 
-          const topupHours = enrollment.progress?.total_hours || 1;
+          const topupHours =
+            enrollment?.progress?.total_hours ||
+            Math.max(1, Math.round((payment.amount || 599) / 599));
           const unlockedLessons = Array.from(
             { length: topupHours },
             (_, i) => i + 1,
           );
+          const topupProgress = {
+            type: "topup",
+            total_hours: topupHours,
+            completed_lessons: [],
+            current_lesson: 1,
+            last_accessed: new Date().toISOString(),
+          };
 
-          const { error: enrollmentError } = await supabaseClient
-            .from("enrollment")
-            .update({
-              payment_status: "full_paid",
-              unlocked_lessons: unlockedLessons,
-              status: "active",
-              progress: {
-                type: "topup",
-                total_hours: topupHours,
-                completed_lessons: [],
-                current_lesson: 1,
-                last_accessed: new Date().toISOString(),
-              },
-            })
-            .eq("id", enrollment.id);
+          if (!enrollment) {
+            console.warn(
+              "Topup enrollment missing for payment; recreating",
+              paymentId,
+            );
+            const { error: recreateError } = await supabaseClient
+              .from("enrollment")
+              .insert([
+                {
+                  learner_id: payment.learner_id,
+                  course_id: null,
+                  payment_id: paymentId,
+                  status: "active",
+                  payment_status: "full_paid",
+                  installment_mode: "full",
+                  unlocked_lessons: unlockedLessons,
+                  progress: topupProgress,
+                },
+              ]);
+            if (recreateError) throw recreateError;
+          } else {
+            const { error: enrollmentError } = await supabaseClient
+              .from("enrollment")
+              .update({
+                payment_status: "full_paid",
+                unlocked_lessons: unlockedLessons,
+                status: "active",
+                progress: topupProgress,
+              })
+              .eq("id", enrollment.id);
 
-          if (enrollmentError) throw enrollmentError;
+            if (enrollmentError) throw enrollmentError;
+          }
 
           const lessonIds = Array.from(
             { length: topupHours },
