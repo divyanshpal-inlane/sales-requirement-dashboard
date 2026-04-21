@@ -14,12 +14,12 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import InstructorAnalytics from "@/components/admin/InstructorAnalytics";
 import {
   LearnerInfo,
   LearnerInfoCard,
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
-import InstructorAnalytics from "@/components/admin/InstructorAnalytics";
 import LessonRouteMap from "@/components/admin/LessonRouteMap";
 import CreateSchedule from "@/components/lesson/CreateSchedule";
 import CreateScheduleWithInstructor from "@/components/lesson/CreateSchedule";
@@ -64,6 +64,10 @@ import {
   TIME_SLOTS,
   TimeSlot,
 } from "@/types/schedule";
+import {
+  checkScheduleConflict,
+  formatConflictMessage,
+} from "@/utils/scheduleConflict";
 
 export type Schedule = {
   date: Date;
@@ -513,9 +517,8 @@ export default function AdminSchedules() {
       ),
     [newRequests],
   );
-  const { data: enrollmentTypeMap } = useEnrollmentTypesByLearner(
-    newRequestLearnerIds,
-  );
+  const { data: enrollmentTypeMap } =
+    useEnrollmentTypesByLearner(newRequestLearnerIds);
   const getEnrollmentType = (learnerId: string | null | undefined) =>
     (learnerId && enrollmentTypeMap?.get(learnerId)?.type) || null;
   const getEnrollmentHours = (learnerId: string | null | undefined) =>
@@ -531,17 +534,13 @@ export default function AdminSchedules() {
   );
   const newDemoRequests = useMemo(
     () =>
-      newRequests?.filter(
-        (r) => getEnrollmentType(r.learner_id) === "demo",
-      ),
+      newRequests?.filter((r) => getEnrollmentType(r.learner_id) === "demo"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [newRequests, enrollmentTypeMap],
   );
   const newTopupRequests = useMemo(
     () =>
-      newRequests?.filter(
-        (r) => getEnrollmentType(r.learner_id) === "topup",
-      ),
+      newRequests?.filter((r) => getEnrollmentType(r.learner_id) === "topup"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [newRequests, enrollmentTypeMap],
   );
@@ -995,50 +994,51 @@ export default function AdminSchedules() {
                         request.learner_id,
                       );
                       return (
-                      <div key={request.id} className="relative mb-2">
-                        {(enrollmentType === "demo" ||
-                          enrollmentType === "topup") && (
-                          <span
-                            className={`absolute right-2 top-2 z-10 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
-                              enrollmentType === "demo"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-purple-100 text-purple-700"
-                            }`}
-                          >
-                            {enrollmentType === "topup"
-                              ? `Topup${enrollmentHours ? ` ${enrollmentHours}h` : ""}`
-                              : "Demo"}
-                          </span>
-                        )}
-                        <LearnerInfoCard
-                          learner={{
-                            id: request.Learner?.id || "",
-                            name: request.Learner?.name || "",
-                            phone: request.Learner?.phone || "",
-                            email: request.Learner?.email || "",
-                            area: request.Learner?.area || "",
-                            pick_up_location: request.Learner?.pick_up_location,
-                            pincode: request.Learner?.pincode,
-                            signed_up: request.Learner?.signed_up,
-                            created_at: request.Learner?.created_at,
-                            address_lat: request.Learner?.address_lat,
-                            address_lng: request.Learner?.address_lng,
-                            preferred_start_date:
-                              request.Learner?.preferred_start_date,
-                            preferred_completion_days:
-                              request.Learner?.preferred_completion_days,
-                            prefers_two_hour_classes:
-                              request.Learner?.prefers_two_hour_classes,
-                            preferred_two_hour_days:
-                              request.Learner?.two_hour_days,
-                            DL_test_date: request.Learner?.DL_test_date,
-                          }}
-                          compact={true}
-                          onClick={(learner) => {
-                            handleRequestSelect(request);
-                          }}
-                        />
-                      </div>
+                        <div key={request.id} className="relative mb-2">
+                          {(enrollmentType === "demo" ||
+                            enrollmentType === "topup") && (
+                            <span
+                              className={`absolute right-2 top-2 z-10 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                                enrollmentType === "demo"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-purple-100 text-purple-700"
+                              }`}
+                            >
+                              {enrollmentType === "topup"
+                                ? `Topup${enrollmentHours ? ` ${enrollmentHours}h` : ""}`
+                                : "Demo"}
+                            </span>
+                          )}
+                          <LearnerInfoCard
+                            learner={{
+                              id: request.Learner?.id || "",
+                              name: request.Learner?.name || "",
+                              phone: request.Learner?.phone || "",
+                              email: request.Learner?.email || "",
+                              area: request.Learner?.area || "",
+                              pick_up_location:
+                                request.Learner?.pick_up_location,
+                              pincode: request.Learner?.pincode,
+                              signed_up: request.Learner?.signed_up,
+                              created_at: request.Learner?.created_at,
+                              address_lat: request.Learner?.address_lat,
+                              address_lng: request.Learner?.address_lng,
+                              preferred_start_date:
+                                request.Learner?.preferred_start_date,
+                              preferred_completion_days:
+                                request.Learner?.preferred_completion_days,
+                              prefers_two_hour_classes:
+                                request.Learner?.prefers_two_hour_classes,
+                              preferred_two_hour_days:
+                                request.Learner?.two_hour_days,
+                              DL_test_date: request.Learner?.DL_test_date,
+                            }}
+                            compact={true}
+                            onClick={(learner) => {
+                              handleRequestSelect(request);
+                            }}
+                          />
+                        </div>
                       );
                     })}
                   </ScrollArea>
@@ -1821,6 +1821,25 @@ export const LearnerSchedulesManager = ({
     if (!selectedInstructorId || !selectedSchedule) return;
     try {
       setIsProcessing(true);
+
+      if (selectedInstructorId !== selectedSchedule.instructor_id) {
+        const conflicts = await checkScheduleConflict({
+          instructorId: selectedInstructorId,
+          date: selectedSchedule.date,
+          startTime: selectedSchedule.start_time,
+          endTime: selectedSchedule.end_time,
+          excludeScheduleId: selectedSchedule.id,
+        });
+        if (conflicts.length > 0) {
+          toast({
+            title: "Cannot change instructor",
+            description: formatConflictMessage(conflicts),
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("Schedule")
         .update({ instructor_id: selectedInstructorId })
@@ -1984,6 +2003,24 @@ export const LearnerSchedulesManager = ({
 
       if (oldScheduleError) throw oldScheduleError;
 
+      if (oldScheduleData.instructor_id) {
+        const conflicts = await checkScheduleConflict({
+          instructorId: oldScheduleData.instructor_id,
+          date: selectedSchedule.date,
+          startTime: selectedSchedule.start_time,
+          endTime: selectedSchedule.end_time,
+          excludeScheduleId: selectedSchedule.id,
+        });
+        if (conflicts.length > 0) {
+          toast({
+            title: "Cannot reschedule",
+            description: formatConflictMessage(conflicts),
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const oldDate = oldScheduleData.date;
       const oldStartTime = oldScheduleData.start_time;
       const oldEndTime = oldScheduleData.end_time;
@@ -2137,10 +2174,7 @@ export const LearnerSchedulesManager = ({
           learner_id: learner.id,
           payment_link: paymentLink,
           course_name: course.name,
-          payment_amount: Math.max(
-            0,
-            (course as any).price ?? 0,
-          ),
+          payment_amount: Math.max(0, (course as any).price ?? 0),
           duration: course.duration,
         },
       });
@@ -2491,89 +2525,108 @@ export const LearnerSchedulesManager = ({
                       <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                         Payment Pending
                       </span>
-                    ) : schedule.status === "completed" ? (
+                    ) : (
                       <div className="flex items-center gap-2">
-                        {schedule.started_at && schedule.ended_at ? (
-                          <>
-                            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                              OTP Verified
+                        {schedule.status === "completed" &&
+                          (schedule.started_at && schedule.ended_at ? (
+                            <>
+                              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                OTP Verified
+                              </span>
+                              <button
+                                className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-600 hover:bg-blue-100"
+                                onClick={() => {
+                                  setRouteMapScheduleId(schedule.id);
+                                  setRouteMapLabel(
+                                    `Lesson ${schedule.Lesson?.number ?? ""}`,
+                                  );
+                                }}
+                              >
+                                View Route
+                              </button>
+                            </>
+                          ) : (
+                            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                              Manually Done
                             </span>
-                            <button
-                              className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-600 hover:bg-blue-100"
+                          ))}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isProcessing}
+                            >
+                              Actions
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {schedule.status !== "completed" && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "This will mark the lesson as completed WITHOUT OTP verification. It will NOT count for instructor payout. Continue?",
+                                    )
+                                  ) {
+                                    onUpdateStatus(schedule.id, "completed");
+                                  }
+                                }}
+                              >
+                                Mark as Completed
+                              </DropdownMenuItem>
+                            )}
+                            {schedule.status === "completed" && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Revert this lesson back to Booked? Any OTP/verification data will remain but the lesson will no longer count as completed.",
+                                    )
+                                  ) {
+                                    onUpdateStatus(schedule.id, "booked");
+                                  }
+                                }}
+                              >
+                                Revert to Booked
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
                               onClick={() => {
-                                setRouteMapScheduleId(schedule.id);
-                                setRouteMapLabel(
-                                  `Lesson ${schedule.Lesson?.number ?? ""}`,
-                                );
+                                setSelectedSchedule(schedule);
+                                setSelectedInstructorId(schedule.instructor_id);
+                                setIsInstructorChangeModalOpen(true);
                               }}
                             >
-                              View Route
-                            </button>
-                          </>
-                        ) : (
-                          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                            Manually Done
-                          </span>
-                        )}
+                              Change Instructor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedSchedule({ ...schedule });
+                                setIsRescheduleModalOpen(true);
+                              }}
+                            >
+                              Reschedule
+                            </DropdownMenuItem>
+                            {schedule.status !== "completed" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  onUpdateStatus(
+                                    schedule.id,
+                                    schedule.status === "paused"
+                                      ? "booked"
+                                      : "paused",
+                                  )
+                                }
+                              >
+                                {schedule.status === "paused"
+                                  ? "Resume Lesson"
+                                  : "Pause Lesson"}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isProcessing}
-                          >
-                            Actions
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  "This will mark the lesson as completed WITHOUT OTP verification. It will NOT count for instructor payout. Continue?",
-                                )
-                              ) {
-                                onUpdateStatus(schedule.id, "completed");
-                              }
-                            }}
-                          >
-                            Mark as Completed
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedSchedule(schedule);
-                              setSelectedInstructorId(schedule.instructor_id);
-                              setIsInstructorChangeModalOpen(true);
-                            }}
-                          >
-                            Change Instructor
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedSchedule({ ...schedule });
-                              setIsRescheduleModalOpen(true);
-                            }}
-                          >
-                            Reschedule
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              onUpdateStatus(
-                                schedule.id,
-                                schedule.status === "paused"
-                                  ? "booked"
-                                  : "paused",
-                              )
-                            }
-                          >
-                            {schedule.status === "paused"
-                              ? "Resume Lesson"
-                              : "Pause Lesson"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     )}
                   </div>
                 ))
