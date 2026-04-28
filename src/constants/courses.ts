@@ -170,7 +170,7 @@ export const DEMO_COURSE = {
   id: "demo",
   label: "Demo Lesson",
   hours: 1,
-  price: 599,
+  price: 1,
   description:
     "Try a 1-hour introductory lesson before committing to a full course",
 };

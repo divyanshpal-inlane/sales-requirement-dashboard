@@ -4,12 +4,7 @@ import React, { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -103,8 +98,13 @@ export function HalfPaidTracker() {
     fetchHalfPaidEnrollments();
   }, []);
 
-  const getFirstPaymentDate = (enrollment: HalfPaidEnrollment): string | null => {
-    if (enrollment.payment?.status === "completed" && enrollment.payment?.updated_at) {
+  const getFirstPaymentDate = (
+    enrollment: HalfPaidEnrollment,
+  ): string | null => {
+    if (
+      enrollment.payment?.status === "completed" &&
+      enrollment.payment?.updated_at
+    ) {
       return enrollment.payment.updated_at;
     }
     if (enrollment.payment?.created_at) {
@@ -123,7 +123,8 @@ export function HalfPaidTracker() {
       return enrollment.installment2_amount;
     }
     // Fallback: total minus what was paid
-    const paid = enrollment.installment1_amount || enrollment.payment?.amount || 0;
+    const paid =
+      enrollment.installment1_amount || enrollment.payment?.amount || 0;
     return (enrollment.amount || 0) - paid;
   };
 
@@ -140,9 +141,7 @@ export function HalfPaidTracker() {
     <Card className="mt-6 transition-all hover:shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="text-xl">
-            50% Payment Tracker
-          </CardTitle>
+          <CardTitle className="text-xl">50% Payment Tracker</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             Learners who paid first installment — pending second half
           </p>
@@ -158,9 +157,7 @@ export function HalfPaidTracker() {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="py-4 text-center text-muted-foreground">
-            Loading...
-          </p>
+          <p className="py-4 text-center text-muted-foreground">Loading...</p>
         ) : enrollments.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">
             No learners with pending second installment
@@ -170,7 +167,8 @@ export function HalfPaidTracker() {
             {/* Summary stats */}
             <div className="mb-4 flex flex-wrap gap-3">
               <Badge variant="secondary" className="text-sm">
-                {enrollments.length} learner{enrollments.length !== 1 ? "s" : ""}
+                {enrollments.length} learner
+                {enrollments.length !== 1 ? "s" : ""}
               </Badge>
               <Badge variant="outline" className="text-sm">
                 Total outstanding: ₹{totalOutstanding.toLocaleString()}
@@ -239,11 +237,14 @@ export function HalfPaidTracker() {
                         </td>
                         <td className="whitespace-nowrap px-2 py-2 text-sm">
                           {paymentDate
-                            ? new Date(paymentDate).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
+                            ? new Date(paymentDate).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )
                             : "—"}
                         </td>
                         <td className="whitespace-nowrap px-2 py-2 text-sm">

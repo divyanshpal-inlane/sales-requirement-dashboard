@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DEMO_COURSE } from "@/constants/courses";
 import { useLearner } from "@/queries/learner";
 import { usePaymentsByLearner } from "@/queries/payment";
 
@@ -28,6 +29,35 @@ function PaymentStatusCard() {
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         )[0]
     : null;
+
+  const pendingPayment = Array.isArray(payments)
+    ? payments
+        .filter(
+          (payment: { payment_type: string; status: string }) =>
+            ["demo", "topup"].includes(payment.payment_type) &&
+            payment.status !== "completed",
+        )
+        .sort(
+          (a: { created_at: string }, b: { created_at: string }) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )[0]
+    : null;
+
+  const buildPaymentUrl = () => {
+    const base = `/payment?phone=${learner?.phone}`;
+    if (!pendingPayment) return base;
+    if (pendingPayment.payment_type === "demo") return `${base}&type=demo`;
+    if (pendingPayment.payment_type === "topup") {
+      const hours = Math.max(
+        1,
+        Math.round(
+          (pendingPayment.amount || DEMO_COURSE.price) / DEMO_COURSE.price,
+        ),
+      );
+      return `${base}&type=topup&hours=${hours}`;
+    }
+    return base;
+  };
 
   if (learnerLoading || paymentsLoading) {
     return (
@@ -56,7 +86,7 @@ function PaymentStatusCard() {
             Please complete the payment to access your account.
           </p>
           <Button
-            onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+            onClick={() => navigate(buildPaymentUrl())}
             className="w-full"
             disabled={!learner?.phone}
           >
@@ -85,7 +115,7 @@ function PaymentStatusCard() {
             Please choose a course and complete payment to get started.
           </p>
           <Button
-            onClick={() => navigate(`/payment?phone=${learner?.phone}`)}
+            onClick={() => navigate(buildPaymentUrl())}
             className="w-full"
             disabled={!learner?.phone}
           >

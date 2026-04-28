@@ -23,12 +23,7 @@ import {
 } from "./GatewaySelectionDialog";
 import { RazorpayCheckout } from "./RazorpayCheckout";
 
-type CourseSelectionType =
-  | "predefined"
-  | "custom"
-  | "demo"
-  | "test"
-  | "topup";
+type CourseSelectionType = "predefined" | "custom" | "demo" | "test" | "topup";
 
 interface PaymentDetails {
   amount: number;
@@ -163,7 +158,7 @@ function PaymentPage() {
           const { data: enrollments, error: enrollmentError } = await supabase
             .from("enrollment")
             .select(
-              "id, course_id, amount, payment_status, status, unlocked_lessons, installment_mode, installment1_amount, installment2_amount",
+              "id, course_id, amount, payment_status, status, unlocked_lessons, installment_mode, installment1_amount, installment2_amount, progress",
             )
             .eq("learner_id", learner.id)
             .order("created_at", { ascending: false })
@@ -177,6 +172,58 @@ function PaymentPage() {
           const courseId = enrollment?.course_id || "";
           const enrollmentId = enrollment?.id || "";
           const installmentMode = enrollment?.installment_mode || "full";
+
+          // Auto-detect demo/topup from the latest enrollment when the URL
+          // didn't specify a type. This makes the bare /payment?phone=... link
+          // work without requiring the caller to know about &type=demo.
+          const enrollmentType = enrollment?.progress?.type;
+          if (
+            !enrollment?.payment_status?.includes("paid") &&
+            enrollmentType === "demo"
+          ) {
+            setPaymentDetails((prev) => ({
+              ...prev,
+              email: learner.email || "",
+              phone: learner.phone || "",
+              name: learner.name || "",
+              learnerId: learner.id,
+              paymentType: "demo",
+              courseId: "",
+              amount: DEMO_COURSE.price,
+              totalAmount: DEMO_COURSE.price,
+              totalHours: DEMO_COURSE.hours,
+              selectedModules: [],
+            }));
+            setCourseSelectionType("demo");
+            setIsPrefilled(true);
+            return;
+          }
+          if (
+            !enrollment?.payment_status?.includes("paid") &&
+            enrollmentType === "topup"
+          ) {
+            const topupHours = Math.max(
+              1,
+              enrollment?.progress?.total_hours || 1,
+            );
+            const topupAmount = topupHours * DEMO_COURSE.price;
+            setPaymentDetails((prev) => ({
+              ...prev,
+              email: learner.email || "",
+              phone: learner.phone || "",
+              name: learner.name || "",
+              learnerId: learner.id,
+              paymentType: "topup",
+              courseId: "",
+              amount: topupAmount,
+              totalAmount: topupAmount,
+              totalHours: topupHours,
+              selectedModules: [],
+            }));
+            setCourseSelectionType("topup");
+            setIsPrefilled(true);
+            return;
+          }
 
           // Get course details (only if courseId exists)
           let course = null;
@@ -957,8 +1004,8 @@ function PaymentPage() {
               <div className="space-y-3">
                 <Alert className="border-blue-200 bg-blue-50">
                   <AlertDescription>
-                    <strong>Topup Class</strong> - ₹{DEMO_COURSE.price} per hour.
-                    Pick how many hours you want to book.
+                    <strong>Topup Class</strong> - ₹{DEMO_COURSE.price} per
+                    hour. Pick how many hours you want to book.
                   </AlertDescription>
                 </Alert>
                 <div>
@@ -997,32 +1044,34 @@ function PaymentPage() {
             )}
 
             {/* Show simple course dropdown if already enrolled (prefilled), but not for demo */}
-            {type === "course" && isPrefilled && courseSelectionType !== "demo" && (
-              <div>
-                <label
-                  htmlFor="courseId"
-                  className="mb-1 block text-sm font-medium"
-                >
-                  Selected Course
-                </label>
-                <Select
-                  value={paymentDetails.courseId}
-                  onValueChange={handleCourseChange}
-                  disabled={isPrefilled}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses?.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name} - {course.total_lessons} Lessons
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {type === "course" &&
+              isPrefilled &&
+              courseSelectionType !== "demo" && (
+                <div>
+                  <label
+                    htmlFor="courseId"
+                    className="mb-1 block text-sm font-medium"
+                  >
+                    Selected Course
+                  </label>
+                  <Select
+                    value={paymentDetails.courseId}
+                    onValueChange={handleCourseChange}
+                    disabled={isPrefilled}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses?.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name} - {course.total_lessons} Lessons
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             <div>
               <label
                 htmlFor="amount"

@@ -634,27 +634,6 @@ export function useMutationCompleteRescheduleRequest() {
   });
 }
 
-export function useMutationCompleteAllRescheduleRequests() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ requestIds }: { requestIds: string[] }) => {
-      if (requestIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("reschedule_requests")
-        .update({ status: "completed" })
-        .in("id", requestIds)
-        .select();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["scheduling-requests"],
-      });
-    },
-  });
-}
-
 export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
   return useQuery({
     queryKey: ["enrollment", learnerId],

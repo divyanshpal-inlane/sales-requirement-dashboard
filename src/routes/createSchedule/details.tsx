@@ -3,7 +3,7 @@ import { Map, MapEvent, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { ChevronsUpDown, PlusCircle, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +81,8 @@ export default function ScheduleDetails() {
   const [isAddingCustomArea, setIsAddingCustomArea] = useState<boolean>(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDemoFlow = searchParams.get("type") === "demo";
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const places = useMapsLibrary("places");
@@ -223,7 +225,11 @@ export default function ScheduleDetails() {
         },
         {
           onSuccess: () => {
-            navigate("/createSchedule/onboardingQuestions");
+            // Demo learners only need pickup coords — skip LL upload and the
+            // rest of the regular onboarding chain and return them to /home.
+            navigate(
+              isDemoFlow ? "/home" : "/createSchedule/onboardingQuestions",
+            );
           },
           onError: (error) => {
             toast({

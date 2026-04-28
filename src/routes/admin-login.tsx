@@ -33,11 +33,7 @@ export default function AdminLogin() {
       const withoutCountry = rawDigits.replace(/^91/, "");
 
       // Try common phone formats directly via signInWithPassword
-      const phoneVariants = [
-        `+91${withoutCountry}`,
-        withoutCountry,
-        rawDigits,
-      ];
+      const phoneVariants = [`+91${withoutCountry}`, withoutCountry, rawDigits];
 
       let loginSuccess = false;
       for (const phone of phoneVariants) {

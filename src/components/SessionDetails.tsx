@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { ExternalLinkIcon, IdCardIcon, Phone, Loader2 } from "lucide-react";
+import { ExternalLinkIcon, IdCardIcon, Loader2, Phone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

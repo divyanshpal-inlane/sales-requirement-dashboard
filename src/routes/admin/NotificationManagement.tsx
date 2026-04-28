@@ -78,33 +78,66 @@ export default function NotificationManagement() {
 // Templates that make sense for individual sending (no extra variables needed beyond learner name)
 const LEARNER_TEMPLATES = [
   { key: "SIGN_UP_ON_APP", label: "Sign Up on App Reminder" },
-  { key: "LL_DETAILS_BOOK_APPOINTMENT", label: "LL Details - Book Appointment" },
+  {
+    key: "LL_DETAILS_BOOK_APPOINTMENT",
+    label: "LL Details - Book Appointment",
+  },
   { key: "LL_APPLICATION_UPDATE", label: "LL Application Update" },
   { key: "LL_RECEIVED", label: "LL Received - Share Availability" },
   { key: "SIGN_UP_DONE_NEED_SCHEDULE", label: "Sign Up Done - Need Schedule" },
   { key: "THANKS_FOR_AVAILABILITY", label: "Thanks for Availability" },
   { key: "WEBAPP_RESCHEDULE_REQUEST", label: "Reschedule Request Received" },
-  { key: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE", label: "Reschedule Done - Check New Schedule" },
+  {
+    key: "WEBAPP_RESCHEDULE_DONE_CHECK_NEW_SCHEDULE",
+    label: "Reschedule Done - Check New Schedule",
+  },
   { key: "WEBAPP_SCHEDULE_LESSON_10", label: "Schedule Lesson 10" },
   { key: "WEBAPP_LESSON_10_SCHEDULED", label: "Lesson 10 Scheduled" },
-  { key: "WEBAPP_DL_TEST_NOT_PASSED_IT_IS_ALRIGHT", label: "DL Test Not Passed - Encouragement" },
-  { key: "WEBAPP_CONGRATULATIONS_ON_PASSING_THE_DL_TEST", label: "Congratulations on DL Test" },
-  { key: "WEBAPP_LESSONS_DONE_REVIEW_PLEASE", label: "Lessons Done - Review Request" },
-  { key: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST", label: "Thank You for Signing Up (LL First)" },
-  { key: "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS", label: "Thank You - Availability for Lessons" },
+  {
+    key: "WEBAPP_DL_TEST_NOT_PASSED_IT_IS_ALRIGHT",
+    label: "DL Test Not Passed - Encouragement",
+  },
+  {
+    key: "WEBAPP_CONGRATULATIONS_ON_PASSING_THE_DL_TEST",
+    label: "Congratulations on DL Test",
+  },
+  {
+    key: "WEBAPP_LESSONS_DONE_REVIEW_PLEASE",
+    label: "Lessons Done - Review Request",
+  },
+  {
+    key: "WEBAPP_THANK_YOU_FOR_SIGNING_UP_LL_FIRST",
+    label: "Thank You for Signing Up (LL First)",
+  },
+  {
+    key: "WEBAPP_THANK_YOU_SIGNUP_AVAILABILTY_FOR_LESSONS",
+    label: "Thank You - Availability for Lessons",
+  },
   { key: "WEBAPP_RESTEST_LL", label: "LL Retest Encouragement" },
-  { key: "WEBAPP_LL_DOCS_APPROVED_TEST_DONE_AND_RESULT", label: "LL Docs Approved - Test Done" },
-  { key: "WEBAPP_PLEASE_FILL_LL_FORM_AND_BOOK_APPOINTMENT", label: "Please Fill LL Form & Book Appointment" },
+  {
+    key: "WEBAPP_LL_DOCS_APPROVED_TEST_DONE_AND_RESULT",
+    label: "LL Docs Approved - Test Done",
+  },
+  {
+    key: "WEBAPP_PLEASE_FILL_LL_FORM_AND_BOOK_APPOINTMENT",
+    label: "Please Fill LL Form & Book Appointment",
+  },
 ];
 
 function IndividualNotificationCard() {
   const { toast } = useToast();
-  const [recipientType, setRecipientType] = useState<"learner" | "instructor">("learner");
+  const [recipientType, setRecipientType] = useState<"learner" | "instructor">(
+    "learner",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPeople, setSelectedPeople] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [sendProgress, setSendProgress] = useState({ sent: 0, failed: 0, total: 0 });
+  const [sendProgress, setSendProgress] = useState({
+    sent: 0,
+    failed: 0,
+    total: 0,
+  });
 
   // Search learners
   const { data: learnerResults, isLoading: searchingLearners } = useQuery({
@@ -122,22 +155,26 @@ function IndividualNotificationCard() {
   });
 
   // Search instructors
-  const { data: instructorResults, isLoading: searchingInstructors } = useQuery({
-    queryKey: ["search-instructors", searchQuery],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Instructor")
-        .select("id_instructor, name, phone")
-        .or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
-        .limit(10);
-      if (error) throw error;
-      return data;
+  const { data: instructorResults, isLoading: searchingInstructors } = useQuery(
+    {
+      queryKey: ["search-instructors", searchQuery],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("Instructor")
+          .select("id_instructor, name, phone")
+          .or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
+          .limit(10);
+        if (error) throw error;
+        return data;
+      },
+      enabled: recipientType === "instructor" && searchQuery.length >= 2,
     },
-    enabled: recipientType === "instructor" && searchQuery.length >= 2,
-  });
+  );
 
-  const searchResults = recipientType === "learner" ? learnerResults : instructorResults;
-  const isSearching = recipientType === "learner" ? searchingLearners : searchingInstructors;
+  const searchResults =
+    recipientType === "learner" ? learnerResults : instructorResults;
+  const isSearching =
+    recipientType === "learner" ? searchingLearners : searchingInstructors;
 
   const getPersonId = (person: any) =>
     recipientType === "learner" ? person.id : person.id_instructor;
@@ -345,7 +382,8 @@ function IndividualNotificationCard() {
               />
             </div>
             <p className="text-center text-xs text-muted-foreground">
-              {sendProgress.sent + sendProgress.failed} / {sendProgress.total} sent
+              {sendProgress.sent + sendProgress.failed} / {sendProgress.total}{" "}
+              sent
             </p>
           </div>
         )}
@@ -353,18 +391,22 @@ function IndividualNotificationCard() {
         {/* Send button */}
         <Button
           onClick={handleSendNotification}
-          disabled={selectedPeople.length === 0 || !selectedTemplate || isSending}
+          disabled={
+            selectedPeople.length === 0 || !selectedTemplate || isSending
+          }
           className="w-full"
         >
           {isSending ? (
             <span className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Sending {sendProgress.sent + sendProgress.failed}/{sendProgress.total}...
+              Sending {sendProgress.sent + sendProgress.failed}/
+              {sendProgress.total}...
             </span>
           ) : (
             <span className="flex items-center gap-2">
               <Send className="h-4 w-4" />
-              Send to {selectedPeople.length || ""} {recipientType}{selectedPeople.length !== 1 ? "s" : ""}
+              Send to {selectedPeople.length || ""} {recipientType}
+              {selectedPeople.length !== 1 ? "s" : ""}
             </span>
           )}
         </Button>
@@ -412,10 +454,14 @@ function LearnerNotificationCard() {
         );
 
         // Fetch all schedules for these learner+course combos to determine correct order
-        const learnerIds = [...new Set(data.map((s: any) => s.learner_id).filter(Boolean))];
+        const learnerIds = [
+          ...new Set(data.map((s: any) => s.learner_id).filter(Boolean)),
+        ];
         const { data: allSchedules } = await supabase
           .from("Schedule")
-          .select("id, date, start_time, learner_id, course_id, lesson_id, Lesson(id, number)")
+          .select(
+            "id, date, start_time, learner_id, course_id, lesson_id, Lesson(id, number)",
+          )
           .in("learner_id", learnerIds)
           .neq("status", "paused")
           .or("isTentative.eq.false,isTentative.is.null")
@@ -472,65 +518,50 @@ function LearnerNotificationCard() {
   }, []);
 
   return (
-        <Card className="transition-all hover:shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl">
-              Schedules for tomorrow
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={fetchSchedulesForReminder}
-              disabled={loading}
-            >
-              <RefreshCcw
-                size={16}
-                className={loading ? "animate-spin" : ""}
-              />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="py-4 text-center text-muted-foreground">
-                Loading schedules...
-              </p>
-            ) : schedulesList.length === 0 ? (
-              <p className="py-4 text-center text-muted-foreground">
-                No schedules found for tomorrow
-              </p>
-            ) : (
-              <Tabs defaultValue="learners">
-                <TabsList>
-                  <TabsTrigger value="learners">
-                    Learners ({schedulesList.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="instructors">
-                    Instructors (
-                    {
-                      new Set(schedulesList.map((s) => s.instructor_id))
-                        .size
-                    }
-                    )
-                  </TabsTrigger>
-                </TabsList>
+    <Card className="transition-all hover:shadow-lg">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-xl">Schedules for tomorrow</CardTitle>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={fetchSchedulesForReminder}
+          disabled={loading}
+        >
+          <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="py-4 text-center text-muted-foreground">
+            Loading schedules...
+          </p>
+        ) : schedulesList.length === 0 ? (
+          <p className="py-4 text-center text-muted-foreground">
+            No schedules found for tomorrow
+          </p>
+        ) : (
+          <Tabs defaultValue="learners">
+            <TabsList>
+              <TabsTrigger value="learners">
+                Learners ({schedulesList.length})
+              </TabsTrigger>
+              <TabsTrigger value="instructors">
+                Instructors (
+                {new Set(schedulesList.map((s) => s.instructor_id)).size})
+              </TabsTrigger>
+            </TabsList>
 
-                <TabsContent value="learners">
-                  <LearnerTab
-                    schedulesList={schedulesList}
-                    toast={toast}
-                  />
-                </TabsContent>
+            <TabsContent value="learners">
+              <LearnerTab schedulesList={schedulesList} toast={toast} />
+            </TabsContent>
 
-                <TabsContent value="instructors">
-                  <InstructorTab
-                    schedulesList={schedulesList}
-                    toast={toast}
-                  />
-                </TabsContent>
-              </Tabs>
-            )}
-          </CardContent>
-        </Card>
+            <TabsContent value="instructors">
+              <InstructorTab schedulesList={schedulesList} toast={toast} />
+            </TabsContent>
+          </Tabs>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -573,7 +604,9 @@ function LearnerTab({
     }
   };
 
-  const selectedSchedules = schedulesList.filter((s: any) => selected.has(s.id));
+  const selectedSchedules = schedulesList.filter((s: any) =>
+    selected.has(s.id),
+  );
 
   // ── Send lesson reminder to selected learners ──
   const sendLessonReminders = async () => {
@@ -715,8 +748,7 @@ function LearnerTab({
                   `${scheduleData.date}T${scheduleData.end_time}`,
                 ).toISOString(),
                 pickupLocation:
-                  scheduleData.Learner?.pick_up_location ||
-                  "Standard Location",
+                  scheduleData.Learner?.pick_up_location || "Standard Location",
                 uid: `lesson-${scheduleData.id}`,
                 isCancellation: false,
                 sequence: 0,
@@ -786,10 +818,7 @@ function LearnerTab({
           <thead>
             <tr className="border-b">
               <th className="px-2 py-2 text-left">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleAll}
-                />
+                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
               </th>
               <th className="px-2 py-2 text-left text-xs font-semibold uppercase">
                 Learner
@@ -989,9 +1018,7 @@ function InstructorTab({
     for (const instructor of selectedInstructors) {
       setSendingStatuses((prev) => ({ ...prev, [instructor.id]: true }));
 
-      const totalBatches = Math.ceil(
-        instructor.schedules.length / maxFields,
-      );
+      const totalBatches = Math.ceil(instructor.schedules.length / maxFields);
 
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
         const batchSchedules = instructor.schedules.slice(
@@ -1012,20 +1039,16 @@ function InstructorTab({
             };
             const startTime = formatTime(sch.start_time);
             const endTime = formatTime(sch.end_time);
-            const date = sch.date
-              ? format(new Date(sch.date), "dd MMM")
-              : "NA";
+            const date = sch.date ? format(new Date(sch.date), "dd MMM") : "NA";
             const learnerName = sch.Learner?.name ?? "Learner";
             const learnerPhone = sch.Learner?.phone ?? "N/A";
             const lessonDesc = sch.Lesson?.number
               ? `Lesson ${sch.Lesson.number}`
-              : sch.Lesson?.description ?? "Lesson";
+              : (sch.Lesson?.description ?? "Lesson");
             const lat = sch.Learner?.address_lat;
             const lng = sch.Learner?.address_lng;
             const mapLink =
-              lat && lng
-                ? `http://maps.google.com/maps?q=${lat},${lng}`
-                : "NA";
+              lat && lng ? `http://maps.google.com/maps?q=${lat},${lng}` : "NA";
 
             schedulePacket[`field${i + 1}`] =
               `${date} | ${startTime}-${endTime} | ${learnerName} ${learnerPhone} (${lessonDesc}) | ${mapLink}`;
@@ -1049,10 +1072,7 @@ function InstructorTab({
           });
           if (error) throw error;
         } catch (err) {
-          console.error(
-            `Error sending reminder to ${instructor.name}:`,
-            err,
-          );
+          console.error(`Error sending reminder to ${instructor.name}:`, err);
           toast({
             title: "Error",
             description: `Failed to send reminder to ${instructor.name}`,
@@ -1098,10 +1118,7 @@ function InstructorTab({
           <thead>
             <tr className="border-b">
               <th className="px-2 py-2 text-left">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleAll}
-                />
+                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
               </th>
               <th className="px-2 py-2 text-left text-xs font-semibold uppercase">
                 Instructor

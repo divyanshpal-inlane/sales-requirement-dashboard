@@ -1593,7 +1593,8 @@ function Instructor() {
       )}
       {permissionDenied && ongoingSchedule && (
         <div className="bg-amber-500 px-4 py-2 text-sm text-white">
-          Location permission denied — route tracking unavailable for this lesson
+          Location permission denied — route tracking unavailable for this
+          lesson
         </div>
       )}
       <Tabs defaultValue="schedule" className="flex h-full w-full flex-col">
@@ -1690,10 +1691,7 @@ function Instructor() {
                                 className="flex items-center gap-1.5 text-xs"
                               >
                                 {isCallLoading ? (
-                                  <Loader2
-                                    size={14}
-                                    className="animate-spin"
-                                  />
+                                  <Loader2 size={14} className="animate-spin" />
                                 ) : (
                                   <Phone size={14} />
                                 )}
@@ -1863,10 +1861,7 @@ function Instructor() {
                             variant="outline"
                             disabled={isCallLoading}
                             onClick={() =>
-                              initiateCall(
-                                phone ?? "",
-                                learner?.phone ?? "",
-                              )
+                              initiateCall(phone ?? "", learner?.phone ?? "")
                             }
                             className="flex items-center gap-1.5 text-xs"
                           >

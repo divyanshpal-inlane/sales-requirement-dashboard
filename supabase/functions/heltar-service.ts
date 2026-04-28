@@ -735,7 +735,10 @@ class HeltarMessageService {
 
         case "CLASS_START_OTP": {
           const { learner_id, schedule_id } = data;
-          console.log("CLASS_START_OTP called with:", { learner_id, schedule_id });
+          console.log("CLASS_START_OTP called with:", {
+            learner_id,
+            schedule_id,
+          });
           const learner = await this.getLearnerDetails(learner_id);
           console.log("Learner fetched:", learner.name, learner.phone);
           const { data: schedule, error: scheduleError } =
@@ -759,7 +762,10 @@ class HeltarMessageService {
 
         case "CLASS_END_OTP": {
           const { learner_id, schedule_id } = data;
-          console.log("CLASS_END_OTP called with:", { learner_id, schedule_id });
+          console.log("CLASS_END_OTP called with:", {
+            learner_id,
+            schedule_id,
+          });
           const learner = await this.getLearnerDetails(learner_id);
           const { data: schedule, error: scheduleError } =
             await this.supabaseClient

@@ -90,7 +90,8 @@ const LearnerScheduleSelector: React.FC<LearnerScheduleSelectorProps> = ({
       const { data, error } = await supabase
         .from("Instructor")
         .select("*")
-        .contains("areas", [learnerArea]);
+        .contains("areas", [learnerArea])
+        .or("enabled.is.null,enabled.eq.true");
 
       if (error) throw error;
       return data;

@@ -346,7 +346,7 @@ serve(async (req) => {
       // (payments are flat ₹599/hour, so amount / 599 is the hour count).
       const topupHours =
         enrollment?.progress?.total_hours ||
-        Math.max(1, Math.round((payment.amount || 599) / 599));
+        Math.max(1, Math.round((payment.amount || 1) / 1));
       const unlockedLessons = Array.from(
         { length: topupHours },
         (_, i) => i + 1,

@@ -29,12 +29,18 @@ export default function MapWithRoute({
       return;
     }
 
+    let cancelled = false;
     let map;
     setIsLoading(true);
 
     googleMapsLoader
       .load()
       .then(() => {
+        // Bail if the component unmounted (or re-ran) while the loader
+        // was resolving — calling `new Map(null, ...)` makes Google's
+        // internal IntersectionObserver throw.
+        if (cancelled || !mapRef.current) return;
+
         map = new window.google.maps.Map(mapRef.current, {
           center: origin,
           zoom: 12,
@@ -58,9 +64,9 @@ export default function MapWithRoute({
             travelMode: window.google.maps.TravelMode.DRIVING,
           },
           (result, status) => {
+            if (cancelled) return;
             if (status === "OK") {
               directionsRenderer.setDirections(result);
-              // Extract distance and duration
               const leg = result.routes[0].legs[0];
               setDistance(leg.distance.text);
               setDuration(leg.duration.text);
@@ -73,13 +79,16 @@ export default function MapWithRoute({
         );
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error("Error loading Google Maps:", error);
         setIsLoading(false);
       });
 
     return () => {
+      cancelled = true;
       if (directionsRendererRef.current) {
         directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
       }
     };
   }, [origin, destination, apiKey]);
@@ -90,6 +99,29 @@ export default function MapWithRoute({
         <CardContent className="p-4">
           <div className="text-center text-gray-500">
             Select an instructor to view route and distance
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Coords missing on either end (typical for fresh demo learners with no
+  // pickup address yet). Show a clear placeholder instead of an empty map.
+  const hasOriginCoords = !!origin.lat && !!origin.lng;
+  const hasDestCoords = !!destination.lat && !!destination.lng;
+  if (!hasOriginCoords || !hasDestCoords) {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="mb-4">
+            <h4 className="mb-2 font-medium">
+              Route to {instructorName || "Instructor"}
+            </h4>
+          </div>
+          <div className="flex h-[300px] items-center justify-center rounded-lg border bg-gray-50 text-center text-sm text-gray-500">
+            {!hasOriginCoords
+              ? "Learner pickup location not set — route can't be drawn."
+              : "Instructor location unavailable — route can't be drawn."}
           </div>
         </CardContent>
       </Card>

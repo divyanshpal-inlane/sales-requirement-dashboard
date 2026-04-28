@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { googleMapsLoader } from "@/utils/googleMaps";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -203,10 +202,7 @@ function LocationTab({
     <div className="grid gap-4">
       {/* Google Places Address Search */}
       <div>
-        <Label
-          htmlFor="pick_up_location"
-          className="flex items-center gap-2"
-        >
+        <Label htmlFor="pick_up_location" className="flex items-center gap-2">
           <MapPin className="h-4 w-4" />
           Pickup Location / Address
         </Label>
@@ -507,10 +503,7 @@ export function LearnerEditDialog({
 
           {/* Location Tab */}
           <TabsContent value="location" className="space-y-4 pt-4">
-            <LocationTab
-              formData={formData}
-              updateField={updateField}
-            />
+            <LocationTab formData={formData} updateField={updateField} />
           </TabsContent>
 
           {/* Preferences Tab */}

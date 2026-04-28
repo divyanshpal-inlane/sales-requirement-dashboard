@@ -117,7 +117,9 @@ Deno.serve(async (req) => {
       }
 
       // Calculate chronological lesson numbers for each learner+course in this batch
-      const learnerIds = [...new Set(schedules.map((s) => s.learner_id).filter(Boolean))];
+      const learnerIds = [
+        ...new Set(schedules.map((s) => s.learner_id).filter(Boolean)),
+      ];
       const scheduleToLessonNumber = new Map<number, number>();
 
       if (learnerIds.length > 0) {
@@ -157,7 +159,10 @@ Deno.serve(async (req) => {
       const scheduleMessages = schedules.map((schedule) => {
         const startTime = formatTime(schedule.start_time);
         const endTime = formatTime(schedule.end_time);
-        const lessonNum = scheduleToLessonNumber.get(schedule.id) || schedule.Lesson?.number || "?";
+        const lessonNum =
+          scheduleToLessonNumber.get(schedule.id) ||
+          schedule.Lesson?.number ||
+          "?";
         return `${startTime} - ${endTime}: Lesson ${lessonNum} with ${schedule.Learner.name}`;
       });
 

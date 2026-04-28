@@ -134,7 +134,12 @@ export default function InstructorLessonLog() {
 
   // ── fetch schedules for expanded instructor ──
   const { data: schedules, isLoading: schedulesLoading } = useQuery({
-    queryKey: ["admin-instructor-schedules", expandedId, statusFilter, dateFilter],
+    queryKey: [
+      "admin-instructor-schedules",
+      expandedId,
+      statusFilter,
+      dateFilter,
+    ],
     queryFn: async () => {
       if (!expandedId) return [];
 
@@ -153,7 +158,11 @@ export default function InstructorLessonLog() {
 
       // "penalty" and "completed" are computed client-side, so only filter
       // DB-native statuses at the query level
-      if (statusFilter !== "all" && statusFilter !== "penalty" && statusFilter !== "completed") {
+      if (
+        statusFilter !== "all" &&
+        statusFilter !== "penalty" &&
+        statusFilter !== "completed"
+      ) {
         query = query.eq("status", statusFilter);
       }
       if (dateFilter) {
@@ -186,7 +195,9 @@ export default function InstructorLessonLog() {
   // ── stats for expanded instructor ──
   const stats = useMemo(() => {
     if (!schedules) return null;
-    const properlyCompleted = schedules.filter((s) => isProperlyCompleted(s)).length;
+    const properlyCompleted = schedules.filter((s) =>
+      isProperlyCompleted(s),
+    ).length;
     const penalties = schedules.filter((s) => isPenalty(s)).length;
     const ongoing = schedules.filter((s) => s.status === "ongoing").length;
     const booked = schedules.filter((s) => s.status === "booked").length;
@@ -313,13 +324,18 @@ export default function InstructorLessonLog() {
                     {/* Filters row */}
                     <div className="mb-4 flex flex-wrap items-center gap-3">
                       <Filter className="h-4 w-4 text-muted-foreground" />
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <Select
+                        value={statusFilter}
+                        onValueChange={setStatusFilter}
+                      >
                         <SelectTrigger className="w-[150px]">
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="completed">Completed (Proper)</SelectItem>
+                          <SelectItem value="completed">
+                            Completed (Proper)
+                          </SelectItem>
                           <SelectItem value="penalty">Penalty</SelectItem>
                           <SelectItem value="ongoing">Ongoing</SelectItem>
                           <SelectItem value="booked">Booked</SelectItem>
@@ -372,13 +388,17 @@ export default function InstructorLessonLog() {
                           <p className="text-2xl font-bold text-blue-700">
                             {stats.ongoing}
                           </p>
-                          <p className="text-xs text-muted-foreground">Ongoing</p>
+                          <p className="text-xs text-muted-foreground">
+                            Ongoing
+                          </p>
                         </div>
                         <div className="rounded-lg bg-yellow-50 p-3 text-center">
                           <p className="text-2xl font-bold text-yellow-700">
                             {stats.booked}
                           </p>
-                          <p className="text-xs text-muted-foreground">Booked</p>
+                          <p className="text-xs text-muted-foreground">
+                            Booked
+                          </p>
                         </div>
                       </div>
                     )}
@@ -403,7 +423,8 @@ export default function InstructorLessonLog() {
                                   <div>
                                     <p className="font-semibold">
                                       Lesson {s.Lesson?.number ?? "—"}
-                                      {s.Courses?.name && ` · ${s.Courses.name}`}
+                                      {s.Courses?.name &&
+                                        ` · ${s.Courses.name}`}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
                                       {s.date
@@ -439,7 +460,9 @@ export default function InstructorLessonLog() {
                                 {/* Penalty reason */}
                                 {isPenalty(s) && (
                                   <div className="rounded-lg bg-red-50 p-2 text-xs text-red-700">
-                                    <span className="font-medium">Penalty reason: </span>
+                                    <span className="font-medium">
+                                      Penalty reason:{" "}
+                                    </span>
                                     {!s.started_at && !s.ended_at
                                       ? "No start or end OTP verified"
                                       : !s.started_at

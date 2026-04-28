@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
       const allSchedules = allResult.data;
       const learner = learnerResult.data;
 
-      if (tomorrowResult.error || !schedules || schedules.length === 0) continue;
+      if (tomorrowResult.error || !schedules || schedules.length === 0)
+        continue;
       if (learnerResult.error || !learner) continue;
 
       // Calculate chronological lesson numbers per course
@@ -146,7 +147,10 @@ Deno.serve(async (req) => {
       const scheduleMessages = schedules.map((schedule) => {
         const startTime = formatTime(schedule.start_time);
         const endTime = formatTime(schedule.end_time);
-        const lessonNum = scheduleToLessonNumber.get(schedule.id) || schedule.Lesson?.number || "?";
+        const lessonNum =
+          scheduleToLessonNumber.get(schedule.id) ||
+          schedule.Lesson?.number ||
+          "?";
         return `${startTime} - ${endTime}: Lesson ${lessonNum}`;
       });
 

@@ -12,8 +12,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { googleMapsLoader } from "@/utils/googleMaps";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +49,7 @@ import {
   useUpdatePaymentAdmin,
 } from "@/queries/learner";
 import { Database } from "@/types/database.types";
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 type Learner = Database["public"]["Tables"]["Learner"]["Row"];
 type Enrollment = Database["public"]["Tables"]["enrollment"]["Row"];
@@ -714,7 +713,8 @@ function LearnerEditor({ learner }: { learner: Learner }) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
-              View on Google Maps ({formData.address_lat.toFixed(4)}, {formData.address_lng.toFixed(4)})
+              View on Google Maps ({formData.address_lat.toFixed(4)},{" "}
+              {formData.address_lng.toFixed(4)})
             </a>
           </div>
         )}

@@ -265,8 +265,21 @@ export function IncompletePaymentsCard() {
           ? "first_half"
           : enrollment.installment_mode;
 
-      // Create the payment link
-      const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${enrollment.Learner.phone}`;
+      // Create the payment link. For demo/topup enrollments (course_id null),
+      // append the right type so PaymentPage prefills the demo/topup flow even
+      // on deployments without the enrollment-based auto-detect fallback.
+      const paymentType = enrollment.payment?.payment_type;
+      let typeParam = "";
+      if (paymentType === "demo") {
+        typeParam = "&type=demo";
+      } else if (paymentType === "topup") {
+        const topupHours = Math.max(
+          1,
+          Math.round((enrollment.payment?.amount || 1) / 1),
+        );
+        typeParam = `&type=topup&hours=${topupHours}`;
+      }
+      const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${enrollment.Learner.phone}${typeParam}`;
 
       // Define the request body for email trigger.
       const courseName = getCourseName(enrollment);

@@ -41,6 +41,7 @@ import {
   Phone,
   Plus,
   PlusCircle,
+  Power,
   Search,
   Trash2,
   User,
@@ -133,6 +134,7 @@ interface InstructorFromDB {
   radius: number | null;
   car_fuel_type: "petrol" | "diesel" | "ev" | "cng" | "lpg" | null;
   unavailability: Unavailability[];
+  enabled?: boolean | null;
 }
 
 interface InstructorData {
@@ -575,6 +577,46 @@ export default function InstructorsManagement() {
       setDeleteConfirmInstructorId(null);
     },
     onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle instructor active/inactive status. Inactive instructors are hidden
+  // from learner-scheduling pickers (CreateSchedule, schedule, schedules,
+  // LearnerMigration). Existing schedules keep showing the assigned name.
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({
+      instructorId,
+      nextEnabled,
+    }: {
+      instructorId: string;
+      nextEnabled: boolean;
+    }) => {
+      const { error } = await supabase
+        .from("Instructor")
+        .update({ enabled: nextEnabled } as any)
+        .eq("id_instructor", instructorId);
+      if (error) throw new Error(error.message);
+      return { instructorId, nextEnabled };
+    },
+    onSuccess: ({ nextEnabled }) => {
+      queryClient.invalidateQueries({ queryKey: ["instructors"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instructors"] });
+      queryClient.invalidateQueries({
+        queryKey: ["instructors-for-migration"],
+      });
+      toast({
+        title: nextEnabled ? "Instructor Activated" : "Instructor Deactivated",
+        description: nextEnabled
+          ? "Instructor will now appear in scheduling lists."
+          : "Instructor is hidden from scheduling lists. Existing schedules are unaffected.",
+      });
+    },
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -1097,12 +1139,26 @@ export default function InstructorsManagement() {
               className="flex h-full flex-col overflow-hidden rounded-lg shadow-lg"
             >
               <CardHeader className="bg-primary p-4 text-white">
-                <CardTitle className="text-lg font-bold">
-                  {instructor.name}
-                </CardTitle>
-                <p className="text-sm">
-                  {instructor.email || "No email provided"}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <CardTitle className="text-lg font-bold">
+                      {instructor.name}
+                    </CardTitle>
+                    <p className="text-sm">
+                      {instructor.email || "No email provided"}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
+                      instructor.enabled === false
+                        ? "bg-red-100 text-red-700"
+                        : "bg-green-100 text-green-700",
+                    )}
+                  >
+                    {instructor.enabled === false ? "Inactive" : "Active"}
+                  </span>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4 p-4">
                 <div className="space-y-2">
@@ -1193,6 +1249,31 @@ export default function InstructorsManagement() {
                   onClick={() => handleEditInstructor(instructor)}
                 >
                   Edit Details
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full",
+                    instructor.enabled === false
+                      ? "border-green-500 text-green-700 hover:bg-green-50"
+                      : "border-amber-500 text-amber-700 hover:bg-amber-50",
+                  )}
+                  disabled={
+                    toggleActiveMutation.isPending &&
+                    toggleActiveMutation.variables?.instructorId ===
+                      instructor.id_instructor
+                  }
+                  onClick={() =>
+                    toggleActiveMutation.mutate({
+                      instructorId: instructor.id_instructor,
+                      nextEnabled: instructor.enabled === false,
+                    })
+                  }
+                >
+                  <Power className="mr-2 h-4 w-4" />
+                  {instructor.enabled === false
+                    ? "Mark Active"
+                    : "Mark Inactive"}
                 </Button>
                 <Button
                   variant="destructive"

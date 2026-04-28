@@ -163,10 +163,7 @@ const OTPVerification = ({
 
     // Capture GPS location at OTP verification (non-blocking)
     const numericScheduleId = Number(scheduleId);
-    capturePoint(
-      numericScheduleId,
-      isVerifyStartLesson ? "start" : "end",
-    );
+    capturePoint(numericScheduleId, isVerifyStartLesson ? "start" : "end");
 
     const now = new Date().toISOString();
     updateStatus(
@@ -226,9 +223,7 @@ const OTPVerification = ({
             {showSuccess ? (
               <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
                 <SuccessAnimation isVerifyStartLesson={isVerifyStartLesson} />
-                <CountdownRedirect
-                  onComplete={() => navigate("/instructor")}
-                />
+                <CountdownRedirect onComplete={() => navigate("/instructor")} />
               </div>
             ) : (
               <>

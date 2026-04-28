@@ -273,7 +273,10 @@ serve(async (req) => {
               installment_mode: installmentType,
               installment1_amount: installment1Amount,
               installment2_amount: installment2Amount,
-              unlocked_lessons: installmentType === "first_half" ? getHalfPaymentLessons(10) : [],
+              unlocked_lessons:
+                installmentType === "first_half"
+                  ? getHalfPaymentLessons(10)
+                  : [],
             },
           ]);
 
@@ -296,52 +299,97 @@ serve(async (req) => {
         );
       }
 
-      const { error: demoError } = await supabaseClient
+      // Idempotent: reuse an existing pending demo enrollment (from an
+      // abandoned payment) instead of inserting a duplicate.
+      const { data: existingPendingDemo } = await supabaseClient
         .from("enrollment")
-        .insert([
-          {
-            learner_id: learnerId,
-            course_id: null,
+        .select("id")
+        .eq("learner_id", learnerId)
+        .is("course_id", null)
+        .neq("payment_status", "full_paid")
+        .filter("progress->>type", "eq", "demo")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingPendingDemo) {
+        const { error: demoUpdateError } = await supabaseClient
+          .from("enrollment")
+          .update({
             payment_id: paymentRecord.id,
             status: "pending",
             payment_status: "pending",
             installment_mode: "full",
             unlocked_lessons: [1],
-            progress: {
-              type: "demo",
-              total_hours: 1,
+            progress: { type: "demo", total_hours: 1 },
+          })
+          .eq("id", existingPendingDemo.id);
+        if (demoUpdateError) throw demoUpdateError;
+      } else {
+        const { error: demoError } = await supabaseClient
+          .from("enrollment")
+          .insert([
+            {
+              learner_id: learnerId,
+              course_id: null,
+              payment_id: paymentRecord.id,
+              status: "pending",
+              payment_status: "pending",
+              installment_mode: "full",
+              unlocked_lessons: [1],
+              progress: { type: "demo", total_hours: 1 },
             },
-          },
-        ]);
-
-      if (demoError) throw demoError;
+          ]);
+        if (demoError) throw demoError;
+      }
     }
 
     // 3b-topup. Handle topup payment (N × ₹599 hours)
     if (paymentType === "topup") {
       const topupHours = Math.max(1, totalHours || 1);
-      const { error: topupError } = await supabaseClient
+      const topupUnlocked = Array.from({ length: topupHours }, (_, i) => i + 1);
+
+      const { data: existingPendingTopup } = await supabaseClient
         .from("enrollment")
-        .insert([
-          {
-            learner_id: learnerId,
-            course_id: null,
+        .select("id")
+        .eq("learner_id", learnerId)
+        .is("course_id", null)
+        .neq("payment_status", "full_paid")
+        .filter("progress->>type", "eq", "topup")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingPendingTopup) {
+        const { error: topupUpdateError } = await supabaseClient
+          .from("enrollment")
+          .update({
             payment_id: paymentRecord.id,
             status: "pending",
             payment_status: "pending",
             installment_mode: "full",
-            unlocked_lessons: Array.from(
-              { length: topupHours },
-              (_, i) => i + 1,
-            ),
-            progress: {
-              type: "topup",
-              total_hours: topupHours,
+            unlocked_lessons: topupUnlocked,
+            progress: { type: "topup", total_hours: topupHours },
+          })
+          .eq("id", existingPendingTopup.id);
+        if (topupUpdateError) throw topupUpdateError;
+      } else {
+        const { error: topupError } = await supabaseClient
+          .from("enrollment")
+          .insert([
+            {
+              learner_id: learnerId,
+              course_id: null,
+              payment_id: paymentRecord.id,
+              status: "pending",
+              payment_status: "pending",
+              installment_mode: "full",
+              unlocked_lessons: topupUnlocked,
+              progress: { type: "topup", total_hours: topupHours },
             },
-          },
-        ]);
-
-      if (topupError) throw topupError;
+          ]);
+        if (topupError) throw topupError;
+      }
     }
 
     // 3c. Handle custom course payment
@@ -369,7 +417,9 @@ serve(async (req) => {
             installment1_amount: installment1Amount,
             installment2_amount: installment2Amount,
             unlocked_lessons:
-              installmentType === "first_half" ? getHalfPaymentLessons(totalHours || 10) : unlockedLessons,
+              installmentType === "first_half"
+                ? getHalfPaymentLessons(totalHours || 10)
+                : unlockedLessons,
             progress: {
               type: "custom",
               selected_modules: selectedModules,

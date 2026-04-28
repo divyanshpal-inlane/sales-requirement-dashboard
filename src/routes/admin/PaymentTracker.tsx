@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -24,18 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -144,13 +134,11 @@ export default function PaymentTracker() {
         if (scheduleError) throw scheduleError;
 
         const counts: Record<string, number> = {};
-        (schedules || []).forEach(
-          (s: { learner_id: string | null }) => {
-            if (s.learner_id) {
-              counts[s.learner_id] = (counts[s.learner_id] || 0) + 1;
-            }
-          },
-        );
+        (schedules || []).forEach((s: { learner_id: string | null }) => {
+          if (s.learner_id) {
+            counts[s.learner_id] = (counts[s.learner_id] || 0) + 1;
+          }
+        });
         setLessonCounts(counts);
       }
 
@@ -164,7 +152,8 @@ export default function PaymentTracker() {
       if (topupError) throw topupError;
 
       // Group topup schedules by learner
-      const topupByLearner: Record<string, { learner: any; schedules: any[] }> = {};
+      const topupByLearner: Record<string, { learner: any; schedules: any[] }> =
+        {};
       (topupSchedules || []).forEach((s: any) => {
         if (!s.learner_id) return;
         if (!topupByLearner[s.learner_id]) {
@@ -175,7 +164,8 @@ export default function PaymentTracker() {
 
       // Check which learners have completed demo/topup payments
       const topupLearnerIds = Object.keys(topupByLearner);
-      let paidMap: Record<string, { paid: boolean; date: string | null }> = {};
+      const paidMap: Record<string, { paid: boolean; date: string | null }> =
+        {};
       if (topupLearnerIds.length > 0) {
         const { data: topupPayments } = await supabase
           .from("payment")
@@ -189,7 +179,8 @@ export default function PaymentTracker() {
           if (!paidMap[p.learner_id]) {
             paidMap[p.learner_id] = {
               paid: p.status === "completed",
-              date: p.status === "completed" ? (p.updated_at || p.created_at) : null,
+              date:
+                p.status === "completed" ? p.updated_at || p.created_at : null,
             };
           }
         });
@@ -274,7 +265,8 @@ export default function PaymentTracker() {
     if (e.Courses?.name) return e.Courses.name;
     const type = e.progress?.type;
     if (type === "demo") return "Demo";
-    if (type === "custom") return `Custom (${e.progress?.total_hours || "?"}hr)`;
+    if (type === "custom")
+      return `Custom (${e.progress?.total_hours || "?"}hr)`;
     return "Unknown";
   };
 
@@ -378,7 +370,10 @@ export default function PaymentTracker() {
 
   // Summary stats — use sortedHalfPaid (urgency-filtered) for half-paid stats
   const displayedHalfPaid = urgencyFilter !== "all" ? sortedHalfPaid : halfPaid;
-  const totalOutstanding = displayedHalfPaid.reduce((s, e) => s + getBalanceDue(e), 0);
+  const totalOutstanding = displayedHalfPaid.reduce(
+    (s, e) => s + getBalanceDue(e),
+    0,
+  );
   const totalRevenue = fullPaid.reduce((s, e) => s + getAmountPaid(e), 0);
   const pendingAmount = pending.reduce((s, e) => s + (e.amount || 0), 0);
   const urgentCount = halfPaid.filter((e) => getRemaining(e) <= 1).length;
@@ -425,7 +420,7 @@ export default function PaymentTracker() {
 
         {/* Search & Filters */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by name or phone..."
@@ -458,7 +453,9 @@ export default function PaymentTracker() {
               <SelectItem value="ok">OK</SelectItem>
             </SelectContent>
           </Select>
-          {(searchTerm || courseFilter !== "all" || urgencyFilter !== "all") && (
+          {(searchTerm ||
+            courseFilter !== "all" ||
+            urgencyFilter !== "all") && (
             <Button
               variant="ghost"
               size="sm"
@@ -527,8 +524,7 @@ export default function PaymentTracker() {
                 <p className="text-xs text-muted-foreground">Pending</p>
                 <p className="text-xl font-bold">{pending.length}</p>
                 <p className="text-xs text-yellow-600">
-                  {pendingAmount > 0 &&
-                    `₹${pendingAmount.toLocaleString()}`}
+                  {pendingAmount > 0 && `₹${pendingAmount.toLocaleString()}`}
                 </p>
               </div>
             </CardContent>
@@ -540,7 +536,9 @@ export default function PaymentTracker() {
                 <AlertTriangle className="h-5 w-5 text-red-600" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Urgent Follow-up</p>
+                <p className="text-xs text-muted-foreground">
+                  Urgent Follow-up
+                </p>
                 <p className="text-xl font-bold">{urgentCount}</p>
                 <p className="text-xs text-muted-foreground">
                   {urgentCount > 0 ? "sessions almost exhausted" : "all good"}
@@ -662,10 +660,9 @@ export default function PaymentTracker() {
                                 <div>{formatDate(paymentDate)}</div>
                                 <div className="text-xs text-gray-400">
                                   {paymentDate &&
-                                    formatDistanceToNow(
-                                      new Date(paymentDate),
-                                      { addSuffix: true },
-                                    )}
+                                    formatDistanceToNow(new Date(paymentDate), {
+                                      addSuffix: true,
+                                    })}
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -762,10 +759,9 @@ export default function PaymentTracker() {
                                 <div>{formatDate(paymentDate)}</div>
                                 <div className="text-xs text-gray-400">
                                   {paymentDate &&
-                                    formatDistanceToNow(
-                                      new Date(paymentDate),
-                                      { addSuffix: true },
-                                    )}
+                                    formatDistanceToNow(new Date(paymentDate), {
+                                      addSuffix: true,
+                                    })}
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -879,7 +875,7 @@ export default function PaymentTracker() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <CreditCard className="h-5 w-5" />
-                  Topup Payments (₹599)
+                  Topup Payments (₹1)
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -890,10 +886,10 @@ export default function PaymentTracker() {
                 ) : (
                   <>
                     <div className="mb-4 flex gap-4 text-sm">
-                      <span className="text-green-600 font-medium">
+                      <span className="font-medium text-green-600">
                         Paid: {topupPaid.length}
                       </span>
-                      <span className="text-red-600 font-medium">
+                      <span className="font-medium text-red-600">
                         Unpaid: {topupUnpaid.length}
                       </span>
                     </div>
