@@ -158,6 +158,14 @@ export default function Home() {
     );
   }
 
+  // Demo learners need pickup coords before admin can match an instructor.
+  // Redirect to the address capture page immediately so this check can't be
+  // bypassed by a later short-circuit (e.g. the scheduleRequests-based
+  // "Schedule is Being Created" branch below).
+  if (isDemo && (!learner?.address_lat || !learner?.address_lng)) {
+    return <Navigate to="/createSchedule/details?type=demo" />;
+  }
+
   // After payment is complete, check if DL question has been answered
   const handleDLResponse = (hasDL: boolean) => {
     if (hasDL) {

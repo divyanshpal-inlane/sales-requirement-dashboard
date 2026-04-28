@@ -2742,11 +2742,16 @@ export const LearnerSchedulesManager = ({
                 <SelectValue placeholder="Select Instructor" />
               </SelectTrigger>
               <SelectContent>
-                {instructorData?.map((ins) => (
-                  <SelectItem key={ins.id_instructor} value={ins.id_instructor}>
-                    {ins.name}
-                  </SelectItem>
-                ))}
+                {instructorData
+                  ?.filter((ins) => ins.enabled !== false)
+                  .map((ins) => (
+                    <SelectItem
+                      key={ins.id_instructor}
+                      value={ins.id_instructor}
+                    >
+                      {ins.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <div className="flex justify-end gap-2">
@@ -3145,6 +3150,7 @@ export const LearnerSchedulesManager = ({
                     </SelectTrigger>
                     <SelectContent>
                       {[...(instructorData || [])]
+                        .filter((ins) => ins.enabled !== false)
                         .sort((a, b) =>
                           (a.name || "").localeCompare(b.name || ""),
                         )
