@@ -20,6 +20,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   Badge,
   Calendar,
@@ -527,9 +528,7 @@ export default function InstructorsManagement() {
       // 2. Collect unique learner IDs that need rescheduling
       const learnerIds = [
         ...new Set(
-          (futureSchedules || [])
-            .map((s: any) => s.learner_id)
-            .filter(Boolean),
+          (futureSchedules || []).map((s: any) => s.learner_id).filter(Boolean),
         ),
       ];
 
@@ -562,7 +561,10 @@ export default function InstructorsManagement() {
 
       if (deleteError) throw new Error(deleteError.message);
 
-      return { deletedSchedules: futureSchedules?.length || 0, affectedLearners: learnerIds.length };
+      return {
+        deletedSchedules: futureSchedules?.length || 0,
+        affectedLearners: learnerIds.length,
+      };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["instructors"] });
@@ -2107,6 +2109,48 @@ function WeeklyScheduleView({
   // State for Hover Highlighting
   const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
   const [hoveredTimeIndex, setHoveredTimeIndex] = useState<number | null>(null);
+
+  // Confirmation dialog state for tentative slot deletion
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Drag-to-create selection (Google-Calendar-style).
+  // We mirror the drag into refs so the window-level mouse-up listener
+  // (registered once on mount) can read the latest values without depending
+  // on render-cycle timing — otherwise a fast single click finishes before
+  // React re-runs the effect and the listener never sees it.
+  const [dragStart, setDragStart] = useState<{
+    dayIndex: number;
+    timeIndex: number;
+  } | null>(null);
+  const [dragEnd, setDragEnd] = useState<{
+    dayIndex: number;
+    timeIndex: number;
+  } | null>(null);
+  const dragStartRef = useRef<typeof dragStart>(null);
+  const dragEndRef = useRef<typeof dragEnd>(null);
+  const currentWeekStartRef = useRef(currentWeekStart);
+  const instructorIdRef = useRef(instructorId);
+  useEffect(() => {
+    dragStartRef.current = dragStart;
+  }, [dragStart]);
+  useEffect(() => {
+    dragEndRef.current = dragEnd;
+  }, [dragEnd]);
+  useEffect(() => {
+    currentWeekStartRef.current = currentWeekStart;
+  }, [currentWeekStart]);
+  useEffect(() => {
+    instructorIdRef.current = instructorId;
+  }, [instructorId]);
+
+  // Whether a given (dayIndex, timeIndex) cell falls inside the active drag.
+  const isInDragRange = (dayIndex: number, timeIndex: number) => {
+    if (!dragStart || !dragEnd) return false;
+    if (dayIndex !== dragStart.dayIndex) return false;
+    const lo = Math.min(dragStart.timeIndex, dragEnd.timeIndex);
+    const hi = Math.max(dragStart.timeIndex, dragEnd.timeIndex);
+    return timeIndex >= lo && timeIndex <= hi;
+  };
   const TIME_FORMAT = "HH:mm";
   const DATE_FORMAT = "yyyy-MM-dd";
   const WEEKDAY_NAMES = [
@@ -2123,7 +2167,6 @@ function WeeklyScheduleView({
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   // 2. For the Edit Tentative Schedule Dialog
   const memoizedTentativeAddressValue = useMemo(
@@ -2596,12 +2639,21 @@ function WeeklyScheduleView({
     });
     console.log("Occupied schedule details:", schedule);
   };
-  const handleTentativeSlotClick = (schedule, day, hour, minute) => {
+  const handleTentativeSlotClick = (
+    schedule,
+    day,
+    hour,
+    minute,
+    endHour?: number,
+    endMinute?: number,
+  ) => {
     console.log("Tentative slot clicked:", {
       schedule,
       day,
       hour,
       minute,
+      endHour,
+      endMinute,
     });
 
     // Check if this is an existing tentative schedule (has id and tentative_details with data)
@@ -2628,7 +2680,9 @@ function WeeklyScheduleView({
         },
       });
     } else {
-      // Creating new tentative schedule
+      // Creating new tentative schedule.
+      // If a drag range was supplied (endHour/endMinute), use it; otherwise
+      // default to a 60-minute slot starting at the clicked cell.
       const tentativeStart = new Date(
         day.getFullYear(),
         day.getMonth(),
@@ -2636,7 +2690,16 @@ function WeeklyScheduleView({
         hour,
         minute,
       );
-      const tentativeEnd = addMinutes(tentativeStart, 60);
+      const tentativeEnd =
+        endHour !== undefined && endMinute !== undefined
+          ? new Date(
+              day.getFullYear(),
+              day.getMonth(),
+              day.getDate(),
+              endHour,
+              endMinute,
+            )
+          : addMinutes(tentativeStart, 60);
       setTentativeSchedule({
         ...initialTentativeSchedule,
         date: format(tentativeStart, "yyyy-MM-dd"),
@@ -2648,6 +2711,59 @@ function WeeklyScheduleView({
     }
     setIsTentativeDialogOpen(true);
   };
+
+  // Convert a slot index back to {hour, minute} for finalising the drag.
+  const slotIndexToHourMinute = (idx: number) => {
+    const hour =
+      Math.floor(idx / SlotConfig.numSlotsPerHour) + SlotConfig.startHourOfDay;
+    const minute =
+      (SlotConfig.numMinutesPerSlot * (idx % SlotConfig.numSlotsPerHour)) % 60;
+    return { hour, minute };
+  };
+
+  // Called on mouse-up: turn the drag range into a popup with prefilled times.
+  // Single-cell drag (just a click) produces a default 60-min slot via
+  // handleTentativeSlotClick's fallback. Multi-cell drag uses the exact range.
+  const finalizeDrag = (
+    start: { dayIndex: number; timeIndex: number },
+    end: { dayIndex: number; timeIndex: number },
+  ) => {
+    if (start.dayIndex !== end.dayIndex) return;
+    const day = addDays(currentWeekStart, start.dayIndex);
+    const lo = Math.min(start.timeIndex, end.timeIndex);
+    const hi = Math.max(start.timeIndex, end.timeIndex);
+    const { hour, minute } = slotIndexToHourMinute(lo);
+    if (lo === hi) {
+      // Plain click → use the existing 60-min default.
+      handleTentativeSlotClick(null, day, hour, minute);
+    } else {
+      // Drag covered (hi - lo + 1) cells; end time is the bottom of cell `hi`.
+      const { hour: endHour, minute: endMinute } = slotIndexToHourMinute(
+        hi + 1,
+      );
+      handleTentativeSlotClick(null, day, hour, minute, endHour, endMinute);
+    }
+  };
+
+  // The mouse-up listener is registered ONCE on mount. It reads the latest
+  // drag refs so a fast click (where mouseup fires before React re-runs an
+  // effect tied to drag state) is still caught. The actual finalise routine
+  // is held in a ref that we refresh on every render so it always uses the
+  // current closures.
+  const finalizeDragRef = useRef<() => void>(() => {});
+  finalizeDragRef.current = () => {
+    const start = dragStartRef.current;
+    const end = dragEndRef.current;
+    setDragStart(null);
+    setDragEnd(null);
+    if (!start || !end) return;
+    finalizeDrag(start, end);
+  };
+  useEffect(() => {
+    const handleUp = () => finalizeDragRef.current();
+    window.addEventListener("mouseup", handleUp);
+    return () => window.removeEventListener("mouseup", handleUp);
+  }, []);
 
   // Clear the form when closed
   useEffect(() => {
@@ -2697,7 +2813,7 @@ function WeeklyScheduleView({
       });
       return;
     }
-    deleteTentativeMutation.mutate(scheduleId);
+    setDeleteConfirmId(scheduleId);
   };
 
   const copyTentativeMutation = useMutation({
@@ -3101,6 +3217,8 @@ function WeeklyScheduleView({
                           divClasses += ` hover:bg-gray-100 cursor-pointer`;
                         }
 
+                        const inDragRange = isInDragRange(dayIndex, timeIndex);
+                        const isEmptyCell = !schedule && !unavailable;
                         return (
                           <td
                             key={dayIndex}
@@ -3109,14 +3227,38 @@ function WeeklyScheduleView({
                               width: `${columnWidthPercentage}%`,
                               height: "40px",
                             }} // Dynamic width and Fixed slot size
-                            // Mouse Event Handlers for Highlighting
+                            // Mouse Event Handlers for Highlighting + drag tracking
                             onMouseEnter={() => {
                               setHoveredDayIndex(dayIndex);
                               setHoveredTimeIndex(timeIndex);
+                              // Extend the in-progress drag if we're still on
+                              // the same day column. Read from the REF (not
+                              // state) so a drag started in the same tick is
+                              // visible immediately.
+                              const curStart = dragStartRef.current;
+                              if (curStart && curStart.dayIndex === dayIndex) {
+                                const newEnd = { dayIndex, timeIndex };
+                                dragEndRef.current = newEnd;
+                                setDragEnd(newEnd);
+                              }
                             }}
                             onMouseLeave={() => {
                               setHoveredDayIndex(null);
                               setHoveredTimeIndex(null);
+                            }}
+                            onMouseDown={(e) => {
+                              // Only left-click on empty cells starts a drag.
+                              if (e.button !== 0) return;
+                              if (!isEmptyCell) return;
+                              e.preventDefault(); // suppress text selection
+                              const start = { dayIndex, timeIndex };
+                              // Sync the refs immediately so the global
+                              // mouse-up listener sees the drag even if it
+                              // fires before React re-renders.
+                              dragStartRef.current = start;
+                              dragEndRef.current = start;
+                              setDragStart(start);
+                              setDragEnd(start);
                             }}
                           >
                             <div
@@ -3135,26 +3277,25 @@ function WeeklyScheduleView({
                                           : "bg-green-500 text-white"
                                   : unavailable
                                     ? "bg-gray-300 text-red-800"
-                                    : ""
+                                    : inDragRange
+                                      ? "bg-blue-200"
+                                      : ""
                               } ${schedule ? "cursor-pointer" : ""} `}
                               onClick={() => {
+                                // Empty-cell creation is handled entirely by
+                                // the drag flow (mouseDown + window mouseUp →
+                                // finalizeDrag). A plain click is a 1-cell
+                                // drag, which still opens the popup with the
+                                // 60-min default. We therefore only handle
+                                // occupied / tentative cells here.
                                 if (schedule && !schedule.isTentative) {
-                                  // Confirmed booking - just show info
                                   handleOccupiedSlotClick(schedule);
                                 } else if (schedule && schedule.isTentative) {
-                                  // Existing tentative schedule - open dialog for editing
                                   handleTentativeSlotClick(
                                     schedule,
                                     day,
                                     hour,
                                     minute,
-                                  );
-                                } else if (!unavailable) {
-                                  // Empty slot - navigate to add page
-                                  const dateParam = format(day, "yyyy-MM-dd");
-                                  const timeParam = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-                                  navigate(
-                                    `/admin/tentative-add/${instructorId}/${dateParam}/${timeParam}`,
                                   );
                                 }
                               }}
@@ -3908,6 +4049,66 @@ function WeeklyScheduleView({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Tentative Slot Confirmation Modal */}
+      <Dialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteTentativeMutation.isPending) {
+            setDeleteConfirmId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm overflow-hidden p-0 sm:max-w-md">
+          <div className="flex flex-col items-center gap-4 px-6 pb-2 pt-7 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 ring-8 ring-red-50/50">
+              <AlertTriangle className="h-7 w-7 text-red-600" strokeWidth={2} />
+            </div>
+            <div className="space-y-1.5">
+              <DialogTitle className="text-lg font-semibold text-gray-900">
+                Delete this slot?
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                This tentative slot will be permanently removed from the
+                calendar and the time will be freed for new bookings.
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="flex gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <Button
+              variant="outline"
+              className="flex-1 bg-white"
+              onClick={() => setDeleteConfirmId(null)}
+              disabled={deleteTentativeMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 gap-2"
+              disabled={deleteTentativeMutation.isPending}
+              onClick={() => {
+                if (!deleteConfirmId) return;
+                deleteTentativeMutation.mutate(deleteConfirmId, {
+                  onSettled: () => setDeleteConfirmId(null),
+                });
+              }}
+            >
+              {deleteTentativeMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -3929,10 +4130,12 @@ export const AddTentativeSchedule = ({
   instructorId: propInstructorId,
   date: propDate,
   startTime: propStartTime,
+  endTime: propEndTime,
 }: {
   instructorId?: string;
   date?: string;
   startTime?: string;
+  endTime?: string;
 } = {}) => {
   const testMode = false;
   const navigate = useNavigate();
@@ -3949,6 +4152,7 @@ export const AddTentativeSchedule = ({
   const instructorId = urlInstructorId ?? propInstructorId;
   const date = urlDate ?? propDate;
   const startTime = urlStartTime ?? propStartTime;
+  const endTime = propEndTime;
 
   const { data: courses } = useQuery({
     queryKey: ["courses"],
@@ -3966,9 +4170,11 @@ export const AddTentativeSchedule = ({
 
   const defaultDate = date || format(new Date(), "yyyy-MM-dd");
   const defaultStart = startTime || "09:00";
-  const defaultEnd = startTime
-    ? format(addHours(parseISO(`2024-01-01T${startTime}`), 1), "HH:mm")
-    : "10:00";
+  const defaultEnd =
+    endTime ||
+    (startTime
+      ? format(addHours(parseISO(`2024-01-01T${startTime}`), 1), "HH:mm")
+      : "10:00");
 
   const [newSlotDate, setNewSlotDate] = useState(defaultDate);
   const [newSlotTimes, setNewSlotTimes] = useState({
@@ -5159,6 +5365,42 @@ export const InstructorSchedulePage = () => {
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredHour, setHoveredHour] = useState(null);
 
+  // Confirmation modal for deleting a tentative slot.
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Drag-to-create state. Cells in this view are 1-hour-tall, so a drag is a
+  // contiguous range of hours within a single day. We mirror state into refs
+  // so the window-level mouse-up listener (registered once on mount) catches
+  // even fast clicks where React hasn't re-rendered between mousedown/up.
+  const [dragStart, setDragStart] = useState<{
+    date: Date;
+    hour: string;
+  } | null>(null);
+  const [dragEnd, setDragEnd] = useState<{
+    date: Date;
+    hour: string;
+  } | null>(null);
+  const dragStartRef = useRef<{ date: Date; hour: string } | null>(null);
+  const dragEndRef = useRef<{ date: Date; hour: string } | null>(null);
+  // After a drag finalises we set this so the trailing onClick (which fires
+  // after mouseup) doesn't overwrite our prefilled add-form state.
+  const dragJustEndedRef = useRef(false);
+  useEffect(() => {
+    dragStartRef.current = dragStart;
+  }, [dragStart]);
+  useEffect(() => {
+    dragEndRef.current = dragEnd;
+  }, [dragEnd]);
+
+  const isInDragRange = (date: Date, hour: string) => {
+    if (!dragStart || !dragEnd) return false;
+    if (dragStart.date.getTime() !== date.getTime()) return false;
+    const lo = Math.min(parseInt(dragStart.hour), parseInt(dragEnd.hour));
+    const hi = Math.max(parseInt(dragStart.hour), parseInt(dragEnd.hour));
+    const h = parseInt(hour);
+    return h >= lo && h <= hi;
+  };
+
   const PALETTE = {
     SUCCESS: "#00CE84",
     PURPLE_LIGHT: "#B28FFF",
@@ -5237,6 +5479,34 @@ export const InstructorSchedulePage = () => {
       if (selectedSlot) setSelectedSlot(null);
     },
   });
+
+  // Mount-once window mouse-up listener. Reads the latest drag from refs
+  // (state hasn't necessarily propagated when a fast click ends), then
+  // opens the side panel pre-filled with the dragged time range.
+  useEffect(() => {
+    const handleUp = () => {
+      const start = dragStartRef.current;
+      const end = dragEndRef.current;
+      dragStartRef.current = null;
+      dragEndRef.current = null;
+      setDragStart(null);
+      setDragEnd(null);
+      if (!start || !end) return;
+      if (start.date.getTime() !== end.date.getTime()) return;
+      const startH = Math.min(parseInt(start.hour), parseInt(end.hour));
+      const endH = Math.max(parseInt(start.hour), parseInt(end.hour)) + 1; // bottom of last cell
+      setSelectedSlot({
+        date: start.date,
+        hour: startH.toString().padStart(2, "0"),
+        endHour: endH.toString().padStart(2, "0"),
+        schedules: [],
+      } as any);
+      setIsAddingschedule(true);
+      dragJustEndedRef.current = true;
+    };
+    window.addEventListener("mouseup", handleUp);
+    return () => window.removeEventListener("mouseup", handleUp);
+  }, []);
 
   const updatePaidInfoMutation = useMutation({
     mutationFn: async ({ scheduleId, paidInfo }) => {
@@ -5594,10 +5864,7 @@ export const InstructorSchedulePage = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-slate-400 hover:bg-white hover:text-destructive"
-                                onClick={() => {
-                                  if (window.confirm("Delete?"))
-                                    deleteMutation.mutate(schedule.id);
-                                }}
+                                onClick={() => setDeleteConfirmId(schedule.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -5754,6 +6021,11 @@ export const InstructorSchedulePage = () => {
                         instructorId={id}
                         date={format(selectedSlot.date, "yyyy-MM-dd")}
                         startTime={`${selectedSlot.hour}:00`}
+                        endTime={
+                          (selectedSlot as any).endHour
+                            ? `${(selectedSlot as any).endHour}:00`
+                            : undefined
+                        }
                       />
                     ) : (
                       <EditTentativeSchedule
@@ -5907,26 +6179,56 @@ export const InstructorSchedulePage = () => {
                         30,
                       );
 
+                    const inDrag = isInDragRange(date, slot.hour24);
+                    const isCellEmpty = slotSchedules.length === 0;
                     return (
                       <div
                         key={`${dateStr}-${slot.hour24}`}
                         className={cn(
-                          "group relative cursor-pointer border-b border-r border-slate-50 transition-colors",
+                          "group relative cursor-pointer select-none border-b border-r border-slate-50 transition-colors",
                           "hover:bg-slate-200",
-                          selectedSlot?.date === date &&
-                            selectedSlot?.hour === slot.hour24
-                            ? "bg-indigo-50"
-                            : "bg-white",
+                          inDrag
+                            ? "bg-indigo-200 ring-1 ring-inset ring-indigo-400"
+                            : selectedSlot?.date === date &&
+                                selectedSlot?.hour === slot.hour24
+                              ? "bg-indigo-50"
+                              : "bg-white",
                         )}
                         onMouseEnter={() => {
                           setHoveredDay(colIdx);
                           setHoveredHour(rowIdx);
+                          // Extend an in-progress drag if we're still on
+                          // the same day column. Read from the ref so a
+                          // drag started in the same tick is visible.
+                          const cur = dragStartRef.current;
+                          if (cur && cur.date.getTime() === date.getTime()) {
+                            const newEnd = { date, hour: slot.hour24 };
+                            dragEndRef.current = newEnd;
+                            setDragEnd(newEnd);
+                          }
                         }}
                         onMouseLeave={() => {
                           setHoveredDay(null);
                           setHoveredHour(null);
                         }}
+                        onMouseDown={(e) => {
+                          // Only left-click on empty cells starts a drag.
+                          if (e.button !== 0) return;
+                          if (!isCellEmpty) return;
+                          e.preventDefault();
+                          const start = { date, hour: slot.hour24 };
+                          dragStartRef.current = start;
+                          dragEndRef.current = start;
+                          setDragStart(start);
+                          setDragEnd(start);
+                        }}
                         onClick={() => {
+                          // The trailing click after a drag is a no-op —
+                          // the drag finalizer already opened the panel.
+                          if (dragJustEndedRef.current) {
+                            dragJustEndedRef.current = false;
+                            return;
+                          }
                           setSelectedSlot({
                             date,
                             hour: slot.hour24,
@@ -5990,8 +6292,7 @@ export const InstructorSchedulePage = () => {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      // Double check the logic inside the mutation call
-                                      deleteMutation.mutate(schedule.id);
+                                      setDeleteConfirmId(schedule.id);
                                     }}
                                     className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-sm bg-black/10 transition-colors hover:bg-black/20"
                                     title="Delete tentative schedule"
@@ -6065,7 +6366,9 @@ export const InstructorSchedulePage = () => {
                                 style={{
                                   left: `${(slotSchedules.length + idx) * 10}%`,
                                   width: "90%",
-                                  top: isAllDay ? "0%" : `${(startMin / 60) * 100}%`,
+                                  top: isAllDay
+                                    ? "0%"
+                                    : `${(startMin / 60) * 100}%`,
                                   height: isAllDay
                                     ? "100%"
                                     : `${Math.min((duration / 60) * 100, 100)}%`,
@@ -6113,6 +6416,66 @@ export const InstructorSchedulePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Tentative Slot Confirmation Modal */}
+      <Dialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setDeleteConfirmId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm overflow-hidden p-0 sm:max-w-md">
+          <div className="flex flex-col items-center gap-4 px-6 pb-2 pt-7 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 ring-8 ring-red-50/50">
+              <AlertTriangle className="h-7 w-7 text-red-600" strokeWidth={2} />
+            </div>
+            <div className="space-y-1.5">
+              <DialogTitle className="text-lg font-semibold text-gray-900">
+                Delete this slot?
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                This tentative slot will be permanently removed from the
+                calendar and the time will be freed for new bookings.
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="flex gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <Button
+              variant="outline"
+              className="flex-1 bg-white"
+              onClick={() => setDeleteConfirmId(null)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 gap-2"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!deleteConfirmId) return;
+                deleteMutation.mutate(deleteConfirmId, {
+                  onSettled: () => setDeleteConfirmId(null),
+                });
+              }}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
