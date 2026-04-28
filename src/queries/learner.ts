@@ -148,6 +148,7 @@ export function useUpcomingLesson() {
         )
         .eq("learner_id", learner.id)
         .neq("status", "completed")
+        .neq("status", "paused")
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
 
