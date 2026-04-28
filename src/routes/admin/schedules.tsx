@@ -52,7 +52,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
-import { useMutationCompleteRescheduleRequest } from "@/queries/learner";
+import {
+  useMutationCompleteAllRescheduleRequests,
+  useMutationCompleteRescheduleRequest,
+} from "@/queries/learner";
 import {
   SchedulingRequests,
   useEnrollmentTypesByLearner,
@@ -158,6 +161,8 @@ export default function AdminSchedules() {
 
   const completeRescheduleRequestMutation =
     useMutationCompleteRescheduleRequest();
+  const completeAllRescheduleRequestsMutation =
+    useMutationCompleteAllRescheduleRequests();
 
   const createScheduleMutation = useMutation({
     mutationFn: async ({
@@ -1090,13 +1095,47 @@ export default function AdminSchedules() {
             <div className="grid h-full grid-cols-12 gap-2 p-4">
               {/* Learners List */}
               <Card className="md:col-span-2">
-                <CardHeader className="p-3">
-                  <CardTitle className="text-sm">Reschedule Requests</CardTitle>
+                <CardHeader className="space-y-2 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-sm">
+                      Reschedule Requests
+                    </CardTitle>
+                    {(rescheduleRequests?.length ?? 0) > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 border-rose-300 px-2 text-xs text-rose-600 hover:bg-rose-50"
+                        disabled={
+                          completeAllRescheduleRequestsMutation.isPending
+                        }
+                        onClick={() => {
+                          const ids = (rescheduleRequests ?? []).map(
+                            (r) => r.id,
+                          );
+                          if (ids.length === 0) return;
+                          if (
+                            !window.confirm(
+                              `Mark all ${ids.length} reschedule request${
+                                ids.length === 1 ? "" : "s"
+                              } as done? This clears the tab without affecting any learner schedules.`,
+                            )
+                          ) {
+                            return;
+                          }
+                          completeAllRescheduleRequestsMutation.mutate({
+                            requestIds: ids,
+                          });
+                        }}
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                   <ScrollArea className="h-[calc(100vh-240px)]">
                     {rescheduleRequests?.map((request) => (
-                      <div key={request.id} className="mb-2">
+                      <div key={request.id} className="mb-2 space-y-1">
                         <LearnerInfoCard
                           learner={{
                             id: request.Learner?.id || "",
@@ -1125,6 +1164,29 @@ export default function AdminSchedules() {
                             handleRequestSelect(request);
                           }}
                         />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 w-full border-green-300 px-2 text-[11px] text-green-700 hover:bg-green-50"
+                          disabled={
+                            completeRescheduleRequestMutation.isPending
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              !window.confirm(
+                                "Mark this reschedule request as done?",
+                              )
+                            ) {
+                              return;
+                            }
+                            completeRescheduleRequestMutation.mutate({
+                              requestId: request.id,
+                            });
+                          }}
+                        >
+                          Done
+                        </Button>
                       </div>
                     ))}
                   </ScrollArea>
