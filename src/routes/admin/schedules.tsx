@@ -2490,7 +2490,11 @@ export const LearnerSchedulesManager = ({
                 .map((schedule) => (
                   <div
                     key={schedule.id}
-                    className="flex items-center justify-between rounded-md border p-2 hover:bg-gray-50"
+                    className={`flex items-center justify-between rounded-md border p-2 ${
+                      schedule.status === "paused"
+                        ? "border-rose-300 bg-rose-50 hover:bg-rose-100"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
                     <div className="space-y-0.5">
                       <div className="text-xs font-medium md:text-sm">
@@ -2516,6 +2520,11 @@ export const LearnerSchedulesManager = ({
                         {schedule.status === "pending_payment" && (
                           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-amber-700">
                             Awaiting Payment
+                          </span>
+                        )}
+                        {schedule.status === "paused" && (
+                          <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-rose-700">
+                            Paused
                           </span>
                         )}
                       </div>
