@@ -167,7 +167,11 @@ export default function InstructorAnalytics({
             : schedules;
 
   const getStatusBadge = (schedule: any) => {
-    if (schedule.status === "completed" && schedule.started_at && schedule.ended_at) {
+    if (
+      schedule.status === "completed" &&
+      schedule.started_at &&
+      schedule.ended_at
+    ) {
       return (
         <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
           OTP Verified
@@ -286,9 +290,7 @@ export default function InstructorAnalytics({
                         <p className="text-lg font-bold text-indigo-700">
                           {otpRate}%
                         </p>
-                        <p className="text-[10px] text-gray-500">
-                          OTP Rate
-                        </p>
+                        <p className="text-[10px] text-gray-500">OTP Rate</p>
                       </div>
                     </div>
                   </CardContent>
@@ -318,9 +320,7 @@ export default function InstructorAnalytics({
                       <p className="text-sm font-semibold">
                         {schedules?.length || 0}
                       </p>
-                      <p className="text-[10px] text-gray-500">
-                        Total Lessons
-                      </p>
+                      <p className="text-[10px] text-gray-500">Total Lessons</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -388,7 +388,7 @@ export default function InstructorAnalytics({
                           <td className="p-2">
                             {(s.Lesson as any)?.number ?? "-"}
                           </td>
-                          <td className="p-2 truncate max-w-[100px]">
+                          <td className="max-w-[100px] truncate p-2">
                             {(s.Learner as any)?.name ?? "-"}
                           </td>
                           <td className="p-2">

@@ -567,10 +567,11 @@ export default function Home() {
         <h2 className="text-lg font-semibold">
           {isDemo
             ? "Demo Lesson"
-            : LESSON_CONTENT[
+            : (LESSON_CONTENT[
                 LessonData?.upcomingLesson
                   ?.number as keyof typeof LESSON_CONTENT
-              ]?.content?.title ?? `Lesson ${LessonData?.upcomingLesson?.number}`}
+              ]?.content?.title ??
+              `Lesson ${LessonData?.upcomingLesson?.number}`)}
         </h2>
         <Button
           onClick={() => navigate(`/lesson/${LessonData?.upcomingLesson?.id}`)}
@@ -673,10 +674,11 @@ export default function Home() {
         <h2 className="text-lg font-semibold">
           {isDemo
             ? "Demo Lesson"
-            : LESSON_CONTENT[
+            : (LESSON_CONTENT[
                 LessonData?.upcomingLesson
                   ?.number as keyof typeof LESSON_CONTENT
-              ]?.content?.title ?? `Lesson ${LessonData?.upcomingLesson?.number}`}
+              ]?.content?.title ??
+              `Lesson ${LessonData?.upcomingLesson?.number}`)}
         </h2>
 
         <div className="mt-6 flex flex-col gap-4">
@@ -985,7 +987,8 @@ export default function Home() {
                       {isDemo ? "Demo Lesson" : "Topup Class"} Scheduled
                     </h2>
                     <p className="text-center text-sm text-amber-700">
-                      Pay ₹599 to activate your {isDemo ? "demo lesson" : "topup class"} on{" "}
+                      Pay ₹1 to activate your{" "}
+                      {isDemo ? "demo lesson" : "topup class"} on{" "}
                       {LessonData?.upcomingSchedule?.date
                         ? format(
                             new Date(LessonData.upcomingSchedule.date),
@@ -999,7 +1002,7 @@ export default function Home() {
                         navigate(`/payment?phone=${learner?.phone}&type=demo`)
                       }
                     >
-                      Pay ₹599 Now
+                      Pay ₹1 Now
                     </Button>
                   </CardContent>
                 </Card>
@@ -1029,7 +1032,37 @@ export default function Home() {
                           ).length ?? 0;
                         const demoCompleted = completedDemoCount > 0;
                         const canBookAnotherDemo = completedDemoCount < 4;
-                        const demoCredit = completedDemoCount * 599;
+                        const demoCredit = completedDemoCount * 1;
+                        // If demo learner hasn't captured pickup address yet,
+                        // route them through the same /createSchedule/details
+                        // flow as regular learners. Without this, admin can't
+                        // assign an instructor (no coords for radius/distance).
+                        const hasPickupCoords =
+                          learner?.address_lat && learner?.address_lng;
+                        if (!demoCompleted && !hasPickupCoords) {
+                          return (
+                            <div className="flex grow flex-col gap-4 p-4 pb-0 text-center text-xl">
+                              <img
+                                src="/assets/clocks.png"
+                                alt="First Lesson"
+                                className="w-full rounded-lg"
+                              />
+                              <p>
+                                Ready for your demo lesson? We just need a few
+                                more details.
+                              </p>
+                              <Button className="w-full" asChild>
+                                <Link to="/createSchedule/details?type=demo">
+                                  Set your pickup location
+                                </Link>
+                              </Button>
+                              <p className="text-base">
+                                Share where you&apos;d like to be picked up so
+                                we can assign the closest instructor.
+                              </p>
+                            </div>
+                          );
+                        }
                         if (demoCompleted) {
                           return (
                             <div className="flex grow flex-col items-stretch gap-4 p-4 pb-0">
@@ -1069,7 +1102,7 @@ export default function Home() {
                                       </div>
                                       <div className="text-xs text-muted-foreground">
                                         {canBookAnotherDemo
-                                          ? `₹599 · ${4 - completedDemoCount} left (max 4)`
+                                          ? `₹1 · ${4 - completedDemoCount} left (max 4)`
                                           : "You've used all 4 demo lessons"}
                                       </div>
                                     </div>
@@ -1088,7 +1121,7 @@ export default function Home() {
                                         Topup Class
                                       </div>
                                       <div className="text-xs text-muted-foreground">
-                                        ₹599/hr · Pick any number of hours
+                                        ₹1/hr · Pick any number of hours
                                       </div>
                                     </div>
                                     <ArrowRight className="h-5 w-5 text-muted-foreground" />
@@ -1104,8 +1137,11 @@ export default function Home() {
                                         Upgrade to Full Course
                                       </div>
                                       <div className="text-xs text-muted-foreground">
-                                        ₹{demoCredit} credit from your {completedDemoCount} demo
-                                        {completedDemoCount === 1 ? "" : "s"}{" "}
+                                        ₹{demoCredit} credit from your{" "}
+                                        {completedDemoCount} demo
+                                        {completedDemoCount === 1
+                                          ? ""
+                                          : "s"}{" "}
                                         applied
                                       </div>
                                     </div>
@@ -1139,8 +1175,8 @@ export default function Home() {
                       })()
                     ) : // Custom course or no course_id
                     (enrolledCourse?.progress?.type === "custom" ||
-                      !enrolledCourse?.course_id) &&
-                    learner.preferred_start_date ? (
+                        !enrolledCourse?.course_id) &&
+                      learner.preferred_start_date ? (
                       <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">
                         <img
                           src="/assets/clocks.png"

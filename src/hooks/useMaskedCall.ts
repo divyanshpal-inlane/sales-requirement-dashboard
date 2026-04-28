@@ -26,7 +26,9 @@ export function useMaskedCall() {
         throw new Error(data?.error || "Failed to connect call");
       }
     } catch {
-      toast.error("Could not connect the call. Please try again or contact support.");
+      toast.error(
+        "Could not connect the call. Please try again or contact support.",
+      );
     } finally {
       setIsCallLoading(false);
     }

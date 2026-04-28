@@ -223,7 +223,8 @@ serve(async (req) => {
             installment_mode: installmentType,
             installment1_amount: installment1Amount,
             installment2_amount: installment2Amount,
-            unlocked_lessons: installmentType === "first_half" ? getHalfPaymentLessons(10) : [],
+            unlocked_lessons:
+              installmentType === "first_half" ? getHalfPaymentLessons(10) : [],
           },
         ]);
       }
@@ -244,59 +245,119 @@ serve(async (req) => {
         );
       }
 
-      const { error: demoEnrollError } = await supabaseClient
+      // Idempotent: if a pending demo enrollment already exists for this
+      // learner (from an abandoned/retried payment), reuse it by updating
+      // its payment_id. Otherwise insert a fresh one. Prevents the duplicate
+      // "Demo Class" + "Unknown" rows in admin's Incomplete Payments tab.
+      const { data: existingPendingDemo } = await supabaseClient
         .from("enrollment")
-        .insert([
-          {
-            learner_id: learnerId,
-            course_id: null,
+        .select("id")
+        .eq("learner_id", learnerId)
+        .is("course_id", null)
+        .neq("payment_status", "full_paid")
+        .filter("progress->>type", "eq", "demo")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingPendingDemo) {
+        const { error: demoUpdateError } = await supabaseClient
+          .from("enrollment")
+          .update({
             payment_id: paymentRecord.id,
             status: "pending",
             payment_status: "pending",
             installment_mode: "full",
             unlocked_lessons: [1],
-            progress: {
-              type: "demo",
-              total_hours: 1,
+            progress: { type: "demo", total_hours: 1 },
+          })
+          .eq("id", existingPendingDemo.id);
+        if (demoUpdateError) {
+          console.error("Demo enrollment update failed:", demoUpdateError);
+          throw new Error(
+            `Failed to update demo enrollment: ${demoUpdateError.message}`,
+          );
+        }
+      } else {
+        const { error: demoEnrollError } = await supabaseClient
+          .from("enrollment")
+          .insert([
+            {
+              learner_id: learnerId,
+              course_id: null,
+              payment_id: paymentRecord.id,
+              status: "pending",
+              payment_status: "pending",
+              installment_mode: "full",
+              unlocked_lessons: [1],
+              progress: { type: "demo", total_hours: 1 },
             },
-          },
-        ]);
-      if (demoEnrollError) {
-        console.error("Demo enrollment insert failed:", demoEnrollError);
-        throw new Error(
-          `Failed to create demo enrollment: ${demoEnrollError.message}`,
-        );
+          ]);
+        if (demoEnrollError) {
+          console.error("Demo enrollment insert failed:", demoEnrollError);
+          throw new Error(
+            `Failed to create demo enrollment: ${demoEnrollError.message}`,
+          );
+        }
       }
     }
 
     // Handle topup payment (N × ₹599 hour(s) for existing or completed-demo learners)
     if (paymentType === "topup") {
       const topupHours = Math.max(1, totalHours || 1);
-      const { error: topupEnrollError } = await supabaseClient
+      const topupUnlocked = Array.from({ length: topupHours }, (_, i) => i + 1);
+
+      // Idempotent: same pattern as demo above.
+      const { data: existingPendingTopup } = await supabaseClient
         .from("enrollment")
-        .insert([
-          {
-            learner_id: learnerId,
-            course_id: null,
+        .select("id")
+        .eq("learner_id", learnerId)
+        .is("course_id", null)
+        .neq("payment_status", "full_paid")
+        .filter("progress->>type", "eq", "topup")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingPendingTopup) {
+        const { error: topupUpdateError } = await supabaseClient
+          .from("enrollment")
+          .update({
             payment_id: paymentRecord.id,
             status: "pending",
             payment_status: "pending",
             installment_mode: "full",
-            unlocked_lessons: Array.from(
-              { length: topupHours },
-              (_, i) => i + 1,
-            ),
-            progress: {
-              type: "topup",
-              total_hours: topupHours,
+            unlocked_lessons: topupUnlocked,
+            progress: { type: "topup", total_hours: topupHours },
+          })
+          .eq("id", existingPendingTopup.id);
+        if (topupUpdateError) {
+          console.error("Topup enrollment update failed:", topupUpdateError);
+          throw new Error(
+            `Failed to update topup enrollment: ${topupUpdateError.message}`,
+          );
+        }
+      } else {
+        const { error: topupEnrollError } = await supabaseClient
+          .from("enrollment")
+          .insert([
+            {
+              learner_id: learnerId,
+              course_id: null,
+              payment_id: paymentRecord.id,
+              status: "pending",
+              payment_status: "pending",
+              installment_mode: "full",
+              unlocked_lessons: topupUnlocked,
+              progress: { type: "topup", total_hours: topupHours },
             },
-          },
-        ]);
-      if (topupEnrollError) {
-        console.error("Topup enrollment insert failed:", topupEnrollError);
-        throw new Error(
-          `Failed to create topup enrollment: ${topupEnrollError.message}`,
-        );
+          ]);
+        if (topupEnrollError) {
+          console.error("Topup enrollment insert failed:", topupEnrollError);
+          throw new Error(
+            `Failed to create topup enrollment: ${topupEnrollError.message}`,
+          );
+        }
       }
     }
 
@@ -323,7 +384,9 @@ serve(async (req) => {
           installment1_amount: installment1Amount,
           installment2_amount: installment2Amount,
           unlocked_lessons:
-            installmentType === "first_half" ? getHalfPaymentLessons(totalHours || 10) : unlockedLessons,
+            installmentType === "first_half"
+              ? getHalfPaymentLessons(totalHours || 10)
+              : unlockedLessons,
           progress: {
             type: "custom",
             selected_modules: selectedModules,

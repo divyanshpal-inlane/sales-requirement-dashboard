@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { googleMapsLoader } from "@/utils/googleMaps";
 import { addDays, format, isBefore, isSameDay, startOfDay } from "date-fns";
 import {
   AlertCircle,
@@ -65,6 +64,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 // Predefined courses with their IDs and durations
 const PREDEFINED_COURSES = [
@@ -361,6 +361,7 @@ function MigrationFormContent() {
       const { data, error } = await supabase
         .from("Instructor")
         .select("*")
+        .or("enabled.is.null,enabled.eq.true")
         .order("name");
 
       if (error) throw error;
@@ -636,7 +637,12 @@ function MigrationFormContent() {
 
   // Initialize or update map when coordinates change
   useEffect(() => {
-    if (!formData.address_lat || !formData.address_lng || !mapContainerRef.current) return;
+    if (
+      !formData.address_lat ||
+      !formData.address_lng ||
+      !mapContainerRef.current
+    )
+      return;
 
     const center = { lat: formData.address_lat, lng: formData.address_lng };
 
@@ -928,7 +934,10 @@ function MigrationFormContent() {
       const unlockedCount =
         formData.paymentStatus === "completed"
           ? totalLessons
-          : Math.max(Math.min(completedLessonsNumSubmit + 1, totalLessons), halfPaymentUnlock);
+          : Math.max(
+              Math.min(completedLessonsNumSubmit + 1, totalLessons),
+              halfPaymentUnlock,
+            );
 
       const enrollmentData = {
         learner_id: createdLearner.id,
@@ -1332,10 +1341,7 @@ function MigrationFormContent() {
                   Drag the map to fine-tune the exact pick-up location
                 </p>
                 <div className="relative w-full overflow-hidden rounded-lg border border-gray-200">
-                  <div
-                    ref={mapContainerRef}
-                    style={mapContainerStyle}
-                  />
+                  <div ref={mapContainerRef} style={mapContainerStyle} />
                   <div style={markerStyle}>
                     <MapPin
                       className="h-8 w-8 text-black"

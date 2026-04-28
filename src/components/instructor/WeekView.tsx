@@ -67,8 +67,13 @@ const WeekView = ({
               const showHourLabel = minute === 0;
 
               return (
-                <tr key={timeIndex} className={`h-8 ${minute === 0 ? "border-t border-gray-300" : ""}`}>
-                  <td className={`sticky left-0 z-10 border border-gray-200 bg-white px-1 py-0 text-center ${!showHourLabel ? "text-gray-400" : ""}`}>
+                <tr
+                  key={timeIndex}
+                  className={`h-8 ${minute === 0 ? "border-t border-gray-300" : ""}`}
+                >
+                  <td
+                    className={`sticky left-0 z-10 border border-gray-200 bg-white px-1 py-0 text-center ${!showHourLabel ? "text-gray-400" : ""}`}
+                  >
                     <span className="text-[10px]">
                       {format(new Date().setHours(hour, minute), "h:mm a")}
                     </span>
@@ -131,8 +136,12 @@ const WeekView = ({
                       }
                     }
 
-                    const scheduleStartHour = schedule ? parseInt(schedule.start_time.split(":")[0]) : 0;
-                    const scheduleStartMinute = schedule ? parseInt(schedule.start_time.split(":")[1]) : 0;
+                    const scheduleStartHour = schedule
+                      ? parseInt(schedule.start_time.split(":")[0])
+                      : 0;
+                    const scheduleStartMinute = schedule
+                      ? parseInt(schedule.start_time.split(":")[1])
+                      : 0;
                     const isScheduleStart =
                       schedule &&
                       scheduleStartHour === hour &&
@@ -142,9 +151,12 @@ const WeekView = ({
                     const isGoogleEventStart =
                       googleEvent &&
                       googleEvent.start?.dateTime &&
-                      new Date(googleEvent.start.dateTime).getHours() === hour &&
-                      new Date(googleEvent.start.dateTime).getMinutes() >= minute &&
-                      new Date(googleEvent.start.dateTime).getMinutes() < minute + 30;
+                      new Date(googleEvent.start.dateTime).getHours() ===
+                        hour &&
+                      new Date(googleEvent.start.dateTime).getMinutes() >=
+                        minute &&
+                      new Date(googleEvent.start.dateTime).getMinutes() <
+                        minute + 30;
 
                     const isEmpty = !schedule && !googleEvent && !isUnavailable;
 
@@ -179,12 +191,14 @@ const WeekView = ({
                         <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px]">
                           {isScheduleStart ? (
                             <>
-                              <div className="font-semibold truncate">{learnerName}</div>
+                              <div className="truncate font-semibold">
+                                {learnerName}
+                              </div>
                               <div>{`${schedule.start_time.substring(0, 5)}-${schedule.end_time.substring(0, 5)}`}</div>
                             </>
                           ) : isGoogleEventStart ? (
                             <>
-                              <div className="font-semibold truncate">
+                              <div className="truncate font-semibold">
                                 {googleEvent.summary}
                               </div>
                               <div>

@@ -50,11 +50,11 @@ import { fetchInstructorDynamicLocation } from "@/hooks/useInstructorLocations";
 import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
-import { googleMapsLoader } from "@/utils/googleMaps";
 import { generateRandomOTP } from "@/lib/utils";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
 import { SlotConfig, TIME_SLOTS, TimeSlot } from "@/types/schedule";
+import { googleMapsLoader } from "@/utils/googleMaps";
 
 import { TentativeScheduleDialog } from "../admin/TentativeScheduleCard";
 import LearnerScheduleSelector from "./schedule";
@@ -348,11 +348,15 @@ export default function CreateScheduleWithInstructor({
     },
   });
 
-  // Fetch instructors for the learner's area
+  // Fetch instructors for the learner's area.
+  // Inactive instructors (enabled === false) are hidden from new assignments.
   const { data: instructors } = useQuery({
     queryKey: ["instructors", learnerArea],
     queryFn: async () => {
-      const { data, error } = await supabase.from("Instructor").select("*");
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select("*")
+        .or("enabled.is.null,enabled.eq.true");
 
       if (error) throw error;
       return data;
@@ -390,10 +394,31 @@ export default function CreateScheduleWithInstructor({
       if (!instructors || !learnerDetails) {
         return;
       }
+      // Demo / new learners often have no pickup coords yet — instead of
+      // bailing out (which leaves the instructor dropdown empty), populate
+      // the list without distance info so the dialog still works.
       if (!learnerDetails.address_lat || !learnerDetails.address_lng) {
-        console.error(
-          "Cannot find distance: Location details of the learner not found",
+        const fallback: InstructorWithDistance[] = instructors.map(
+          (instructor) => ({
+            ...instructor,
+            distance: null,
+            isWithinRadius: false,
+          }),
         );
+        const safeArea = (learnerArea || "").toLowerCase();
+        fallback.sort((a, b) => {
+          const aMatchesArea = a.areas?.some(
+            (area: string) => area.toLowerCase() === safeArea,
+          );
+          const bMatchesArea = b.areas?.some(
+            (area: string) => area.toLowerCase() === safeArea,
+          );
+          if (aMatchesArea && !bMatchesArea) return -1;
+          if (!aMatchesArea && bMatchesArea) return 1;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+        setInstructorsWithDistance(fallback);
+        setIsLoadingDistances(false);
         return;
       }
 
@@ -478,13 +503,22 @@ export default function CreateScheduleWithInstructor({
         }
       }
 
-      // Sort instructors: first by whether they're within radius, then by distance
+      // Sort instructors:
+      //   1. within radius first (and if both within radius, nearest first)
+      //   2. then matches learner's area
+      //   3. then alphabetical by name
       const sortedInstructors = instructorsWithDistanceData.sort((a, b) => {
-        // First sort by whether they're within radius
         if (a.isWithinRadius && !b.isWithinRadius) return -1;
         if (!a.isWithinRadius && b.isWithinRadius) return 1;
 
-        // Then sort by matching area
+        if (a.isWithinRadius && b.isWithinRadius) {
+          if (a.distance != null && b.distance != null) {
+            return a.distance - b.distance;
+          }
+          if (a.distance == null) return 1;
+          if (b.distance == null) return -1;
+        }
+
         const aMatchesArea = a.areas.some(
           (area) => area.toLowerCase() === learnerArea.toLowerCase(),
         );
@@ -494,11 +528,7 @@ export default function CreateScheduleWithInstructor({
         if (aMatchesArea && !bMatchesArea) return -1;
         if (!aMatchesArea && bMatchesArea) return 1;
 
-        // Then sort by distance
-        if (a.distance === null && b.distance === null) return 0;
-        if (a.distance === null) return 1;
-        if (b.distance === null) return -1;
-        return a.distance - b.distance;
+        return (a.name || "").localeCompare(b.name || "");
       });
 
       setInstructorsWithDistance(sortedInstructors);
@@ -1708,11 +1738,15 @@ function CreateSchedule({
     setSelectedInstructorId(defaultInstructorId);
   }, [defaultInstructorId]);
 
-  // Fetch instructors for the learner's area
+  // Fetch instructors for the learner's area.
+  // Inactive instructors (enabled === false) are hidden from new assignments.
   const { data: instructors } = useQuery({
     queryKey: ["instructors", learnerArea],
     queryFn: async () => {
-      const { data, error } = await supabase.from("Instructor").select("*");
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select("*")
+        .or("enabled.is.null,enabled.eq.true");
 
       if (error) throw error;
       return data;
@@ -2251,54 +2285,105 @@ function CreateSchedule({
       }
     }, [open, slot, date, instructorsWithDistance]);
 
-    // NEW: Calculate travel data for each instructor
+    // Build travel data synchronously from the straight-line distance already
+    // computed in calculateDistances. No Google API round-trip → dialog opens
+    // instantly. travelDistance/travelTime are used by the sort + filter; the
+    // straight-line km is good enough for ordering and the maxDistance filter.
     useEffect(() => {
-      if (dynamicInstructors.length > 0 && learnerDetails) {
-        const calculateTravelData = async () => {
-          const instructorsWithTravel = await Promise.all(
-            dynamicInstructors.map(async (instructor) => {
-              try {
-                // Use Google Maps API to get accurate travel time
-                const travelData = await getDrivingDistanceAndTime(
-                  learnerDetails.address_lat,
-                  learnerDetails.address_lng,
-                  instructor.currentLocation.lat,
-                  instructor.currentLocation.lng,
-                );
+      if (dynamicInstructors.length > 0) {
+        const instructorsWithTravel = dynamicInstructors.map((instructor) => ({
+          ...instructor,
+          travelDistance: instructor.distance ?? 0,
+          travelTime: 30,
+          travelDistanceText:
+            instructor.distance != null
+              ? `${instructor.distance.toFixed(1)} km`
+              : "—",
+          travelTimeText: "~30 mins",
+        }));
 
-                return {
-                  ...instructor,
-                  travelDistance:
-                    travelData?.distance || instructor.distance || 0,
-                  travelTime: travelData?.duration || 30, // fallback to 30 minutes
-                  travelDistanceText:
-                    travelData?.distanceText ||
-                    `${instructor.distance?.toFixed(1)} km`,
-                  travelTimeText: travelData?.durationText || "~30 mins",
-                };
-              } catch (error) {
-                console.error("Error calculating travel data:", error);
-                return {
-                  ...instructor,
-                  travelDistance: instructor.distance || 0,
-                  travelTime: 30,
-                  travelDistanceText: `${instructor.distance?.toFixed(1)} km`,
-                  travelTimeText: "~30 mins",
-                };
-              }
-            }),
+        const learnerArea = learnerDetails?.area?.toLowerCase() || "";
+        const sortedInstructors = instructorsWithTravel.sort((a, b) => {
+          if (a.isWithinRadius && !b.isWithinRadius) return -1;
+          if (!a.isWithinRadius && b.isWithinRadius) return 1;
+
+          if (a.isWithinRadius && b.isWithinRadius) {
+            const aDist = a.distance;
+            const bDist = b.distance;
+            if (aDist != null && bDist != null) return aDist - bDist;
+            if (aDist == null) return 1;
+            if (bDist == null) return -1;
+          }
+
+          const aMatchesArea = a.areas?.some(
+            (area: string) => area.toLowerCase() === learnerArea,
           );
-
-          // Sort by travel time (ascending - least time first)
-          const sortedInstructors = instructorsWithTravel.sort(
-            (a, b) => a.travelTime - b.travelTime,
+          const bMatchesArea = b.areas?.some(
+            (area: string) => area.toLowerCase() === learnerArea,
           );
-          setInstructorsWithTravelData(sortedInstructors);
-        };
+          if (aMatchesArea && !bMatchesArea) return -1;
+          if (!aMatchesArea && bMatchesArea) return 1;
 
-        calculateTravelData();
+          return (a.name || "").localeCompare(b.name || "");
+        });
+        setInstructorsWithTravelData(sortedInstructors);
       }
     }, [dynamicInstructors, learnerDetails]);
+
+    // Single batched DistanceMatrix call: 1 origin → many destinations.
+    const getBatchedDrivingData = async (
+      originLat: number,
+      originLng: number,
+      destinations: { lat: number; lng: number }[],
+    ): Promise<Array<{
+      distance: number;
+      duration: number;
+      distanceText: string;
+      durationText: string;
+    } | null> | null> => {
+      if (destinations.length === 0) return [];
+      try {
+        await googleMapsLoader.load();
+        const origin = new google.maps.LatLng(originLat, originLng);
+        const dests = destinations.map(
+          (d) => new google.maps.LatLng(d.lat, d.lng),
+        );
+        const service = new google.maps.DistanceMatrixService();
+        return await new Promise((resolve) => {
+          service.getDistanceMatrix(
+            {
+              origins: [origin],
+              destinations: dests,
+              travelMode: google.maps.TravelMode.DRIVING,
+              drivingOptions: {
+                departureTime: new Date(),
+                trafficModel: google.maps.TrafficModel.BEST_GUESS,
+              },
+            },
+            (response, status) => {
+              if (status !== "OK" || !response?.rows?.[0]?.elements) {
+                resolve(null);
+                return;
+              }
+              resolve(
+                response.rows[0].elements.map((el) => {
+                  if (el.status !== "OK") return null;
+                  return {
+                    distance: el.distance.value / 1000,
+                    duration: Math.ceil(el.duration.value / 60),
+                    distanceText: el.distance.text,
+                    durationText: el.duration.text,
+                  };
+                }),
+              );
+            },
+          );
+        });
+      } catch (error) {
+        console.error("Error in getBatchedDrivingData:", error);
+        return null;
+      }
+    };
 
     // NEW: Enhanced Google Maps function to get both distance and time
     const getDrivingDistanceAndTime = async (
@@ -2400,9 +2485,9 @@ function CreateSchedule({
       onClose();
     };
 
-    if (!learnerDetails?.address_lat || !learnerDetails?.address_lng) {
-      return null;
-    }
+    // Don't bail when coords are missing (e.g. fresh demo learners) — the
+    // map cards inside already degrade gracefully via MapWithRoute. Returning
+    // null here was the reason demo slot clicks rendered nothing visible.
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
@@ -2510,8 +2595,8 @@ function CreateSchedule({
                         <div className="min-h-[300px]">
                           <MapWithRoute
                             origin={{
-                              lat: learnerDetails.address_lat,
-                              lng: learnerDetails.address_lng,
+                              lat: learnerDetails?.address_lat,
+                              lng: learnerDetails?.address_lng,
                             }}
                             destination={instructor.currentLocation}
                             apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
@@ -2681,90 +2766,77 @@ function CreateSchedule({
     return endTotalMinutes > maxAllowedMinutes;
   };
   const handleSlotClick = (date: Date, slot: HourlySlot) => {
-    if (!selectedInstructorId) {
-      alert("Select Instructor");
+    if (!slot?.state) {
+      toast({
+        title: "Slot data not ready",
+        description: "Wait for distances to finish loading and try again.",
+      });
       return;
     }
-    // if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
-    //   toast(
-    //     {
-    //       title: "Not available on " + format(slot.timestamp, "hh:mm"),
-    //       describe: "Selected Instructor not available",
-    //       variant: "destructive"
-    //     }
-    //   );
-    //   // alert("Selected Instructor not available");
-    //   return;
-    // }
-    if (
-      (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) ||
-      slot.state.isSelected
-    ) {
-      if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) {
-        alert(
-          "Unavailable slot time. It means at least one of the following \n" +
-            " already there's schedule on the slot or \n" +
-            " selected instructor not available \n",
-        );
-        return;
-      }
-      // if (selectedInstructorId && slot.state.isCurrentInstrUnavailable) {
-      //   alert("Unavailable Instructor");
-      //   return;
-      // }
-      // console.log("Slot changing to selected. Instructor is available, selected", slot.state.isAvailable, slot.state.isSelected);
-      // If slot is selected, unselect it and its paired slot
-      if (slot.state.isSelected) {
-        alert("Slot is already selected");
-        const hour = slot.timestamp.getHours();
-        const minute = slot.timestamp.getMinutes();
-        const dateStr = format(date, "yyyy-MM-dd");
 
-        const groupId = selectedSlots.find(
-          (s) =>
-            format(s.date, "yyyy-MM-dd") === dateStr &&
-            s.hour === hour &&
-            s.minutes === minute,
-        )?.slotGroupId;
-
-        if (groupId) {
-          setSlotDurations((prev) => {
-            const next = new Map(prev);
-            next.delete(groupId);
-            return next;
-          });
-        }
-
-        setSelectedSlots((prev) => {
-          console.log("prev and groupId of slot are", prev, groupId);
-          return prev.filter((s) => s.slotGroupId !== groupId);
+    if (slot.state.isSelected) {
+      // Deselect if already selected (and clean up slotDurations).
+      const hour = slot.timestamp.getHours();
+      const minute = slot.timestamp.getMinutes();
+      const dateStr = format(date, "yyyy-MM-dd");
+      const groupId = selectedSlots.find(
+        (s) =>
+          format(s.date, "yyyy-MM-dd") === dateStr &&
+          s.hour === hour &&
+          s.minutes === minute,
+      )?.slotGroupId;
+      if (groupId) {
+        setSlotDurations((prev) => {
+          const next = new Map(prev);
+          next.delete(groupId);
+          return next;
         });
       }
-      // else { console.log("NOT SELECTED. selected slots are unchanged", slot.state.isSelected, selectedSlots); }
+      setSelectedSlots((prev) => prev.filter((s) => s.slotGroupId !== groupId));
       return;
     }
 
-    // Check how many unique hourly slots are already selected
+    if (!slot.state.isAvailable && !slot.state.isCurrentInstrUnavailable) {
+      toast({
+        title: "Slot unavailable",
+        description:
+          "Either there's already a schedule on this slot, no instructor is free, or the learner has marked this time as unavailable.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const currentUniqueSlots = countUniqueHourlySlots(selectedSlots);
     const hour = slot.timestamp.getHours();
     const minute = slot.timestamp.getMinutes();
 
     if (currentUniqueSlots >= requiredLessonCount) {
-      alert("Cannot select more slots than required.");
+      toast({
+        title: "Slot limit reached",
+        description: `You've already selected ${requiredLessonCount} hour(s) — the required count for this request.`,
+        variant: "destructive",
+      });
       return;
     }
     if (checkOverlapEndOfDay(hour, minute, 2)) {
-      alert("Cannot select this time slot. Lessons exceeds end of day limit");
+      toast({
+        title: "End-of-day overlap",
+        description: "This slot would extend past the configured end of day.",
+        variant: "destructive",
+      });
       return;
     }
-    // console.log("Setting state to slot", { hour, minute, numSlots: 2 });
+
     setSelectedSlot(slot);
     setSelectedDate(date);
     setSelectionDialogOpen(true);
   };
 
   // Handle instructor selection from dialog (with duration: 1 or 2 hours)
-  const handleInstructorSelect = (instructorId: string, duration: number = 1) => {
+  const handleInstructorSelect = (
+    instructorId: string,
+    duration: number = 1,
+  ) => {
     if (!selectedSlot || !selectedDate) return;
 
     const hour = selectedSlot.timestamp.getHours();
@@ -2805,7 +2877,6 @@ function CreateSchedule({
       return [...prev, ...slots];
     });
   };
-
 
   // Helper function to count total class hours (a 2hr slot = 2 classes)
   const countUniqueHourlySlots = (

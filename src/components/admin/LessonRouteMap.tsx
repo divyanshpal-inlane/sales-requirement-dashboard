@@ -1,7 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, MapPin, Navigation, Timer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-
-import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,10 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  calculateDuration,
-  calculateTotalDistance,
-} from "@/lib/geoUtils";
+import { calculateDuration, calculateTotalDistance } from "@/lib/geoUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { googleMapsLoader } from "@/utils/googleMaps";
 
@@ -72,7 +68,12 @@ export default function LessonRouteMap({
     .find((p) => p.type === "end");
 
   useEffect(() => {
-    if (!open || !mapRef.current || !trackingPoints || trackingPoints.length === 0)
+    if (
+      !open ||
+      !mapRef.current ||
+      !trackingPoints ||
+      trackingPoints.length === 0
+    )
       return;
 
     const initMap = async () => {
@@ -210,39 +211,32 @@ export default function LessonRouteMap({
                 <MapPin className="h-3 w-3" />
                 {trackingPoints.length} GPS points
               </Badge>
-              {trackingPoints.length === 2 &&
-                startPoint &&
-                endPoint && (
-                  <Badge
-                    variant="outline"
-                    className="border-amber-200 bg-amber-50 text-amber-700"
-                  >
-                    Start + End only (limited data)
-                  </Badge>
-                )}
+              {trackingPoints.length === 2 && startPoint && endPoint && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-200 bg-amber-50 text-amber-700"
+                >
+                  Start + End only (limited data)
+                </Badge>
+              )}
             </div>
 
             {/* Timestamps */}
             {startPoint && (
               <div className="flex gap-4 text-xs text-gray-500">
                 <span>
-                  Started:{" "}
-                  {new Date(startPoint.captured_at).toLocaleString()}
+                  Started: {new Date(startPoint.captured_at).toLocaleString()}
                 </span>
                 {endPoint && (
                   <span>
-                    Ended:{" "}
-                    {new Date(endPoint.captured_at).toLocaleString()}
+                    Ended: {new Date(endPoint.captured_at).toLocaleString()}
                   </span>
                 )}
               </div>
             )}
 
             {/* Map */}
-            <div
-              ref={mapRef}
-              className="h-[400px] w-full rounded-lg border"
-            />
+            <div ref={mapRef} className="h-[400px] w-full rounded-lg border" />
 
             {/* Legend */}
             <div className="flex gap-4 text-xs text-gray-500">

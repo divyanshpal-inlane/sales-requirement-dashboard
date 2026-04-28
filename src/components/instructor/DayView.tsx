@@ -97,7 +97,9 @@ const DayView = ({
                 }
               }}
             >
-              <div className={`w-16 border-r bg-gray-50 p-1 text-xs text-gray-600 ${!showHourLabel ? "text-gray-400" : ""}`}>
+              <div
+                className={`w-16 border-r bg-gray-50 p-1 text-xs text-gray-600 ${!showHourLabel ? "text-gray-400" : ""}`}
+              >
                 {format(new Date().setHours(hour, minute), "HH:mm")}
               </div>
 
@@ -113,8 +115,12 @@ const DayView = ({
                     (ll) => ll.lesson.id === schedule.lesson_id,
                   );
 
-                  const scheduleStartHour = parseInt(schedule.start_time.split(":")[0]);
-                  const scheduleStartMinute = parseInt(schedule.start_time.split(":")[1]);
+                  const scheduleStartHour = parseInt(
+                    schedule.start_time.split(":")[0],
+                  );
+                  const scheduleStartMinute = parseInt(
+                    schedule.start_time.split(":")[1],
+                  );
                   const isScheduleStart =
                     scheduleStartHour === hour &&
                     scheduleStartMinute >= minute &&
@@ -154,8 +160,12 @@ const DayView = ({
                 {/* Google Calendar Events */}
                 {timeSlotGoogleEvents.map((event, idx) => {
                   if (!event.start?.dateTime) return null;
-                  const eventStartHour = new Date(event.start.dateTime).getHours();
-                  const eventStartMinute = new Date(event.start.dateTime).getMinutes();
+                  const eventStartHour = new Date(
+                    event.start.dateTime,
+                  ).getHours();
+                  const eventStartMinute = new Date(
+                    event.start.dateTime,
+                  ).getMinutes();
                   const isEventStart =
                     eventStartHour === hour &&
                     eventStartMinute >= minute &&
