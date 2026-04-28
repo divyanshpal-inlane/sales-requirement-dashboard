@@ -2493,7 +2493,9 @@ export const LearnerSchedulesManager = ({
                     className={`flex items-center justify-between rounded-md border p-2 ${
                       schedule.status === "paused"
                         ? "border-rose-300 bg-rose-50 hover:bg-rose-100"
-                        : "hover:bg-gray-50"
+                        : schedule.status === "completed"
+                          ? "border-green-300 bg-green-50 hover:bg-green-100"
+                          : "hover:bg-gray-50"
                     }`}
                   >
                     <div className="space-y-0.5">

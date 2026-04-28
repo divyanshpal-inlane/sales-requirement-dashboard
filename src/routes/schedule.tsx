@@ -108,8 +108,14 @@ export default function Schedule() {
       (l) => l.status === "pending_payment",
     );
     const hasPaidTopup = lessonsForDay.some((l) => l.status === "topup");
+    const allCompleted =
+      lessonsForDay.length > 0 &&
+      lessonsForDay.every((l) => l.status === "completed");
 
-    if (isPast) {
+    if (allCompleted) {
+      dayColorClasses =
+        "bg-emerald-500 hover:bg-emerald-600 focus:bg-emerald-500 text-white";
+    } else if (isPast) {
       dayColorClasses = "bg-gray-300 text-gray-600";
     } else if (hasPendingPayment) {
       dayColorClasses =
@@ -148,6 +154,30 @@ export default function Schedule() {
               const now = new Date();
               const isLessonPast =
                 new Date(`${lesson.date}T${lesson.startTime}`) < now;
+              if (lesson.status === "completed") {
+                return (
+                  <p key={lesson.id} className="flex flex-col gap-1 text-xs">
+                    <span className="text-gray-500">
+                      {format(
+                        new Date(`2000-01-01T${lesson.startTime}`),
+                        "h:mm a",
+                      )}{" "}
+                      -
+                      {format(
+                        new Date(`2000-01-01T${lesson.endTime}`),
+                        "h:mm a",
+                      )}
+                    </span>
+                    <span className="font-semibold text-emerald-600">
+                      Lesson {lesson.lesson?.number}
+                      {lesson.lesson?.endNumber
+                        ? ` & ${lesson.lesson.endNumber}`
+                        : ""}{" "}
+                      — Completed ✓
+                    </span>
+                  </p>
+                );
+              }
               return (
                 <p
                   key={lesson.id}
