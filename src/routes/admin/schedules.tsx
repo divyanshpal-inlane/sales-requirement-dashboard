@@ -1777,6 +1777,11 @@ export const LearnerSchedulesManager = ({
     useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
+  const [instructorChangeFromLesson, setInstructorChangeFromLesson] =
+    useState<number | null>(null);
+  const [instructorChangeToLesson, setInstructorChangeToLesson] = useState<
+    number | null
+  >(null);
   const [pendingNotification, setPendingNotification] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [isTopupDialogOpen, setIsTopupDialogOpen] = useState(false);
@@ -1881,85 +1886,87 @@ export const LearnerSchedulesManager = ({
   // 2. Action Handlers
   const onSaveInstructor = async () => {
     if (!selectedInstructorId || !selectedSchedule) return;
+
+    const fromN = instructorChangeFromLesson;
+    const toN = instructorChangeToLesson;
+    if (fromN == null || toN == null || fromN < 1 || toN < fromN) {
+      toast({
+        title: "Invalid lesson range",
+        description: "From and To must be valid lesson numbers (From ≤ To).",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsProcessing(true);
 
-      if (selectedInstructorId !== selectedSchedule.instructor_id) {
-        const conflicts = await checkScheduleConflict({
-          instructorId: selectedInstructorId,
-          date: selectedSchedule.date,
-          startTime: selectedSchedule.start_time,
-          endTime: selectedSchedule.end_time,
-          excludeScheduleId: selectedSchedule.id,
+      // Pick every schedule whose lesson number falls in [fromN, toN].
+      // For 2hr classes, endNumber covers the second hour, so a range that
+      // straddles the second hour still includes that schedule.
+      const targetSchedules = (learner?.schedules ?? []).filter((s: any) => {
+        const start = s.Lesson?.number;
+        if (start == null) return false;
+        const end = s.Lesson?.endNumber ?? start;
+        return end >= fromN && start <= toN;
+      });
+
+      if (targetSchedules.length === 0) {
+        toast({
+          title: "No lessons in range",
+          description: `No scheduled lessons found between #${fromN} and #${toN}.`,
+          variant: "destructive",
         });
-        if (conflicts.length > 0) {
+        return;
+      }
+
+      // Conflict-check the new instructor against every schedule in the range
+      // before touching the database, so a partial update can't leave rows
+      // half-changed.
+      if (selectedInstructorId !== selectedSchedule.instructor_id) {
+        const allConflicts: any[] = [];
+        for (const s of targetSchedules) {
+          const conflicts = await checkScheduleConflict({
+            instructorId: selectedInstructorId,
+            date: s.date,
+            startTime: s.start_time,
+            endTime: s.end_time,
+            excludeScheduleId: s.id,
+          });
+          allConflicts.push(...conflicts);
+        }
+        if (allConflicts.length > 0) {
           toast({
             title: "Cannot change instructor",
-            description: formatConflictMessage(conflicts),
+            description: formatConflictMessage(allConflicts),
             variant: "destructive",
           });
           return;
         }
       }
 
+      const targetIds = targetSchedules.map((s: any) => s.id);
       const { error } = await supabase
         .from("Schedule")
         .update({ instructor_id: selectedInstructorId })
-        .eq("id", selectedSchedule.id);
+        .in("id", targetIds);
 
       if (error) throw error;
 
-      // Renumber lessons in the database so class numbers stay correct
-      const courseId = selectedSchedule.course_id;
-      if (courseId && learner) {
-        const { data: allSchedules, error: fetchError } = await supabase
-          .from("Schedule")
-          .select("id, date, start_time, Lesson(id, number)")
-          .eq("learner_id", learner.id)
-          .eq("course_id", courseId)
-          .order("date", { ascending: true })
-          .order("start_time", { ascending: true });
-
-        if (fetchError) throw fetchError;
-
-        const sortedSchedules = [...(allSchedules || [])].sort((a, b) => {
-          const dateTimeA = new Date(`${a.date}T${a.start_time}`).getTime();
-          const dateTimeB = new Date(`${b.date}T${b.start_time}`).getTime();
-          return dateTimeA - dateTimeB;
-        });
-
-        const lessonUpdates = sortedSchedules
-          .filter((schedule) => schedule.Lesson?.id)
-          .map((schedule, index) => ({
-            id: schedule.Lesson.id,
-            number: index + 1,
-          }));
-
-        if (lessonUpdates.length > 0) {
-          // Pass 1: Set all to temporary high numbers to avoid unique constraint conflicts
-          await Promise.all(
-            lessonUpdates.map((update, i) =>
-              supabase
-                .from("Lesson")
-                .update({ number: 1000 + i })
-                .eq("id", update.id),
-            ),
-          );
-          // Pass 2: Set to final correct numbers
-          await Promise.all(
-            lessonUpdates.map((update) =>
-              supabase
-                .from("Lesson")
-                .update({ number: update.number })
-                .eq("id", update.id),
-            ),
-          );
-        }
-      }
+      // Lesson numbers are intentionally NOT renumbered. The whole point of
+      // a range-based reassignment is that the new instructor inherits the
+      // original numbering (e.g. #6, #7 ... #10), not 1, 2 ... 5.
 
       setIsInstructorChangeModalOpen(false);
       await syncData();
-      toast({ title: "Updated", description: "Instructor changed." });
+      const count = targetIds.length;
+      toast({
+        title: "Updated",
+        description:
+          count === 1
+            ? "Instructor changed for 1 lesson."
+            : `Instructor changed for ${count} lessons (#${fromN}–#${toN}).`,
+      });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -2668,6 +2675,10 @@ export const LearnerSchedulesManager = ({
                               onClick={() => {
                                 setSelectedSchedule(schedule);
                                 setSelectedInstructorId(schedule.instructor_id);
+                                const clickedNumber =
+                                  schedule.Lesson?.number ?? null;
+                                setInstructorChangeFromLesson(clickedNumber);
+                                setInstructorChangeToLesson(clickedNumber);
                                 setIsInstructorChangeModalOpen(true);
                               }}
                             >
@@ -2754,6 +2765,60 @@ export const LearnerSchedulesManager = ({
                   ))}
               </SelectContent>
             </Select>
+            <div className="space-y-2 rounded-md border p-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Apply to lesson range
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600">From #</span>
+                <Input
+                  type="number"
+                  min={1}
+                  className="h-8 w-20"
+                  value={instructorChangeFromLesson ?? ""}
+                  onChange={(e) =>
+                    setInstructorChangeFromLesson(
+                      e.target.value === "" ? null : parseInt(e.target.value),
+                    )
+                  }
+                />
+                <span className="text-gray-600">to #</span>
+                <Input
+                  type="number"
+                  min={1}
+                  className="h-8 w-20"
+                  value={instructorChangeToLesson ?? ""}
+                  onChange={(e) =>
+                    setInstructorChangeToLesson(
+                      e.target.value === "" ? null : parseInt(e.target.value),
+                    )
+                  }
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto h-8 text-xs"
+                  onClick={() => {
+                    const maxNumber = (learner?.schedules ?? []).reduce(
+                      (max: number, s: any) => {
+                        const n = s.Lesson?.endNumber ?? s.Lesson?.number ?? 0;
+                        return n > max ? n : max;
+                      },
+                      0,
+                    );
+                    if (maxNumber > 0) {
+                      setInstructorChangeToLesson(maxNumber);
+                    }
+                  }}
+                >
+                  All remaining
+                </Button>
+              </div>
+              <p className="text-[11px] text-gray-500">
+                Leave both equal to change just one lesson. Lesson numbers stay
+                the same after the change.
+              </p>
+            </div>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
