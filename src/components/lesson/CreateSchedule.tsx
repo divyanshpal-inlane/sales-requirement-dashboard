@@ -3280,6 +3280,24 @@ function CreateSchedule({
     );
     console.log("================================================");
 
+    // STEP 1 (real): Save schedules to the database FIRST, before any
+    // calendar-invite preparation. The pre-existing flow nominally claimed
+    // to do this, but the actual onScheduleCreate call lived ~200 lines
+    // deep inside the calendar-prep try block, so any earlier failure
+    // (e.g. instructor fetch returning an error and `return`-ing) would
+    // silently kill the DB write. Demo learners hit this path because
+    // their lessons are virtual placeholders, which can confuse downstream
+    // calendar-event construction.
+    try {
+      console.log("Creating schedules in the database first...");
+      await onScheduleCreate(finalSchedules, courseIdToPass);
+    } catch (error) {
+      console.error("Failed to save schedules:", error);
+      // The mutation threw; toast was raised by the parent handler. Don't
+      // proceed to calendar invites for schedules that don't exist.
+      return;
+    }
+
     setIsSendingInvites(true);
     try {
       // Fetch learner details
@@ -3465,11 +3483,8 @@ function CreateSchedule({
       // Combine all events (cancellations and new/updated)
       const allEvents = [...cancellationEvents, ...newEvents];
 
-      // STEP 1: ALWAYS SAVE SCHEDULES TO THE DATABASE FIRST
-      console.log("Creating schedules in the database first...");
-      await onScheduleCreate(finalSchedules, courseIdToPass);
-
       // STEP 2: SEND CALENDAR INVITES (only if both instructor and learner have emails)
+      // Schedules were already saved above before this try block ran.
       if (allEvents.length > 0 && learnerData?.email) {
         console.log(
           `Sending ${allEvents.length} calendar events (${cancellationEvents.length} cancellations, ${newEvents.length} new/updated)`,
@@ -3565,8 +3580,11 @@ function CreateSchedule({
         }
       }
     } catch (error) {
-      console.error("Error in handleCreateSchedule:", error);
-      // Don't call onScheduleCreate here - we want to avoid creating schedules if there was an error in the process
+      // Calendar-invite preparation failed, but schedules are already saved
+      // (onScheduleCreate ran before this try block). Surface the error in
+      // the console so devs can investigate, but don't block the user — the
+      // booking is real, calendar invites are best-effort.
+      console.error("Error in handleCreateSchedule (post-save):", error);
     } finally {
       // Always reset loading state when done
       setIsSendingInvites(false);
