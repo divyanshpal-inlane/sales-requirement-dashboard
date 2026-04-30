@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -132,6 +132,7 @@ const DEMO_CREDIT = 1;
 
 export default function AdminSchedules() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: requests, isLoading, isRefetching } = useSchedulingRequests();
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
@@ -344,6 +345,14 @@ export default function AdminSchedules() {
           }
         }
       }
+    },
+    onSuccess: () => {
+      // Invalidate every place a freshly-created schedule could surface, so
+      // the just-scheduled learner appears immediately in Active Learners
+      // and the New Schedule list refreshes. The bare refetchActiveLearners
+      // call in handleScheduleCreate is kept as a belt-and-suspenders.
+      queryClient.invalidateQueries({ queryKey: ["activeLearners"] });
+      queryClient.invalidateQueries({ queryKey: ["scheduling-requests"] });
     },
   });
 
@@ -1718,6 +1727,7 @@ export const LearnerSchedulesManager = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Modal States
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
@@ -2413,6 +2423,11 @@ export const LearnerSchedulesManager = ({
 
       setIsTopupDialogOpen(false);
       await syncData();
+      // syncData refreshes only this manager's local view of the learner;
+      // the Active Learners list in the parent uses its own useQuery, so
+      // invalidate it here too. Otherwise the new topup/demo schedule
+      // wouldn't appear under the learner's card until the cache expired.
+      queryClient.invalidateQueries({ queryKey: ["activeLearners"] });
       const topupPrice = isDemo ? 1 : 1 * totalHours;
       toast({
         title: isDemo ? "Demo Scheduled" : "Topup Added",
