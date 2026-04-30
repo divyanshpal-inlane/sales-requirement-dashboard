@@ -614,16 +614,37 @@ export default function AdminSchedules() {
   } = useQuery({
     queryKey: ["activeLearners"],
     queryFn: async () => {
-      // First, get active enrollment learner IDs with progress info
-      const { data: enrollmentData, error: enrollmentError } = await supabase
-        .from("enrollment")
-        .select("learner_id, progress, Courses(total_lessons, duration)")
-        .eq("status", "active");
-
-      if (enrollmentError) throw enrollmentError;
+      // First, get active enrollment learner IDs with progress info.
+      // PostgREST defaults to 1000 rows per response; with growing learner
+      // counts that silently truncates the result and the most recently
+      // paid learners can fall off the list. Page through in chunks of
+      // 1000 to make sure we get everything.
+      const enrollmentData: Array<{
+        learner_id: string;
+        progress: any;
+        Courses: { total_lessons: number | null; duration: number | null } | null;
+      }> = [];
+      const ENROLLMENT_PAGE = 1000;
+      for (let page = 0; ; page++) {
+        const from = page * ENROLLMENT_PAGE;
+        const to = from + ENROLLMENT_PAGE - 1;
+        const { data, error } = await supabase
+          .from("enrollment")
+          .select("learner_id, progress, Courses(total_lessons, duration)")
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .range(from, to);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        enrollmentData.push(...(data as any));
+        if (data.length < ENROLLMENT_PAGE) break;
+      }
 
       // Deduplicate learner IDs (a learner may have multiple enrollments)
       const learnerIds = [...new Set(enrollmentData.map((e) => e.learner_id))];
+      console.log(
+        `[activeLearners] enrollments=${enrollmentData.length}, unique learners=${learnerIds.length}`,
+      );
 
       // Batch learner IDs into chunks to avoid URL length limits
       const BATCH_SIZE = 50;
@@ -632,7 +653,10 @@ export default function AdminSchedules() {
         batches.push(learnerIds.slice(i, i + BATCH_SIZE));
       }
 
-      const allLearners = await Promise.all(
+      // Use allSettled so one failed batch can't wipe out the entire list.
+      // A single batch erroring out previously caused Promise.all to reject,
+      // which left activeLearners empty even when most batches succeeded.
+      const batchResults = await Promise.allSettled(
         batches.map(async (batch) => {
           const { data, error } = await supabase
             .from("Learner")
@@ -679,11 +703,21 @@ export default function AdminSchedules() {
             .order("created_at", { ascending: false });
 
           if (error) throw error;
-          return data;
+          return data ?? [];
         }),
       );
 
-      const learnersData = allLearners.flat();
+      const learnersData = batchResults.flatMap((r, i) => {
+        if (r.status === "fulfilled") return r.value;
+        console.error(
+          `[activeLearners] batch ${i} failed (${batches[i].length} learners dropped):`,
+          r.reason,
+        );
+        return [];
+      });
+      console.log(
+        `[activeLearners] fetched ${learnersData.length} learners across ${batches.length} batches`,
+      );
 
       // Build a set of demo learner IDs
       const demoLearnerIds = new Set(
