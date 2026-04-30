@@ -707,12 +707,13 @@ export default function AdminSchedules() {
         );
       });
 
-      // Include learners with schedules OR demo learners (even without schedules)
-      const learnersWithSchedules = learnersData.filter(
-        (learner) =>
-          (learner.schedules && learner.schedules.length > 0) ||
-          demoLearnerIds.has(learner.id),
-      );
+      // Show every learner with an active enrollment. The earlier filter
+      // required learner.schedules.length > 0 OR demo, which dropped course
+      // learners whose schedule join silently came back empty (e.g. response
+      // size truncation when many learners × many schedules are joined in
+      // one batched query). learnersData is already scoped to active
+      // enrollments, so no further filter is needed.
+      const learnersWithSchedules = learnersData;
 
       // Tag demo learners, completion status, and topup payment status
       learnersWithSchedules.forEach((learner: any) => {
