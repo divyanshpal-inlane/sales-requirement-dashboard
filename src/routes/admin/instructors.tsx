@@ -4209,11 +4209,13 @@ const TentativeAddressInput = memo(
 // 1. Destructure the params from the function arguments (props)
 export const AddTentativeSchedule = ({
   instructorId: propInstructorId,
+  instructorName: propInstructorName,
   date: propDate,
   startTime: propStartTime,
   endTime: propEndTime,
 }: {
   instructorId?: string;
+  instructorName?: string;
   date?: string;
   startTime?: string;
   endTime?: string;
@@ -4234,6 +4236,23 @@ export const AddTentativeSchedule = ({
   const date = urlDate ?? propDate;
   const startTime = urlStartTime ?? propStartTime;
   const endTime = propEndTime;
+
+  // Fallback fetch for the deep-link route (/admin/tentative-add/...) where
+  // the parent page isn't mounted and the name wasn't passed in.
+  const { data: fetchedInstructor } = useQuery({
+    queryKey: ["instructor-name", instructorId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("Instructor")
+        .select("name")
+        .eq("id_instructor", instructorId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!instructorId && !propInstructorName,
+  });
+  const instructorName = propInstructorName ?? fetchedInstructor?.name;
 
   const { data: courses } = useQuery({
     queryKey: ["courses"],
@@ -4477,7 +4496,17 @@ export const AddTentativeSchedule = ({
     <TooltipProvider>
       <div className="mx-auto max-w-4xl rounded-xl border border-border bg-background p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between border-b pb-4">
-          <h1 className="text-l font-bold">Add Tentative Schedules</h1>
+          <div>
+            <h1 className="text-l font-bold">Add Tentative Schedules</h1>
+            {instructorName && (
+              <p className="mt-0.5 text-xs text-slate-500">
+                Instructor:{" "}
+                <span className="font-semibold text-slate-700">
+                  {instructorName}
+                </span>
+              </p>
+            )}
+          </div>
           {/* <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button> */}
         </div>
         <div className="space-y-6 text-sm">
@@ -4842,7 +4871,13 @@ export const AddTentativeSchedule = ({
   );
 };
 
-export const EditTentativeSchedule = ({ schedule }: { schedule: any }) => {
+export const EditTentativeSchedule = ({
+  schedule,
+  instructorName,
+}: {
+  schedule: any;
+  instructorName?: string;
+}) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const instructorId = schedule?.instructor_id;
@@ -5014,7 +5049,17 @@ export const EditTentativeSchedule = ({ schedule }: { schedule: any }) => {
     <TooltipProvider>
       <div className="mx-auto max-w-4xl rounded-xl border border-border bg-background p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between border-b pb-4">
-          <h1 className="text-l font-bold">Edit Tentative Schedule</h1>
+          <div>
+            <h1 className="text-l font-bold">Edit Tentative Schedule</h1>
+            {instructorName && (
+              <p className="mt-0.5 text-xs text-slate-500">
+                Instructor:{" "}
+                <span className="font-semibold text-slate-700">
+                  {instructorName}
+                </span>
+              </p>
+            )}
+          </div>
           {/* <Button variant="ghost" size="icon" onClick={() => navigate('/admin/instructors/' + instructorId)}>✕</Button> */}
         </div>
 
@@ -5492,6 +5537,48 @@ export const InstructorSchedulePage = () => {
     BLOCK: "#475568",
   };
 
+  // Tentative > status > default. Status compared lowercase since it's a
+  // freeform string column. "Completed" splits OTP-verified (started_at +
+  // ended_at present) from manually-marked, matching the convention used in
+  // the instructor's own day view.
+  const getScheduleColors = (schedule: any) => {
+    if (schedule.isTentative) {
+      return {
+        block: "border-amber-600 bg-amber-400 text-amber-950",
+        card: "border-amber-200 bg-amber-50/30",
+      };
+    }
+    const status = schedule.status?.toLowerCase();
+    if (status === "paused") {
+      return {
+        block: "border-slate-700 bg-slate-500 text-white",
+        card: "border-slate-200 bg-slate-50",
+      };
+    }
+    if (status === "ongoing") {
+      return {
+        block: "border-blue-700 bg-blue-500 text-white",
+        card: "border-blue-200 bg-blue-50/30",
+      };
+    }
+    if (status === "completed") {
+      if (schedule.started_at && schedule.ended_at) {
+        return {
+          block: "border-emerald-700 bg-emerald-500 text-white",
+          card: "border-emerald-200 bg-emerald-50/30",
+        };
+      }
+      return {
+        block: "border-orange-600 bg-orange-400 text-orange-950",
+        card: "border-orange-200 bg-orange-50/30",
+      };
+    }
+    return {
+      block: "border-indigo-700 bg-indigo-500 text-white",
+      card: "border-indigo-200 bg-indigo-50/30",
+    };
+  };
+
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const handlePrevWeek = () => setCurrentDate((prev) => subDays(prev, 7));
   const handleNextWeek = () => setCurrentDate((prev) => addDays(prev, 7));
@@ -5539,13 +5626,6 @@ export const InstructorSchedulePage = () => {
         .eq("id_instructor", id)
         .single();
       if (error) throw error;
-
-      // Filter out paused schedules
-      if (data?.schedules) {
-        data.schedules = data.schedules.filter(
-          (s: any) => s.status !== "paused",
-        );
-      }
 
       return data;
     },
@@ -5753,6 +5833,33 @@ export const InstructorSchedulePage = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-2.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500 xl:flex">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-indigo-500" />
+              Booked
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-amber-400" />
+              Tentative
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-blue-500" />
+              Ongoing
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-emerald-500" />
+              Done (OTP)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-orange-400" />
+              Done (manual)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-slate-500" />
+              Paused
+            </span>
+          </div>
+
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -5901,14 +6008,14 @@ export const InstructorSchedulePage = () => {
                         ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
                         : null;
 
+                      const cardColors = getScheduleColors(schedule);
+
                       return (
                         <div
                           key={schedule.id}
                           className={cn(
                             "relative flex flex-col gap-3 rounded-xl border p-4 shadow-sm transition-all",
-                            isTentative
-                              ? "border-amber-200 bg-amber-50/30"
-                              : "border-indigo-200 bg-indigo-50/30",
+                            cardColors.card,
                           )}
                         >
                           {/* 1. TITLE & ICONS */}
@@ -6100,6 +6207,7 @@ export const InstructorSchedulePage = () => {
                     {isAddingschedule ? (
                       <AddTentativeSchedule
                         instructorId={id}
+                        instructorName={instructor?.name}
                         date={format(selectedSlot.date, "yyyy-MM-dd")}
                         startTime={`${selectedSlot.hour}:00`}
                         endTime={
@@ -6112,6 +6220,7 @@ export const InstructorSchedulePage = () => {
                       <EditTentativeSchedule
                         key={editingschedule?.id}
                         schedule={editingschedule}
+                        instructorName={instructor?.name}
                         onSuccess={() => setEditingschedule(null)}
                       />
                     )}
@@ -6350,14 +6459,14 @@ export const InstructorSchedulePage = () => {
                                   new Date(),
                                 ),
                               ) || 60;
+                            const blockColors = getScheduleColors(schedule);
+
                             return (
                               <div
                                 key={schedule.id}
                                 className={cn(
                                   "group/grid pointer-events-auto absolute flex flex-col rounded-sm border-l-2 p-1 shadow-md transition-all",
-                                  schedule.isTentative
-                                    ? "border-amber-600 bg-amber-400 text-amber-950"
-                                    : "border-indigo-700 bg-indigo-500 text-white",
+                                  blockColors.block,
                                 )}
                                 style={{
                                   left: `${idx * 10}%`,
