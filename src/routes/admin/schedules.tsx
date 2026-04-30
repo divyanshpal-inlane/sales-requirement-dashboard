@@ -185,18 +185,24 @@ export default function AdminSchedules() {
         console.warn("WARNING: No schedules to create/update!");
       }
 
-      // Step 1: Delete existing schedules for these lessons
-      const { error: deleteError } = await supabase
-        .from("Schedule")
-        .delete()
-        .eq("learner_id", learnerId)
-        .eq("course_id", courseId)
-        .in(
-          "lesson_id",
-          schedules.map((s) => s.lessonId),
-        );
+      // Step 1: Delete existing schedules for these lessons.
+      // Skip for virtual lessons (demo/custom courses): the lesson_id values
+      // are synthetic strings like "virtual-lesson-XXX" which Postgres rejects
+      // against the UUID lesson_id column, and there's nothing to delete
+      // anyway because virtual lessons never persist as real Schedule rows.
+      if (!isVirtualLessons) {
+        const { error: deleteError } = await supabase
+          .from("Schedule")
+          .delete()
+          .eq("learner_id", learnerId)
+          .eq("course_id", courseId)
+          .in(
+            "lesson_id",
+            schedules.map((s) => s.lessonId),
+          );
 
-      if (deleteError) throw deleteError;
+        if (deleteError) throw deleteError;
+      }
 
       // Step 2: Conflict check — one query per unique instructor (not per schedule)
       const instructorDates = new Map<string, Set<string>>();
@@ -2267,6 +2273,29 @@ export const LearnerSchedulesManager = ({
 
     try {
       setIsProcessing(true);
+
+      // Demo guard: if the learner already paid for their demo, ops should
+      // schedule via the New Schedule tab — not re-bill them here. The
+      // payment-link send + pending_payment status below would charge again.
+      if (isDemo) {
+        const { data: paidDemo } = await supabase
+          .from("enrollment")
+          .select("id")
+          .eq("learner_id", learner.id)
+          .is("course_id", null)
+          .eq("payment_status", "paid")
+          .limit(1)
+          .maybeSingle();
+        if (paidDemo) {
+          toast({
+            title: "Demo already paid",
+            description:
+              "This demo learner has already paid. Schedule them from the New Schedule tab instead — using this flow would send another payment link.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
 
       // Conflict check per instructor+date
       const instructorDates = new Map<string, Set<string>>();
