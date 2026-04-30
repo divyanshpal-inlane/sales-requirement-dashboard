@@ -453,6 +453,10 @@ export default function AdminSchedules() {
         rescheduleLessonNumber,
       });
 
+      // Refetch the Active Learners list — its 30s staleTime would otherwise
+      // hide the just-scheduled learner until the cache expired.
+      refetchActiveLearners();
+
       toast({
         title: "Schedule created",
         description: "The schedule has been created successfully.",
@@ -2283,7 +2287,7 @@ export const LearnerSchedulesManager = ({
           .select("id")
           .eq("learner_id", learner.id)
           .is("course_id", null)
-          .eq("payment_status", "paid")
+          .in("payment_status", ["full_paid", "half_paid", "paid"])
           .limit(1)
           .maybeSingle();
         if (paidDemo) {
