@@ -1732,6 +1732,8 @@ export const LearnerSchedulesManager = ({
   const [upgradeSelectedCourse, setUpgradeSelectedCourse] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
+  const completeRescheduleRequestMutation =
+    useMutationCompleteRescheduleRequest();
   const [topupSlots, setTopupSlots] = useState<
     Array<{
       date: string;
@@ -2112,6 +2114,35 @@ export const LearnerSchedulesManager = ({
               );
             }
           });
+        }
+      }
+
+      // Close any pending reschedule_request that included this lesson, so the
+      // Reschedule Requests tab doesn't keep showing it after ops handles it
+      // here. Match is by lesson_id only — the admin's new time doesn't need
+      // to match what the learner originally asked for.
+      const movedLessonId = oldScheduleData.Lesson?.id;
+      if (movedLessonId) {
+        try {
+          const { data: pendingRequests } = await supabase
+            .from("reschedule_requests")
+            .select("id")
+            .eq("learner_id", learner.id)
+            .eq("type", "reschedule")
+            .eq("status", "pending")
+            .contains("lesson_ids", [movedLessonId]);
+
+          if (pendingRequests && pendingRequests.length > 0) {
+            await Promise.all(
+              pendingRequests.map((req) =>
+                completeRescheduleRequestMutation.mutateAsync({
+                  requestId: req.id,
+                }),
+              ),
+            );
+          }
+        } catch (err) {
+          console.error("Failed to auto-close reschedule request(s):", err);
         }
       }
 
