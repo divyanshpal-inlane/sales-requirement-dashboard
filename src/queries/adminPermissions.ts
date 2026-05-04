@@ -85,6 +85,13 @@ export const ADMIN_PERMISSIONS = {
       "Track full and half payments, lesson progress, and follow-up urgency",
     route: "/admin/payment-tracker",
   },
+  course_feedback: {
+    key: "course_feedback",
+    label: "Course Feedback",
+    description:
+      "View learner feedback submitted at midway and course completion checkpoints",
+    route: "/admin/feedback",
+  },
 } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;
