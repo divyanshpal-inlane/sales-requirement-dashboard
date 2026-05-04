@@ -6,6 +6,7 @@ import {
   CreditCard,
   Loader2,
   LogOut,
+  MessageSquare,
   PhoneCall,
   Settings,
   ShieldCheck,
@@ -132,6 +133,13 @@ const featureConfig: Record<
     icon: CreditCard,
     link: "/admin/payment-tracker",
     color: "text-blue-500",
+  },
+  course_feedback: {
+    title: "Course Feedback",
+    description: "Learner feedback at midway and course completion",
+    icon: MessageSquare,
+    link: "/admin/feedback",
+    color: "text-pink-500",
   },
 };
 
