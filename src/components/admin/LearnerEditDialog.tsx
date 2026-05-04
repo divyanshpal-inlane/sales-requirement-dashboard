@@ -215,7 +215,9 @@ function LocationTab({
           placeholder="Start typing an address..."
         />
         <p className="mt-1 text-xs text-muted-foreground">
-          Type to search with Google Places — lat/lng, city, pincode auto-fill
+          Pick a Google Places suggestion to auto-fill lat/lng, city, pincode.
+          If you type manually, update lat/lng below so geo features stay
+          accurate.
         </p>
       </div>
 
@@ -289,9 +291,8 @@ function LocationTab({
                 e.target.value ? parseFloat(e.target.value) : null,
               )
             }
-            className="mt-1 bg-muted"
-            placeholder="Auto-filled"
-            readOnly
+            className="mt-1"
+            placeholder="Auto-filled or paste manually"
           />
         </div>
         <div>
@@ -307,9 +308,8 @@ function LocationTab({
                 e.target.value ? parseFloat(e.target.value) : null,
               )
             }
-            className="mt-1 bg-muted"
-            placeholder="Auto-filled"
-            readOnly
+            className="mt-1"
+            placeholder="Auto-filled or paste manually"
           />
         </div>
       </div>
@@ -375,6 +375,18 @@ export function LearnerEditDialog({
       queryClient.invalidateQueries({ queryKey: ["learners"] });
       queryClient.invalidateQueries({ queryKey: ["customer-info"] });
       queryClient.invalidateQueries({ queryKey: ["learner-details"] });
+      // Address/profile changes flow into many views (learner home, instructor
+      // schedule, schedule pickers). Invalidate any query keyed on this
+      // learner.id, plus the instructor-schedule prefix since those keys are
+      // keyed by instructor phone and the learner row is read via join.
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey.includes(learner.id),
+      });
+      queryClient.invalidateQueries({ queryKey: ["instructor"] });
+      queryClient.invalidateQueries({ queryKey: ["learner"] });
+      queryClient.invalidateQueries({ queryKey: ["enrollment"] });
+      queryClient.invalidateQueries({ queryKey: ["schedule"] });
       toast({
         title: "Learner Updated",
         description: "Learner information has been updated successfully.",
