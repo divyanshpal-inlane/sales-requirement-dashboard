@@ -387,31 +387,56 @@ serve(async (req) => {
             if (enrollmentError) throw enrollmentError;
           }
 
-          // Surface the paid demo in admin "New Scheduling Requests" tab
-          const { data: existingReq } = await supabaseClient
-            .from("reschedule_requests")
+          // Two demo paths land here:
+          // (A) Admin pre-created Schedule rows via /admin/schedules → "Schedule
+          //     Demo" with status="pending_payment". Flip them to "booked" now
+          //     that payment cleared, and skip the reschedule_request below.
+          // (B) Learner self-paid /payment?type=demo with no schedules yet —
+          //     surface a New Scheduling Request so admin can schedule.
+          const { data: prePaidSchedules } = await supabaseClient
+            .from("Schedule")
             .select("id")
             .eq("learner_id", payment.learner_id)
-            .eq("type", "new")
-            .eq("status", "pending")
-            .maybeSingle();
+            .eq("status", "pending_payment");
 
-          if (!existingReq) {
-            const { error: rescheduleRequestError } = await supabaseClient
-              .from("reschedule_requests")
-              .insert({
-                learner_id: payment.learner_id,
-                lesson_ids: ["virtual-lesson-1"],
-                amount: 0,
-                status: "pending",
-                type: "new",
-              });
-
-            if (rescheduleRequestError) {
+          if (prePaidSchedules && prePaidSchedules.length > 0) {
+            const { error: scheduleFlipError } = await supabaseClient
+              .from("Schedule")
+              .update({ status: "booked" })
+              .eq("learner_id", payment.learner_id)
+              .eq("status", "pending_payment");
+            if (scheduleFlipError) {
               console.error(
-                "Error creating scheduling request for demo:",
-                rescheduleRequestError,
+                "Error flipping pending_payment → booked for demo:",
+                scheduleFlipError,
               );
+            }
+          } else {
+            const { data: existingReq } = await supabaseClient
+              .from("reschedule_requests")
+              .select("id")
+              .eq("learner_id", payment.learner_id)
+              .eq("type", "new")
+              .eq("status", "pending")
+              .maybeSingle();
+
+            if (!existingReq) {
+              const { error: rescheduleRequestError } = await supabaseClient
+                .from("reschedule_requests")
+                .insert({
+                  learner_id: payment.learner_id,
+                  lesson_ids: ["virtual-lesson-1"],
+                  amount: 0,
+                  status: "pending",
+                  type: "new",
+                });
+
+              if (rescheduleRequestError) {
+                console.error(
+                  "Error creating scheduling request for demo:",
+                  rescheduleRequestError,
+                );
+              }
             }
           }
         } else if (paymentType === "topup") {
@@ -473,26 +498,51 @@ serve(async (req) => {
             if (enrollmentError) throw enrollmentError;
           }
 
-          const lessonIds = Array.from(
-            { length: topupHours },
-            (_, i) => `virtual-lesson-${i + 1}`,
-          );
+          // Same Path A / Path B split as demo above. If admin pre-created
+          // Schedule rows via "+ Topup", flip them to booked and don't create
+          // another scheduling request — otherwise admin sees both stuck
+          // pending_payment rows AND a "new request" prompting them to
+          // schedule again, which leads to duplicate bookings.
+          const { data: prePaidTopupSchedules } = await supabaseClient
+            .from("Schedule")
+            .select("id")
+            .eq("learner_id", payment.learner_id)
+            .eq("status", "pending_payment");
 
-          const { error: rescheduleRequestError } = await supabaseClient
-            .from("reschedule_requests")
-            .insert({
-              learner_id: payment.learner_id,
-              lesson_ids: lessonIds,
-              amount: 0,
-              status: "pending",
-              type: "new",
-            });
-
-          if (rescheduleRequestError) {
-            console.error(
-              "Error creating scheduling request for topup:",
-              rescheduleRequestError,
+          if (prePaidTopupSchedules && prePaidTopupSchedules.length > 0) {
+            const { error: scheduleFlipError } = await supabaseClient
+              .from("Schedule")
+              .update({ status: "booked" })
+              .eq("learner_id", payment.learner_id)
+              .eq("status", "pending_payment");
+            if (scheduleFlipError) {
+              console.error(
+                "Error flipping pending_payment → booked for topup:",
+                scheduleFlipError,
+              );
+            }
+          } else {
+            const lessonIds = Array.from(
+              { length: topupHours },
+              (_, i) => `virtual-lesson-${i + 1}`,
             );
+
+            const { error: rescheduleRequestError } = await supabaseClient
+              .from("reschedule_requests")
+              .insert({
+                learner_id: payment.learner_id,
+                lesson_ids: lessonIds,
+                amount: 0,
+                status: "pending",
+                type: "new",
+              });
+
+            if (rescheduleRequestError) {
+              console.error(
+                "Error creating scheduling request for topup:",
+                rescheduleRequestError,
+              );
+            }
           }
         } else if (paymentType === "custom") {
           const { data: enrollment, error: enrollmentQueryError } =
