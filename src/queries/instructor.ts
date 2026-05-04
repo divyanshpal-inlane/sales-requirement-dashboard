@@ -282,8 +282,14 @@ export const useInstructorScheduleData = (phone: string) => {
         };
       });
 
+      // Hide admin-created tentative schedules from the instructor's views;
+      // they are placeholders for ops, not lessons the instructor should see.
+      const confirmedSchedules = schedulesWithCorrectNumbers.filter(
+        (s) => !s.isTentative,
+      );
+
       // Filter schedules for the current date
-      const instructorScheduleDay = schedulesWithCorrectNumbers.filter(
+      const instructorScheduleDay = confirmedSchedules.filter(
         (schedule) => schedule.date === currentDate,
       );
 
@@ -304,15 +310,15 @@ export const useInstructorScheduleData = (phone: string) => {
         created_at: s.created_at ?? new Date().toISOString(),
       });
 
-      const learnerLesson = schedulesWithCorrectNumbers
-        .filter((s) => !s.isTentative && s.Learner)
+      const learnerLesson = confirmedSchedules
+        .filter((s) => s.Learner)
         .map((s) => ({
           learner: s.Learner,
           lesson: s.Lesson ?? virtualLessonFor(s),
         }));
 
       const learnerLessonDay = instructorScheduleDay
-        .filter((s) => !s.isTentative && s.Learner)
+        .filter((s) => s.Learner)
         .map((s) => ({
           learner: s.Learner,
           lesson: s.Lesson ?? virtualLessonFor(s),
@@ -322,7 +328,7 @@ export const useInstructorScheduleData = (phone: string) => {
 
       return {
         instructor: instructorInfo,
-        instructorSchedules: schedulesWithCorrectNumbers,
+        instructorSchedules: confirmedSchedules,
         instructorScheduleDay,
         learnerLessonDay,
         learnerLesson,
