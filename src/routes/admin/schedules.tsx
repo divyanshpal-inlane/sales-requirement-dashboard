@@ -1867,12 +1867,19 @@ export const LearnerSchedulesManager = ({
       } else {
         setLearner(data);
       }
+      // Mutations on this page (instructor reassignment, status changes,
+      // reschedule, topup, etc.) write to Schedule but only refresh local
+      // state via syncData. The instructor management view reads the same
+      // rows under ["instructor-full", id] and the instructor app reads them
+      // under ["instructor", phone] — invalidate both so they refetch.
+      queryClient.invalidateQueries({ queryKey: ["instructor-full"] });
+      queryClient.invalidateQueries({ queryKey: ["instructor"] });
     } catch (error: any) {
       console.error("Data fetch error:", error.message);
     } finally {
       setIsLoading(false);
     }
-  }, [learnerId]);
+  }, [learnerId, queryClient]);
 
   useEffect(() => {
     syncData();
