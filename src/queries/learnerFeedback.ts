@@ -43,11 +43,15 @@ export function useLearnerPendingFeedback(learnerId?: string) {
     queryFn: async () => {
       if (!learnerId) return [];
 
+      // Accept both "active" and "pending" — admin-created enrollments stay
+      // "pending" until the payment webhook flips them, but the learner can
+      // already be doing lessons (admin manually marks completed). We only
+      // want to skip cancelled / completed enrollments.
       const { data: enrollments, error: enrErr } = await supabase
         .from("enrollment")
         .select("id, course_id, learner_id, Courses(id, name, total_lessons)")
         .eq("learner_id", learnerId)
-        .eq("status", "active")
+        .in("status", ["active", "pending"])
         .not("course_id", "is", null);
 
       if (enrErr) throw enrErr;

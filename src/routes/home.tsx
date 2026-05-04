@@ -27,7 +27,6 @@ import React, { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import LearnerCourseFeedback from "@/components/learner/LearnerCourseFeedback";
 import LLFlow from "@/components/ll_flow";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
 import { SessionDetails } from "@/components/SessionDetails";
@@ -65,7 +64,6 @@ import {
   useLessonSchedule,
   useUpcomingLesson,
 } from "@/queries/learner";
-import { useLearnerPendingFeedback } from "@/queries/learnerFeedback";
 import { usePaymentsByLearner } from "@/queries/payment";
 import { useLearnerRescheduleRequests } from "@/queries/preferences";
 import { useCompletedRescheduleRequests } from "@/queries/schedule-requests";
@@ -124,13 +122,6 @@ export default function Home() {
   const { data: payments, isLoading: paymentLoading } = usePaymentsByLearner(
     learner?.id,
   );
-  const { data: pendingFeedback } = useLearnerPendingFeedback(learner?.id);
-  // Show one checkpoint at a time. If a learner crosses the mid threshold and
-  // hasn't submitted yet, mid wins; the final prompt waits for the next visit.
-  const activePendingFeedback =
-    pendingFeedback?.find((p) => p.checkpoint === "mid") ??
-    pendingFeedback?.find((p) => p.checkpoint === "final") ??
-    null;
 
   // Find the latest completed payment (course, custom, or demo)
   const completedPayment = Array.isArray(payments)
@@ -950,9 +941,6 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {activePendingFeedback && (
-        <LearnerCourseFeedback pending={activePendingFeedback} />
-      )}
       {/* Static header */}
       <header className="sticky top-0 z-10 flex items-center justify-between p-4">
         <h1 className="text-2xl font-medium">

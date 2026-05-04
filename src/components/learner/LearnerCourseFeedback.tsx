@@ -11,13 +11,31 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { useLearner } from "@/queries/learner";
 import {
   PendingFeedback,
+  useLearnerPendingFeedback,
   useSubmitLearnerFeedback,
 } from "@/queries/learnerFeedback";
 
 interface Props {
   pending: PendingFeedback;
+}
+
+// Self-contained mount point. Drop this anywhere in the learner-protected
+// tree (we mount it in MainLayout so it works on /home, /schedule, /prep,
+// /help) and it'll fetch the learner + pending checkpoints itself, then
+// render the modal when there's something to show. Mid takes priority over
+// final — if both are due, mid is asked first.
+export function LearnerCourseFeedbackPrompt() {
+  const { data: learner } = useLearner();
+  const { data: pending } = useLearnerPendingFeedback(learner?.id);
+  const active =
+    pending?.find((p) => p.checkpoint === "mid") ??
+    pending?.find((p) => p.checkpoint === "final") ??
+    null;
+  if (!active) return null;
+  return <LearnerCourseFeedback pending={active} />;
 }
 
 const StarRow = ({
