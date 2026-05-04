@@ -138,6 +138,27 @@ function LocationTab({
     a.name.toLowerCase().includes(areaSearch.toLowerCase()),
   );
 
+  // Google Places renders its suggestions dropdown (.pac-container) at the
+  // <body> level, behind/outside the Radix Dialog. Without this, suggestions
+  // are unclickable: the dropdown stacks below the dialog and clicks register
+  // as outside-clicks on the Dialog's overlay.
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      .pac-container {
+        z-index: 10000 !important;
+        pointer-events: auto !important;
+      }
+      .pac-item {
+        cursor: pointer !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Initialize Google Places autocomplete
   useEffect(() => {
     let listener: google.maps.MapsEventListener | null = null;
@@ -401,7 +422,21 @@ export function LearnerEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] max-w-2xl overflow-y-auto"
+        // Don't treat clicks on the Google Places suggestions dropdown as
+        // outside-clicks — without this, picking a suggestion closes the
+        // dialog instead of selecting the address.
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (
+            target.closest(".pac-container") ||
+            target.closest(".pac-item")
+          ) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit2 className="h-5 w-5" />
