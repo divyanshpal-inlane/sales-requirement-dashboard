@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import Chatbot from "@/components/chatbot";
 import GreenGradient from "@/components/layout/greenGradient";
+import { LearnerCourseFeedbackPrompt } from "@/components/learner/LearnerCourseFeedback";
 
 export default function MainLayout() {
   return (
@@ -10,6 +11,7 @@ export default function MainLayout() {
       <div className="relative h-full">
         <Outlet />
         <Chatbot />
+        <LearnerCourseFeedbackPrompt />
       </div>
       <footer className="sticky bottom-0 w-full border-t border-gray-400 bg-white/50 backdrop-blur-lg backdrop-filter">
         <nav className="flex justify-around px-2">
