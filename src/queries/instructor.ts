@@ -162,13 +162,16 @@ export const useInstructorScheduleData = (phone: string) => {
       }
 
       // Fetch schedules using instructor id with left joins so tentative
-      // schedules (which may lack a learner/lesson/course) are not dropped
+      // schedules (which may lack a learner/lesson/course) are not dropped.
+      // Hide pending_payment schedules — admin pre-creates these for demo /
+      // topup before payment clears, and they shouldn't show on the
+      // instructor's calendar until the learner pays.
       const { data: instructorSchedules, error: instructorError } =
         await supabase
           .from("Schedule")
           .select("*, Learner(*), Lesson(*), Courses(total_lessons)")
           .eq("instructor_id", instructorInfo.id_instructor)
-          .neq("status", "paused")
+          .not("status", "in", "(paused,pending_payment)")
           .gte("date", startDateStr)
           .lte("date", endDateStr)
           .order("date", { ascending: true })
