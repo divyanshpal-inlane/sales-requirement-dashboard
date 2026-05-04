@@ -5710,42 +5710,24 @@ export const InstructorSchedulePage = () => {
     });
   }, [instructor, searchQuery]);
 
-  // Calculate chronological lesson numbers per learner
-  // This groups schedules by learner, sorts by date/time, and assigns sequential numbers
+  // Use the canonical Lesson.number for each schedule. This reflects the
+  // lesson's position in the FULL course (across every instructor), not the
+  // local position within this instructor's slice. Without this, range-based
+  // instructor reassignments (e.g. lessons 6-10 to a new instructor) would
+  // show as "Class 1..5" on the new instructor's view since the old code
+  // renumbered within instructor.schedules only. Topup/demo schedules with
+  // lesson_id=null intentionally have no class number — they're standalone
+  // classes, not part of a numbered course.
   const scheduleToLessonNumber = useMemo(() => {
     if (!instructor?.schedules) return {};
-
-    // Group non-tentative schedules by learner_id
-    const schedulesByLearner: Record<string, typeof instructor.schedules> = {};
+    const mapping: Record<string, number> = {};
     instructor.schedules.forEach((schedule) => {
       if (schedule.isTentative || !schedule.learner_id) return;
-
-      const learnerId = schedule.learner_id;
-      if (!schedulesByLearner[learnerId]) {
-        schedulesByLearner[learnerId] = [];
+      const lessonNumber = schedule.lesson?.number;
+      if (typeof lessonNumber === "number" && lessonNumber > 0) {
+        mapping[schedule.id] = lessonNumber;
       }
-      schedulesByLearner[learnerId].push(schedule);
     });
-
-    // Sort each group by date/time and create a map of schedule_id -> lesson_number
-    const mapping: Record<string, number> = {};
-    Object.values(schedulesByLearner).forEach((schedules) => {
-      const sorted = [...schedules].sort((a, b) => {
-        const dateTimeA = new Date(
-          `${a.date}T${a.start_time || "00:00:00"}`,
-        ).getTime();
-        const dateTimeB = new Date(
-          `${b.date}T${b.start_time || "00:00:00"}`,
-        ).getTime();
-        return dateTimeA - dateTimeB;
-      });
-
-      // Assign chronological lesson numbers (1-indexed)
-      sorted.forEach((schedule, index) => {
-        mapping[schedule.id] = index + 1;
-      });
-    });
-
     return mapping;
   }, [instructor?.schedules]);
 
