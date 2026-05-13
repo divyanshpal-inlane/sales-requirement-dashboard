@@ -48,6 +48,7 @@ import {
   useUpdateLearnerAdmin,
   useUpdatePaymentAdmin,
 } from "@/queries/learner";
+import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/types/database.types";
 import { googleMapsLoader } from "@/utils/googleMaps";
 
@@ -1323,12 +1324,57 @@ function PaymentEditor({
       : actualTotalLessons;
 
   const [cashPaymentAmount, setCashPaymentAmount] = useState(0);
+  const [isRecoveringRazorpay, setIsRecoveringRazorpay] = useState(false);
 
   // Check payment status from enrollment (source of truth for full/half paid)
   // payment.status is "completed" for successful payments, enrollment.payment_status tracks full/half
   const isFullyPaid = enrollment?.payment_status === "full_paid";
   const isHalfPaid = enrollment?.payment_status === "half_paid";
   const hasNoPayment = !payment || payment?.status === "pending";
+
+  const isStuckRazorpay =
+    payment?.status === "pending" &&
+    payment?.gateway_reference?.startsWith("order_");
+
+  const handleRecoverRazorpay = async () => {
+    if (!payment) return;
+    setIsRecoveringRazorpay(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "recover-razorpay-payment",
+        { body: { paymentId: payment.id } },
+      );
+      if (error) throw error;
+      if (data?.success && data.captured) {
+        toast({
+          title: data.alreadyCompleted ? "Already completed" : "Payment recovered",
+          description: data.alreadyCompleted
+            ? "This payment was already marked completed."
+            : `Marked completed via Razorpay payment ${data.razorpayPaymentId}.`,
+        });
+      } else if (data?.success === false && data.captured === false) {
+        toast({
+          title: "No captured payment found",
+          description: data.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Recovery failed",
+          description: data?.error || "Unknown error",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Recovery error",
+        description: (err as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecoveringRazorpay(false);
+    }
+  };
 
   // Handle cash payment - updates both payment and enrollment
   const handleCashPayment = async (
@@ -1440,6 +1486,29 @@ function PaymentEditor({
           {isFullyPaid && <CheckCircle className="h-6 w-6 text-green-600" />}
         </div>
       </div>
+
+      {isStuckRazorpay && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="mb-2 text-xs font-medium text-amber-800">
+            Stuck Razorpay Payment
+          </p>
+          <p className="mb-3 text-xs text-amber-700">
+            This payment has a Razorpay order ID ({payment?.gateway_reference})
+            but never received the verification callback. Click below to check
+            Razorpay and recover if the learner actually paid.
+          </p>
+          <Button
+            size="sm"
+            className="h-7 bg-amber-600 text-xs hover:bg-amber-700"
+            onClick={handleRecoverRazorpay}
+            disabled={isRecoveringRazorpay}
+          >
+            {isRecoveringRazorpay
+              ? "Checking Razorpay…"
+              : "Verify & Recover Razorpay Payment"}
+          </Button>
+        </div>
+      )}
 
       {/* Show Cash Payment Options ONLY if not fully paid */}
       {!isFullyPaid && (
