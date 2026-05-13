@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const MSG91_CALLER_ID = Deno.env.get("MSG91_CALLER_ID");
     const MSG91_VOICE_URL =
       Deno.env.get("MSG91_VOICE_URL") ||
-      "https://control.msg91.com/api/v5/voice/click-to-call";
+      "https://control.msg91.com/api/v5/voice/call/ctc";
 
     if (!MSG91_AUTHKEY || !MSG91_CALLER_ID) {
       throw new Error("MSG91 credentials are not configured");
@@ -37,9 +37,9 @@ Deno.serve(async (req) => {
     const destinationB = normalizePhone(to);
 
     const payload = {
-      callerId: MSG91_CALLER_ID,
+      caller_id: MSG91_CALLER_ID,
       destination,
-      destinationB,
+      destinationB: [destinationB],
     };
 
     console.log("Calling MSG91:", MSG91_VOICE_URL);
@@ -80,8 +80,13 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        callSid: data.requestId ?? data.request_id ?? data.id ?? null,
-        status: data.type ?? data.status ?? null,
+        callSid:
+          data?.data?.id ??
+          data.requestId ??
+          data.request_id ??
+          data.id ??
+          null,
+        status: data.message ?? data.type ?? data.status ?? null,
         raw: data,
       }),
       {
