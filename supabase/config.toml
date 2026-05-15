@@ -38,3 +38,16 @@ enabled = true
 account_sid = "AC5ef87321c7993486a86326b471d1a81"
 auth_token = "007ef12f49de96d214dec49f17476455"
 message_service_sid = "NADASDASD"
+
+# Externally-called endpoints: the payment gateway / Razorpay POST here with no
+# Supabase JWT, so the gateway must not enforce one. These functions are
+# responsible for verifying their own request authenticity (secureHash /
+# webhook signature) since they are publicly reachable.
+[functions.payment-callback]
+verify_jwt = false
+
+[functions.reschedule-payment-callback]
+verify_jwt = false
+
+[functions.razorpay-webhook]
+verify_jwt = false

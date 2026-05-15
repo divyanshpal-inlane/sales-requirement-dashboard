@@ -1278,7 +1278,9 @@ function PaymentPage() {
                       ? "demo"
                       : courseSelectionType === "custom"
                         ? "custom"
-                        : "course",
+                        : courseSelectionType === "topup"
+                          ? "topup"
+                          : "course",
                 }}
                 onCancel={handleRazorpayCancel}
               />

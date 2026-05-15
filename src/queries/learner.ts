@@ -646,10 +646,22 @@ export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
-      //TODO: fix this
       if (error) throw error;
-      // if (data.length === 0) throw new Error("User has no enrollment");
-      return data.length > 0 ? data[0] : null;
+      if (!data || data.length === 0) return null;
+
+      // Pick the enrollment that should drive the learner's experience.
+      // A stray demo/topup enrollment must never shadow a real course
+      // enrollment, so rank by intent (course > topup > demo) rather than
+      // just recency. `data` is newest-first and Array.sort is stable, so
+      // the most recent enrollment within the top tier wins.
+      const rows = data;
+      const tier = (e: (typeof rows)[number]) => {
+        const t = (e.progress as { type?: string } | null)?.type;
+        if (e.course_id || t === "course" || t === "custom") return 0;
+        if (t === "topup") return 1;
+        return 2;
+      };
+      return [...rows].sort((a, b) => tier(a) - tier(b))[0];
     },
     staleTime: 0, // Always refetch to get latest enrollment status
     enabled: !!learnerId,
