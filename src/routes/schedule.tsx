@@ -208,9 +208,27 @@ export default function Schedule() {
                       <Button
                         variant="link"
                         className="text-amber-700"
-                        onClick={() =>
-                          navigate(`/payment?phone=${learner?.phone}&type=demo`)
-                        }
+                        onClick={() => {
+                          if (isDemoEnrollment) {
+                            navigate(
+                              `/payment?phone=${learner?.phone}&type=demo`,
+                            );
+                          } else {
+                            const topupHours = Math.max(
+                              1,
+                              (
+                                (scheduledLessons ?? []) as Array<{
+                                  status?: string;
+                                }>
+                              ).filter(
+                                (l) => l.status === "pending_payment",
+                              ).length,
+                            );
+                            navigate(
+                              `/payment?phone=${learner?.phone}&type=topup&hours=${topupHours}`,
+                            );
+                          }
+                        }}
                       >
                         Pay Now
                       </Button>
