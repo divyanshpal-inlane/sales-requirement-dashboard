@@ -26,6 +26,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDate, generateRandomOTP } from "@/lib/utils";
@@ -1061,9 +1068,6 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
   const [addTopupLessonId, setAddTopupLessonId] = useState(null);
 
   // Form State
-  const [addTopupSelectedLessonIds, setAddTopupSelectedLessonIds] = useState(
-    [],
-  );
   const [addTopupAmount, setAddTopupAmount] = useState("");
   const [addTopupIsSubmitting, setAddTopupIsSubmitting] = useState(false);
   const [addTopupToast, setAddTopupToast] = useState(null);
@@ -1083,32 +1087,53 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
 
         if (addTopupEnrollErr) throw addTopupEnrollErr;
 
-        const addTopupCourseId = addTopupEnrollData.course_id;
-
-        // Set the state variables for the submission payload
         setAddTopupLearnerId(addTopupEnrollData.learner_id);
 
-        // 2. Fetch Course Information
-        const { data: addTopupCourseData, error: addTopupCourseErr } =
-          await supabase
+        // Topup enrollments have course_id = null. Resolve the learner's
+        // actual course so the lesson dropdown is always populated.
+        let resolvedCourseId = addTopupEnrollData.course_id;
+        if (!resolvedCourseId) {
+          const { data: addTopupCourseEnroll } = await supabase
+            .from("enrollment")
+            .select("course_id")
+            .eq("learner_id", addTopupEnrollData.learner_id)
+            .not("course_id", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          resolvedCourseId = addTopupCourseEnroll?.course_id ?? null;
+        }
+        setAddTopupCourseId(resolvedCourseId);
+
+        // 2. Fetch Course Information (learner may have no course at all)
+        if (resolvedCourseId) {
+          const { data: addTopupCourseData } = await supabase
             .from("Courses")
             .select("id, name, total_lessons")
-            .eq("id", addTopupCourseId)
-            .single();
+            .eq("id", resolvedCourseId)
+            .maybeSingle();
+          setAddTopupCourseInfo(addTopupCourseData);
+        } else {
+          setAddTopupCourseInfo(null);
+        }
 
-        if (addTopupCourseErr) throw addTopupCourseErr;
-        setAddTopupCourseInfo(addTopupCourseData);
-
-        // 3. Fetch Lessons
+        // 3. Fetch Lessons - scoped to the resolved course when known,
+        //    otherwise every lesson so the dropdown is never empty.
+        let addTopupLessonQuery = supabase
+          .from("Lesson")
+          .select("*")
+          .order("number", { ascending: true });
+        if (resolvedCourseId) {
+          addTopupLessonQuery = addTopupLessonQuery.eq(
+            "course_id",
+            resolvedCourseId,
+          );
+        }
         const { data: addTopupLessonData, error: addTopupLessonErr } =
-          await supabase
-            .from("Lesson")
-            .select("*")
-            .eq("course_id", addTopupCourseId)
-            .order("number", { ascending: true });
+          await addTopupLessonQuery;
 
         if (addTopupLessonErr) throw addTopupLessonErr;
-        setAddTopupLessons(addTopupLessonData);
+        setAddTopupLessons(addTopupLessonData ?? []);
       } catch (err) {
         console.error("[TopupDialog] Fetching error:", err.message);
         setAddTopupToast({ type: "error", message: "Failed to load data" });
@@ -1119,46 +1144,9 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
     addTopupFetchData();
   }, [enrollmentId]);
 
-  // Helpers
-  const addTopupAddLesson = (id) =>
-    setAddTopupSelectedLessonIds((prev) => [...prev, id]);
-
-  const addTopupRemoveLesson = (id) => {
-    setAddTopupSelectedLessonIds((prev) => {
-      const addTopupIdx = prev.lastIndexOf(id);
-      if (addTopupIdx > -1) {
-        const addTopupNewArr = [...prev];
-        addTopupNewArr.splice(addTopupIdx, 1);
-        return addTopupNewArr;
-      }
-      return prev;
-    });
-  };
-
-  const addTopupGetLessonCount = (id) =>
-    addTopupSelectedLessonIds.filter((itemId) => itemId === id).length;
-
-  // --- Summary Logic (Grouped) ---
-  const addTopupCountMap = addTopupSelectedLessonIds.reduce((acc, id) => {
-    acc[id] = (acc[id] || 0) + 1;
-    return acc;
-  }, {});
-
-  const addTopupGroupedDetails = Object.keys(addTopupCountMap)
-    .map((id) => {
-      const lesson = addTopupLessons.find(
-        (l) => l.id.toString() === id.toString(),
-      );
-      return { ...lesson, count: addTopupCountMap[id] };
-    })
-    .filter((l) => l.id);
-
-  const addTopupHasMissingDuration = addTopupGroupedDetails.some(
-    (l) => l.duration === null || l.duration === undefined,
-  );
-  const addTopupTotalDurationHours = addTopupGroupedDetails.reduce(
-    (acc, curr) => acc + (Number(curr.duration) || 0) * curr.count,
-    0,
+  // The single lesson allotted to this topup
+  const addTopupSelectedLesson = addTopupLessons.find(
+    (l) => l.id?.toString() === addTopupLessonId?.toString(),
   );
 
   const addTopupHandleSubmit = async (e) => {
@@ -1166,10 +1154,10 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
     const addTopupNumericAmount = parseFloat(addTopupAmount);
 
     // 1. Validations
-    if (addTopupSelectedLessonIds.length === 0) {
+    if (!addTopupLessonId || !addTopupSelectedLesson) {
       setAddTopupToast({
         type: "error",
-        message: "Please select at least one lesson.",
+        message: "Please select a lesson.",
       });
       return;
     }
@@ -1180,16 +1168,20 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
 
     setAddTopupIsSubmitting(true);
 
-    // 2. Map through the selected lesson IDs (One record per lesson)
-    const recordsToInsert = addTopupSelectedLessonIds.map((lessonId) => ({
-      enabled: true,
-      learner_id: addTopupLearnerId,
-      course_id: addTopupCourseInfo?.id, // Use the ID from your course info state
-      lesson_id: lessonId,
-      status: "topup",
-      otp: generateRandomOTP(),
-      otp_end: generateRandomOTP(),
-    }));
+    // 2. One Schedule row for the selected lesson, tied to that lesson's
+    //    own course so Lesson Detail resolves correctly.
+    const recordsToInsert = [
+      {
+        enabled: true,
+        learner_id: addTopupLearnerId,
+        course_id:
+          addTopupSelectedLesson.course_id ?? addTopupCourseId ?? null,
+        lesson_id: addTopupLessonId,
+        status: "topup",
+        otp: generateRandomOTP(),
+        otp_end: generateRandomOTP(),
+      },
+    ];
 
     console.log(
       `[TopupDialog] Inserting ${recordsToInsert.length} records into Schedule:`,
@@ -1207,7 +1199,7 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
       // SUCCESS UI
       setAddTopupToast({
         type: "success",
-        message: `Successfully added ${addTopupSelectedLessonIds.length} topup lesson(s)!`,
+        message: "Topup lesson added successfully!",
       });
 
       setTimeout(() => {
@@ -1266,115 +1258,57 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
           >
             <div className="space-y-2">
               <label className="block text-xs font-bold uppercase tracking-widest text-gray-400">
-                Available Lessons
+                Lesson
               </label>
-              <div className="max-h-56 divide-y overflow-y-auto rounded-lg border bg-gray-50">
-                {addTopupLessons.map((addTopupLesson) => {
-                  const addTopupCount = addTopupGetLessonCount(
-                    addTopupLesson.id,
-                  );
-                  const addTopupDispDuration = addTopupLesson.duration
-                    ? `${addTopupLesson.duration} hours`
-                    : "N/A";
-                  return (
-                    <div
+              <Select
+                value={addTopupLessonId ?? ""}
+                onValueChange={(v) => setAddTopupLessonId(v)}
+                disabled={
+                  addTopupIsSubmitting || addTopupLessons.length === 0
+                }
+              >
+                <SelectTrigger className="h-12 text-left">
+                  <SelectValue
+                    placeholder={
+                      addTopupLessons.length === 0
+                        ? "No lessons available"
+                        : "Select a lesson to allot"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {addTopupLessons.map((addTopupLesson) => (
+                    <SelectItem
                       key={addTopupLesson.id}
-                      className="flex items-start justify-between gap-2 bg-white p-3"
+                      value={addTopupLesson.id}
                     >
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-gray-800">
-                            Lesson {addTopupLesson.number}
-                          </span>
-                          <span className="rounded border bg-gray-100 px-1.5 py-0.5 text-[10px] tracking-tight text-gray-600">
-                            {addTopupDispDuration}
-                          </span>
-                        </div>
-                        <p className="line-clamp-2 text-xs italic leading-tight text-gray-500">
-                          {addTopupLesson.description ||
-                            "No description provided"}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {addTopupCount > 0 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 w-7 border-primary p-0 text-primary"
-                            onClick={() =>
-                              addTopupRemoveLesson(addTopupLesson.id)
-                            }
-                          >
-                            -
-                          </Button>
-                        )}
-                        {addTopupCount > 0 && (
-                          <span className="w-4 text-center text-sm font-bold">
-                            {addTopupCount}
-                          </span>
-                        )}
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-7 w-7 bg-primary p-0"
-                          onClick={() => addTopupAddLesson(addTopupLesson.id)}
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      Lesson {addTopupLesson.number}
+                      {addTopupLesson.description
+                        ? ` — ${addTopupLesson.description}`
+                        : ""}
+                      {addTopupLesson.duration
+                        ? ` (${addTopupLesson.duration}h)`
+                        : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Grouped Summary Section */}
-            {addTopupSelectedLessonIds.length > 0 && (
-              <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <label className="block border-b border-primary/20 pb-1 text-[10px] font-bold uppercase tracking-widest text-primary">
-                  Selection Summary
-                </label>
-                <ul className="max-h-32 space-y-2 overflow-y-auto text-xs text-gray-700">
-                  {addTopupGroupedDetails.map((addTopupItem) => (
-                    <li
-                      key={addTopupItem.id}
-                      className="flex items-center justify-between rounded border border-primary/5 bg-white/50 p-1 px-2"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-gray-800">
-                          Lesson {addTopupItem.number}
-                        </span>
-                        <span className="w-40 truncate text-[10px] italic text-gray-500">
-                          {addTopupItem.description || "Topup"}
-                        </span>
-                      </div>
-                      <span className="font-bold text-primary">
-                        x{addTopupItem.count}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-col gap-1 border-t border-primary/30 pt-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold uppercase text-gray-600">
-                      Total Count:
-                    </span>
-                    <span className="font-black text-primary">
-                      {addTopupSelectedLessonIds.length} Lessons
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold uppercase text-gray-600">
-                      Total Duration:
-                    </span>
-                    <span className="font-black text-primary">
-                      {addTopupHasMissingDuration
-                        ? "N/A"
-                        : `${addTopupTotalDurationHours} hours`}
-                    </span>
-                  </div>
-                </div>
+            {addTopupSelectedLesson && (
+              <div className="space-y-1 rounded-lg border border-primary/20 bg-primary/5 p-4 text-xs text-gray-700">
+                <p className="font-bold uppercase tracking-widest text-primary">
+                  Allotting
+                </p>
+                <p className="font-semibold text-gray-800">
+                  Lesson {addTopupSelectedLesson.number}
+                </p>
+                <p className="italic text-gray-500">
+                  {addTopupSelectedLesson.description || "No description"}
+                  {addTopupSelectedLesson.duration
+                    ? ` · ${addTopupSelectedLesson.duration} hours`
+                    : ""}
+                </p>
               </div>
             )}
 
@@ -1406,9 +1340,7 @@ const TopupDialog = ({ enrollmentId, onClose }) => {
               </Button>
               <Button
                 type="submit"
-                disabled={
-                  addTopupIsSubmitting || addTopupSelectedLessonIds.length === 0
-                }
+                disabled={addTopupIsSubmitting || !addTopupLessonId}
                 className="h-11 flex-1 bg-primary font-normal tracking-widest text-primary-foreground transition-all hover:opacity-90"
               >
                 {addTopupIsSubmitting ? "Sending..." : "Confirm Topup"}
