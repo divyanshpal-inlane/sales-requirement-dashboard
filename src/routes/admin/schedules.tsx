@@ -622,7 +622,10 @@ export default function AdminSchedules() {
       const enrollmentData: Array<{
         learner_id: string;
         progress: any;
-        Courses: { total_lessons: number | null; duration: number | null } | null;
+        Courses: {
+          total_lessons: number | null;
+          duration: number | null;
+        } | null;
       }> = [];
       const ENROLLMENT_PAGE = 1000;
       for (let page = 0; ; page++) {
@@ -1770,8 +1773,9 @@ export const LearnerSchedulesManager = ({
     useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
-  const [instructorChangeFromLesson, setInstructorChangeFromLesson] =
-    useState<number | null>(null);
+  const [instructorChangeFromLesson, setInstructorChangeFromLesson] = useState<
+    number | null
+  >(null);
   const [instructorChangeToLesson, setInstructorChangeToLesson] = useState<
     number | null
   >(null);
@@ -1800,6 +1804,50 @@ export const LearnerSchedulesManager = ({
   >([
     { date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" },
   ]);
+  const [topupLessonId, setTopupLessonId] = useState<string>("");
+  const [topupLessons, setTopupLessons] = useState<
+    Array<{
+      id: string;
+      number: number | null;
+      description: string | null;
+      duration: number | null;
+    }>
+  >([]);
+
+  // Populate the topup lesson dropdown when the dialog opens. Resolve a
+  // course even when the learner's topup enrollment has course_id = null,
+  // and fall back to all lessons so the list is never empty.
+  useEffect(() => {
+    if (!isTopupDialogOpen || isDemo) return;
+    let cancelled = false;
+    (async () => {
+      let resolvedCourseId =
+        learner?.schedules?.find((s: any) => s.course_id)?.course_id ?? null;
+      if (!resolvedCourseId && learnerId) {
+        const { data: courseEnroll } = await supabase
+          .from("enrollment")
+          .select("course_id")
+          .eq("learner_id", learnerId)
+          .not("course_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        resolvedCourseId = courseEnroll?.course_id ?? null;
+      }
+      let lessonQuery = supabase
+        .from("Lesson")
+        .select("id, number, description, duration")
+        .order("number", { ascending: true });
+      if (resolvedCourseId) {
+        lessonQuery = lessonQuery.eq("course_id", resolvedCourseId);
+      }
+      const { data: lessonRows } = await lessonQuery;
+      if (!cancelled) setTopupLessons(lessonRows ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isTopupDialogOpen, isDemo, learnerId, learner]);
 
   // 1. Data Fetching
   const syncData = useCallback(async () => {
@@ -2327,6 +2375,15 @@ export const LearnerSchedulesManager = ({
       }
     }
 
+    if (!isDemo && !topupLessonId) {
+      toast({
+        title: "Error",
+        description: "Please select a lesson for this topup.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsProcessing(true);
 
@@ -2420,7 +2477,7 @@ export const LearnerSchedulesManager = ({
       const records = topupSlots.map((slot) => ({
         learner_id: learner.id,
         course_id: courseId,
-        lesson_id: null,
+        lesson_id: isDemo ? null : topupLessonId || null,
         instructor_id: slot.instructor_id,
         date: slot.date,
         start_time: slot.start_time,
@@ -2580,6 +2637,7 @@ export const LearnerSchedulesManager = ({
                       instructor_id: "",
                     },
                   ]);
+                  setTopupLessonId("");
                   setIsTopupDialogOpen(true);
                 }}
               >
@@ -3098,6 +3156,39 @@ export const LearnerSchedulesManager = ({
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                       <SelectItem key={n} value={String(n)}>
                         {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Lesson allotted to this topup — hidden for demo */}
+            {!isDemo && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">
+                  Lesson
+                </label>
+                <Select
+                  value={topupLessonId}
+                  onValueChange={setTopupLessonId}
+                  disabled={isProcessing || topupLessons.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        topupLessons.length === 0
+                          ? "No lessons available"
+                          : "Select a lesson to allot"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {topupLessons.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        Lesson {l.number}
+                        {l.description ? ` — ${l.description}` : ""}
+                        {l.duration ? ` (${l.duration}h)` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
