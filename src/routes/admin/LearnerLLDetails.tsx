@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInDays } from "date-fns";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, FileText, Search } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import Form14Generator from "@/components/admin/Form14Generator";
 
 import {
   LearnerInfo,
@@ -95,6 +97,8 @@ const LearnerLLDetails = () => {
   const [llNumberDialogOpen, setLLNumberDialogOpen] = useState(false);
   const [llNumber, setLLNumber] = useState("");
   const [LearnerId, setLearnerId] = useState("");
+  const [form14Open, setForm14Open] = useState(false);
+  const [form14Learner, setForm14Learner] = useState<any>(null);
   const {
     data: learners,
     isLoading,
@@ -529,6 +533,17 @@ const LearnerLLDetails = () => {
                     ? "Saving..."
                     : "Save Application ID"}
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setForm14Learner(selectedLearner);
+                    setForm14Open(true);
+                  }}
+                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Form-14
+                </Button>
               </div>
             ) : (
               <div className="py-12 text-center text-gray-500">
@@ -800,6 +815,17 @@ const LearnerLLDetails = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Form-14 Generator Dialog */}
+      {form14Learner && (
+        <Form14Generator
+          learner={form14Learner}
+          open={form14Open}
+          onClose={() => {
+            setForm14Open(false);
+            setForm14Learner(null);
+          }}
+        />
+      )}
     </div>
   );
 };
