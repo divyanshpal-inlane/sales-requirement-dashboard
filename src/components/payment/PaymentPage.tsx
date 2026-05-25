@@ -999,13 +999,13 @@ function PaymentPage() {
               </Alert>
             )}
 
-            {/* Topup hour picker */}
+            {/* Topup summary — number of hours is set by admin / enrollment and is not editable here */}
             {isPrefilled && courseSelectionType === "topup" && (
               <div className="space-y-3">
                 <Alert className="border-blue-200 bg-blue-50">
                   <AlertDescription>
                     <strong>Topup Class</strong> - ₹{DEMO_COURSE.price} per
-                    hour. Pick how many hours you want to book.
+                    hour.
                   </AlertDescription>
                 </Alert>
                 <div>
@@ -1015,26 +1015,13 @@ function PaymentPage() {
                   >
                     Number of hours
                   </label>
-                  <Input
+                  <div
                     id="topupHours"
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={paymentDetails.totalHours ?? 1}
-                    onChange={(e) => {
-                      const raw = parseInt(e.target.value || "1", 10);
-                      const hours = Math.min(
-                        20,
-                        Math.max(1, Number.isFinite(raw) ? raw : 1),
-                      );
-                      setPaymentDetails((prev) => ({
-                        ...prev,
-                        totalHours: hours,
-                        amount: hours * DEMO_COURSE.price,
-                        totalAmount: hours * DEMO_COURSE.price,
-                      }));
-                    }}
-                  />
+                    aria-readonly="true"
+                    className="rounded-md border bg-muted px-3 py-2 text-sm"
+                  >
+                    {paymentDetails.totalHours ?? 1}
+                  </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Total: ₹
                     {(paymentDetails.totalHours ?? 1) * DEMO_COURSE.price}
