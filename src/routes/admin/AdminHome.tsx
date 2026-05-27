@@ -4,6 +4,7 @@ import {
   Calendar,
   ClipboardList,
   CreditCard,
+  Handshake,
   LayoutGrid,
   Loader2,
   LogOut,
@@ -92,6 +93,13 @@ const featureConfig: Record<
     icon: LayoutGrid,
     link: "/admin/instructor-matrix",
     color: "text-emerald-500",
+  },
+  kam_management: {
+    title: "KAM Management",
+    description: "Create KAMs and assign instructors to them",
+    icon: Handshake,
+    link: "/admin/kam-management",
+    color: "text-amber-500",
   },
   notification_management: {
     title: "Daily Notification Management",
