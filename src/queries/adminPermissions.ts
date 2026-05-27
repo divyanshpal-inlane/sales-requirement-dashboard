@@ -40,6 +40,13 @@ export const ADMIN_PERMISSIONS = {
     description: "Add, edit, and manage driving instructors",
     route: "/admin/instructors",
   },
+  instructor_matrix: {
+    key: "instructor_matrix",
+    label: "Instructor Availability Matrix",
+    description:
+      "Color-coded weekly view of instructor capacity, bookings, and conflicts",
+    route: "/admin/instructor-matrix",
+  },
   notification_management: {
     key: "notification_management",
     label: "Daily Notification Management",

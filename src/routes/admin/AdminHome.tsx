@@ -4,6 +4,7 @@ import {
   Calendar,
   ClipboardList,
   CreditCard,
+  LayoutGrid,
   Loader2,
   LogOut,
   MessageSquare,
@@ -84,6 +85,13 @@ const featureConfig: Record<
     icon: Users,
     link: "/admin/instructors",
     color: "text-orange-500",
+  },
+  instructor_matrix: {
+    title: "Instructor Availability Matrix",
+    description: "Color-coded weekly view of instructor capacity and bookings",
+    icon: LayoutGrid,
+    link: "/admin/instructor-matrix",
+    color: "text-emerald-500",
   },
   notification_management: {
     title: "Daily Notification Management",
