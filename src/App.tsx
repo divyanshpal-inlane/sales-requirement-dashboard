@@ -35,6 +35,7 @@ import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
+import InstructorMatrix from "@/routes/admin/InstructorMatrix";
 import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
@@ -242,6 +243,7 @@ export default function App() {
             >
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
+              <Route path="instructor-matrix" element={<InstructorMatrix />} />
               <Route path="instructors" element={<InstructorsManagement />} />
               <Route
                 path="instructors/:id"
