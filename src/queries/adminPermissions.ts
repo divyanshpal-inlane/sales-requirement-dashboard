@@ -47,6 +47,13 @@ export const ADMIN_PERMISSIONS = {
       "Color-coded weekly view of instructor capacity, bookings, and conflicts",
     route: "/admin/instructor-matrix",
   },
+  kam_management: {
+    key: "kam_management",
+    label: "KAM Management",
+    description:
+      "Create and delete Key Account Managers; assign instructors to them",
+    route: "/admin/kam-management",
+  },
   notification_management: {
     key: "notification_management",
     label: "Daily Notification Management",

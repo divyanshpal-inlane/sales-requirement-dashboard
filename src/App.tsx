@@ -40,6 +40,7 @@ import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
 import { AddTentativeSchedule } from "@/routes/admin/instructors";
+import KAMManagement from "@/routes/admin/KAMManagement";
 import LearnerDetails from "@/routes/admin/LearnerDetails";
 import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
@@ -244,6 +245,7 @@ export default function App() {
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructor-matrix" element={<InstructorMatrix />} />
+              <Route path="kam-management" element={<KAMManagement />} />
               <Route path="instructors" element={<InstructorsManagement />} />
               <Route
                 path="instructors/:id"
