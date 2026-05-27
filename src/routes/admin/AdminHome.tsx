@@ -6,6 +6,7 @@ import {
   CreditCard,
   Handshake,
   LayoutGrid,
+  ListChecks,
   Loader2,
   LogOut,
   MessageSquare,
@@ -100,6 +101,13 @@ const featureConfig: Record<
     icon: Handshake,
     link: "/admin/kam-management",
     color: "text-amber-500",
+  },
+  lessons_dashboard: {
+    title: "Lessons Dashboard",
+    description: "Consolidated view of all scheduled lessons with filters",
+    icon: ListChecks,
+    link: "/admin/lessons-dashboard",
+    color: "text-sky-500",
   },
   notification_management: {
     title: "Daily Notification Management",
