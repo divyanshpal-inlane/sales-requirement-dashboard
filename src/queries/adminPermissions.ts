@@ -54,6 +54,13 @@ export const ADMIN_PERMISSIONS = {
       "Create and delete Key Account Managers; assign instructors to them",
     route: "/admin/kam-management",
   },
+  lessons_dashboard: {
+    key: "lessons_dashboard",
+    label: "Lessons Dashboard",
+    description:
+      "Consolidated ops view of all scheduled lessons with filters and export",
+    route: "/admin/lessons-dashboard",
+  },
   notification_management: {
     key: "notification_management",
     label: "Daily Notification Management",
