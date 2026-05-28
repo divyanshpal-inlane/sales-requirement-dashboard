@@ -47,7 +47,13 @@ import {
 } from "@/queries/kam";
 
 export default function KAMManagement() {
-  const { data: kams, isLoading, isFetching, refetch } = useKAMs();
+  const {
+    data: kams,
+    isLoading,
+    isFetching,
+    error: loadError,
+    refetch,
+  } = useKAMs();
   const { toast } = useToast();
 
   const [search, setSearch] = useState("");
@@ -117,6 +123,25 @@ export default function KAMManagement() {
             {isLoading ? (
               <div className="flex h-32 items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : loadError ? (
+              <div className="space-y-2 p-6 text-center text-sm">
+                <p className="font-medium text-destructive">
+                  Couldn’t load KAMs.
+                </p>
+                <p className="text-muted-foreground">
+                  {loadError instanceof Error
+                    ? loadError.message
+                    : String(loadError)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  If this mentions a missing table, the KAM migration
+                  (20260527_add_kam_domain.sql) hasn’t been applied to this
+                  database yet.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  Retry
+                </Button>
               </div>
             ) : filtered.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
