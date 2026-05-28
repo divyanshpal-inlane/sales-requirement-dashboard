@@ -39,11 +39,15 @@ import {
 type DatePreset = "today" | "tomorrow" | "next7" | "custom";
 
 const STATUS_OPTIONS: { key: string; label: string }[] = [
-  { key: "active", label: "Active" },
+  { key: "booked", label: "Booked" },
+  { key: "ongoing", label: "Ongoing" },
   { key: "completed", label: "Completed" },
-  { key: "paused", label: "Paused" },
   { key: "pending_payment", label: "Pending payment" },
+  { key: "paused", label: "Paused" },
+  { key: "cancelled", label: "Cancelled" },
 ];
+
+const ALL_STATUS_KEYS = STATUS_OPTIONS.map((o) => o.key);
 
 const enrollmentBadgeClass: Record<string, string> = {
   course: "bg-emerald-100 text-emerald-900 border-emerald-300",
@@ -52,7 +56,8 @@ const enrollmentBadgeClass: Record<string, string> = {
 };
 
 const statusBadgeClass: Record<string, string> = {
-  active: "bg-emerald-100 text-emerald-900 border-emerald-300",
+  booked: "bg-emerald-100 text-emerald-900 border-emerald-300",
+  ongoing: "bg-sky-100 text-sky-900 border-sky-300",
   completed: "bg-gray-100 text-gray-800 border-gray-300",
   paused: "bg-amber-100 text-amber-900 border-amber-300",
   pending_payment: "bg-purple-100 text-purple-900 border-purple-300",
@@ -82,13 +87,13 @@ export default function LessonsDashboard() {
     [],
   );
   const [classNumbersInput, setClassNumbersInput] = useState("");
-  const [statuses, setStatuses] = useState<string[]>([
-    "active",
-    "completed",
-    "paused",
-    "pending_payment",
-  ]);
+  const [statuses, setStatuses] = useState<string[]>(ALL_STATUS_KEYS);
   const [search, setSearch] = useState("");
+
+  // When every status chip is on, send no status filter at all so lessons with
+  // any status value (including ones not in STATUS_OPTIONS, e.g. null) still
+  // show. Only narrow once the user actively deselects a status.
+  const allStatusesSelected = statuses.length === ALL_STATUS_KEYS.length;
 
   const classNumbers = useMemo(() => {
     return classNumbersInput
@@ -110,7 +115,7 @@ export default function LessonsDashboard() {
     kamIds: selectedKamIds,
     instructorIds: selectedInstructorIds,
     classNumbers,
-    statuses,
+    statuses: allStatusesSelected ? undefined : statuses,
     search,
   });
 
@@ -135,7 +140,7 @@ export default function LessonsDashboard() {
     setSelectedKamIds([]);
     setSelectedInstructorIds([]);
     setClassNumbersInput("");
-    setStatuses(["active", "completed", "paused", "pending_payment"]);
+    setStatuses(ALL_STATUS_KEYS);
     setSearch("");
   };
 

@@ -61,28 +61,51 @@ export function useLessonsDashboard(filters: LessonsDashboardFilters) {
       search ?? "",
     ],
     queryFn: async (): Promise<LessonRow[]> => {
+      // statuses === undefined → no status filter (show every status, including
+      // values not in STATUS_OPTIONS and null). statuses === [] → the user
+      // deselected every status chip, so there is nothing to show.
+      if (statuses && statuses.length === 0) return [];
+
       // 1. Base Schedule query — server-side filtering on date/status/instructor
       //    keeps the row count down before client-side KAM/class/search filters.
-      let scheduleQuery = supabase
-        .from("Schedule")
-        .select(
-          "id, date, start_time, end_time, status, isTentative, instructor_id, learner_id, lesson_id, Learner(id, name, phone, pick_up_location), Lesson(id, number), Instructor(id_instructor, name, phone, car_make, car_mode)",
-        )
-        .gte("date", from)
-        .lte("date", to)
-        .order("date", { ascending: true })
-        .order("start_time", { ascending: true });
+      //    PostgREST caps each response at 1000 rows, so page through the date
+      //    range in 1000-row chunks; a wide range easily exceeds one page and
+      //    would otherwise be silently truncated.
+      const PAGE_SIZE = 1000;
+      const buildScheduleQuery = () => {
+        let q = supabase
+          .from("Schedule")
+          .select(
+            "id, date, start_time, end_time, status, isTentative, instructor_id, learner_id, lesson_id, Learner(id, name, phone, pick_up_location), Lesson(id, number), Instructor(id_instructor, name, phone, car_make, car_mode)",
+          )
+          .gte("date", from)
+          .lte("date", to)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true })
+          .order("id", { ascending: true }); // stable tiebreaker for paging
+        if (statuses && statuses.length > 0) {
+          q = q.in("status", statuses);
+        }
+        if (instructorIds && instructorIds.length > 0) {
+          q = q.in("instructor_id", instructorIds);
+        }
+        return q;
+      };
 
-      if (statuses && statuses.length > 0) {
-        scheduleQuery = scheduleQuery.in("status", statuses);
-      }
-      if (instructorIds && instructorIds.length > 0) {
-        scheduleQuery = scheduleQuery.in("instructor_id", instructorIds);
+      const schedules: unknown[] = [];
+      for (let page = 0; ; page++) {
+        const start = page * PAGE_SIZE;
+        const { data, error: schedErr } = await buildScheduleQuery().range(
+          start,
+          start + PAGE_SIZE - 1,
+        );
+        if (schedErr) throw schedErr;
+        if (!data || data.length === 0) break;
+        schedules.push(...data);
+        if (data.length < PAGE_SIZE) break;
       }
 
-      const { data: schedules, error: schedErr } = await scheduleQuery;
-      if (schedErr) throw schedErr;
-      const scheduleRows = (schedules ?? []) as unknown as Array<{
+      const scheduleRows = schedules as unknown as Array<{
         id: number;
         date: string;
         start_time: string;
