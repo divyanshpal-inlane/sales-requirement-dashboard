@@ -199,19 +199,19 @@ export default function InstructorMatrix() {
           </Card>
           <Card
             className={
-              visibleTotals.conflictCount > 0 ? "border-purple-400" : ""
+              visibleTotals.conflictCount > 0 ? "border-yellow-400" : ""
             }
           >
             <CardContent className="p-3">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 {visibleTotals.conflictCount > 0 && (
-                  <AlertTriangle className="h-3 w-3 text-purple-500" />
+                  <AlertTriangle className="h-3 w-3 text-yellow-500" />
                 )}
                 Conflicts
               </div>
               <div
                 className={`text-2xl font-semibold tabular-nums ${
-                  visibleTotals.conflictCount > 0 ? "text-purple-600" : ""
+                  visibleTotals.conflictCount > 0 ? "text-yellow-600" : ""
                 }`}
               >
                 {visibleTotals.conflictCount}
@@ -287,7 +287,7 @@ export default function InstructorMatrix() {
                           <span className="truncate text-sm font-medium">
                             {row.instructor.name}
                             {row.weekConflictCount > 0 && (
-                              <AlertTriangle className="ml-1 inline h-3 w-3 text-purple-500" />
+                              <AlertTriangle className="ml-1 inline h-3 w-3 text-yellow-600" />
                             )}
                           </span>
                           {row.instructor.phone && (

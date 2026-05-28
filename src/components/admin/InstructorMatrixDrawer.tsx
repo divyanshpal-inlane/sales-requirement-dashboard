@@ -38,10 +38,10 @@ const enrollmentBadge: Record<string, string> = {
 };
 
 const slotBg: Record<MatrixSlot["status"], string> = {
-  free: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  booked: "bg-amber-100 text-amber-900 border-amber-300",
+  free: "bg-white text-gray-500 border-gray-200",
+  booked: "bg-red-200 text-red-900 border-red-300",
   unavailable: "bg-gray-200 text-gray-600 border-gray-300",
-  conflict: "bg-purple-200 text-purple-900 border-purple-400",
+  conflict: "bg-yellow-300 text-yellow-900 border-yellow-500",
 };
 
 function formatHour(h: number) {
@@ -136,7 +136,10 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
               <SheetTitle className="flex items-center gap-2">
                 {row.instructor.name}
                 {row.weekConflictCount > 0 && (
-                  <Badge variant="destructive" className="text-[10px]">
+                  <Badge
+                    variant="outline"
+                    className="border-yellow-500 bg-yellow-300 text-[10px] text-yellow-900"
+                  >
                     {row.weekConflictCount} conflict
                     {row.weekConflictCount > 1 ? "s" : ""}
                   </Badge>
