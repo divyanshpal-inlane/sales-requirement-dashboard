@@ -22,7 +22,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAllInstructorsForAssignment } from "@/queries/kam";
 import {
@@ -352,7 +351,7 @@ export default function LessonsDashboard() {
                 No lessons match the current filters.
               </div>
             ) : (
-              <ScrollArea className="max-h-[70vh]">
+              <div className="max-h-[70vh] overflow-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-muted/60 text-xs font-medium text-muted-foreground">
                     <tr>
@@ -444,7 +443,7 @@ export default function LessonsDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </ScrollArea>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -518,7 +517,7 @@ function MultiSelectPopover({
               </button>
             )}
           </div>
-          <ScrollArea className="max-h-56 rounded border">
+          <div className="max-h-56 overflow-auto rounded border">
             {filtered.length === 0 ? (
               <div className="p-3 text-xs text-muted-foreground">
                 No matches.
@@ -543,7 +542,7 @@ function MultiSelectPopover({
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
