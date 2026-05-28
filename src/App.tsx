@@ -46,6 +46,7 @@ import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
+import LessonsDashboard from "@/routes/admin/LessonsDashboard";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminSettings from "@/routes/admin/Settings";
 import AdminLogin from "@/routes/admin-login";
@@ -246,6 +247,7 @@ export default function App() {
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructor-matrix" element={<InstructorMatrix />} />
               <Route path="kam-management" element={<KAMManagement />} />
+              <Route path="lessons-dashboard" element={<LessonsDashboard />} />
               <Route path="instructors" element={<InstructorsManagement />} />
               <Route
                 path="instructors/:id"

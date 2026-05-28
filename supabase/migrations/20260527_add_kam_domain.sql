@@ -42,7 +42,7 @@ CREATE POLICY "Admins can manage KAMs"
     USING (EXISTS (
         SELECT 1 FROM "Admin"
         WHERE "Admin".phone = auth.jwt()->>'phone'
-        AND "Admin".is_admin = true
+        AND ("Admin".is_admin = true OR "Admin".is_super_admin = true)
     ));
 
 ALTER TABLE kam_instructor ENABLE ROW LEVEL SECURITY;
@@ -61,7 +61,7 @@ CREATE POLICY "Admins can manage kam_instructor"
     USING (EXISTS (
         SELECT 1 FROM "Admin"
         WHERE "Admin".phone = auth.jwt()->>'phone'
-        AND "Admin".is_admin = true
+        AND ("Admin".is_admin = true OR "Admin".is_super_admin = true)
     ));
 
 -- updated_at trigger for KAM
