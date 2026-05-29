@@ -30,11 +30,13 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   useCurrentAdmin,
   PermissionKey,
+  useAllAdmins,
 } from "@/queries/adminPermissions";
 import {
   USER_PERMISSIONS,
   UserWithPermissions,
   useAdminUsers,
+  useAllUsers,
   useCreateUser,
   useDeleteUser,
   useUpdateUserPermissions,
@@ -45,9 +47,17 @@ export default function UserManagement() {
   const { data: currentAdmin, isLoading: currentAdminLoading } =
     useCurrentAdmin();
   const { data: users, isLoading: usersLoading } = useAdminUsers();
+  const { data: allAdmins, isLoading: allAdminsLoading } = useAllAdmins();
+  const { data: allUsers, isLoading: allUsersLoading } = useAllUsers();
   const createUser = useCreateUser();
   const updatePermissions = useUpdateUserPermissions();
   const deleteUser = useDeleteUser();
+
+  // For super admin, show all admins + all users created by any admin
+  // For regular admin, show only their created users
+  const displayUsers = currentAdmin?.is_super_admin ? 
+    [...(allAdmins || []), ...(allUsers || [])] : 
+    (users || []);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -61,6 +71,26 @@ export default function UserManagement() {
     permissions: [] as PermissionKey[],
   });
   const [editPermissions, setEditPermissions] = useState<PermissionKey[]>([]);
+  const [phoneError, setPhoneError] = useState("");
+
+  // Validate phone number - must be exactly 10 digits
+  const isValidPhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length === 10;
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setNewUserForm((prev) => ({
+      ...prev,
+      phone: value,
+    }));
+    
+    if (value && !isValidPhone(value)) {
+      setPhoneError("Phone number must be exactly 10 digits");
+    } else {
+      setPhoneError("");
+    }
+  };
 
   // Check if current user is admin
   if (currentAdminLoading || usersLoading) {
@@ -159,14 +189,14 @@ export default function UserManagement() {
     }
   };
 
-  const openEditDialog = (user: UserWithPermissions) => {
-    setSelectedUser(user);
+  const openEditDialog = (user: UserWithPermissions | any) => {
+    setSelectedUser(user as UserWithPermissions);
     setEditPermissions(user.permissions);
     setShowEditDialog(true);
   };
 
-  const openDeleteDialog = (user: UserWithPermissions) => {
-    setSelectedUser(user);
+  const openDeleteDialog = (user: UserWithPermissions | any) => {
+    setSelectedUser(user as UserWithPermissions);
     setShowDeleteDialog(true);
   };
 
@@ -233,7 +263,7 @@ export default function UserManagement() {
           </Button>
         </div>
 
-        {!users || users.length === 0 ? (
+        {!displayUsers || displayUsers.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center">
               <p className="text-muted-foreground">
@@ -250,7 +280,7 @@ export default function UserManagement() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {users.map((user) => (
+            {displayUsers.map((user) => (
               <Card key={user.id}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -334,13 +364,12 @@ export default function UserManagement() {
                   id="phone"
                   placeholder="10-digit phone number"
                   value={newUserForm.phone}
-                  onChange={(e) =>
-                    setNewUserForm((prev) => ({
-                      ...prev,
-                      phone: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={phoneError ? "border-red-500" : ""}
                 />
+                {phoneError && (
+                  <p className="text-xs text-red-500">{phoneError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -381,7 +410,13 @@ export default function UserManagement() {
                 </div>
                 <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
                   {Object.values(USER_PERMISSIONS)
-                    .filter((perm) => currentAdmin?.permissions?.includes(perm.key as PermissionKey))
+                    .filter((perm) => {
+                      // Exclude unwanted permissions
+                      const excludedPermissions = ["kam_management", "instructor_matrix", "lessons_dashboard", "admin_management"];
+                      if (excludedPermissions.includes(perm.key)) return false;
+                      // Only show permissions that admin has
+                      return currentAdmin?.permissions?.includes(perm.key as PermissionKey);
+                    })
                     .map((perm) => (
                     <div
                       key={perm.key}
@@ -425,7 +460,8 @@ export default function UserManagement() {
                   createUser.isPending ||
                   !newUserForm.name ||
                   !newUserForm.phone ||
-                  !newUserForm.password
+                  !newUserForm.password ||
+                  !isValidPhone(newUserForm.phone)
                 }
               >
                 {createUser.isPending ? (
@@ -470,7 +506,13 @@ export default function UserManagement() {
               </div>
               <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
                 {Object.values(USER_PERMISSIONS)
-                  .filter((perm) => currentAdmin?.permissions?.includes(perm.key as PermissionKey))
+                  .filter((perm) => {
+                    // Exclude unwanted permissions
+                    const excludedPermissions = ["kam_management", "instructor_matrix", "lessons_dashboard", "admin_management"];
+                    if (excludedPermissions.includes(perm.key)) return false;
+                    // Only show permissions that admin has
+                    return currentAdmin?.permissions?.includes(perm.key as PermissionKey);
+                  })
                   .map((perm) => (
                   <div
                     key={perm.key}

@@ -60,6 +60,26 @@ export default function AdminManagement() {
     permissions: [] as PermissionKey[],
   });
   const [editPermissions, setEditPermissions] = useState<PermissionKey[]>([]);
+  const [phoneError, setPhoneError] = useState("");
+
+  // Validate phone number - must be exactly 10 digits
+  const isValidPhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length === 10;
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setNewAdminForm((prev) => ({
+      ...prev,
+      phone: value,
+    }));
+    
+    if (value && !isValidPhone(value)) {
+      setPhoneError("Phone number must be exactly 10 digits");
+    } else {
+      setPhoneError("");
+    }
+  };
 
   // Check if current user is super admin
   if (currentAdminLoading || adminsLoading) {
@@ -336,13 +356,12 @@ export default function AdminManagement() {
                   id="phone"
                   placeholder="10-digit phone number"
                   value={newAdminForm.phone}
-                  onChange={(e) =>
-                    setNewAdminForm((prev) => ({
-                      ...prev,
-                      phone: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={phoneError ? "border-red-500" : ""}
                 />
+                {phoneError && (
+                  <p className="text-xs text-red-500">{phoneError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -382,7 +401,9 @@ export default function AdminManagement() {
                   </div>
                 </div>
                 <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
-                  {Object.values(ADMIN_PERMISSIONS).map((perm) => (
+                  {Object.values(ADMIN_PERMISSIONS)
+                    .filter((perm) => perm.key !== "admin_management")
+                    .map((perm) => (
                     <div
                       key={perm.key}
                       className="flex items-start space-x-3 rounded p-2 hover:bg-gray-50"
@@ -425,7 +446,8 @@ export default function AdminManagement() {
                   createAdmin.isPending ||
                   !newAdminForm.name ||
                   !newAdminForm.phone ||
-                  !newAdminForm.password
+                  !newAdminForm.password ||
+                  !isValidPhone(newAdminForm.phone)
                 }
               >
                 {createAdmin.isPending ? (
@@ -469,7 +491,9 @@ export default function AdminManagement() {
                 </div>
               </div>
               <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
-                {Object.values(ADMIN_PERMISSIONS).map((perm) => (
+                {Object.values(ADMIN_PERMISSIONS)
+                  .filter((perm) => perm.key !== "admin_management")
+                  .map((perm) => (
                   <div
                     key={perm.key}
                     className="flex items-start space-x-3 rounded p-2 hover:bg-gray-50"

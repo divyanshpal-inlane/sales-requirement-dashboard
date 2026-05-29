@@ -3,6 +3,7 @@ import { describe } from "node:test";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { maskPhoneNumber } from "@/utils/phoneMasking";
 import { useCurrentAdmin } from "@/queries/adminPermissions";
+import { useCurrentUser } from "@/queries/userManagement";
 import {
   addDays,
   addHours,
@@ -1465,23 +1466,25 @@ export default function InstructorsManagement() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
-                  Phone<span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="phone"
-                  value={instructorData.phone}
-                  onChange={(e) =>
-                    setInstructorData({
-                      ...instructorData,
-                      phone: e.target.value,
-                    })
-                  }
-                  className="col-span-3"
-                  required
-                />
-              </div>
+              {canViewUnmaskedPhoneNumbers && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">
+                    Phone<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="phone"
+                    value={instructorData.phone}
+                    onChange={(e) =>
+                      setInstructorData({
+                        ...instructorData,
+                        phone: e.target.value,
+                      })
+                    }
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="address" className="text-right">
                   Address
