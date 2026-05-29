@@ -100,7 +100,10 @@ CREATE POLICY "Users can view own permissions"
         EXISTS (
             SELECT 1 FROM "User"
             WHERE "User".id = user_permissions.user_id
-            AND "User".phone = auth.jwt()->>'phone'
+            AND (
+                "User".phone = auth.jwt()->>'phone'
+                OR REPLACE(REPLACE(REPLACE("User".phone, '+', ''), ' ', ''), '-', '') = REPLACE(REPLACE(REPLACE(auth.jwt()->>'phone', '+', ''), ' ', ''), '-', '')
+            )
         )
     );
 

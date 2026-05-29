@@ -184,8 +184,30 @@ export default function AdminHome() {
   }
 
   // Determine if user is admin or team member
-  const isAdmin = currentAdmin && (currentAdmin.is_admin || currentAdmin.is_super_admin);
-  const isTeamMember = user?.user_metadata?.user_role === "user" && currentUser;
+  // Priority: Check if user exists in User table (team member) > Check if user is admin
+  const userRole = user?.user_metadata?.user_role;
+  const isTeamMember = !!currentUser; // User table exists = team member (created by admin)
+  const isAdmin = !isTeamMember && currentAdmin && (currentAdmin.is_admin || currentAdmin.is_super_admin);
+  
+  console.log("[AdminHome] User type determination:", {
+    currentUserExists: !!currentUser,
+    currentAdminExists: !!currentAdmin,
+    adminIsAdmin: currentAdmin?.is_admin,
+    adminIsSuperAdmin: currentAdmin?.is_super_admin,
+    resolvedIsTeamMember: isTeamMember,
+    resolvedIsAdmin: isAdmin,
+  });
+
+  // Debug logging
+  console.log("[AdminHome] Debug Info:", {
+    userRole,
+    currentAdminExists: !!currentAdmin,
+    currentUserExists: !!currentUser,
+    isAdmin,
+    isTeamMember,
+    currentAdminPermissions: currentAdmin?.permissions,
+    currentUserPermissions: currentUser?.permissions,
+  });
 
   // Get permissions based on user type
   let userPermissions: PermissionKey[] = [];
@@ -193,20 +215,41 @@ export default function AdminHome() {
   let isUserAdmin = false;
   let displayName = "";
 
-  if (isAdmin) {
+  if (isTeamMember) {
+    // Team member takes precedence - use their specific permissions
+    userPermissions = (currentUser?.permissions || []).filter((perm) => {
+      // Validate that permission exists in featureConfig
+      const isValid = !!featureConfig[perm];
+      if (!isValid) {
+        console.warn(`[AdminHome] Invalid permission ignored: "${perm}"`);
+      }
+      return isValid;
+    });
+    displayName = currentUser?.name || "Team Member";
+    console.log("[AdminHome] Using Team Member permissions (filtered):", userPermissions);
+    console.log("[AdminHome] Raw permissions from DB:", currentUser?.permissions);
+  } else if (isAdmin) {
     userPermissions = currentAdmin?.permissions || [];
     isUserSuperAdmin = currentAdmin?.is_super_admin || false;
     isUserAdmin = currentAdmin?.is_admin || false;
     displayName = currentAdmin?.name || "Admin";
-  } else if (isTeamMember) {
-    userPermissions = currentUser?.permissions || [];
-    displayName = currentUser?.name || "Team Member";
+    console.log("[AdminHome] Using Admin permissions:", userPermissions);
   }
 
   // Filter features based on user's permissions
+  console.log("[AdminHome] All featureConfig keys:", Object.keys(featureConfig));
+  console.log("[AdminHome] User permissions to check:", userPermissions);
+  
   const allowedFeatures = userPermissions
-    .filter((perm) => featureConfig[perm])
-    .map((perm) => featureConfig[perm]) || [];
+    .map((perm) => {
+      const feature = featureConfig[perm];
+      console.log(`[AdminHome] Permission "${perm}": feature found=${!!feature}`);
+      return feature;
+    })
+    .filter((feature) => feature !== undefined);
+  
+  console.log("[AdminHome] Final allowedFeatures count:", allowedFeatures.length);
+  console.log("[AdminHome] Final allowedFeatures:", allowedFeatures.map(f => f?.title || "unknown"));
 
   return (
     <div
@@ -337,17 +380,30 @@ export default function AdminHome() {
             </Card>
           ))}
 
-          {allowedFeatures.length === 0 && !currentAdmin?.is_super_admin && (
-            <Card className="col-span-2">
-              <CardHeader>
-                <CardTitle>No Access</CardTitle>
-                <CardDescription>
-                  You don't have permission to access any features. Please
-                  contact the Super Admin to get access.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
+           {allowedFeatures.length === 0 && !currentAdmin?.is_super_admin && !isTeamMember && (
+             <Card className="col-span-2">
+               <CardHeader>
+                 <CardTitle>No Access</CardTitle>
+                 <CardDescription>
+                   You don't have permission to access any features. Please
+                   contact the Super Admin to get access.
+                 </CardDescription>
+               </CardHeader>
+             </Card>
+           )}
+
+           {allowedFeatures.length === 0 && isTeamMember && (
+             <Card className="col-span-2">
+               <CardHeader>
+                 <CardTitle>No Permissions Assigned</CardTitle>
+                 <CardDescription>
+                   You haven't been assigned any permissions yet. Please contact
+                   your admin to get access to features.
+                 </CardDescription>
+               </CardHeader>
+             </Card>
+           )}
+
         </div>
       </div>
     </div>

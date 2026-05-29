@@ -31,8 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { usePhoneVisibility } from "@/context/phone-visibility-context";
-import { supabaseAdmin } from "@/context/auth-context";
+import { supabase } from "@/lib/supabaseClient";
+import { useCurrentUser } from "@/queries/userManagement";
 import { maskPhoneNumber } from "@/utils/phoneMasking";
 
 // ─── helpers ────────────────────────────────────────────────────
@@ -114,18 +114,23 @@ function isPenalty(s: {
 // ─── component ──────────────────────────────────────────────────
 export default function InstructorLessonLog() {
   const navigate = useNavigate();
-  const { canViewUnmaskedPhoneNumbers } = usePhoneVisibility();
+  const { data: currentUser } = useCurrentUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Check if user has permission to view unmasked phone numbers
+  const canViewUnmaskedPhoneNumbers = currentUser?.permissions?.includes(
+    "view_unmasked_phone_numbers"
+  ) || false;
 
   // ── fetch all instructors ──
   const { data: instructors, isLoading } = useQuery({
     queryKey: ["admin-instructor-lesson-log"],
     queryFn: async () => {
       // Also fetch a count of their schedules so we can show it in the list
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from("Instructor")
         .select("id_instructor, name, phone, email")
         .order("name");
@@ -146,7 +151,7 @@ export default function InstructorLessonLog() {
     queryFn: async () => {
       if (!expandedId) return [];
 
-      let query = supabaseAdmin
+      let query = supabase
         .from("Schedule")
         .select(
           `id, date, start_time, end_time, started_at, ended_at,
@@ -188,7 +193,7 @@ export default function InstructorLessonLog() {
     if (!searchTerm) return instructors;
     const q = searchTerm.toLowerCase();
     return instructors.filter(
-      (i) =>
+      (i: any) =>
         i.name?.toLowerCase().includes(q) ||
         i.phone?.includes(q) ||
         i.email?.toLowerCase().includes(q),
@@ -198,12 +203,12 @@ export default function InstructorLessonLog() {
   // ── stats for expanded instructor ──
   const stats = useMemo(() => {
     if (!schedules) return null;
-    const properlyCompleted = schedules.filter((s) =>
+    const properlyCompleted = schedules.filter((s: any) =>
       isProperlyCompleted(s),
     ).length;
-    const penalties = schedules.filter((s) => isPenalty(s)).length;
-    const ongoing = schedules.filter((s) => s.status === "ongoing").length;
-    const booked = schedules.filter((s) => s.status === "booked").length;
+    const penalties = schedules.filter((s: any) => isPenalty(s)).length;
+    const ongoing = schedules.filter((s: any) => s.status === "ongoing").length;
+    const booked = schedules.filter((s: any) => s.status === "booked").length;
     return {
       total: schedules.length,
       properlyCompleted,
@@ -217,10 +222,10 @@ export default function InstructorLessonLog() {
   const filteredSchedules = useMemo(() => {
     if (!schedules) return [];
     if (statusFilter === "completed") {
-      return schedules.filter((s) => isProperlyCompleted(s));
+      return schedules.filter((s: any) => isProperlyCompleted(s));
     }
     if (statusFilter === "penalty") {
-      return schedules.filter((s) => isPenalty(s));
+      return schedules.filter((s: any) => isPenalty(s));
     }
     return schedules;
   }, [schedules, statusFilter]);
@@ -415,9 +420,9 @@ export default function InstructorLessonLog() {
                       <p className="py-8 text-center text-muted-foreground">
                         No lessons found
                       </p>
-                    ) : (
+                      ) : (
                       <div className="space-y-3">
-                        {filteredSchedules.map((s) => (
+                        {filteredSchedules.map((s: any) => (
                           <Card key={s.id} className="border shadow-sm">
                             <CardContent className="p-4">
                               <div className="flex flex-col gap-3">

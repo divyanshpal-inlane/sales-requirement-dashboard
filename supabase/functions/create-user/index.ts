@@ -20,7 +20,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, password, name, permissions, adminId } = await req.json();
+    let { phone, password, name, permissions, adminId } = await req.json();
 
     // Validate required fields
     if (!phone || !password || !name || !adminId) {
@@ -28,6 +28,78 @@ serve(async (req) => {
         JSON.stringify({ success: false, error: "Missing required fields" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
+    }
+
+    // Normalize phone number to consistent format: +919876543210
+    const phoneDigits = phone.replace(/\D/g, "");
+    const normalizedPhone = phoneDigits.endsWith("91") 
+      ? `+${phoneDigits}` 
+      : `+91${phoneDigits.replace(/^91/, "")}`;
+    phone = normalizedPhone;
+    console.log("[create-user] Normalized phone:", phone);
+
+    // Validate permissions - admin can only assign permissions they have
+    if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+      if (!supabaseUrl || !supabaseServiceRoleKey) {
+        console.error("Missing Supabase environment variables");
+        return new Response(
+          JSON.stringify({ success: false, error: "Server configuration error" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.0");
+      const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+      // Get the admin's permissions
+      const { data: admin, error: adminCheckError } = await supabase
+        .from("Admin")
+        .select("is_super_admin")
+        .eq("id", adminId)
+        .single();
+
+      if (adminCheckError || !admin) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Admin not found" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // If not super admin, check if they have all the permissions they're trying to assign
+      if (!admin.is_super_admin) {
+        const { data: adminPermissions, error: permError } = await supabase
+          .from("admin_permissions" as any)
+          .select("permission" as any)
+          .eq("admin_id" as any, adminId as any);
+
+        if (permError) {
+          console.error("Error fetching admin permissions:", permError);
+          return new Response(
+            JSON.stringify({ success: false, error: "Failed to verify admin permissions" }),
+            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        const adminPermissionsList = (adminPermissions || []).map((p: any) => p.permission);
+
+        // Check if all requested permissions are in admin's permissions
+        const hasAllPermissions = permissions.every((perm: string) =>
+          adminPermissionsList.includes(perm)
+        );
+
+        if (!hasAllPermissions) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Admin cannot assign permissions they do not have",
+            }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+      }
     }
 
     // Get environment variables
@@ -46,13 +118,13 @@ serve(async (req) => {
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.0");
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Create auth user with "admin" role (created by admin for team members)
+    // Create auth user with "user" role (created by admin for team members)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       phone,
       password,
       phone_confirm: true,  // Mark phone as confirmed so user can login immediately
       user_metadata: {
-        user_role: "admin",  // Users created by admin are team members with admin role
+        user_role: "user",  // Users created by admin are team members with user role
       },
     });
 

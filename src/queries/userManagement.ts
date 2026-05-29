@@ -38,11 +38,15 @@ export function useCurrentUser() {
 
       // Normalize phone - try multiple formats to match User table
       const digits = user.phone.replace(/\D/g, "");
+      const last10Digits = digits.slice(-10); // Get last 10 digits for flexible matching
       const phoneVariants = [
         user.phone,
         digits,
         digits.replace(/^91/, ""),
         `+91${digits.replace(/^91/, "")}`,
+        last10Digits,
+        `+91${last10Digits}`,
+        `91${last10Digits}`,
       ];
 
       console.log("[useCurrentUser] Trying phone variants:", phoneVariants);
@@ -64,27 +68,37 @@ export function useCurrentUser() {
         allUsers?.map((a: User) => a.phone),
       );
 
-      // Match by comparing digits
+      // Match by comparing digits - improved logic
       const foundUser =
         allUsers?.find((u: User) => {
           if (!u.phone) return false;
           const userDigits = u.phone.replace(/\D/g, "");
-          return phoneVariants.some(
-            (v) =>
-              v === u.phone ||
-              v.replace(/\D/g, "") === userDigits ||
-              userDigits.endsWith(digits.replace(/^91/, "")) ||
-              digits.replace(/^91/, "").endsWith(userDigits),
-          );
+          const userLast10 = userDigits.slice(-10);
+          
+          // Check multiple matching strategies
+          return phoneVariants.some((v) => {
+            const vDigits = v.replace(/\D/g, "");
+            const vLast10 = vDigits.slice(-10);
+            
+            return (
+              v === u.phone || // Exact match
+              vDigits === userDigits || // Same digits
+              vLast10 === userLast10 || // Last 10 digits match
+              userDigits.includes(vDigits) || // User digits contain variant
+              vDigits.includes(userDigits) // Variant contains user digits
+            );
+          });
         }) ?? null;
 
       console.log("[useCurrentUser] Matched user:", foundUser);
 
       if (!foundUser) {
+        console.warn("[useCurrentUser] No matching user found for phone:", user.phone);
         return null;
       }
 
       // Get user's permissions
+      console.log("[useCurrentUser] Fetching permissions for user:", foundUser.id);
       const { data: permissions, error: permError } = await (
         supabase
           .from("user_permissions" as any)
@@ -92,12 +106,15 @@ export function useCurrentUser() {
       ).eq("user_id", foundUser.id);
 
       if (permError) {
-        console.error("Error fetching permissions:", permError);
+        console.error("[useCurrentUser] Error fetching permissions:", permError);
+        console.error("[useCurrentUser] Permission error details:", JSON.stringify(permError, null, 2));
         return {
           ...foundUser,
           permissions: [] as PermissionKey[],
         } as UserWithPermissions;
       }
+
+      console.log("[useCurrentUser] Permissions fetched:", permissions);
 
       return {
         ...foundUser,
@@ -262,6 +279,54 @@ export function useUpdateUserPermissions() {
       userId: string;
       permissions: PermissionKey[];
     }) => {
+      // Get current admin to validate permissions
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.phone) {
+        throw new Error("Admin not authenticated");
+      }
+
+      // Get current admin's permissions
+      const { data: admin, error: adminError } = await (
+        supabase
+          .from("Admin" as any)
+          .select("id, is_super_admin") as any
+      ).eq("phone", user.phone).single();
+
+      if (adminError || !admin) {
+        throw new Error("Admin not found");
+      }
+
+      // Validate that admin can only assign permissions they have
+      if (!(admin as any).is_super_admin && permissions.length > 0) {
+        const { data: adminPermissions, error: permError } = await (
+          supabase
+            .from("admin_permissions" as any)
+            .select("permission") as any
+        ).eq("admin_id" as any, (admin as any).id as any);
+
+        if (permError) {
+          throw new Error("Failed to verify admin permissions");
+        }
+
+        const adminPermissionsList = (adminPermissions || []).map(
+          (p: any) => p.permission as PermissionKey
+        );
+
+        // Check if all requested permissions are in admin's permissions
+        const hasAllPermissions = permissions.every((perm) =>
+          adminPermissionsList.includes(perm)
+        );
+
+        if (!hasAllPermissions) {
+          throw new Error(
+            "You cannot assign permissions that you do not have"
+          );
+        }
+      }
+
       // Delete existing permissions
       const { error: deleteError } = await (
         supabase

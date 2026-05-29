@@ -188,11 +188,12 @@ export default function UserManagement() {
   };
 
   const selectAllPermissions = (isNew: boolean) => {
-    const allKeys = Object.keys(USER_PERMISSIONS) as PermissionKey[];
+    // Only allow selecting permissions that the current admin has
+    const adminPermissions = currentAdmin?.permissions || [];
     if (isNew) {
-      setNewUserForm((prev) => ({ ...prev, permissions: allKeys }));
+      setNewUserForm((prev) => ({ ...prev, permissions: adminPermissions }));
     } else {
-      setEditPermissions(allKeys);
+      setEditPermissions(adminPermissions);
     }
   };
 
@@ -379,7 +380,9 @@ export default function UserManagement() {
                   </div>
                 </div>
                 <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
-                  {Object.values(USER_PERMISSIONS).map((perm) => (
+                  {Object.values(USER_PERMISSIONS)
+                    .filter((perm) => currentAdmin?.permissions?.includes(perm.key as PermissionKey))
+                    .map((perm) => (
                     <div
                       key={perm.key}
                       className="flex items-start space-x-3 rounded p-2 hover:bg-gray-50"
@@ -466,7 +469,9 @@ export default function UserManagement() {
                 </div>
               </div>
               <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
-                {Object.values(USER_PERMISSIONS).map((perm) => (
+                {Object.values(USER_PERMISSIONS)
+                  .filter((perm) => currentAdmin?.permissions?.includes(perm.key as PermissionKey))
+                  .map((perm) => (
                   <div
                     key={perm.key}
                     className="flex items-start space-x-3 rounded p-2 hover:bg-gray-50"
