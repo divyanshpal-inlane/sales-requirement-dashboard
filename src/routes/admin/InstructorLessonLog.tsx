@@ -120,8 +120,10 @@ export default function InstructorLessonLog() {
   const [dateFilter, setDateFilter] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // All users can view unmasked phone numbers now
-  const canViewUnmaskedPhoneNumbers = true;
+  // Check if user has permission to view unmasked phone numbers
+  const canViewUnmaskedPhoneNumbers = currentUser?.permissions?.includes(
+    "view_unmasked_phone_numbers"
+  ) || false;
 
   // ── fetch all instructors ──
   const { data: instructors, isLoading } = useQuery({
