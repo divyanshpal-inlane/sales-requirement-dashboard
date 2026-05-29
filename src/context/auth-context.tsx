@@ -9,7 +9,7 @@ const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY!;
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-type UserRole = "learner" | "instructor" | "admin";
+type UserRole = "learner" | "instructor" | "admin" | "user";
 
 interface AuthContextType {
   user: User | null;
@@ -54,18 +54,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (phone: string, password: string, role: UserRole) => {
+    console.log("[AUTH] Login attempt with:", { phone, role });
+
     const { data, error } = await supabase.auth.signInWithPassword({
       phone,
       password,
     });
 
-    if (error) throw error;
+    console.log("[AUTH] Login response:", { data, error });
 
-    // Check if the user has the correct role
-    if (data.user?.user_metadata.user_role !== role) {
-      await supabase.auth.signOut();
-      throw new Error("Invalid role for this login");
+    if (error) {
+      console.error("[AUTH] Login error details:", {
+        message: error.message,
+        status: error.status,
+        code: (error as any).code,
+      });
+      throw error;
     }
+
+     console.log("[AUTH] User authenticated:", {
+       userId: data.user?.id,
+       phone: data.user?.phone,
+       role: data.user?.user_metadata?.user_role,
+     });
+
+     // Check if the user has the correct role
+     const userRole = data.user?.user_metadata.user_role;
+     const isValidRole = userRole === role || 
+       // For admin login, accept both "admin" and "user" roles (team members)
+       (role === "admin" && (userRole === "admin" || userRole === "user"));
+
+     if (!isValidRole) {
+       console.error("[AUTH] Role mismatch:", {
+         expected: role,
+         actual: userRole,
+       });
+       await supabase.auth.signOut();
+       throw new Error("Invalid role for this login");
+     }
+
+     console.log("[AUTH] Login successful!");
   };
 
   const signUp = async (phone: string, password: string, role: UserRole) => {
@@ -404,7 +432,8 @@ export function ProtectedAdminRoute({
     return <Navigate to="/login" />;
   }
 
-  if (user.user_metadata.user_role !== "admin") {
+  // Allow both "admin" (super admin and admin) and "user" (team members created by admin) roles
+  if (user.user_metadata.user_role !== "admin" && user.user_metadata.user_role !== "user") {
     return <Navigate to="/login" />;
   }
 

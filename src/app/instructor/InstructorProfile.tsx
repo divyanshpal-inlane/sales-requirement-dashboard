@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth, useUser } from "@/context/auth-context";
 import { useInstructor, useUpdateInstructor } from "@/queries/instructor";
+import { maskPhoneNumber } from "@/utils/phoneMasking";
 
 const InstructorProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -176,7 +177,7 @@ const InstructorProfile = () => {
             </div>
             <div className="flex items-center gap-2 rounded-md bg-gray-100 p-2">
               <Phone className="h-4 w-4 text-blue-600" />
-              <span>{formData.phone}</span>
+              <span>{maskPhoneNumber(formData.phone)}</span>
             </div>
           </CardContent>
         </Card>

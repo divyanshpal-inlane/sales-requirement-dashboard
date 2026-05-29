@@ -1,6 +1,8 @@
 import { describe } from "node:test";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { maskPhoneNumber } from "@/utils/phoneMasking";
+import { useCurrentAdmin } from "@/queries/adminPermissions";
 import {
   addDays,
   addHours,
@@ -480,6 +482,11 @@ const AddressAutocomplete = memo(
 
 export default function InstructorsManagement() {
   const navigate = useNavigate();
+  const { data: currentAdmin } = useCurrentAdmin();
+  const canViewUnmaskedPhoneNumbers =
+    currentAdmin?.is_super_admin ||
+    currentAdmin?.permissions?.includes("view_unmasked_phone_numbers") ||
+    false;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
   const [instructorData, setInstructorData] = useState<InstructorData>(
@@ -1166,7 +1173,7 @@ export default function InstructorsManagement() {
                     <span className="text-sm font-medium text-muted-foreground">
                       Phone:
                     </span>
-                    <p>{instructor.phone}</p>
+                    <p>{canViewUnmaskedPhoneNumbers ? instructor.phone : maskPhoneNumber(instructor.phone)}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">
@@ -2444,7 +2451,8 @@ function WeeklyScheduleView({
     // Validate form
     if (
       !formDataSchedule.date ||
-      ((!formDataSchedule.date) instanceof Date && !isNaN(date.getTime()))
+      !(formDataSchedule.date instanceof Date) ||
+      isNaN(formDataSchedule.date.getTime())
     ) {
       toast({
         title: "Error",
@@ -2554,7 +2562,7 @@ function WeeklyScheduleView({
   };
 
   const handlePaidInfoChange = (
-    value: "Unpaid" | "Half Paid" | "Full paid" | null,
+    value: "Unpaid" | "Half paid" | "Full paid" | null,
   ) => {
     setTentativeSchedule({
       ...tentativeSchedule,
