@@ -142,14 +142,7 @@ const featureConfig: Record<
     link: "/admin/feedback",
     color: "text-pink-500",
   },
-  view_unmasked_phone_numbers: {
-     title: "View Unmasked Phone Numbers",
-     description: "View phone numbers in full without masking",
-     icon: Settings,
-     link: "/admin",
-     color: "text-gray-600",
-   },
-   admin_management: {
+  admin_management: {
      title: "User Management",
      description: "Create and manage admin team members and their permissions",
      icon: Users,
@@ -157,6 +150,9 @@ const featureConfig: Record<
      color: "text-indigo-500",
    },
  } as const;
+
+// Note: view_unmasked_phone_numbers is a special permission that controls visibility
+// of sensitive data but doesn't have a dashboard feature card
 
 export default function AdminHome() {
   const { data: currentAdmin, isLoading: adminLoading } = useCurrentAdmin();

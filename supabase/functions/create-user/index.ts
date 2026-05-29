@@ -22,8 +22,15 @@ serve(async (req) => {
   try {
     let { phone, password, name, permissions, adminId } = await req.json();
 
+    console.log("[create-user] ========== STARTING USER CREATION ==========");
+    console.log("[create-user] Received payload:", { phone, password: "***", name, adminId, permissions });
+    console.log("[create-user] Permissions array:", permissions);
+    console.log("[create-user] Permissions is array?", Array.isArray(permissions));
+    console.log("[create-user] Permissions length:", permissions?.length || 0);
+
     // Validate required fields
     if (!phone || !password || !name || !adminId) {
+      console.log("[create-user] ✗ Missing required fields");
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -173,20 +180,27 @@ serve(async (req) => {
 
     // Create permissions if provided
     if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+      console.log("[create-user] userData:", userData);
+      console.log("[create-user] Creating permissions for user_id:", userData.id);
+      console.log("[create-user] Permissions to create:", permissions);
+      
       const permissionRecords = permissions.map((permission: string) => ({
-        user_id: userId,
+        user_id: userData.id,
         permission,
       }));
+
+      console.log("[create-user] Permission records:", permissionRecords);
 
       const { error: permError } = await supabase
         .from("user_permissions")
         .insert(permissionRecords);
 
       if (permError) {
-        console.error("Error creating permissions:", permError);
+        console.error("[create-user] Error creating permissions:", permError);
+        console.error("[create-user] Full error details:", JSON.stringify(permError, null, 2));
         // Clean up if permissions creation fails
         try {
-          await supabase.from("User").delete().eq("id", userId);
+          await supabase.from("User").delete().eq("id", userData.id);
           await supabase.auth.admin.deleteUser(userId);
         } catch (e) {
           console.error("Error during cleanup:", e);
@@ -196,6 +210,8 @@ serve(async (req) => {
           { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
+      
+      console.log("[create-user] ✓ Permissions created successfully");
     }
 
     return new Response(

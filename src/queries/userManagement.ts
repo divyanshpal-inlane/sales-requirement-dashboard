@@ -193,6 +193,43 @@ export function useAdminUsers() {
   });
 }
 
+// Get all users created by ANY admin (for super admin only)
+export function useAllUsers() {
+  return useQuery({
+    queryKey: ["allUsers"],
+    queryFn: async () => {
+      // Get all users from User table
+      const { data: users, error } = await (
+        supabase
+          .from("User" as any)
+          .select("*") as any
+      ).order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get permissions for each user
+      const usersWithPermissions: UserWithPermissions[] = await Promise.all(
+        (users || []).map(async (user: User) => {
+          const { data: permissions } = await (
+            supabase
+              .from("user_permissions" as any)
+              .select("permission") as any
+          ).eq("user_id", user.id);
+
+          return {
+            ...user,
+            permissions: (permissions || []).map(
+              (p: any) => p.permission as PermissionKey,
+            ),
+          } as UserWithPermissions;
+        }),
+      );
+
+      return usersWithPermissions;
+    },
+  });
+}
+
 // Create new user (admin only)
 export function useCreateUser() {
   const queryClient = useQueryClient();

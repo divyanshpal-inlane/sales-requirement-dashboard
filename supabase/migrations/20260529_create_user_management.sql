@@ -72,7 +72,8 @@ DROP POLICY IF EXISTS "Admins can manage user permissions" ON user_permissions;
 CREATE POLICY "Admins can manage user permissions"
     ON user_permissions FOR ALL
     USING (
-        EXISTS (
+        auth.role() = 'service_role'
+        OR EXISTS (
             SELECT 1 FROM "User"
             WHERE "User".id = user_permissions.user_id
             AND "User".created_by_admin_id = (
