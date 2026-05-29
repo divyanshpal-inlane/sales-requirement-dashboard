@@ -31,6 +31,7 @@ import {
   PermissionKey,
   useCurrentAdmin,
 } from "@/queries/adminPermissions";
+import { useCurrentUser } from "@/queries/userManagement";
 
 // Map permission keys to feature configs
 const featureConfig: Record<
@@ -141,11 +142,26 @@ const featureConfig: Record<
     link: "/admin/feedback",
     color: "text-pink-500",
   },
-};
+  view_unmasked_phone_numbers: {
+     title: "View Unmasked Phone Numbers",
+     description: "View phone numbers in full without masking",
+     icon: Settings,
+     link: "/admin",
+     color: "text-gray-600",
+   },
+   admin_management: {
+     title: "User Management",
+     description: "Create and manage admin team members and their permissions",
+     icon: Users,
+     link: "/admin/user-management",
+     color: "text-indigo-500",
+   },
+ } as const;
 
 export default function AdminHome() {
-  const { data: currentAdmin, isLoading } = useCurrentAdmin();
-  const { logout } = useAuth();
+  const { data: currentAdmin, isLoading: adminLoading } = useCurrentAdmin();
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -157,6 +173,8 @@ export default function AdminHome() {
     }
   };
 
+  const isLoading = adminLoading || userLoading;
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -165,11 +183,30 @@ export default function AdminHome() {
     );
   }
 
-  // Filter features based on admin's permissions
-  const allowedFeatures =
-    currentAdmin?.permissions
-      ?.filter((perm) => featureConfig[perm])
-      .map((perm) => featureConfig[perm]) || [];
+  // Determine if user is admin or team member
+  const isAdmin = currentAdmin && (currentAdmin.is_admin || currentAdmin.is_super_admin);
+  const isTeamMember = user?.user_metadata?.user_role === "user" && currentUser;
+
+  // Get permissions based on user type
+  let userPermissions: PermissionKey[] = [];
+  let isUserSuperAdmin = false;
+  let isUserAdmin = false;
+  let displayName = "";
+
+  if (isAdmin) {
+    userPermissions = currentAdmin?.permissions || [];
+    isUserSuperAdmin = currentAdmin?.is_super_admin || false;
+    isUserAdmin = currentAdmin?.is_admin || false;
+    displayName = currentAdmin?.name || "Admin";
+  } else if (isTeamMember) {
+    userPermissions = currentUser?.permissions || [];
+    displayName = currentUser?.name || "Team Member";
+  }
+
+  // Filter features based on user's permissions
+  const allowedFeatures = userPermissions
+    .filter((perm) => featureConfig[perm])
+    .map((perm) => featureConfig[perm]) || [];
 
   return (
     <div
@@ -185,7 +222,7 @@ export default function AdminHome() {
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="text-4xl font-bold tracking-tight">
-              Admin Dashboard
+              {isTeamMember ? "User Dashboard" : "Admin Dashboard"}
             </h1>
             <p className="mt-2 text-lg text-muted-foreground">
               Manage schedules and learner licenses
@@ -193,6 +230,11 @@ export default function AdminHome() {
             {currentAdmin?.is_super_admin && (
               <p className="mt-1 text-sm text-purple-600">
                 Logged in as Super Admin
+              </p>
+            )}
+            {isTeamMember && (
+              <p className="mt-1 text-sm text-blue-600">
+                Logged in as {displayName}
               </p>
             )}
           </div>
@@ -208,33 +250,61 @@ export default function AdminHome() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-          {/* Super Admin Management - only for super admins */}
-          {currentAdmin?.is_super_admin && (
-            <Card className="border-purple-200 transition-all hover:shadow-lg">
-              <Link to="/admin/admin-management">
-                <CardHeader>
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-lg bg-purple-100 p-2 text-purple-600">
-                      <ShieldCheck size={24} />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">
-                        Admin Management
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Create and manage admin accounts and permissions
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full" variant="ghost">
-                    Access Admin Management
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-          )}
+           {/* Super Admin Management - only for super admins */}
+           {currentAdmin?.is_super_admin && (
+             <Card className="border-purple-200 transition-all hover:shadow-lg">
+               <Link to="/admin/admin-management">
+                 <CardHeader>
+                   <div className="flex items-center gap-4">
+                     <div className="rounded-lg bg-purple-100 p-2 text-purple-600">
+                       <ShieldCheck size={24} />
+                     </div>
+                     <div>
+                       <CardTitle className="text-xl">
+                         Admin Management
+                       </CardTitle>
+                       <CardDescription className="mt-1">
+                         Create and manage admin accounts and permissions
+                       </CardDescription>
+                     </div>
+                   </div>
+                 </CardHeader>
+                 <CardContent>
+                   <Button className="w-full" variant="ghost">
+                     Access Admin Management
+                   </Button>
+                 </CardContent>
+               </Link>
+             </Card>
+           )}
+
+           {/* User Management - only for admins */}
+           {currentAdmin?.is_admin && !currentAdmin?.is_super_admin && (
+             <Card className="border-blue-200 transition-all hover:shadow-lg">
+               <Link to="/admin/user-management">
+                 <CardHeader>
+                   <div className="flex items-center gap-4">
+                     <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+                       <Users size={24} />
+                     </div>
+                     <div>
+                       <CardTitle className="text-xl">
+                         User Management
+                       </CardTitle>
+                       <CardDescription className="mt-1">
+                         Create and manage users with specific permissions
+                       </CardDescription>
+                     </div>
+                   </div>
+                 </CardHeader>
+                 <CardContent>
+                   <Button className="w-full" variant="ghost">
+                     Access User Management
+                   </Button>
+                 </CardContent>
+               </Link>
+             </Card>
+           )}
 
           {/* Feature cards based on permissions */}
           {allowedFeatures.map((feature) => (

@@ -34,6 +34,7 @@ import {
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
+import UserManagement from "@/routes/admin/UserManagement";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorsManagement, {
   InstructorSchedulePage,
@@ -278,6 +279,7 @@ export default function App() {
               />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="admin-management" element={<AdminManagement />} />
+              <Route path="user-management" element={<UserManagement />} />
               <Route path="bug-reports" element={<BugReportsManagement />} />
               <Route
                 path="instructor-lesson-log"

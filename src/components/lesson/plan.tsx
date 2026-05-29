@@ -22,8 +22,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { usePhoneVisibility } from "@/context/phone-visibility-context";
 import { COURSES_DATA } from "@/constants/courses";
 import { numberToText } from "@/lib/utils";
+import { maskPhoneNumber } from "@/utils/phoneMasking";
 import {
   useLearner,
   useLearnerEnrollment,
@@ -132,6 +134,7 @@ export function LessonPlan({
     lessonId: lesson.id,
     learnerId: learner.id,
   });
+  const { canViewUnmaskedPhoneNumbers } = usePhoneVisibility();
 
   const {
     menu,
@@ -354,7 +357,9 @@ export function LessonPlan({
                     <p className="text-sm font-light">Mobile number</p>
                     <p className="text-base">
                       {schedule?.Instructor?.phone
-                        ? schedule?.Instructor?.phone
+                        ? canViewUnmaskedPhoneNumbers
+                          ? schedule?.Instructor?.phone
+                          : maskPhoneNumber(schedule?.Instructor?.phone)
                         : "Not available"}
                     </p>
                   </div>

@@ -23,33 +23,47 @@ export default function AdminLogin() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
+      console.log("[AdminLogin] Form submitted with phone:", formData.phone);
+      
       const rawDigits = formData.phone.replace(/\D/g, "");
       const withoutCountry = rawDigits.replace(/^91/, "");
 
       // Try common phone formats directly via signInWithPassword
       const phoneVariants = [`+91${withoutCountry}`, withoutCountry, rawDigits];
 
+      console.log("[AdminLogin] Trying phone variants:", phoneVariants);
+      
       let loginSuccess = false;
-      for (const phone of phoneVariants) {
-        try {
-          await login(phone, formData.password, "admin");
-          loginSuccess = true;
-          break;
-        } catch {
-          // Try next variant
-        }
-      }
+      let lastError: any = null;
+      
+       for (const phone of phoneVariants) {
+         try {
+           console.log(`[AdminLogin] Attempting login with: ${phone}`);
+           
+           // Login as admin (includes admins and team members created by admins)
+           await login(phone, formData.password, "admin");
+           console.log(`[AdminLogin] ✓ Login successful with: ${phone}`);
+           loginSuccess = true;
+           break;
+         } catch (err) {
+           lastError = err;
+           console.error(`[AdminLogin] ✗ Login failed with ${phone}:`, err);
+           // Try next variant
+         }
+       }
 
       if (!loginSuccess) {
-        throw new Error("Invalid phone number or password");
+        console.error("[AdminLogin] All variants failed. Last error:", lastError);
+        throw lastError || new Error("Invalid phone number or password");
       }
 
+      console.log("[AdminLogin] Navigating to /admin");
       navigate("/admin");
     } catch (error) {
       console.error("Login failed:", error);
