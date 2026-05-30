@@ -31,6 +31,7 @@ import {
   ProtectedInstructorRoute,
   ProtectedLearnerRoute,
 } from "@/context/auth-context";
+import { PhoneVisibilityProvider } from "@/context/phone-visibility-context";
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
@@ -91,7 +92,8 @@ export default function App() {
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Routes>
+          <PhoneVisibilityProvider>
+            <Routes>
             <Route path="/start" element={<Start />} />
             <Route path="/login" element={<Login />} />
             <Route path="/report-issue" element={<ReportIssue />} />
@@ -302,7 +304,8 @@ export default function App() {
               path="/reschedule/callback"
               element={<ReschedulePaymentCallback />}
             />
-          </Routes>
+            </Routes>
+          </PhoneVisibilityProvider>
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>

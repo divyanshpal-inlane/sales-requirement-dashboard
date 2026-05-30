@@ -100,30 +100,27 @@ export function SessionDetails({
             <p className="text-sm font-light">Instructor Name</p>
             <p className="text-sm font-medium">{instructor.name}</p>
           </div>
-           <div className="flex flex-col gap-1">
-             <p className="text-sm font-light">Call Instructor</p>
-             <div className="flex items-center gap-2">
-               <Button
-                 size="sm"
-                 variant="outline"
-                 disabled={isCallLoading}
-                 onClick={() =>
-                   initiateCall(data?.phone ?? "", instructor.phone ?? "")
-                 }
-                 className="flex w-fit items-center gap-1.5 text-sm font-medium"
-               >
-                 {isCallLoading ? (
-                   <Loader2 size={14} className="animate-spin" />
-                 ) : (
-                   <Phone size={14} />
-                 )}
-                 {isCallLoading ? "Connecting..." : "Call Now"}
-               </Button>
-               <span className="text-xs text-gray-500">
-                 {canViewUnmaskedPhoneNumbers ? instructor.phone : maskPhoneNumber(instructor.phone)}
-               </span>
-             </div>
-           </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-light">Call Instructor</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isCallLoading}
+                  onClick={() =>
+                    initiateCall(data?.phone ?? "", instructor.phone ?? "")
+                  }
+                  className="flex w-fit items-center gap-1.5 text-sm font-medium"
+                >
+                  {isCallLoading ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Phone size={14} />
+                  )}
+                  {isCallLoading ? "Connecting..." : "Call Now"}
+                </Button>
+              </div>
+            </div>
           <div className="flex flex-col gap-0">
             <p className="text-sm font-light">Car Model</p>
             <p className="text-sm font-medium">{instructor.car_make}</p>
