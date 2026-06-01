@@ -404,34 +404,48 @@ export function useDeleteUser() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      // Get user phone for auth deletion
-      const { data: user } = await (
+      // Get user phone for edge function deletion
+      const { data: user, error: fetchError } = await (
         supabase
           .from("User" as any)
           .select("phone") as any
       ).eq("id", userId)
         .single();
 
-      // Delete from User table (permissions will cascade)
-      const { error } = await (
-        supabase
-          .from("User" as any)
-          .delete() as any
-      ).eq("id", userId);
+      if (fetchError || !user?.phone) {
+        throw new Error("User not found");
+      }
 
-      if (error) throw error;
+      console.log("[useDeleteUser] Starting deletion for user:", userId, "phone:", user.phone);
 
-      // Delete auth user via edge function
-      if (user?.phone) {
+      // Call edge function which handles BOTH auth deletion AND database deletion
+      // The edge function:
+      // 1. Deletes auth user FIRST (most important step)
+      // 2. Then deletes from User table (cascade deletes permissions)
+      const { data: edgeFunctionResult, error: edgeFunctionError } = 
         await supabase.functions.invoke("delete-user", {
           body: { phone: user.phone },
         });
+
+      if (edgeFunctionError) {
+        console.error("[useDeleteUser] Edge function error:", edgeFunctionError);
+        throw new Error(
+          edgeFunctionError.message || "Failed to delete user from authentication system"
+        );
       }
 
+      // Check if the edge function returned an error in the response
+      if (edgeFunctionResult && !edgeFunctionResult.success) {
+        console.error("[useDeleteUser] Edge function returned error:", edgeFunctionResult.error);
+        throw new Error(edgeFunctionResult.error || "Failed to delete user");
+      }
+
+      console.log("[useDeleteUser] ✓ User deleted successfully:", edgeFunctionResult);
       return userId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
   });
 }
