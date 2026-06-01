@@ -36,89 +36,32 @@ export function useCurrentUser() {
 
       console.log("[useCurrentUser] Auth user phone:", user.phone);
 
-      // Normalize phone - try multiple formats to match User table
-      const digits = user.phone.replace(/\D/g, "");
-      const last10Digits = digits.slice(-10); // Get last 10 digits for flexible matching
-      const phoneVariants = [
-        user.phone,
-        digits,
-        digits.replace(/^91/, ""),
-        `+91${digits.replace(/^91/, "")}`,
-        last10Digits,
-        `+91${last10Digits}`,
-        `91${last10Digits}`,
-      ];
-
-      console.log("[useCurrentUser] Trying phone variants:", phoneVariants);
-
-      // Get user record - fetch ALL users and match client-side
-      const { data: allUsers, error: userError } = await (
-        supabase
-          .from("User" as any)
-          .select("*") as any
+      // Use edge function to fetch current user (bypasses RLS)
+      console.log("[useCurrentUser] Calling edge function to get current user");
+      const { data: edgeResult, error: edgeError } = await supabase.functions.invoke(
+        "get-current-user",
+        { body: { phone: user.phone } }
       );
 
-      if (userError) {
-        console.error("[useCurrentUser] Error fetching users:", userError);
+      if (edgeError) {
+        console.error("[useCurrentUser] Edge function error:", edgeError);
         return null;
       }
 
-      console.log(
-        "[useCurrentUser] All user phones:",
-        allUsers?.map((a: User) => a.phone),
-      );
-
-      // Match by comparing digits - improved logic
-      const foundUser =
-        allUsers?.find((u: User) => {
-          if (!u.phone) return false;
-          const userDigits = u.phone.replace(/\D/g, "");
-          const userLast10 = userDigits.slice(-10);
-          
-          // Check multiple matching strategies
-          return phoneVariants.some((v) => {
-            const vDigits = v.replace(/\D/g, "");
-            const vLast10 = vDigits.slice(-10);
-            
-            return (
-              v === u.phone || // Exact match
-              vDigits === userDigits || // Same digits
-              vLast10 === userLast10 || // Last 10 digits match
-              userDigits.includes(vDigits) || // User digits contain variant
-              vDigits.includes(userDigits) // Variant contains user digits
-            );
-          });
-        }) ?? null;
-
-      console.log("[useCurrentUser] Matched user:", foundUser);
-
-      if (!foundUser) {
-        console.warn("[useCurrentUser] No matching user found for phone:", user.phone);
+      if (!edgeResult?.success) {
+        console.warn("[useCurrentUser] Edge function returned error:", edgeResult?.error);
         return null;
       }
 
-      // Get user's permissions
-      console.log("[useCurrentUser] Fetching permissions for user:", foundUser.id);
-      const { data: permissions, error: permError } = await (
-        supabase
-          .from("user_permissions" as any)
-          .select("permission") as any
-      ).eq("user_id", foundUser.id);
+      const foundUser = edgeResult.user as User;
+      const permissions = edgeResult.user?.permissions || [];
 
-      if (permError) {
-        console.error("[useCurrentUser] Error fetching permissions:", permError);
-        console.error("[useCurrentUser] Permission error details:", JSON.stringify(permError, null, 2));
-        return {
-          ...foundUser,
-          permissions: [] as PermissionKey[],
-        } as UserWithPermissions;
-      }
-
-      console.log("[useCurrentUser] Permissions fetched:", permissions);
+      console.log("[useCurrentUser] ✓ USER FOUND via edge function:", foundUser);
+      console.log("[useCurrentUser] Permissions from edge function:", permissions);
 
       return {
         ...foundUser,
-        permissions: (permissions || []).map((p: any) => p.permission as PermissionKey),
+        permissions: permissions as PermissionKey[],
       } as UserWithPermissions;
     },
   });
@@ -170,14 +113,15 @@ export function useAdminUsers() {
 
       if (error) throw error;
 
-      // Get permissions for each user
-      const usersWithPermissions: UserWithPermissions[] = await Promise.all(
-        (users || []).map(async (user: User) => {
-          const { data: permissions } = await (
-            supabase
-              .from("user_permissions" as any)
-              .select("permission") as any
-          ).eq("user_id", user.id);
+       // Get permissions for each user
+       const usersWithPermissions: UserWithPermissions[] = await Promise.all(
+         (users || []).map(async (user: User) => {
+           const { data: permissions } = await (
+             supabase
+               .from("user_permissions" as any)
+               .select("permission")
+               .eq("user_id", user.id) as any
+           );
 
           return {
             ...user,
@@ -207,30 +151,31 @@ export function useAllUsers() {
 
       if (error) throw error;
 
-      // Get permissions for each user
-      const usersWithPermissions: UserWithPermissions[] = await Promise.all(
-        (users || []).map(async (user: User) => {
-          const { data: permissions } = await (
-            supabase
-              .from("user_permissions" as any)
-              .select("permission") as any
-          ).eq("user_id", user.id);
+       // Get permissions for each user
+       const usersWithPermissions: UserWithPermissions[] = await Promise.all(
+         (users || []).map(async (user: User) => {
+           const { data: permissions } = await (
+             supabase
+               .from("user_permissions" as any)
+               .select("permission")
+               .eq("user_id", user.id) as any
+           );
 
-          return {
-            ...user,
-            permissions: (permissions || []).map(
-              (p: any) => p.permission as PermissionKey,
-            ),
-          } as UserWithPermissions;
-        }),
-      );
+           return {
+             ...user,
+             permissions: (permissions || []).map(
+               (p: any) => p.permission as PermissionKey,
+             ),
+           } as UserWithPermissions;
+         }),
+       );
 
-      return usersWithPermissions;
-    },
-  });
-}
+       return usersWithPermissions;
+     },
+   });
+ }
 
-// Create new user (admin only)
+ // Create new user (admin only)
 export function useCreateUser() {
   const queryClient = useQueryClient();
 
@@ -336,13 +281,14 @@ export function useUpdateUserPermissions() {
         throw new Error("Admin not found");
       }
 
-      // Validate that admin can only assign permissions they have
-      if (!(admin as any).is_super_admin && permissions.length > 0) {
-        const { data: adminPermissions, error: permError } = await (
-          supabase
-            .from("admin_permissions" as any)
-            .select("permission") as any
-        ).eq("admin_id" as any, (admin as any).id as any);
+       // Validate that admin can only assign permissions they have
+       if (!(admin as any).is_super_admin && permissions.length > 0) {
+         const { data: adminPermissions, error: permError } = await (
+           supabase
+             .from("admin_permissions" as any)
+             .select("permission")
+             .eq("admin_id" as any, (admin as any).id as any) as any
+         );
 
         if (permError) {
           throw new Error("Failed to verify admin permissions");
@@ -364,30 +310,31 @@ export function useUpdateUserPermissions() {
         }
       }
 
-      // Delete existing permissions
-      const { error: deleteError } = await (
-        supabase
-          .from("user_permissions" as any)
-          .delete() as any
-      ).eq("user_id", userId);
+       // Delete existing permissions
+       const { error: deleteError } = await (
+         supabase
+           .from("user_permissions" as any)
+           .delete()
+           .eq("user_id", userId) as any
+       );
 
       if (deleteError) throw deleteError;
 
-      // Insert new permissions
-      if (permissions.length > 0) {
-        const permissionRecords = permissions.map((permission) => ({
-          user_id: userId,
-          permission,
-        }));
+       // Insert new permissions
+       if (permissions.length > 0) {
+         const permissionRecords = permissions.map((permission) => ({
+           user_id: userId,
+           permission,
+         }));
 
-        const { error: insertError } = await (
-          supabase
-            .from("user_permissions" as any)
-            .insert(permissionRecords as any) as any
-        );
+         const { error: insertError } = await (
+           supabase
+             .from("user_permissions" as any)
+             .insert(permissionRecords as any)
+         );
 
-        if (insertError) throw insertError;
-      }
+         if (insertError) throw insertError;
+       }
 
       return { userId, permissions };
     },

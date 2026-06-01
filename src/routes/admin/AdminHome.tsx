@@ -149,6 +149,13 @@ const featureConfig: Record<
      link: "/admin/user-management",
      color: "text-indigo-500",
    },
+  view_unmasked_phone_numbers: {
+    title: "View Unmasked Phone Numbers",
+    description: "View and edit unmasked phone numbers for instructors and learners",
+    icon: Users,
+    link: "",
+    color: "text-gray-500",
+  },
  } as const;
 
 // Note: view_unmasked_phone_numbers is a special permission that controls visibility
@@ -179,20 +186,25 @@ export default function AdminHome() {
     );
   }
 
-  // Determine if user is admin or team member
-  // Priority: Check if user exists in User table (team member) > Check if user is admin
-  const userRole = user?.user_metadata?.user_role;
-  const isTeamMember = !!currentUser; // User table exists = team member (created by admin)
-  const isAdmin = !isTeamMember && currentAdmin && (currentAdmin.is_admin || currentAdmin.is_super_admin);
-  
-  console.log("[AdminHome] User type determination:", {
-    currentUserExists: !!currentUser,
-    currentAdminExists: !!currentAdmin,
-    adminIsAdmin: currentAdmin?.is_admin,
-    adminIsSuperAdmin: currentAdmin?.is_super_admin,
-    resolvedIsTeamMember: isTeamMember,
-    resolvedIsAdmin: isAdmin,
-  });
+   // Determine if user is admin or team member
+   // Priority: Check if user exists in User table (team member) > Check if user is admin
+   const userRole = user?.user_metadata?.user_role;
+   const isTeamMember = !!currentUser; // User table exists = team member (created by admin)
+   const isAdmin = !isTeamMember && currentAdmin && (currentAdmin.is_admin || currentAdmin.is_super_admin);
+   
+   console.log("[AdminHome] User type determination:", {
+     userRole: userRole,
+     currentUserExists: !!currentUser,
+     currentUser: currentUser,
+     currentAdminExists: !!currentAdmin,
+     currentAdmin: currentAdmin,
+     adminIsAdmin: currentAdmin?.is_admin,
+     adminIsSuperAdmin: currentAdmin?.is_super_admin,
+     resolvedIsTeamMember: isTeamMember,
+     resolvedIsAdmin: isAdmin,
+     userPhone: user?.phone,
+     currentUserPhone: currentUser?.phone,
+   });
 
   // Debug logging
   console.log("[AdminHome] Debug Info:", {
