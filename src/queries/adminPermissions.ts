@@ -361,29 +361,47 @@ export function useDeleteAdmin() {
 
   return useMutation({
     mutationFn: async (adminId: string) => {
-      // Get admin phone for auth deletion
-      const { data: admin } = await supabase
+      // Get admin phone for edge function deletion
+      const { data: admin, error: fetchError } = await supabase
         .from("Admin")
         .select("phone")
         .eq("id", adminId)
         .single();
 
-      // Delete from Admin table (permissions will cascade)
-      const { error } = await supabase.from("Admin").delete().eq("id", adminId);
+      if (fetchError || !admin?.phone) {
+        throw new Error("Admin not found");
+      }
 
-      if (error) throw error;
+      console.log("[useDeleteAdmin] Starting deletion for admin:", adminId, "phone:", admin.phone);
 
-      // Delete auth user via edge function
-      if (admin?.phone) {
+      // Call edge function which handles BOTH auth deletion AND database deletion
+      // The edge function:
+      // 1. Deletes auth user FIRST (most important step)
+      // 2. Then deletes from Admin table (cascade deletes permissions)
+      const { data: edgeFunctionResult, error: edgeFunctionError } = 
         await supabase.functions.invoke("delete-admin-user", {
           body: { phone: admin.phone },
         });
+
+      if (edgeFunctionError) {
+        console.error("[useDeleteAdmin] Edge function error:", edgeFunctionError);
+        throw new Error(
+          edgeFunctionError.message || "Failed to delete admin from authentication system"
+        );
       }
 
+      // Check if the edge function returned an error in the response
+      if (edgeFunctionResult && !edgeFunctionResult.success) {
+        console.error("[useDeleteAdmin] Edge function returned error:", edgeFunctionResult.error);
+        throw new Error(edgeFunctionResult.error || "Failed to delete admin");
+      }
+
+      console.log("[useDeleteAdmin] ✓ Admin deleted successfully:", edgeFunctionResult);
       return adminId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allAdmins"] });
+      queryClient.invalidateQueries({ queryKey: ["currentAdmin"] });
     },
   });
 }
