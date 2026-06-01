@@ -56,8 +56,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (phone: string, password: string, role: UserRole) => {
     console.log("[AUTH] Login attempt with:", { phone, role });
 
+    // Normalize phone to +91XXXXXXXXXX format before auth
+    // This ensures it matches the format stored in Supabase auth
+    let normalizedPhone = phone.replace(/\D/g, "");  // Remove all non-digits
+    console.log("[AUTH] Extracted digits:", normalizedPhone, "Length:", normalizedPhone.length);
+    
+    // Handle cases like "919876543210" (12 digits with country code)
+    if (normalizedPhone.startsWith("91") && normalizedPhone.length === 12) {
+      normalizedPhone = normalizedPhone.substring(2);  // Remove leading 91
+      console.log("[AUTH] Removed leading 91, now:", normalizedPhone);
+    }
+    
+    // Ensure we have exactly 10 digits
+    if (normalizedPhone.length !== 10) {
+      console.error("[AUTH] Invalid phone format. Expected 10 digits, got:", normalizedPhone.length);
+      throw new Error("Invalid phone number format. Please enter a 10-digit phone number.");
+    }
+    
+    // Add +91 prefix to get +919876543210 format
+    normalizedPhone = `+91${normalizedPhone}`;
+    console.log("[AUTH] Final normalized phone:", normalizedPhone);
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      phone,
+      phone: normalizedPhone,
       password,
     });
 

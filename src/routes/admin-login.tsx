@@ -31,38 +31,13 @@ export default function AdminLogin() {
     try {
       console.log("[AdminLogin] Form submitted with phone:", formData.phone);
       
-      const rawDigits = formData.phone.replace(/\D/g, "");
-      const withoutCountry = rawDigits.replace(/^91/, "");
-
-      // Try common phone formats directly via signInWithPassword
-      const phoneVariants = [`+91${withoutCountry}`, withoutCountry, rawDigits];
-
-      console.log("[AdminLogin] Trying phone variants:", phoneVariants);
+      // The login function in auth-context.tsx now handles phone normalization
+      // Users can enter phone in any format: 9876543210, 919876543210, +919876543210, etc.
+      console.log("[AdminLogin] Attempting login with:", formData.phone);
       
-      let loginSuccess = false;
-      let lastError: any = null;
+      await login(formData.phone, formData.password, "admin");
       
-       for (const phone of phoneVariants) {
-         try {
-           console.log(`[AdminLogin] Attempting login with: ${phone}`);
-           
-           // Login as admin (includes admins and team members created by admins)
-           await login(phone, formData.password, "admin");
-           console.log(`[AdminLogin] ✓ Login successful with: ${phone}`);
-           loginSuccess = true;
-           break;
-         } catch (err) {
-           lastError = err;
-           console.error(`[AdminLogin] ✗ Login failed with ${phone}:`, err);
-           // Try next variant
-         }
-       }
-
-      if (!loginSuccess) {
-        console.error("[AdminLogin] All variants failed. Last error:", lastError);
-        throw lastError || new Error("Invalid phone number or password");
-      }
-
+      console.log("[AdminLogin] ✓ Login successful");
       console.log("[AdminLogin] Navigating to /admin");
       navigate("/admin");
     } catch (error) {

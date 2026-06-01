@@ -44,55 +44,55 @@ serve(async (req) => {
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.0");
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Normalize phone to last 10 digits
-    const phoneDigits = phone.replace(/\D/g, "");
-    const last10 = phoneDigits.slice(-10);
+    // Normalize phone to last 10 digits for reliable matching
+    const inputDigits = phone.replace(/\D/g, "");
+    const last10 = inputDigits.slice(-10);
     
-    console.log("[get-current-user] Looking for user. Input phone:", phone, "Last 10:", last10);
+    console.log("[get-current-user] Input phone:", phone, "Digits:", inputDigits, "Last 10:", last10);
 
-    // Try multiple phone format queries
-    const phoneFormats = [
-      `+91${last10}`,
-      `91${last10}`,
-      last10,
-      phone,
-    ];
+    // First, try to find user by matching last 10 digits of stored phone
+    console.log("[get-current-user] Fetching all users to match by last 10 digits...");
+    const { data: allUsers, error: allError } = await supabase
+      .from("User")
+      .select("*");
+    
+    if (allError) {
+      console.error("[get-current-user] Error fetching users:", allError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Failed to fetch users",
+          details: allError
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
+    console.log("[get-current-user] Total users in table:", allUsers?.length || 0);
+    if (allUsers && allUsers.length > 0) {
+      console.log("[get-current-user] Users found:", allUsers.map(u => ({ id: u.id, phone: u.phone, last10: u.phone?.replace(/\D/g, '').slice(-10) })));
+    }
+
+    // Match by last 10 digits - most reliable method
     let userData = null;
-    let foundFormat = null;
-
-    for (const format of phoneFormats) {
-      console.log("[get-current-user] Trying format:", format);
-      
-      const { data, error } = await supabase
-        .from("User")
-        .select("*")
-        .eq("phone", format)
-        .single();
-
-      if (!error && data) {
-        userData = data;
-        foundFormat = format;
-        console.log("[get-current-user] ✓ Found user with format:", format, "User:", userData);
-        break;
-      }
-      
-      if (error && error.code !== "PGRST116") { // PGRST116 = no rows found
-        console.error("[get-current-user] Error with format", format, ":", error);
-      }
+    
+    if (allUsers && allUsers.length > 0) {
+      userData = allUsers.find((u: any) => {
+        if (!u.phone) return false;
+        const userDigits = u.phone.replace(/\D/g, "");
+        const userLast10 = userDigits.slice(-10);
+        const isMatch = last10 === userLast10;
+        
+        if (isMatch) {
+          console.log("[get-current-user] ✓ MATCH FOUND! Input last 10:", last10, "User last 10:", userLast10, "User phone:", u.phone);
+        }
+        
+        return isMatch;
+      }) || null;
     }
 
     if (!userData) {
-      console.log("[get-current-user] User not found in User table");
-      console.log("[get-current-user] Querying all users to debug...");
-      
-      const { data: allUsers, error: allError } = await supabase
-        .from("User")
-        .select("id, phone, name");
-      
-      if (!allError && allUsers) {
-        console.log("[get-current-user] All users in table:", allUsers.map(u => ({ id: u.id, phone: u.phone })));
-      }
+      console.warn("[get-current-user] No user found matching last 10 digits:", last10);
     }
 
     if (!userData) {
@@ -100,8 +100,9 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: "User not found",
-          tried_formats: phoneFormats,
-          last_10: last10
+          input_phone: phone,
+          last_10: last10,
+          total_users_in_db: allUsers?.length || 0
         }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
