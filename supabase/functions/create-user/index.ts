@@ -38,12 +38,31 @@ serve(async (req) => {
     }
 
     // Normalize phone number to consistent format: +919876543210
-    const phoneDigits = phone.replace(/\D/g, "");
-    const normalizedPhone = phoneDigits.endsWith("91") 
-      ? `+${phoneDigits}` 
-      : `+91${phoneDigits.replace(/^91/, "")}`;
+    let phoneDigits = phone.replace(/\D/g, "");
+    console.log("[create-user] Extracted digits from phone:", phoneDigits, "Length:", phoneDigits.length);
+    
+    // Handle different input formats:
+    // Input: "9876543210" or "919876543210" or "+919876543210"
+    // After replace(/\D/g): "9876543210" or "919876543210" or "919876543210"
+    
+    // Remove leading 91 if present AND we have more than 10 digits
+    if (phoneDigits.startsWith("91") && phoneDigits.length === 12) {
+      phoneDigits = phoneDigits.substring(2); // Remove "91", leaving "9876543210"
+      console.log("[create-user] Removed leading 91, now:", phoneDigits);
+    }
+    
+    // Now phoneDigits should be exactly 10 digits, add +91 prefix
+    if (phoneDigits.length !== 10) {
+      console.error("[create-user] Invalid phone format. Expected 10 digits, got:", phoneDigits.length);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid phone format" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    const normalizedPhone = `+91${phoneDigits}`;
     phone = normalizedPhone;
-    console.log("[create-user] Normalized phone:", phone);
+    console.log("[create-user] Normalized phone to:", normalizedPhone);
 
     // Validate permissions - admin can only assign permissions they have
     if (permissions && Array.isArray(permissions) && permissions.length > 0) {
