@@ -56,65 +56,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (phone: string, password: string, role: UserRole) => {
     console.log("[AUTH] Login attempt with:", { phone, role });
 
-    // Normalize phone to +91XXXXXXXXXX format before auth
-    // This ensures it matches the format stored in Supabase auth
-    let normalizedPhone = phone.replace(/\D/g, "");  // Remove all non-digits
-    console.log("[AUTH] Extracted digits:", normalizedPhone, "Length:", normalizedPhone.length);
+    // Normalize phone - try multiple formats since auth might store in different formats
+    const inputDigits = phone.replace(/\D/g, "");  // Remove all non-digits
+    console.log("[AUTH] Extracted digits:", inputDigits, "Length:", inputDigits.length);
     
-    // Handle cases like "919876543210" (12 digits with country code)
-    if (normalizedPhone.startsWith("91") && normalizedPhone.length === 12) {
-      normalizedPhone = normalizedPhone.substring(2);  // Remove leading 91
-      console.log("[AUTH] Removed leading 91, now:", normalizedPhone);
+    // Validate we have at least 10 digits
+    if (inputDigits.length < 10) {
+      console.error("[AUTH] Invalid phone format. Too few digits:", inputDigits.length);
+      throw new Error("Invalid phone number format. Please enter a valid phone number.");
     }
-    
-    // Ensure we have exactly 10 digits
-    if (normalizedPhone.length !== 10) {
-      console.error("[AUTH] Invalid phone format. Expected 10 digits, got:", normalizedPhone.length);
-      throw new Error("Invalid phone number format. Please enter a 10-digit phone number.");
-    }
-    
-    // Add +91 prefix to get +919876543210 format
-    normalizedPhone = `+91${normalizedPhone}`;
-    console.log("[AUTH] Final normalized phone:", normalizedPhone);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      phone: normalizedPhone,
-      password,
+    // Get the last 10 digits (the actual phone number)
+    const last10 = inputDigits.slice(-10);
+    console.log("[AUTH] Last 10 digits:", last10);
+
+    // Try multiple phone formats - auth might have stored in any of these
+    const phoneFormats = [
+      `+91${last10}`,     // Most common: +919876543210
+      `91${last10}`,      // Alternative: 919876543210
+      last10,             // Just 10 digits: 9876543210
+      phone,              // Original input format
+    ];
+
+    let loginData = null;
+    let lastError: any = null;
+
+    for (const phoneFormat of phoneFormats) {
+      try {
+        console.log("[AUTH] Trying phone format:", phoneFormat);
+        
+        const { data, error } = await supabase.auth.signInWithPassword({
+          phone: phoneFormat,
+          password,
+        });
+
+        if (!error && data) {
+          console.log("[AUTH] ✓ Login successful with format:", phoneFormat);
+          loginData = data;
+          break;
+        }
+        
+        if (error) {
+          lastError = error;
+          console.warn("[AUTH] Format failed:", phoneFormat, "Error:", error.message);
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn("[AUTH] Format error:", phoneFormat, "Error:", err);
+      }
+    }
+
+    if (!loginData) {
+      console.error("[AUTH] All phone formats failed. Last error:", lastError);
+      throw lastError || new Error("Invalid phone number or password");
+    }
+
+    const data = loginData;
+
+    console.log("[AUTH] User authenticated:", {
+      userId: data.user?.id,
+      phone: data.user?.phone,
+      role: data.user?.user_metadata?.user_role,
     });
 
-    console.log("[AUTH] Login response:", { data, error });
+    // Check if the user has the correct role
+    const userRole = data.user?.user_metadata.user_role;
+    const isValidRole = userRole === role || 
+      // For admin login, accept both "admin" and "user" roles (team members)
+      (role === "admin" && (userRole === "admin" || userRole === "user"));
 
-    if (error) {
-      console.error("[AUTH] Login error details:", {
-        message: error.message,
-        status: error.status,
-        code: (error as any).code,
+    if (!isValidRole) {
+      console.error("[AUTH] Role mismatch:", {
+        expected: role,
+        actual: userRole,
       });
-      throw error;
+      await supabase.auth.signOut();
+      throw new Error("Invalid role for this login");
     }
 
-     console.log("[AUTH] User authenticated:", {
-       userId: data.user?.id,
-       phone: data.user?.phone,
-       role: data.user?.user_metadata?.user_role,
-     });
-
-     // Check if the user has the correct role
-     const userRole = data.user?.user_metadata.user_role;
-     const isValidRole = userRole === role || 
-       // For admin login, accept both "admin" and "user" roles (team members)
-       (role === "admin" && (userRole === "admin" || userRole === "user"));
-
-     if (!isValidRole) {
-       console.error("[AUTH] Role mismatch:", {
-         expected: role,
-         actual: userRole,
-       });
-       await supabase.auth.signOut();
-       throw new Error("Invalid role for this login");
-     }
-
-     console.log("[AUTH] Login successful!");
+    console.log("[AUTH] Login successful!");
   };
 
   const signUp = async (phone: string, password: string, role: UserRole) => {
