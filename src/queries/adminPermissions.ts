@@ -113,19 +113,19 @@ export const ADMIN_PERMISSIONS = {
        "View learner feedback submitted at midway and course completion checkpoints",
      route: "/admin/feedback",
    },
-   view_unmasked_phone_numbers: {
-     key: "view_unmasked_phone_numbers",
-     label: "View Unmasked Phone Numbers",
-     description: "View and edit unmasked phone numbers for instructors and learners",
-     route: null,
-   },
+    view_unmasked_phone_numbers: {
+      key: "view_unmasked_phone_numbers",
+      label: "View Unmasked Phone Numbers",
+      description: "View and edit unmasked phone numbers for instructors and learners",
+      route: null,
+    },
     admin_management: {
-     key: "admin_management",
-     label: "User Management",
-     description: "Create and manage admin team members and their permissions",
-     route: "/admin/user-management",
-   },
- } as const;
+      key: "admin_management",
+      label: "User Management",
+      description: "Create and manage admin team members and their permissions",
+      route: "/admin/user-management",
+    },
+  } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;
 

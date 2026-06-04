@@ -166,13 +166,6 @@ const featureConfig: Record<
     link: "/admin/feedback",
     color: "text-pink-500",
   },
-  admin_management: {
-     title: "User Management",
-     description: "Create and manage admin team members and their permissions",
-     icon: Users,
-     link: "/admin/user-management",
-     color: "text-indigo-500",
-   },
   view_unmasked_phone_numbers: {
     title: "View Unmasked Phone Numbers",
     description: "View and edit unmasked phone numbers for instructors and learners",
@@ -180,10 +173,17 @@ const featureConfig: Record<
     link: "",
     color: "text-gray-500",
   },
+  admin_management: {
+    title: "User Management",
+    description: "Create and manage admin team members and their permissions",
+    icon: Users,
+    link: "/admin/user-management",
+    color: "text-indigo-500",
+  },
  } as const;
 
-// Note: view_unmasked_phone_numbers is a special permission that controls visibility
-// of sensitive data but doesn't have a dashboard feature card
+// Note: view_unmasked_phone_numbers controls visibility of sensitive data but doesn't have a dashboard feature card
+// Note: admin_management is only assignable to super admins, not available in regular admin permission selection
 
 export default function AdminHome() {
   const { data: currentAdmin, isLoading: adminLoading } = useCurrentAdmin();
@@ -272,8 +272,9 @@ export default function AdminHome() {
   console.log("[AdminHome] All featureConfig keys:", Object.keys(featureConfig));
   console.log("[AdminHome] User permissions to check:", userPermissions);
   
-  const allowedFeatures = userPermissions
-    .map((perm) => {
+   const allowedFeatures = userPermissions
+     .filter((perm) => perm !== "admin_management" && perm !== "view_unmasked_phone_numbers") // Filter out admin_management and view_unmasked_phone_numbers
+     .map((perm) => {
       const feature = featureConfig[perm];
       console.log(`[AdminHome] Permission "${perm}": feature found=${!!feature}`);
       return feature;
@@ -353,8 +354,8 @@ export default function AdminHome() {
              </Card>
            )}
 
-           {/* User Management - only for admins */}
-           {currentAdmin?.is_admin && !currentAdmin?.is_super_admin && (
+           {/* User Management - for admins and super admins */}
+           {currentAdmin?.is_admin && (
              <Card className="border-blue-200 transition-all hover:shadow-lg">
                <Link to="/admin/user-management">
                  <CardHeader>

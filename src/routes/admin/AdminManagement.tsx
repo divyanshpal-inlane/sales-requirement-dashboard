@@ -207,7 +207,9 @@ export default function AdminManagement() {
   };
 
   const selectAllPermissions = (isNew: boolean) => {
-    const allKeys = Object.keys(ADMIN_PERMISSIONS) as PermissionKey[];
+    const allKeys = Object.keys(ADMIN_PERMISSIONS).filter(
+      (key) => key !== "admin_management"
+    ) as PermissionKey[];
     if (isNew) {
       setNewAdminForm((prev) => ({ ...prev, permissions: allKeys }));
     } else {
@@ -295,6 +297,17 @@ export default function AdminManagement() {
                         onClick={() => openDeleteDialog(admin)}
                       >
                         <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  {admin.is_super_admin && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled
+                      >
+                        Edit Permissions
                       </Button>
                     </div>
                   )}
