@@ -28,6 +28,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { usePhoneVisibility } from "@/context/phone-visibility-context";
+import { useCurrentAdmin } from "@/queries/adminPermissions";
+import { useCurrentUser } from "@/queries/userManagement";
 import { supabase } from "@/lib/supabaseClient";
 import { maskPhoneNumber } from "@/utils/phoneMasking";
 
@@ -963,6 +965,14 @@ function InstructorTab({
   const [sendingStatuses, setSendingStatuses] = useState<
     Record<string, boolean>
   >({});
+  const { data: currentAdmin } = useCurrentAdmin();
+  const { data: currentUser } = useCurrentUser();
+
+  const canViewUnmaskedPhoneNumbers =
+    currentAdmin?.is_super_admin ||
+    currentAdmin?.permissions?.includes("view_unmasked_phone_numbers") ||
+    currentUser?.permissions?.includes("view_unmasked_phone_numbers") ||
+    false;
 
   const maxFields = 5;
 
@@ -1154,7 +1164,7 @@ function InstructorTab({
                   <div className="font-medium">{instructor.name}</div>
                 </td>
                 <td className="px-2 py-2 text-sm text-gray-600">
-                  {maskPhoneNumber(instructor.phone)}
+                  {canViewUnmaskedPhoneNumbers ? instructor.phone : maskPhoneNumber(instructor.phone)}
                 </td>
                 <td className="px-2 py-2 text-center">
                   <Badge variant="secondary">
