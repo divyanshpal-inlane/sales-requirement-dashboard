@@ -257,25 +257,29 @@ export default function UserManagement() {
               </p>
             </div>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
+          {!currentAdmin?.is_super_admin && (
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          )}
         </div>
 
         {!displayUsers || displayUsers.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center">
               <p className="text-muted-foreground">
-                You haven't created any users yet.
+                {currentAdmin?.is_super_admin ? "No users to display." : "You haven't created any users yet."}
               </p>
-              <Button
-                className="mt-4"
-                onClick={() => setShowCreateDialog(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Your First User
-              </Button>
+              {!currentAdmin?.is_super_admin && (
+                <Button
+                  className="mt-4"
+                  onClick={() => setShowCreateDialog(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Your First User
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -301,13 +305,15 @@ export default function UserManagement() {
                       >
                         Edit Permissions
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => openDeleteDialog(user)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {!currentAdmin?.is_super_admin && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => openDeleteDialog(user)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

@@ -272,9 +272,9 @@ export default function AdminHome() {
   console.log("[AdminHome] All featureConfig keys:", Object.keys(featureConfig));
   console.log("[AdminHome] User permissions to check:", userPermissions);
   
-  const allowedFeatures = userPermissions
-    .filter((perm) => perm !== "admin_management") // Filter out admin_management
-    .map((perm) => {
+   const allowedFeatures = userPermissions
+     .filter((perm) => perm !== "admin_management" && perm !== "view_unmasked_phone_numbers") // Filter out admin_management and view_unmasked_phone_numbers
+     .map((perm) => {
       const feature = featureConfig[perm];
       console.log(`[AdminHome] Permission "${perm}": feature found=${!!feature}`);
       return feature;
@@ -354,8 +354,8 @@ export default function AdminHome() {
              </Card>
            )}
 
-           {/* User Management - only for admins */}
-           {currentAdmin?.is_admin && !currentAdmin?.is_super_admin && (
+           {/* User Management - for admins and super admins */}
+           {currentAdmin?.is_admin && (
              <Card className="border-blue-200 transition-all hover:shadow-lg">
                <Link to="/admin/user-management">
                  <CardHeader>
