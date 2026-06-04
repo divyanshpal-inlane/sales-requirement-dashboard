@@ -484,11 +484,9 @@ const AddressAutocomplete = memo(
 export default function InstructorsManagement() {
   const navigate = useNavigate();
   const { data: currentAdmin } = useCurrentAdmin();
-  const { data: currentUser } = useCurrentUser();
   const canViewUnmaskedPhoneNumbers =
     currentAdmin?.is_super_admin ||
     currentAdmin?.permissions?.includes("view_unmasked_phone_numbers") ||
-    currentUser?.permissions?.includes("view_unmasked_phone_numbers") ||
     false;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
