@@ -963,6 +963,7 @@ function InstructorTab({
   const [sendingStatuses, setSendingStatuses] = useState<
     Record<string, boolean>
   >({});
+  const { canViewUnmaskedPhoneNumbers } = usePhoneVisibility();
 
   const maxFields = 5;
 
@@ -1154,7 +1155,7 @@ function InstructorTab({
                   <div className="font-medium">{instructor.name}</div>
                 </td>
                 <td className="px-2 py-2 text-sm text-gray-600">
-                  {maskPhoneNumber(instructor.phone)}
+                  {canViewUnmaskedPhoneNumbers ? instructor.phone : maskPhoneNumber(instructor.phone)}
                 </td>
                 <td className="px-2 py-2 text-center">
                   <Badge variant="secondary">
