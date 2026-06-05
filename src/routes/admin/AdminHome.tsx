@@ -2,12 +2,16 @@ import {
   BookOpenCheck,
   Bug,
   Calendar,
+  Check,
   ClipboardList,
   CreditCard,
+  Eye,
+  EyeOff,
   Handshake,
   LayoutGrid,
   ListChecks,
   Loader2,
+  Lock,
   LogOut,
   MessageSquare,
   PhoneCall,
@@ -19,6 +23,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +33,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/auth-context";
+import { supabaseAdmin, supabase } from "@/context/auth-context";
 import {
   ADMIN_PERMISSIONS,
   PermissionKey,
@@ -190,6 +206,111 @@ export default function AdminHome() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    // Validation
+    if (!passwordForm.oldPassword) {
+      setErrorMessage("Please enter your current password");
+      return;
+    }
+
+    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+      setErrorMessage("New password must be at least 6 characters long");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
+
+    if (passwordForm.oldPassword === passwordForm.newPassword) {
+      setErrorMessage("New password must be different from old password");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      if (!user?.id || !user?.phone) {
+        throw new Error("User not found");
+      }
+
+      // First, verify the old password by attempting to sign in
+      const normalizedPhone = user.phone.replace(/\D/g, "");
+      const phoneFormats = [
+        `+91${normalizedPhone.slice(-10)}`,
+        normalizedPhone.slice(-10),
+        user.phone,
+      ];
+
+      let isPasswordValid = false;
+
+      for (const phoneFormat of phoneFormats) {
+        const { error } = await supabase.auth.signInWithPassword({
+          phone: phoneFormat,
+          password: passwordForm.oldPassword,
+        });
+
+        if (!error) {
+          isPasswordValid = true;
+          break;
+        }
+      }
+
+      if (!isPasswordValid) {
+        throw new Error("Current password is incorrect");
+      }
+
+      // If password is verified, update to new password
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        {
+          password: passwordForm.newPassword,
+        },
+      );
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      setSuccessMessage("Password changed successfully!");
+      setPasswordForm({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      setTimeout(() => {
+        setSuccessMessage(null);
+        setOpenPasswordDialog(false);
+      }, 2000);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to change password. Please try again.",
+      );
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -436,6 +557,183 @@ export default function AdminHome() {
                </CardHeader>
              </Card>
            )}
+
+           {/* Change Password - visible to everyone (at the end) */}
+           <Dialog open={openPasswordDialog} onOpenChange={setOpenPasswordDialog}>
+             <Card className="border-blue-200 transition-all hover:shadow-lg cursor-pointer" onClick={() => setOpenPasswordDialog(true)}>
+               <CardHeader>
+                 <div className="flex items-center gap-4">
+                   <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+                     <Lock size={24} />
+                   </div>
+                   <div>
+                     <CardTitle className="text-xl">
+                       Change Password
+                     </CardTitle>
+                     <CardDescription className="mt-1">
+                       Update your account password for enhanced security
+                     </CardDescription>
+                   </div>
+                 </div>
+               </CardHeader>
+               <CardContent>
+                 <Button className="w-full" variant="ghost">
+                   Change Password
+                 </Button>
+               </CardContent>
+             </Card>
+
+             {/* Change Password Dialog */}
+             <DialogContent className="sm:max-w-[425px]">
+               <DialogHeader>
+                 <DialogTitle className="flex items-center gap-2">
+                   <Lock className="h-5 w-5" />
+                   Change Password
+                 </DialogTitle>
+                 <DialogDescription>
+                   Update your account password. It must be at least 6 characters long.
+                 </DialogDescription>
+               </DialogHeader>
+
+               <form onSubmit={handlePasswordChange} className="space-y-4">
+                 {/* Current Password */}
+                 <div className="space-y-2">
+                   <Label htmlFor="oldPassword" className="text-sm font-medium">
+                     Current Password
+                   </Label>
+                   <div className="relative">
+                     <Input
+                       id="oldPassword"
+                       type={showOldPassword ? "text" : "password"}
+                       placeholder="Enter your current password"
+                       value={passwordForm.oldPassword}
+                       onChange={(e) =>
+                         setPasswordForm({
+                           ...passwordForm,
+                           oldPassword: e.target.value,
+                         })
+                       }
+                       disabled={isChangingPassword}
+                       className="pr-10"
+                     />
+                     <button
+                       type="button"
+                       onClick={() => setShowOldPassword(!showOldPassword)}
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                     >
+                       {showOldPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                     </button>
+                   </div>
+                 </div>
+
+                 {/* New Password */}
+                 <div className="space-y-2">
+                   <Label htmlFor="newPassword" className="text-sm font-medium">
+                     New Password
+                   </Label>
+                   <div className="relative">
+                     <Input
+                       id="newPassword"
+                       type={showNewPassword ? "text" : "password"}
+                       placeholder="Enter your new password"
+                       value={passwordForm.newPassword}
+                       onChange={(e) =>
+                         setPasswordForm({
+                           ...passwordForm,
+                           newPassword: e.target.value,
+                         })
+                       }
+                       disabled={isChangingPassword}
+                       minLength={6}
+                       className="pr-10"
+                     />
+                     <button
+                       type="button"
+                       onClick={() => setShowNewPassword(!showNewPassword)}
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                     >
+                       {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                     </button>
+                   </div>
+                   <p className="text-xs text-muted-foreground">
+                     Password should be minimum 6 characters
+                   </p>
+                 </div>
+
+                 {/* Confirm Password */}
+                 <div className="space-y-2">
+                   <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                     Confirm New Password
+                   </Label>
+                   <div className="relative">
+                     <Input
+                       id="confirmPassword"
+                       type={showConfirmPassword ? "text" : "password"}
+                       placeholder="Confirm your new password"
+                       value={passwordForm.confirmPassword}
+                       onChange={(e) =>
+                         setPasswordForm({
+                           ...passwordForm,
+                           confirmPassword: e.target.value,
+                         })
+                       }
+                       disabled={isChangingPassword}
+                       minLength={6}
+                       className="pr-10"
+                     />
+                     <button
+                       type="button"
+                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                     >
+                       {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                     </button>
+                   </div>
+                 </div>
+
+                 {/* Error and Success Messages */}
+                 {errorMessage && (
+                   <Alert variant="destructive">
+                     <AlertDescription>{errorMessage}</AlertDescription>
+                   </Alert>
+                 )}
+
+                 {successMessage && (
+                   <Alert className="border-green-200 bg-green-50">
+                     <Check className="h-4 w-4 text-green-600" />
+                     <AlertDescription className="text-green-800">
+                       {successMessage}
+                     </AlertDescription>
+                   </Alert>
+                 )}
+
+                 <div className="flex gap-2 pt-4">
+                   <Button
+                     type="submit"
+                     disabled={isChangingPassword}
+                     className="flex-1"
+                   >
+                     {isChangingPassword ? (
+                       <>
+                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                         Changing...
+                       </>
+                     ) : (
+                       "Change Password"
+                     )}
+                   </Button>
+                   <Button
+                     type="button"
+                     variant="outline"
+                     onClick={() => setOpenPasswordDialog(false)}
+                     disabled={isChangingPassword}
+                   >
+                     Cancel
+                   </Button>
+                 </div>
+               </form>
+             </DialogContent>
+           </Dialog>
 
         </div>
       </div>
