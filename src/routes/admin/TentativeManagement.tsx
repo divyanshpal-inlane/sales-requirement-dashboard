@@ -387,19 +387,46 @@ export default function TentativeScheduleInfo2() {
   } = useQuery({
     queryKey: ["learnersWithTentative"],
     queryFn: async () => {
+      // Fetch ALL tentative schedules using pagination to bypass 1000 row limit
       const startDate = subDays(new Date(), 30);
-      // const endDate = addDays(startDate, maxDaysWindowToFetch);
-      // since number's required field we can group by phone number
-      const { data, error } = await supabase
-        .from("Schedule")
-        .select(`*`)
-        .gte("date", startDate.toISOString().split("T")[0])
-        .eq("isTentative", true)
-        .order("date", { ascending: true })
-        .order("start_time", { ascending: true });
-      if (error) throw error;
-      console.log("tentativeSchedulesByLearners:", data);
-      return data; //as LearnerInfo[];
+      let allData: any[] = [];
+      let pageStart = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("Schedule")
+          .select(`*`)
+          .gte("date", startDate.toISOString().split("T")[0])
+          .eq("isTentative", true)
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true })
+          .range(pageStart, pageStart + pageSize - 1);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = [...allData, ...data];
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            pageStart += pageSize;
+          }
+        }
+      }
+
+      console.log("📊 TOTAL SCHEDULES FROM DB:", allData.length);
+      if (allData.length > 0) {
+        const dates = allData.map(s => s.date).sort();
+        console.log("📅 Date range:", dates[0], "to", dates[dates.length - 1]);
+        const months = new Set(allData.map(s => s.date.substring(0, 7)));
+        console.log("🗓️ Months present:", Array.from(months).sort());
+      }
+      console.log("tentativeSchedulesByLearners:", allData);
+      return allData; //as LearnerInfo[];
     },
   });
 
