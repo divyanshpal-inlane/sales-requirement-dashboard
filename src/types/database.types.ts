@@ -255,9 +255,11 @@ export type Database = {
           address_lat: number | null;
           address_lng: number | null;
           area: string | null;
+          car_purchase_timeline: string | null;
           city: string | null;
           comments: string | null;
           created_at: string;
+          driving_motivation: string | null;
           DL_id: string | null;
           DL_result: boolean | null;
           DL_test_date: string | null;
@@ -301,9 +303,11 @@ export type Database = {
           address_lat?: number | null;
           address_lng?: number | null;
           area?: string | null;
+          car_purchase_timeline?: string | null;
           city?: string | null;
           comments?: string | null;
           created_at?: string;
+          driving_motivation?: string | null;
           DL_id?: string | null;
           DL_result?: boolean | null;
           DL_test_date?: string | null;
@@ -342,9 +346,11 @@ export type Database = {
           address_lat?: number | null;
           address_lng?: number | null;
           area?: string | null;
+          car_purchase_timeline?: string | null;
           city?: string | null;
           comments?: string | null;
           created_at?: string;
+          driving_motivation?: string | null;
           DL_id?: string | null;
           DL_result?: boolean | null;
           DL_test_date?: string | null;

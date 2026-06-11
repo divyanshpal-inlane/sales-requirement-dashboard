@@ -248,7 +248,10 @@ function PreferenceSelector({
               <div className="h-8" /> {/* Space for day headers */}
               <div className="mt-10 space-y-3">
                 {TIME_SLOTS.map((slot) => (
-                  <div key={slot} className="h-24 pr-4 text-right font-medium">
+                  <div
+                    key={slot}
+                    className="flex h-12 items-center justify-end pr-4 text-right font-medium"
+                  >
                     {TIME_SLOT_LABELS[slot]}
                   </div>
                 ))}
@@ -280,7 +283,7 @@ function PreferenceSelector({
                             <Button
                               key={`${index}-${slot}`}
                               variant={isSelected ? "default" : "outline"}
-                              className={`h-24 rounded-lg border-2 ${
+                              className={`h-12 rounded-lg border-2 ${
                                 isSelected
                                   ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                   : "border-gray-200 hover:bg-gray-50"
@@ -305,7 +308,7 @@ function PreferenceSelector({
         </CardContent>
       </Card>
 
-      <div className="pb-16">
+      <div className="sticky bottom-0 mt-4 border-t bg-white p-4">
         <Button
           onClick={handleSubmit}
           disabled={isPending || isRescheduleRequestPending || isSaving} // Disable during any async operation
