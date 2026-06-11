@@ -8,6 +8,14 @@ export const MATRIX_DAY_START_HOUR = 6;
 export const MATRIX_DAY_END_HOUR = 20;
 export const MATRIX_HOURS_PER_DAY = MATRIX_DAY_END_HOUR - MATRIX_DAY_START_HOUR; // 14
 
+// The grid is rendered in 30-minute slots so half-hour lessons map to a single
+// block instead of bleeding across two whole-hour cells.
+export const MATRIX_SLOT_MINUTES = 30;
+export const MATRIX_DAY_START_MIN = MATRIX_DAY_START_HOUR * 60; // 06:00
+export const MATRIX_DAY_END_MIN = MATRIX_DAY_END_HOUR * 60; // 20:00
+export const MATRIX_SLOTS_PER_DAY =
+  (MATRIX_DAY_END_MIN - MATRIX_DAY_START_MIN) / MATRIX_SLOT_MINUTES; // 28
+
 export type SlotStatus = "free" | "booked" | "unavailable" | "conflict";
 
 export type EnrollmentType = "course" | "demo" | "topup" | "tentative" | null;
@@ -18,6 +26,8 @@ export interface MatrixSchedule {
   end_time: string;
   startHour: number;
   endHour: number;
+  startMin: number | null; // minutes from midnight
+  endMin: number | null;
   status: string | null;
   isTentative: boolean | null;
   learnerId: string | null;
@@ -29,7 +39,8 @@ export interface MatrixSchedule {
 }
 
 export interface MatrixSlot {
-  hour: number; // 0-23, start hour of the slot
+  startMin: number; // minutes from midnight, start of the 30-min slot
+  endMin: number; // minutes from midnight, end of the 30-min slot
   status: SlotStatus;
   schedules: MatrixSchedule[]; // usually 0 or 1; >1 means conflict
 }
@@ -72,20 +83,21 @@ export interface InstructorMatrixData {
   };
 }
 
-const overlapsHour = (
-  hour: number,
-  startTime: string | null,
-  endTime: string | null,
-): boolean => {
-  if (!startTime || !endTime) return false;
-  const [sh, sm = "0"] = startTime.split(":");
-  const [eh, em = "0"] = endTime.split(":");
-  const startMin = Number(sh) * 60 + Number(sm);
-  const endMin = Number(eh) * 60 + Number(em);
-  const slotStart = hour * 60;
-  const slotEnd = (hour + 1) * 60;
-  return startMin < slotEnd && endMin > slotStart;
+const timeToMinutes = (t: string | null | undefined): number | null => {
+  if (!t) return null;
+  const [h, m = "0"] = t.split(":");
+  return Number(h) * 60 + Number(m);
 };
+
+// Two half-open intervals [aStart, aEnd) and [bStart, bEnd) overlap only if each
+// starts strictly before the other ends. Touching ends (back-to-back lessons)
+// do NOT count as overlapping.
+const intervalsOverlap = (
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number,
+): boolean => aStart < bEnd && bStart < aEnd;
 
 const hoursBetween = (
   startTime: string | null,
@@ -173,6 +185,8 @@ export function useInstructorMatrix(opts: {
           end_time: s.end_time,
           startHour: Number(s.start_time?.slice(0, 2) ?? 0),
           endHour: Number(s.end_time?.slice(0, 2) ?? 0),
+          startMin: timeToMinutes(s.start_time),
+          endMin: timeToMinutes(s.end_time),
           status: s.status,
           isTentative: s.isTentative,
           learnerId: s.learner_id,
@@ -219,36 +233,69 @@ export function useInstructorMatrix(opts: {
           const dayDate = addDays(weekStart, dayIdx);
           const daySchedules: MatrixSchedule[] = dateMap.get(header.date) ?? [];
 
-          let unavailableHours = 0;
-          let conflictCount = 0;
+          // Conflicts are detected from real time-overlap between lessons,
+          // independent of the display grid. Back-to-back lessons (e.g.
+          // 12:00–12:30 and 12:30–13:00) do NOT conflict; genuinely
+          // overlapping lessons do. conflictCount = number of lessons that
+          // clash with at least one other lesson that day.
+          const conflictIds = new Set<number>();
+          for (let i = 0; i < daySchedules.length; i++) {
+            const a = daySchedules[i];
+            if (a.startMin == null || a.endMin == null) continue;
+            for (let j = i + 1; j < daySchedules.length; j++) {
+              const b = daySchedules[j];
+              if (b.startMin == null || b.endMin == null) continue;
+              if (
+                intervalsOverlap(a.startMin, a.endMin, b.startMin, b.endMin)
+              ) {
+                conflictIds.add(a.id);
+                conflictIds.add(b.id);
+              }
+            }
+          }
+          const conflictCount = conflictIds.size;
+
+          let unavailableSlots = 0;
           const slots: MatrixSlot[] = [];
 
-          for (let h = MATRIX_DAY_START_HOUR; h < MATRIX_DAY_END_HOUR; h++) {
-            const overlapping = daySchedules.filter((sch) =>
-              overlapsHour(h, sch.start_time, sch.end_time),
+          // 30-minute slots across the working window (06:00–20:00).
+          for (
+            let m = MATRIX_DAY_START_MIN;
+            m < MATRIX_DAY_END_MIN;
+            m += MATRIX_SLOT_MINUTES
+          ) {
+            const slotEnd = m + MATRIX_SLOT_MINUTES;
+            const overlapping = daySchedules.filter(
+              (sch) =>
+                sch.startMin != null &&
+                sch.endMin != null &&
+                intervalsOverlap(m, slotEnd, sch.startMin, sch.endMin),
             );
             const unavailable = isTimeUnavailable(
               unavailability,
               dayDate,
-              h,
-              0,
+              Math.floor(m / 60),
+              m % 60,
             );
 
             let status: SlotStatus;
             if (overlapping.length > 1) {
               status = "conflict";
-              conflictCount += 1;
             } else if (overlapping.length === 1) {
               status = "booked";
             } else if (unavailable) {
               status = "unavailable";
-              unavailableHours += 1;
+              unavailableSlots += 1;
             } else {
               status = "free";
             }
 
-            slots.push({ hour: h, status, schedules: overlapping });
+            slots.push({ startMin: m, endMin: slotEnd, status, schedules: overlapping });
           }
+
+          // Each unavailable 30-min slot is half an hour of lost capacity.
+          const unavailableHours =
+            (unavailableSlots * MATRIX_SLOT_MINUTES) / 60;
 
           // Sum hours from schedules that may extend beyond [06,20] for booked total
           // but capacity uses the fixed working window.

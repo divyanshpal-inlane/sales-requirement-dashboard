@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
-  MATRIX_DAY_END_HOUR,
-  MATRIX_DAY_START_HOUR,
+  MATRIX_DAY_END_MIN,
+  MATRIX_DAY_START_MIN,
+  MATRIX_SLOT_MINUTES,
   MatrixRow,
   MatrixSchedule,
   MatrixSlot,
@@ -44,9 +45,16 @@ const slotBg: Record<MatrixSlot["status"], string> = {
   conflict: "bg-yellow-300 text-yellow-900 border-yellow-500",
 };
 
-function formatHour(h: number) {
-  const next = (h + 1) % 24;
-  return `${String(h).padStart(2, "0")}–${String(next).padStart(2, "0")}`;
+function formatSlotTime(min: number) {
+  const h = Math.floor(min / 60) % 24;
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function formatSlot(startMin: number) {
+  return `${formatSlotTime(startMin)}–${formatSlotTime(
+    startMin + MATRIX_SLOT_MINUTES,
+  )}`;
 }
 
 function SlotContent({ slot }: { slot: MatrixSlot }) {
@@ -115,9 +123,13 @@ function ScheduleDetail({ s }: { s: MatrixSchedule }) {
 
 export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
   const open = !!row;
-  const hours: number[] = [];
-  for (let h = MATRIX_DAY_START_HOUR; h < MATRIX_DAY_END_HOUR; h++)
-    hours.push(h);
+  const slotStarts: number[] = [];
+  for (
+    let m = MATRIX_DAY_START_MIN;
+    m < MATRIX_DAY_END_MIN;
+    m += MATRIX_SLOT_MINUTES
+  )
+    slotStarts.push(m);
 
   const utilizationPct =
     row && row.weekCapacityHours > 0
@@ -172,7 +184,7 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
               <div
                 className="grid gap-1 text-xs"
                 style={{
-                  gridTemplateColumns: `4rem repeat(7, minmax(0, 1fr))`,
+                  gridTemplateColumns: `5rem repeat(7, minmax(0, 1fr))`,
                 }}
               >
                 <div />
@@ -188,19 +200,19 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
                   </div>
                 ))}
 
-                {hours.map((h) => (
-                  <Fragment key={`row-${h}`}>
+                {slotStarts.map((m) => (
+                  <Fragment key={`row-${m}`}>
                     <div className="flex items-center justify-end pr-2 text-[10px] tabular-nums text-muted-foreground">
-                      {formatHour(h)}
+                      {formatSlot(m)}
                     </div>
                     {row.days.map((d) => {
-                      const slot = d.slots.find((s) => s.hour === h);
-                      if (!slot) return <div key={`${d.date}-${h}`} />;
+                      const slot = d.slots.find((s) => s.startMin === m);
+                      if (!slot) return <div key={`${d.date}-${m}`} />;
                       const cellInner = (
                         <button
                           type="button"
                           className={cn(
-                            "flex h-12 w-full items-start justify-start rounded border px-1 py-1 text-left transition-colors",
+                            "flex h-10 w-full items-start justify-start rounded border px-1 py-1 text-left transition-colors",
                             slotBg[slot.status],
                             slot.status === "booked" ||
                               slot.status === "conflict"
@@ -216,11 +228,11 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
                         slot.status !== "booked" &&
                         slot.status !== "conflict"
                       ) {
-                        return <div key={`${d.date}-${h}`}>{cellInner}</div>;
+                        return <div key={`${d.date}-${m}`}>{cellInner}</div>;
                       }
 
                       return (
-                        <Popover key={`${d.date}-${h}`}>
+                        <Popover key={`${d.date}-${m}`}>
                           <PopoverTrigger asChild>{cellInner}</PopoverTrigger>
                           <PopoverContent className="w-72">
                             <div className="space-y-3">
