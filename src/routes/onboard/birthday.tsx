@@ -1,9 +1,8 @@
-import { format, getMonth, getYear, setMonth, setYear } from "date-fns";
+import { getYear } from "date-fns";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -13,10 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useLearnerUpdate } from "@/queries/learner";
 
-const years = Array.from(
-  { length: 61 },
-  (_, i) => getYear(new Date()) - 60 + i,
-);
+const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const months = [
   "January",
@@ -33,34 +29,48 @@ const months = [
   "December",
 ];
 
+// Most recent year first so birthdays are quicker to reach.
+const years = Array.from({ length: 61 }, (_, i) => getYear(new Date()) - i);
+
 export default function Birthday() {
-  const [date, setDate] = useState<Date>();
-  const [currentDate, setCurrentDate] = useState(setYear(new Date(), 2010));
+  const [day, setDay] = useState<string>("");
+  const [month, setMonth] = useState<string>("");
+  const [year, setYear] = useState<string>("");
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
 
-  const handleYearChange = (year: string) => {
-    setCurrentDate(setYear(currentDate, parseInt(year)));
-  };
-
-  const handleMonthChange = (month: string) => {
-    setCurrentDate(setMonth(currentDate, months.indexOf(month)));
-  };
-
   const handleContinueClick = useCallback(() => {
-    if (!date) {
-      alert("Birthdate is required");
+    if (!day || !month || !year) {
+      alert("Please select your full date of birth");
       return;
     }
+
+    const dayNum = parseInt(day);
+    const monthIndex = months.indexOf(month);
+    const yearNum = parseInt(year);
+
+    // Guard against impossible dates (e.g. 31 Feb).
+    const candidate = new Date(yearNum, monthIndex, dayNum);
+    if (
+      candidate.getFullYear() !== yearNum ||
+      candidate.getMonth() !== monthIndex ||
+      candidate.getDate() !== dayNum
+    ) {
+      alert("That date doesn't exist. Please check the day and month.");
+      return;
+    }
+
+    const dob = `${yearNum}-${String(monthIndex + 1).padStart(2, "0")}-${String(
+      dayNum,
+    ).padStart(2, "0")}`;
+
     mutate(
-      {
-        dob: format(date, "yyyy-MM-dd"),
-      },
+      { dob },
       {
         onSuccess: () => navigate("/onboard/aadhar"),
       },
     );
-  }, [date, mutate, navigate]);
+  }, [day, month, year, mutate, navigate]);
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -77,50 +87,58 @@ export default function Birthday() {
           <p>We use this to check your eligibility to drive</p>
         </div>
       </div>
-      <div className="mt-8 flex grow flex-col justify-between bg-white p-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <Select
-              onValueChange={handleYearChange}
-              value={getYear(currentDate).toString()}
-            >
+
+      <div className="flex-1 overflow-y-auto bg-white p-6">
+        <div className="mt-4 flex items-start gap-3">
+          <div className="flex flex-1 flex-col gap-1">
+            <span className="text-sm text-muted-foreground">Day</span>
+            <Select value={day} onValueChange={setDay}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Year" />
+                <SelectValue placeholder="DD" />
               </SelectTrigger>
               <SelectContent>
-                {years.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              onValueChange={handleMonthChange}
-              value={months[getMonth(currentDate)]}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {months.map((month) => (
-                  <SelectItem key={month} value={month}>
-                    {month}
+                {days.map((d) => (
+                  <SelectItem key={d} value={d.toString()}>
+                    {d}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={setDate}
-            month={currentDate}
-            onMonthChange={setCurrentDate}
-            className="rounded-lg border border-border p-4"
-            initialFocus
-          />
+          <div className="flex flex-[1.4] flex-col gap-1">
+            <span className="text-sm text-muted-foreground">Month</span>
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="MM" />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-1 flex-col gap-1">
+            <span className="text-sm text-muted-foreground">Year</span>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="YYYY" />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((y) => (
+                  <SelectItem key={y} value={y.toString()}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+      </div>
+
+      <div className="sticky bottom-0 border-t bg-white p-4">
         <Button
           onClick={handleContinueClick}
           className="w-full"
