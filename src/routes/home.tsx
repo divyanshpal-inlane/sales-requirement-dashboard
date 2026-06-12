@@ -694,29 +694,17 @@ export default function Home() {
             </Button>
           </div>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() =>
-                    navigate(
-                      `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
-                    )
-                  }
-                  variant="secondary"
-                  className="w-full"
-                  disabled={scheduleRequests && scheduleRequests.length > 0}
-                >
-                  Reschedule Lesson
-                </Button>
-              </TooltipTrigger>
-              {scheduleRequests && scheduleRequests.length > 0 && (
-                <TooltipContent>
-                  <p>You have a pending reschedule request</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            onClick={() =>
+              navigate(
+                `/reschedule/${LessonData?.upcomingSchedule?.lesson_id}`,
+              )
+            }
+            variant="secondary"
+            className="w-full"
+          >
+            Reschedule Lesson
+          </Button>
           <h3
             className="cursor-pointer text-center text-sm text-black"
             onClick={() => setShowPolicyModal(true)}
@@ -962,18 +950,7 @@ export default function Home() {
           renderCourseCompletionPage()
         ) : (
           <>
-            {scheduleRequests &&
-            scheduleRequests.length > 0 &&
-            scheduleRequests.some((request) =>
-              request.lesson_ids.includes(LessonData.upcomingLesson?.id),
-            ) ? (
-              <>
-                <div className="mb-6">
-                  {renderUpcomingLessonReschedulePending()}
-                </div>
-                {renderScheduleCreationState()}
-              </>
-            ) : LessonData?.upcomingSchedule?.status?.toUpperCase() ===
+            {LessonData?.upcomingSchedule?.status?.toUpperCase() ===
               "PAUSED" ? (
               <div className="mb-6">{renderPausedLesson()}</div>
             ) : LessonData?.upcomingSchedule?.status === "pending_payment" ? (
