@@ -251,6 +251,65 @@ export function useLessonsDashboard(filters: LessonsDashboardFilters) {
         }
       }
 
+      // 3.5 Class number. The DB's Lesson.number is an unreliable per-course
+      //     template counter — it's only renumbered on some schedule-create
+      //     paths (skipped for reschedules, demo/top-up/virtual lessons, and
+      //     when there's no course) and drifts out of sync (commonly stuck at
+      //     1). Every other view (useLearnerSchedulesAdmin, the learner
+      //     schedule view) instead derives the class number from the
+      //     chronological position of the customer's schedules within a course.
+      //     Mirror that here.
+      //
+      //     This needs each customer's FULL history in the course, not just the
+      //     rows in the visible date range, so today's lesson can be ranked as
+      //     e.g. their 5th. Fetch all schedules for the on-screen learners and
+      //     number them per (learner, course) by date/time.
+      type HistoryRow = {
+        id: number;
+        learner_id: string | null;
+        course_id: string | null;
+        date: string;
+        start_time: string | null;
+      };
+      const classNumberBySchedule = new Map<number, number>();
+      if (uniqueLearnerIds.length > 0) {
+        const historyRows: HistoryRow[] = [];
+        for (let page = 0; ; page++) {
+          const start = page * PAGE_SIZE;
+          const { data, error: histErr } = await supabase
+            .from("Schedule")
+            .select("id, learner_id, course_id, date, start_time")
+            .in("learner_id", uniqueLearnerIds)
+            .order("date", { ascending: true })
+            .order("start_time", { ascending: true })
+            .order("id", { ascending: true }) // stable tiebreaker for paging
+            .range(start, start + PAGE_SIZE - 1);
+          if (histErr) throw histErr;
+          if (!data || data.length === 0) break;
+          historyRows.push(...(data as HistoryRow[]));
+          if (data.length < PAGE_SIZE) break;
+        }
+
+        // Group by (learner, course), sort chronologically, number 1..N — the
+        // same grouping useLearnerSchedulesAdmin uses.
+        const byLearnerCourse = new Map<string, HistoryRow[]>();
+        for (const r of historyRows) {
+          if (!r.learner_id) continue;
+          const key = `${r.learner_id}|${r.course_id ?? "none"}`;
+          const list = byLearnerCourse.get(key) ?? [];
+          list.push(r);
+          byLearnerCourse.set(key, list);
+        }
+        for (const list of byLearnerCourse.values()) {
+          list.sort(
+            (a, b) =>
+              new Date(`${a.date}T${a.start_time || "00:00:00"}`).getTime() -
+              new Date(`${b.date}T${b.start_time || "00:00:00"}`).getTime(),
+          );
+          list.forEach((r, i) => classNumberBySchedule.set(r.id, i + 1));
+        }
+      }
+
       // 4. Flatten into LessonRow list with all client-side filters applied.
       const kamMatchedInstructors = (
         kamByInstructor as unknown as { __matched?: Set<string> }
@@ -273,7 +332,10 @@ export function useLessonsDashboard(filters: LessonsDashboardFilters) {
           ? s.Instructor[0]
           : s.Instructor;
 
-        const classNumber = lesson?.number ?? null;
+        // Computed chronological position within the customer's course; fall
+        // back to the raw Lesson.number only when no computed value exists.
+        const classNumber =
+          classNumberBySchedule.get(s.id) ?? lesson?.number ?? null;
         if (classNumberSet) {
           if (classNumber == null || !classNumberSet.has(classNumber)) continue;
         }
