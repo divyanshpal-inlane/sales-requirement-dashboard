@@ -17,7 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { MatrixRow, useInstructorMatrix } from "@/queries/instructorMatrix";
+import {
+  buildInstructorMatrix,
+  MatrixRow,
+  useInstructorMatrix,
+} from "@/queries/instructorMatrix";
 import { UTILIZATION_LEGEND } from "@/utils/utilizationColor";
 
 const getMonday = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
@@ -27,10 +31,27 @@ export default function InstructorMatrix() {
   const [search, setSearch] = useState("");
   const [openRow, setOpenRow] = useState<MatrixRow | null>(null);
   const [hideOffDuty, setHideOffDuty] = useState(false);
+  // View A (default): tentative holds count as busy. View B: exclude them.
+  const [countTentative, setCountTentative] = useState(true);
 
-  const { data, isLoading, isFetching, refetch } = useInstructorMatrix({
+  const {
+    data: raw,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useInstructorMatrix({
     weekStart,
   });
+
+  // Recompute the matrix client-side when the tentative toggle flips — no
+  // re-fetch, since the raw data is view-independent.
+  const data = useMemo(
+    () =>
+      raw
+        ? buildInstructorMatrix(raw, { includeTentative: countTentative })
+        : undefined,
+    [raw, countTentative],
+  );
 
   const visibleRows = useMemo(() => {
     if (!data) return [] as MatrixRow[];
@@ -158,6 +179,19 @@ export default function InstructorMatrix() {
               />
               Hide off-duty
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={countTentative}
+                onChange={(e) => setCountTentative(e.target.checked)}
+              />
+              Count tentative as busy
+            </label>
+            {!countTentative && (
+              <span className="rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700">
+                Excluding tentative holds
+              </span>
+            )}
           </CardContent>
         </Card>
 

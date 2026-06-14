@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { addDays, format } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 
 import { supabase } from "@/lib/supabaseClient";
 import { isTimeUnavailable } from "@/utils/time";
@@ -16,7 +16,14 @@ export const MATRIX_DAY_END_MIN = MATRIX_DAY_END_HOUR * 60; // 20:00
 export const MATRIX_SLOTS_PER_DAY =
   (MATRIX_DAY_END_MIN - MATRIX_DAY_START_MIN) / MATRIX_SLOT_MINUTES; // 28
 
-export type SlotStatus = "free" | "booked" | "unavailable" | "conflict";
+export type SlotStatus =
+  | "free"
+  | "booked"
+  | "unavailable"
+  | "conflict"
+  // A tentative hold that is NOT being counted as busy (only occurs in the
+  // "exclude tentative" view). Held time shown faintly, but treated as free.
+  | "tentative";
 
 export type EnrollmentType = "course" | "demo" | "topup" | "tentative" | null;
 
@@ -42,7 +49,10 @@ export interface MatrixSlot {
   startMin: number; // minutes from midnight, start of the 30-min slot
   endMin: number; // minutes from midnight, end of the 30-min slot
   status: SlotStatus;
-  schedules: MatrixSchedule[]; // usually 0 or 1; >1 means conflict
+  schedules: MatrixSchedule[]; // counted schedules: usually 0 or 1; >1 means conflict
+  // Tentative holds overlapping this slot that are NOT counted in the current
+  // view (only populated in the "exclude tentative" view; empty otherwise).
+  tentativeSchedules: MatrixSchedule[];
 }
 
 export interface MatrixDay {
@@ -54,6 +64,9 @@ export interface MatrixDay {
   unavailableHours: number;
   capacityHours: number; // hours actually offered (working window − unavailable)
   conflictCount: number;
+  // Hours of tentative holds NOT counted in the current view (0 when tentative
+  // is being counted as busy).
+  tentativeHours: number;
 }
 
 export interface MatrixInstructor {
@@ -81,6 +94,30 @@ export interface InstructorMatrixData {
     capacityHours: number;
     conflictCount: number;
   };
+}
+
+// An enriched schedule plus the keys needed to regroup it by instructor/day.
+export interface MatrixRawSchedule extends MatrixSchedule {
+  instructorId: string;
+  date: string; // yyyy-MM-dd
+}
+
+export interface MatrixInstructorMeta {
+  id: string;
+  name: string;
+  phone: string | null;
+  unavailability: unknown[] | null;
+}
+
+// The raw, view-independent payload returned by the query. The expensive
+// per-instructor/day computation lives in buildInstructorMatrix() so the UI can
+// switch between counting / excluding tentative holds without re-fetching.
+export interface MatrixRawData {
+  from: string;
+  to: string;
+  dayHeaders: { date: string; weekday: string; dayOfMonth: number }[];
+  instructors: MatrixInstructorMeta[];
+  schedules: MatrixRawSchedule[];
 }
 
 const timeToMinutes = (t: string | null | undefined): number | null => {
@@ -119,7 +156,7 @@ export function useInstructorMatrix(opts: {
   const from = format(weekStart, "yyyy-MM-dd");
   const to = format(addDays(weekStart, 6), "yyyy-MM-dd");
 
-  return useQuery<InstructorMatrixData>({
+  return useQuery<MatrixRawData>({
     queryKey: ["instructor-matrix", from, to],
     enabled,
     queryFn: async () => {
@@ -130,7 +167,7 @@ export function useInstructorMatrix(opts: {
 
       if (instructorErr) throw instructorErr;
 
-      const instructors = (instructorRows ?? []).filter(
+      const instructorRowsEnabled = (instructorRows ?? []).filter(
         (i) => i.enabled !== false,
       );
 
@@ -145,12 +182,14 @@ export function useInstructorMatrix(opts: {
 
       if (scheduleErr) throw scheduleErr;
 
-      const schedules = scheduleRows ?? [];
+      const scheduleData = scheduleRows ?? [];
 
       // Enrollment lookup for booked learners — to tag course / demo / topup.
       const uniqueLearnerIds = Array.from(
         new Set(
-          schedules.map((s) => s.learner_id).filter((id): id is string => !!id),
+          scheduleData
+            .map((s) => s.learner_id)
+            .filter((id): id is string => !!id),
         ),
       );
 
@@ -173,13 +212,16 @@ export function useInstructorMatrix(opts: {
         }
       }
 
-      // Group schedules: instructor_id -> date -> list
-      const byInstrDate = new Map<string, Map<string, MatrixSchedule[]>>();
-      for (const s of schedules) {
+      // Enrich + tag each schedule with its instructor/day so the builder can
+      // regroup. View-independent — the tentative toggle is applied later.
+      const schedules: MatrixRawSchedule[] = [];
+      for (const s of scheduleData) {
         if (!s.instructor_id) continue;
         const learner = Array.isArray(s.Learner) ? s.Learner[0] : s.Learner;
         const lesson = Array.isArray(s.Lesson) ? s.Lesson[0] : s.Lesson;
-        const enriched: MatrixSchedule = {
+        schedules.push({
+          instructorId: s.instructor_id,
+          date: s.date,
           id: s.id,
           start_time: s.start_time,
           end_time: s.end_time,
@@ -199,14 +241,7 @@ export function useInstructorMatrix(opts: {
             : s.learner_id
               ? (enrollmentTypeByLearner.get(s.learner_id) ?? null)
               : null,
-        };
-
-        if (!byInstrDate.has(s.instructor_id)) {
-          byInstrDate.set(s.instructor_id, new Map());
-        }
-        const dateMap = byInstrDate.get(s.instructor_id)!;
-        if (!dateMap.has(s.date)) dateMap.set(s.date, []);
-        dateMap.get(s.date)!.push(enriched);
+        });
       }
 
       // Build day headers
@@ -219,148 +254,209 @@ export function useInstructorMatrix(opts: {
         };
       });
 
-      // Build rows
-      const rows: MatrixRow[] = instructors.map((instr) => {
-        const unavailability = Array.isArray(instr.unavailability)
-          ? (instr.unavailability as unknown[])
-          : null;
-        const dateMap = byInstrDate.get(instr.id_instructor) ?? new Map();
-        let weekBookedHours = 0;
-        let weekCapacityHours = 0;
-        let weekConflictCount = 0;
-
-        const days: MatrixDay[] = dayHeaders.map((header, dayIdx) => {
-          const dayDate = addDays(weekStart, dayIdx);
-          const daySchedules: MatrixSchedule[] = dateMap.get(header.date) ?? [];
-
-          // Conflicts are detected from real time-overlap between lessons,
-          // independent of the display grid. Back-to-back lessons (e.g.
-          // 12:00–12:30 and 12:30–13:00) do NOT conflict; genuinely
-          // overlapping lessons do. conflictCount = number of lessons that
-          // clash with at least one other lesson that day.
-          const conflictIds = new Set<number>();
-          for (let i = 0; i < daySchedules.length; i++) {
-            const a = daySchedules[i];
-            if (a.startMin == null || a.endMin == null) continue;
-            for (let j = i + 1; j < daySchedules.length; j++) {
-              const b = daySchedules[j];
-              if (b.startMin == null || b.endMin == null) continue;
-              if (
-                intervalsOverlap(a.startMin, a.endMin, b.startMin, b.endMin)
-              ) {
-                conflictIds.add(a.id);
-                conflictIds.add(b.id);
-              }
-            }
-          }
-          const conflictCount = conflictIds.size;
-
-          let unavailableSlots = 0;
-          const slots: MatrixSlot[] = [];
-
-          // 30-minute slots across the working window (06:00–20:00).
-          for (
-            let m = MATRIX_DAY_START_MIN;
-            m < MATRIX_DAY_END_MIN;
-            m += MATRIX_SLOT_MINUTES
-          ) {
-            const slotEnd = m + MATRIX_SLOT_MINUTES;
-            const overlapping = daySchedules.filter(
-              (sch) =>
-                sch.startMin != null &&
-                sch.endMin != null &&
-                intervalsOverlap(m, slotEnd, sch.startMin, sch.endMin),
-            );
-            const unavailable = isTimeUnavailable(
-              unavailability,
-              dayDate,
-              Math.floor(m / 60),
-              m % 60,
-            );
-
-            let status: SlotStatus;
-            if (overlapping.length > 1) {
-              status = "conflict";
-            } else if (overlapping.length === 1) {
-              status = "booked";
-            } else if (unavailable) {
-              status = "unavailable";
-              unavailableSlots += 1;
-            } else {
-              status = "free";
-            }
-
-            slots.push({ startMin: m, endMin: slotEnd, status, schedules: overlapping });
-          }
-
-          // Each unavailable 30-min slot is half an hour of lost capacity.
-          const unavailableHours =
-            (unavailableSlots * MATRIX_SLOT_MINUTES) / 60;
-
-          // Sum hours from schedules that may extend beyond [06,20] for booked total
-          // but capacity uses the fixed working window.
-          const capacityHours = Math.max(
-            0,
-            MATRIX_HOURS_PER_DAY - unavailableHours,
-          );
-
-          // Use schedule durations for a more accurate booked-hours count when
-          // schedules don't align to the hour grid.
-          const exactBookedHours = daySchedules.reduce(
-            (sum, s) =>
-              sum +
-              Math.min(
-                MATRIX_HOURS_PER_DAY,
-                hoursBetween(s.start_time, s.end_time),
-              ),
-            0,
-          );
-
-          weekBookedHours += exactBookedHours;
-          weekCapacityHours += capacityHours;
-          weekConflictCount += conflictCount;
-
-          return {
-            date: header.date,
-            weekday: header.weekday,
-            dayOfMonth: header.dayOfMonth,
-            slots,
-            bookedHours: exactBookedHours,
-            unavailableHours,
-            capacityHours,
-            conflictCount,
-          };
-        });
-
-        return {
-          instructor: {
-            id: instr.id_instructor,
-            name: instr.name ?? "(unnamed)",
-            phone: instr.phone,
-          },
-          days,
-          weekBookedHours,
-          weekCapacityHours,
-          weekConflictCount,
-        };
-      });
-
-      const totals = rows.reduce(
-        (acc, r) => ({
-          instructorCount: acc.instructorCount + 1,
-          bookedHours: acc.bookedHours + r.weekBookedHours,
-          capacityHours: acc.capacityHours + r.weekCapacityHours,
-          conflictCount: acc.conflictCount + r.weekConflictCount,
+      const instructors: MatrixInstructorMeta[] = instructorRowsEnabled.map(
+        (instr) => ({
+          id: instr.id_instructor,
+          name: instr.name ?? "(unnamed)",
+          phone: instr.phone,
+          unavailability: Array.isArray(instr.unavailability)
+            ? (instr.unavailability as unknown[])
+            : null,
         }),
-        {
-          instructorCount: 0,
-          bookedHours: 0,
-          capacityHours: 0,
-          conflictCount: 0,
-        },
       );
 
-      return { from, to, dayHeaders, rows, totals };
+      return { from, to, dayHeaders, instructors, schedules };
     },
   });
+}
+
+// Pure computation of the matrix from the raw fetched data. Keeping this out of
+// the query lets the UI flip between "count tentative as busy" (View A) and
+// "exclude tentative" (View B) instantly, with no re-fetch.
+//
+// View A (includeTentative=true): tentative holds count exactly like confirmed
+//   bookings — block time, count toward conflicts and booked hours.
+// View B (includeTentative=false): tentative holds are excluded from conflicts,
+//   booked hours, and blocking, but kept aside (slot.tentativeSchedules /
+//   day.tentativeHours / "tentative" slot status) so they can be shown faintly.
+export function buildInstructorMatrix(
+  raw: MatrixRawData,
+  opts: { includeTentative: boolean },
+): InstructorMatrixData {
+  const { includeTentative } = opts;
+  const { from, to, dayHeaders, instructors, schedules } = raw;
+
+  // Group schedules: instructorId -> date -> list
+  const byInstrDate = new Map<string, Map<string, MatrixRawSchedule[]>>();
+  for (const s of schedules) {
+    if (!byInstrDate.has(s.instructorId)) {
+      byInstrDate.set(s.instructorId, new Map());
+    }
+    const dateMap = byInstrDate.get(s.instructorId)!;
+    if (!dateMap.has(s.date)) dateMap.set(s.date, []);
+    dateMap.get(s.date)!.push(s);
+  }
+
+  const rows: MatrixRow[] = instructors.map((instr) => {
+    const unavailability = instr.unavailability;
+    const dateMap =
+      byInstrDate.get(instr.id) ?? new Map<string, MatrixRawSchedule[]>();
+    let weekBookedHours = 0;
+    let weekCapacityHours = 0;
+    let weekConflictCount = 0;
+
+    const days: MatrixDay[] = dayHeaders.map((header) => {
+      const dayDate = parseISO(header.date);
+      const allDaySchedules: MatrixRawSchedule[] =
+        dateMap.get(header.date) ?? [];
+
+      // Split into the schedules that count as busy and the tentative holds set
+      // aside for display-only when excluding tentative.
+      const counting = includeTentative
+        ? allDaySchedules
+        : allDaySchedules.filter((s) => !s.isTentative);
+      const tentativeAside = includeTentative
+        ? []
+        : allDaySchedules.filter((s) => s.isTentative);
+
+      // Conflicts are detected from real time-overlap between counted lessons,
+      // independent of the display grid. Back-to-back lessons (e.g.
+      // 12:00–12:30 and 12:30–13:00) do NOT conflict; genuinely overlapping
+      // lessons do. conflictCount = number of lessons that clash with at least
+      // one other counted lesson that day.
+      const conflictIds = new Set<number>();
+      for (let i = 0; i < counting.length; i++) {
+        const a = counting[i];
+        if (a.startMin == null || a.endMin == null) continue;
+        for (let j = i + 1; j < counting.length; j++) {
+          const b = counting[j];
+          if (b.startMin == null || b.endMin == null) continue;
+          if (intervalsOverlap(a.startMin, a.endMin, b.startMin, b.endMin)) {
+            conflictIds.add(a.id);
+            conflictIds.add(b.id);
+          }
+        }
+      }
+      const conflictCount = conflictIds.size;
+
+      let unavailableSlots = 0;
+      const slots: MatrixSlot[] = [];
+
+      // 30-minute slots across the working window (06:00–20:00).
+      for (
+        let m = MATRIX_DAY_START_MIN;
+        m < MATRIX_DAY_END_MIN;
+        m += MATRIX_SLOT_MINUTES
+      ) {
+        const slotEnd = m + MATRIX_SLOT_MINUTES;
+        const overlaps = (sch: MatrixRawSchedule) =>
+          sch.startMin != null &&
+          sch.endMin != null &&
+          intervalsOverlap(m, slotEnd, sch.startMin, sch.endMin);
+        const countingOverlap = counting.filter(overlaps);
+        const tentativeOverlap = tentativeAside.filter(overlaps);
+        const unavailable = isTimeUnavailable(
+          unavailability,
+          dayDate,
+          Math.floor(m / 60),
+          m % 60,
+        );
+
+        let status: SlotStatus;
+        if (countingOverlap.length > 1) {
+          status = "conflict";
+        } else if (countingOverlap.length === 1) {
+          status = "booked";
+        } else if (tentativeOverlap.length >= 1) {
+          // Only reachable in View B: held tentatively, but not counted busy.
+          status = "tentative";
+        } else if (unavailable) {
+          status = "unavailable";
+          unavailableSlots += 1;
+        } else {
+          status = "free";
+        }
+
+        slots.push({
+          startMin: m,
+          endMin: slotEnd,
+          status,
+          schedules: countingOverlap,
+          tentativeSchedules: tentativeOverlap,
+        });
+      }
+
+      // Each unavailable 30-min slot is half an hour of lost capacity.
+      const unavailableHours = (unavailableSlots * MATRIX_SLOT_MINUTES) / 60;
+
+      // Capacity uses the fixed working window minus unavailability.
+      const capacityHours = Math.max(
+        0,
+        MATRIX_HOURS_PER_DAY - unavailableHours,
+      );
+
+      // Use schedule durations for a more accurate booked-hours count when
+      // schedules don't align to the hour grid. Tentative holds only contribute
+      // when they're being counted as busy.
+      const exactBookedHours = counting.reduce(
+        (sum, s) =>
+          sum +
+          Math.min(
+            MATRIX_HOURS_PER_DAY,
+            hoursBetween(s.start_time, s.end_time),
+          ),
+        0,
+      );
+      const tentativeHours = tentativeAside.reduce(
+        (sum, s) =>
+          sum +
+          Math.min(
+            MATRIX_HOURS_PER_DAY,
+            hoursBetween(s.start_time, s.end_time),
+          ),
+        0,
+      );
+
+      weekBookedHours += exactBookedHours;
+      weekCapacityHours += capacityHours;
+      weekConflictCount += conflictCount;
+
+      return {
+        date: header.date,
+        weekday: header.weekday,
+        dayOfMonth: header.dayOfMonth,
+        slots,
+        bookedHours: exactBookedHours,
+        unavailableHours,
+        capacityHours,
+        conflictCount,
+        tentativeHours,
+      };
+    });
+
+    return {
+      instructor: { id: instr.id, name: instr.name, phone: instr.phone },
+      days,
+      weekBookedHours,
+      weekCapacityHours,
+      weekConflictCount,
+    };
+  });
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      instructorCount: acc.instructorCount + 1,
+      bookedHours: acc.bookedHours + r.weekBookedHours,
+      capacityHours: acc.capacityHours + r.weekCapacityHours,
+      conflictCount: acc.conflictCount + r.weekConflictCount,
+    }),
+    {
+      instructorCount: 0,
+      bookedHours: 0,
+      capacityHours: 0,
+      conflictCount: 0,
+    },
+  );
+
+  return { from, to, dayHeaders, rows, totals };
 }

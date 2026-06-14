@@ -43,6 +43,9 @@ const slotBg: Record<MatrixSlot["status"], string> = {
   booked: "bg-red-200 text-red-900 border-red-300",
   unavailable: "bg-gray-200 text-gray-600 border-gray-300",
   conflict: "bg-yellow-300 text-yellow-900 border-yellow-500",
+  // Tentatively held but not counted as busy (exclude-tentative view) — faint
+  // so the slot still reads as effectively free.
+  tentative: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
 function formatSlotTime(min: number) {
@@ -62,6 +65,17 @@ function SlotContent({ slot }: { slot: MatrixSlot }) {
     return <span className="text-[10px] italic">free</span>;
   if (slot.status === "unavailable")
     return <span className="text-[10px]">unavail</span>;
+  if (slot.status === "tentative") {
+    const t = slot.tentativeSchedules[0];
+    return (
+      <div className="flex flex-col items-start leading-tight">
+        <span className="truncate text-[11px] font-medium">
+          {t?.learnerName ?? "Tentative"}
+        </span>
+        <span className="text-[10px] opacity-75">tentative · not counted</span>
+      </div>
+    );
+  }
   const s = slot.schedules[0];
   if (!s) return <span className="text-[10px]">—</span>;
   return (
@@ -208,14 +222,20 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
                     {row.days.map((d) => {
                       const slot = d.slots.find((s) => s.startMin === m);
                       if (!slot) return <div key={`${d.date}-${m}`} />;
+                      // Clickable when there's a counted booking/conflict or any
+                      // tentative hold to surface.
+                      const hasDetail =
+                        slot.status === "booked" ||
+                        slot.status === "conflict" ||
+                        slot.status === "tentative" ||
+                        slot.tentativeSchedules.length > 0;
                       const cellInner = (
                         <button
                           type="button"
                           className={cn(
                             "flex h-10 w-full items-start justify-start rounded border px-1 py-1 text-left transition-colors",
                             slotBg[slot.status],
-                            slot.status === "booked" ||
-                              slot.status === "conflict"
+                            hasDetail
                               ? "hover:brightness-95"
                               : "cursor-default",
                           )}
@@ -224,10 +244,7 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
                         </button>
                       );
 
-                      if (
-                        slot.status !== "booked" &&
-                        slot.status !== "conflict"
-                      ) {
+                      if (!hasDetail) {
                         return <div key={`${d.date}-${m}`}>{cellInner}</div>;
                       }
 
@@ -239,6 +256,16 @@ export function InstructorMatrixDrawer({ row, onOpenChange }: Props) {
                               {slot.schedules.map((s) => (
                                 <ScheduleDetail key={s.id} s={s} />
                               ))}
+                              {slot.tentativeSchedules.length > 0 && (
+                                <div className="space-y-3 border-t pt-3">
+                                  <div className="text-[10px] font-medium uppercase tracking-wide text-purple-700">
+                                    Tentative · not counted in this view
+                                  </div>
+                                  {slot.tentativeSchedules.map((s) => (
+                                    <ScheduleDetail key={s.id} s={s} />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </PopoverContent>
                         </Popover>

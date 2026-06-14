@@ -48,7 +48,7 @@ export function InstructorMatrixCell({ day, onClick }: Props) {
       onClick={onClick}
       title={`${day.weekday} ${day.dayOfMonth} — ${style.label}`}
       className={cn(
-        "flex h-14 w-full flex-col items-center justify-center gap-0.5 rounded border px-1 transition-all hover:scale-[1.03] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
+        "relative flex h-14 w-full flex-col items-center justify-center gap-0.5 rounded border px-1 transition-all hover:scale-[1.03] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
         style.bg,
         style.text,
         style.border,
@@ -56,6 +56,12 @@ export function InstructorMatrixCell({ day, onClick }: Props) {
     >
       {style.bucket === "overbooked" && (
         <AlertTriangle className="absolute h-3 w-3" />
+      )}
+      {day.tentativeHours > 0 && (
+        <span
+          className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-purple-400"
+          title={`${day.tentativeHours.toFixed(1)}h tentative (not counted)`}
+        />
       )}
       {inner}
     </button>
