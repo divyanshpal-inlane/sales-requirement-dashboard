@@ -671,23 +671,47 @@ export function useLearnerEnrollment({ learnerId }: { learnerId?: string }) {
 // ==================== ADMIN ISSUE FIXER QUERIES ====================
 
 // Fetch all learners with their enrollment and payment data for issue diagnosis
+// Handles pagination internally to get all records beyond 1000 limit
 export function useLearnersWithIssues() {
   return useQuery({
     queryKey: ["learners-with-issues"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Learner")
-        .select(
-          `
-          *,
-          enrollment (*, Courses(*)),
-          payment (*)
-        `,
-        )
-        .order("created_at", { ascending: false });
+      let allLearners: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data;
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error } = await supabase
+          .from("Learner")
+          .select(
+            `
+            *,
+            enrollment (*, Courses(*)),
+            payment (*)
+          `,
+          )
+          .order("created_at", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allLearners = allLearners.concat(data);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+      }
+
+      return allLearners;
     },
   });
 }

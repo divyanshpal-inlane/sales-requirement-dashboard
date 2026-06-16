@@ -91,7 +91,41 @@ export function useSchedulingRequests() {
 
       if (learnersError) throw learnersError;
       if (!learners) return [];
-      return learners;
+
+      // Filter out learners who already have schedules created
+      // This prevents already-scheduled learners from appearing in the "New Schedules" tab
+      if (learners.length === 0) return [];
+
+      const learnerIds = learners
+        .map((r) => r.learner_id)
+        .filter((id): id is string => !!id);
+
+      if (learnerIds.length === 0) return [];
+
+      // Check which learners already have schedules
+      const { data: existingSchedules, error: scheduleError } = await supabase
+        .from("Schedule")
+        .select("learner_id")
+        .in("learner_id", learnerIds)
+        .neq("status", "paused"); // Exclude paused schedules
+
+      if (scheduleError) {
+        console.error("Error checking existing schedules:", scheduleError);
+        // If query fails, return all pending requests to be safe
+        return learners;
+      }
+
+      // Get unique learner IDs that already have schedules
+      const scheduledLearnerIds = new Set(
+        (existingSchedules || []).map((s) => s.learner_id),
+      );
+
+      // Filter out learners who already have schedules
+      const filteredLearners = learners.filter(
+        (request) => !scheduledLearnerIds.has(request.learner_id),
+      );
+
+      return filteredLearners;
     },
     staleTime: 30 * 1000,
   });
