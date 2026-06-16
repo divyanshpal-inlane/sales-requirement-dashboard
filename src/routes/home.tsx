@@ -140,6 +140,11 @@ export default function Home() {
   const isCompleted =
     completedPayment && completedPayment?.status === "completed";
 
+  // Check if user has half or full payment via enrollment
+  const hasHalfOrFullPayment =
+    enrolledCourse?.payment_status === "half_paid" ||
+    enrolledCourse?.payment_status === "full_paid";
+
   if (paymentLoading || isLoading) {
     return <div>Loading...</div>;
   }
@@ -149,8 +154,8 @@ export default function Home() {
     return <Navigate to="/onboard/birthday" />;
   }
 
-  // THEN: Check if payment is complete
-  if (!completedPayment && !isCompleted) {
+  // THEN: Check if payment is complete or half/full paid via enrollment
+  if (!isCompleted && !hasHalfOrFullPayment) {
     return (
       <div className="container mx-auto max-w-md py-8">
         <PaymentStatusCard />
