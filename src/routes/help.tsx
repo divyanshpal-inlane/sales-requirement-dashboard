@@ -1,17 +1,22 @@
 import { HelpCircle, Mail, MessageCircle, Phone } from "lucide-react";
 
+// Support contact details
+const SUPPORT_PHONE_DISPLAY = "07316914676"; // shown to the user (with national 0 prefix)
+const SUPPORT_PHONE_TEL = "+917316914676"; // tel: link (E.164, no leading 0)
+const SUPPORT_PHONE_WHATSAPP = "917316914676"; // wa.me requires country code, no leading 0
+const SUPPORT_EMAIL = "support@inlane.in";
+
 export default function HelpSupport() {
-  const CUST_SUPPORT_PHONE = import.meta.env.VITE_CUST_SUPPORT_PHONE;
   const handleCall = () => {
-    window.location.href = "tel:+91" + CUST_SUPPORT_PHONE;
+    window.location.href = "tel:" + SUPPORT_PHONE_TEL;
   };
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/" + CUST_SUPPORT_PHONE, "_blank");
+    window.open("https://wa.me/" + SUPPORT_PHONE_WHATSAPP, "_blank");
   };
 
   const handleEmail = () => {
-    window.location.href = "mailto:team@inlane.in";
+    window.location.href = "mailto:" + SUPPORT_EMAIL;
   };
 
   return (
@@ -37,7 +42,7 @@ export default function HelpSupport() {
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">Call Us</span>
                   <span className="text-base opacity-90">
-                    +91 {CUST_SUPPORT_PHONE}
+                    {SUPPORT_PHONE_DISPLAY}
                   </span>
                 </div>
               </button>
@@ -49,7 +54,9 @@ export default function HelpSupport() {
                 <MessageCircle size={24} />
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">WhatsApp</span>
-                  <span className="text-base opacity-70">Quick support</span>
+                  <span className="text-base opacity-70">
+                    {SUPPORT_PHONE_DISPLAY}
+                  </span>
                 </div>
               </button>
 
@@ -60,7 +67,7 @@ export default function HelpSupport() {
                 <Mail size={24} />
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">Email Support</span>
-                  <span className="text-base opacity-70">team@inlane.in</span>
+                  <span className="text-base opacity-70">{SUPPORT_EMAIL}</span>
                 </div>
               </button>
             </div>

@@ -246,7 +246,7 @@ function PreferenceSelector({
             {/* Fixed time slots column */}
             <div className="relative z-10 bg-white">
               <div className="h-8" /> {/* Space for day headers */}
-              <div className="mt-10 space-y-3">
+              <div className="mt-4 space-y-3">
                 {TIME_SLOTS.map((slot) => (
                   <div
                     key={slot}
@@ -262,8 +262,8 @@ function PreferenceSelector({
             <div className="relative overflow-hidden pr-8">
               <ScrollArea className="h-full w-full">
                 <div className="min-w-[700px]">
-                  {/* Day headers */}
-                  <div className="grid grid-cols-7 gap-6">
+                  {/* Day headers — fixed height to match the left label column's spacer */}
+                  <div className="grid h-8 grid-cols-7 items-center gap-6">
                     {DAYS_OF_WEEK.map((day) => (
                       <div key={day} className="text-sm font-medium">
                         {day}
