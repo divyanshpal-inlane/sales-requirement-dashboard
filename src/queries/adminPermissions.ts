@@ -54,6 +54,13 @@ export const ADMIN_PERMISSIONS = {
       "Create and delete Key Account Managers; assign instructors to them",
     route: "/admin/kam-management",
   },
+  instructor_earnings: {
+    key: "instructor_earnings",
+    label: "Instructor Earnings",
+    description:
+      "Per-class rates, targets, payouts, adjustments, and earning programs",
+    route: "/admin/instructor-earnings",
+  },
   lessons_dashboard: {
     key: "lessons_dashboard",
     label: "Lessons Dashboard",
