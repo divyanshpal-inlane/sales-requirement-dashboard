@@ -32,6 +32,7 @@ import {
   Save,
   Unlink,
   User,
+  Wallet,
   X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -1442,6 +1443,16 @@ function Instructor() {
                   Create Event
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/instructor/earnings")}
+                className="flex items-center gap-1 text-xs"
+              >
+                <Wallet className="h-3 w-3" />
+                Earnings
+              </Button>
 
               <button
                 onClick={handleProfileClick}

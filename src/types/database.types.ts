@@ -9,6 +9,237 @@
 export type Database = {
   public: {
     Tables: {
+      earning_config: {
+        Row: {
+          id: number;
+          default_per_class_rate: number;
+          default_monthly_target: number;
+          payout_day: string;
+          leaderboard_top_n: number;
+          leaderboard_bonus_amount: number;
+          tip_copy: string | null;
+          availability_message_template: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          default_per_class_rate?: number;
+          default_monthly_target?: number;
+          payout_day?: string;
+          leaderboard_top_n?: number;
+          leaderboard_bonus_amount?: number;
+          tip_copy?: string | null;
+          availability_message_template?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          default_per_class_rate?: number;
+          default_monthly_target?: number;
+          payout_day?: string;
+          leaderboard_top_n?: number;
+          leaderboard_bonus_amount?: number;
+          tip_copy?: string | null;
+          availability_message_template?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      instructor_earning_settings: {
+        Row: {
+          instructor_id: string;
+          per_class_rate: number | null;
+          monthly_class_target: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          instructor_id: string;
+          per_class_rate?: number | null;
+          monthly_class_target?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          instructor_id?: string;
+          per_class_rate?: number | null;
+          monthly_class_target?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      earning_program: {
+        Row: {
+          id: string;
+          key: string;
+          title: string;
+          description: string | null;
+          amount_label: string | null;
+          status_pill: string;
+          cta_label: string | null;
+          cta_url: string | null;
+          icon_bg: string | null;
+          is_active: boolean;
+          sort_order: number;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          title: string;
+          description?: string | null;
+          amount_label?: string | null;
+          status_pill?: string;
+          cta_label?: string | null;
+          cta_url?: string | null;
+          icon_bg?: string | null;
+          is_active?: boolean;
+          sort_order?: number;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          key?: string;
+          title?: string;
+          description?: string | null;
+          amount_label?: string | null;
+          status_pill?: string;
+          cta_label?: string | null;
+          cta_url?: string | null;
+          icon_bg?: string | null;
+          is_active?: boolean;
+          sort_order?: number;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      instructor_payout: {
+        Row: {
+          id: string;
+          instructor_id: string;
+          period_start: string;
+          period_end: string;
+          classes_count: number;
+          per_class_rate: number;
+          gross_amount: number;
+          adjustments_total: number;
+          net_amount: number;
+          status: string;
+          payout_date: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          instructor_id: string;
+          period_start: string;
+          period_end: string;
+          classes_count?: number;
+          per_class_rate?: number;
+          gross_amount?: number;
+          adjustments_total?: number;
+          net_amount?: number;
+          status?: string;
+          payout_date?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          instructor_id?: string;
+          period_start?: string;
+          period_end?: string;
+          classes_count?: number;
+          per_class_rate?: number;
+          gross_amount?: number;
+          adjustments_total?: number;
+          net_amount?: number;
+          status?: string;
+          payout_date?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      instructor_earning_adjustment: {
+        Row: {
+          id: string;
+          instructor_id: string;
+          payout_id: string | null;
+          type: string;
+          amount: number;
+          reason: string | null;
+          effective_date: string;
+          created_by: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          instructor_id: string;
+          payout_id?: string | null;
+          type?: string;
+          amount: number;
+          reason?: string | null;
+          effective_date: string;
+          created_by?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          instructor_id?: string;
+          payout_id?: string | null;
+          type?: string;
+          amount?: number;
+          reason?: string | null;
+          effective_date?: string;
+          created_by?: string | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+      KAM: {
+        Row: {
+          id: string;
+          name: string;
+          phone: string | null;
+          email: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          phone?: string | null;
+          email?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          phone?: string | null;
+          email?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      kam_instructor: {
+        Row: {
+          kam_id: string;
+          instructor_id: string;
+          assigned_at: string | null;
+        };
+        Insert: {
+          kam_id: string;
+          instructor_id: string;
+          assigned_at?: string | null;
+        };
+        Update: {
+          kam_id?: string;
+          instructor_id?: string;
+          assigned_at?: string | null;
+        };
+        Relationships: [];
+      };
       Admin: {
         Row: {
           created_at: string | null;

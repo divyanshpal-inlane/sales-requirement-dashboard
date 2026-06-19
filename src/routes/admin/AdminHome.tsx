@@ -20,6 +20,7 @@ import {
   Upload,
   UserPlus,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -118,6 +119,13 @@ const featureConfig: Record<
     icon: Handshake,
     link: "/admin/kam-management",
     color: "text-amber-500",
+  },
+  instructor_earnings: {
+    title: "Instructor Earnings",
+    description: "Rates, targets, payouts, adjustments, and earning programs",
+    icon: Wallet,
+    link: "/admin/instructor-earnings",
+    color: "text-green-600",
   },
   lessons_dashboard: {
     title: "Lessons Dashboard",

@@ -11,6 +11,9 @@ import {
 } from "react-router-dom";
 
 import Instructor from "@/app/instructor/Instructor";
+import EarningsComparison from "@/app/instructor/earnings/EarningsComparison";
+import EarningsHome from "@/app/instructor/earnings/EarningsHome";
+import MoreWaysToEarn from "@/app/instructor/earnings/MoreWaysToEarn";
 import InstructorProfile from "@/app/instructor/InstructorProfile";
 import OTP from "@/app/instructor/OTP";
 import LessonReview from "@/app/LessonReview";
@@ -36,6 +39,7 @@ import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import UserManagement from "@/routes/admin/UserManagement";
+import InstructorEarnings from "@/routes/admin/InstructorEarnings";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorMatrix from "@/routes/admin/InstructorMatrix";
 import InstructorsManagement, {
@@ -214,6 +218,30 @@ export default function App() {
               }
             />
             <Route
+              path="/instructor/earnings"
+              element={
+                <ProtectedInstructorRoute>
+                  <EarningsHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/earnings/more"
+              element={
+                <ProtectedInstructorRoute>
+                  <MoreWaysToEarn />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/earnings/compare"
+              element={
+                <ProtectedInstructorRoute>
+                  <EarningsComparison />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
               path="/otp/start/:learnerId/:scheduleId"
               element={
                 <ProtectedInstructorRoute>
@@ -249,6 +277,10 @@ export default function App() {
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructor-matrix" element={<InstructorMatrix />} />
+              <Route
+                path="instructor-earnings"
+                element={<InstructorEarnings />}
+              />
               <Route path="kam-management" element={<KAMManagement />} />
               <Route path="lessons-dashboard" element={<LessonsDashboard />} />
               <Route path="instructors" element={<InstructorsManagement />} />
