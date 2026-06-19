@@ -26,6 +26,8 @@ import {
   Form14Data,
   generateForm14PDF,
 } from "@/utils/generateForm14";
+import { Form5CertificateData, generateForm5PDF } from "@/utils/generateForm5";
+import { Form15Data, generateForm15PDF } from "@/utils/generateForm15";
 
 interface LearnerForForm14 {
   id: string;
@@ -58,7 +60,11 @@ export default function Form14Generator({
   onClose,
 }: Form14GeneratorProps) {
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generating, setGenerating] = useState<null | "14" | "15" | "5">(null);
+  const isGenerating = generating !== null;
+
+  const safeName = () =>
+    (learner.name || "learner").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
 
   // Build address from available fields
   const buildAddress = () => {
@@ -113,7 +119,7 @@ export default function Form14Generator({
       return;
     }
 
-    setIsGenerating(true);
+    setGenerating("14");
     try {
       const data: Form14Data = {
         enrollmentNumber: formData.enrollmentNumber,
@@ -139,10 +145,7 @@ export default function Form14Generator({
       };
 
       const pdfBytes = await generateForm14PDF(data);
-      const safeName = (learner.name || "learner")
-        .replace(/[^a-zA-Z0-9]/g, "_")
-        .toLowerCase();
-      downloadPDF(pdfBytes, `Form14_${safeName}.pdf`);
+      downloadPDF(pdfBytes, `Form14_${safeName()}.pdf`);
 
       toast({
         title: "Success",
@@ -160,7 +163,92 @@ export default function Form14Generator({
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      setGenerating(null);
+    }
+  };
+
+  const handleGenerateForm15 = async () => {
+    if (!formData.name) {
+      toast({
+        title: "Error",
+        description: "Learner name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    setGenerating("15");
+    try {
+      const data: Form15Data = {
+        schoolName: "LANE MOTOR DRIVING TRAINING SCHOOL",
+        traineeName: formData.name,
+        enrollmentNumber: formData.enrollmentNumber,
+        enrollmentDate: formData.enrollmentDate,
+      };
+      const pdfBytes = await generateForm15PDF(data);
+      downloadPDF(pdfBytes, `Form15_${safeName()}.pdf`);
+      toast({
+        title: "Success",
+        description: "Form-15 PDF downloaded successfully!",
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error generating Form-15:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate Form-15 PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(null);
+    }
+  };
+
+  const handleGenerateForm5 = async () => {
+    if (!formData.name) {
+      toast({
+        title: "Error",
+        description: "Learner name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    setGenerating("5");
+    try {
+      const data: Form5CertificateData = {
+        certificateNo: formData.enrollmentNumber || undefined,
+        date: formData.completionDate || format(new Date(), "dd/MM/yyyy"),
+        name: formData.name,
+        // The certificate preprints "Son / Wife / Daughter of", so fill only the name.
+        guardian: formData.guardianName || undefined,
+        address: formData.permanentAddress || undefined,
+        enrolledOn: formData.enrollmentDate,
+        serialNumber: formData.enrollmentNumber || undefined,
+        vehicleClass: formData.vehicleClass,
+        periodFrom: formData.enrollmentDate,
+        periodTo: formData.completionDate || undefined,
+      };
+      const pdfBytes = await generateForm5PDF(data);
+      downloadPDF(pdfBytes, `Certificate_Form5_${safeName()}.pdf`);
+      toast({
+        title: "Success",
+        description: "Certificate (Form-5) downloaded successfully!",
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error generating Form-5 certificate:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate certificate",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(null);
     }
   };
 
@@ -170,10 +258,12 @@ export default function Form14Generator({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-600" />
-            Generate Form-14
+            Generate Forms
           </DialogTitle>
           <DialogDescription>
-            Register of Enrolment of Trainee — {learner.name || "Learner"}
+            Form 14, Form 15 &amp; Certificate (Form 5) for{" "}
+            {learner.name || "Learner"} — fields below are shared across all
+            three.
           </DialogDescription>
         </DialogHeader>
 
@@ -383,26 +473,52 @@ export default function Form14Generator({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isGenerating}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="bg-blue-600 text-white hover:bg-blue-700"
-          >
-            {isGenerating ? (
-              <>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <div className="flex w-full flex-wrap gap-2">
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {generating === "14" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
+              ) : (
                 <Download className="mr-2 h-4 w-4" />
-                Generate PDF
-              </>
-            )}
+              )}
+              Form 14
+            </Button>
+            <Button
+              onClick={handleGenerateForm15}
+              disabled={isGenerating}
+              className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {generating === "15" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Form 15
+            </Button>
+            <Button
+              onClick={handleGenerateForm5}
+              disabled={isGenerating}
+              className="flex-1 bg-green-600 text-white hover:bg-green-700"
+            >
+              {generating === "5" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Certificate
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isGenerating}
+            className="w-full"
+          >
+            Cancel
           </Button>
         </DialogFooter>
       </DialogContent>
