@@ -22,16 +22,15 @@ export interface Form14Data {
 }
 
 /**
- * Generates a filled Form-14 PDF by overlaying learner data on the official template.
+ * Generates a filled Form-14 PDF by overlaying learner data on the official
+ * template (/assets/form-14-template.pdf, A4 595.2 x 842 pts).
  *
- * The template is loaded from /assets/form-14-template.pdf (public directory).
- * All text is drawn at fixed Y-coordinates that correspond to the dotted lines
- * below each field label in the standard CMV Rules Form 14 layout.
- *
- * Page size: A4 (595.22 x 842 pts)
+ * The template's dotted answer lines were measured from the template itself:
+ * they run from x≈387 to x≈529, one per numbered field. Values are drawn at the
+ * answer column (x≈392) on each row's baseline so they sit on the dotted line
+ * instead of overlapping the question labels on the left.
  */
 export async function generateForm14PDF(data: Form14Data): Promise<Uint8Array> {
-  // Load the template PDF from public assets
   const templateUrl = "/assets/form-14-template.pdf";
   const templateBytes = await fetch(templateUrl).then((res) => {
     if (!res.ok) throw new Error("Failed to load Form-14 template");
@@ -39,140 +38,91 @@ export async function generateForm14PDF(data: Form14Data): Promise<Uint8Array> {
   });
 
   const pdfDoc = await PDFDocument.load(templateBytes);
-  const pages = pdfDoc.getPages();
-  const page = pages[0];
-
-  // Embed a standard font for the filled-in data
+  const page = pdfDoc.getPages()[0];
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  const fontSize = 11;
-  const smallFontSize = 10;
+  const fontSize = 10;
   const textColor = rgb(0.05, 0.05, 0.25); // dark navy for filled text
 
-  // Left margin for all data entries (after the dotted lines)
-  const leftMargin = 72;
+  // Answer column: dotted fill lines run from x≈387 to x≈529. Start values just
+  // inside the line and allow long ones to extend slightly into the right margin.
+  const answerX = 392;
+  const answerMaxWidth = 195;
+  // The template's dotted lines sit slightly above the text baseline; lift
+  // values a few points so they rest on the line instead of striking through it.
+  const LINE_LIFT = 4;
 
-  // ---- Coordinate mapping ----
-  // The Form-14 PDF has 13 fields, each with a label line and a dotted fill line.
-  // These Y-coordinates target the dotted lines where data should be written.
-  // Y is measured from BOTTOM of the page in pdf-lib.
-  //
-  // The form has these sections (top to bottom):
-  //   Title/header: ~top 120pt
-  //   "Register for the year": ~705
-  //   1. Enrolment number: ~670
-  //   2. Name of the trainee: ~635
-  //   3. Son/wife/daughter of: ~600
-  //   4(a). Permanent address: ~565
-  //   4(b). Temporary address: ~530
-  //   5. Date of birth: ~495
-  //   6. Class of vehicle: ~460
-  //   7. Date of enrolment: ~425
-  //   8. LL number and expiry: ~390
-  //   9. Date of completion: ~355
-  //   10. Date of passing test: ~320
-  //   11. DL number, date, authority: ~285
-  //   12. Remarks: ~245
-  //   13. Signature: ~210
-
-  // Helper to draw text at a given position
-  const drawField = (
-    text: string,
-    x: number,
+  // Draw a value at the answer column, auto-shrinking the font (down to 7pt)
+  // and then ellipsis-truncating so it never spills onto the next row.
+  const drawAnswer = (
+    text: string | undefined | null,
     y: number,
-    options?: { size?: number; font?: typeof font },
+    opts?: { x?: number; maxWidth?: number; size?: number },
   ) => {
     if (!text) return;
-    page.drawText(text, {
-      x,
-      y,
-      size: options?.size || fontSize,
-      font: options?.font || font,
-      color: textColor,
-    });
+    const x = opts?.x ?? answerX;
+    const maxWidth = opts?.maxWidth ?? answerMaxWidth;
+    let size = opts?.size ?? fontSize;
+    while (size > 7 && font.widthOfTextAtSize(text, size) > maxWidth) {
+      size -= 0.5;
+    }
+    let out = text;
+    if (font.widthOfTextAtSize(out, size) > maxWidth) {
+      while (
+        out.length > 1 &&
+        font.widthOfTextAtSize(out + "…", size) > maxWidth
+      ) {
+        out = out.slice(0, -1);
+      }
+      out += "…";
+    }
+    page.drawText(out, { x, y: y + LINE_LIFT, size, font, color: textColor });
   };
 
-  // Register year — extract year from enrollment date
+  // Y baselines (pdf-lib origin = bottom-left), measured from the template's
+  // dotted lines (y = 842 - line.bottom, +~2pt so text sits on the line).
+  const join = (parts: (string | undefined)[]) =>
+    parts.filter(Boolean).join("  |  ");
+
+  // "Register for the year ..." — on the header line, just after "year"
   const enrollYear = data.enrollmentDate
     ? new Date(data.enrollmentDate).getFullYear().toString()
     : new Date().getFullYear().toString();
-  drawField(enrollYear, 300, 705);
+  drawAnswer(enrollYear, 683, { x: 175, maxWidth: 110 });
 
-  // 1. Enrolment number
-  drawField(data.enrollmentNumber, leftMargin, 670);
+  drawAnswer(data.enrollmentNumber, 666); // 1. Enrolment number
+  drawAnswer(data.name, 651); // 2. Name of the trainee
+  drawAnswer(data.guardianName, 634); // 3. Son/wife/daughter of
+  drawAnswer(data.permanentAddress, 602); // 4(a). Permanent address
+  drawAnswer(data.temporaryAddress, 586); // 4(b). Temporary address
+  drawAnswer(data.dob, 570); // 5. Date of birth
+  drawAnswer(data.vehicleClass, 554); // 6. Class of vehicle
+  drawAnswer(data.enrollmentDate, 538); // 7. Date of enrolment
+  drawAnswer(
+    join([data.llNumber, data.llExpiry ? `Exp: ${data.llExpiry}` : undefined]),
+    522,
+  ); // 8. LL number and expiry
+  drawAnswer(data.completionDate, 506); // 9. Date of completion
+  drawAnswer(data.competenceTestDate, 490); // 10. Date of passing test
+  drawAnswer(
+    join([
+      data.dlNumber,
+      data.dlIssueDate ? `Issued: ${data.dlIssueDate}` : undefined,
+      data.dlAuthority ? `Auth: ${data.dlAuthority}` : undefined,
+    ]),
+    459,
+  ); // 11. DL number, date, authority
+  drawAnswer(
+    join([
+      data.remarks,
+      data.phone ? `Ph: ${data.phone}` : undefined,
+      data.email ? `Em: ${data.email}` : undefined,
+    ]),
+    443,
+  ); // 12. Remarks
+  // 13. Signature — left blank for manual signature
 
-  // 2. Name of the trainee
-  drawField(data.name, leftMargin, 635);
-
-  // 3. Son/wife/daughter of
-  drawField(data.guardianName, leftMargin, 600);
-
-  // 4(a). Permanent address
-  // Handle long addresses by truncating or wrapping
-  const maxCharsPerLine = 70;
-  if (data.permanentAddress && data.permanentAddress.length > maxCharsPerLine) {
-    const line1 = data.permanentAddress.substring(0, maxCharsPerLine);
-    const line2 = data.permanentAddress.substring(maxCharsPerLine);
-    drawField(line1, leftMargin, 565);
-    drawField(line2, leftMargin, 553, { size: smallFontSize });
-  } else {
-    drawField(data.permanentAddress, leftMargin, 565);
-  }
-
-  // 4(b). Temporary address
-  if (data.temporaryAddress) {
-    drawField(data.temporaryAddress, leftMargin, 530);
-  }
-
-  // 5. Date of birth
-  drawField(data.dob, leftMargin, 495);
-
-  // 6. Class of vehicle
-  drawField(data.vehicleClass, leftMargin, 460);
-
-  // 7. Date of enrolment
-  drawField(data.enrollmentDate, leftMargin, 425);
-
-  // 8. Learner's licence number and date of expiry
-  const llText = [
-    data.llNumber,
-    data.llExpiry ? `Expiry: ${data.llExpiry}` : "",
-  ]
-    .filter(Boolean)
-    .join("  |  ");
-  drawField(llText, leftMargin, 390);
-
-  // 9. Date of completion of the course
-  drawField(data.completionDate || "", leftMargin, 355);
-
-  // 10. Date of passing the test of competence
-  drawField(data.competenceTestDate || "", leftMargin, 320);
-
-  // 11. Driving licence number, date, and authority
-  const dlText = [
-    data.dlNumber,
-    data.dlIssueDate ? `Issued: ${data.dlIssueDate}` : "",
-    data.dlAuthority ? `Authority: ${data.dlAuthority}` : "",
-  ]
-    .filter(Boolean)
-    .join("  |  ");
-  drawField(dlText, leftMargin, 285);
-
-  // 12. Remarks — include phone and email as reference
-  const remarksLines = [
-    data.remarks,
-    data.phone ? `Phone: ${data.phone}` : "",
-    data.email ? `Email: ${data.email}` : "",
-  ].filter(Boolean);
-  drawField(remarksLines.join("  |  "), leftMargin, 245, {
-    size: smallFontSize,
-  });
-
-  // Field 13 (Signature) is left blank for manual signature
-
-  // Serialize the PDF
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
+  return pdfDoc.save();
 }
 
 /**
