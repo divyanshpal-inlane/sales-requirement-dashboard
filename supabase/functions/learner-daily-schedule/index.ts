@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
         messages: [
           {
             clientWaNumber: learner.phone,
-            templateName: "webapp_reminder_customer_for_class_tomorrow",
+            templateName: "webapp_reminder_customer_for_class_tomorrow_v2",
             templateContent:
               "Hey {{1}}, We hope you are having the best day. You have lessons tomorrow 📔🚗. Do check the details below: {{2}} Check the Lane App for more details 🥳 Thank you, Lane Team 🚗🚗",
             templateHeader: "",
