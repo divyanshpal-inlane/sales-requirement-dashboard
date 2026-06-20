@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Download,
   Loader2,
   RefreshCcw,
   Search,
@@ -22,6 +23,7 @@ import {
   MatrixRow,
   useInstructorMatrix,
 } from "@/queries/instructorMatrix";
+import { exportInstructorMatrixWorkbook } from "@/utils/instructorMatrixWorkbook";
 import { UTILIZATION_LEGEND } from "@/utils/utilizationColor";
 
 const getMonday = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
@@ -33,6 +35,7 @@ export default function InstructorMatrix() {
   const [hideOffDuty, setHideOffDuty] = useState(false);
   // View A (default): tentative holds count as busy. View B: exclude them.
   const [countTentative, setCountTentative] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const {
     data: raw,
@@ -97,6 +100,21 @@ export default function InstructorMatrix() {
     "EEE d MMM yyyy",
   )}`;
 
+  // Export the full week for every enabled instructor (search / hide-off-duty
+  // are intentionally ignored) as a styled .xlsx workbook: a colour-coded Matrix
+  // grid, a Bookings detail table, and a Summary table.
+  const handleExport = async () => {
+    if (!raw || !data || exporting) return;
+    setExporting(true);
+    try {
+      await exportInstructorMatrixWorkbook(raw, data, countTentative);
+    } catch (err) {
+      console.error("Failed to export instructor matrix", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-muted/30 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -118,19 +136,33 @@ export default function InstructorMatrix() {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            {isFetching ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="mr-1 h-4 w-4" />
-            )}
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              {isFetching ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="mr-1 h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleExport}
+              disabled={isLoading || !data || !raw || exporting}
+            >
+              {exporting ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-1 h-4 w-4" />
+              )}
+              Export Excel
+            </Button>
+          </div>
         </div>
 
         {/* Week nav + filters */}

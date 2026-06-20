@@ -39,6 +39,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "denomailer": "^0.0.0",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^11.5.4",
     "gapi-script": "^1.2.0",
