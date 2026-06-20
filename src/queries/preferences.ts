@@ -94,6 +94,7 @@ export function useSchedulingRequests() {
 
       // Filter out learners who already have schedules created
       // This prevents already-scheduled learners from appearing in the "New Schedules" tab
+      // BUT: Do NOT filter out reschedule/lesson10 requests - those are for learners who already have schedules!
       if (learners.length === 0) return [];
 
       const learnerIds = learners
@@ -120,10 +121,18 @@ export function useSchedulingRequests() {
         (existingSchedules || []).map((s) => s.learner_id),
       );
 
-      // Filter out learners who already have schedules
-      const filteredLearners = learners.filter(
-        (request) => !scheduledLearnerIds.has(request.learner_id),
-      );
+      // Filter out learners who already have schedules, BUT keep reschedule and lesson10 requests
+      // Reschedule requests are specifically for learners who already have schedules they want to reschedule
+      const filteredLearners = learners.filter((request) => {
+        const isRescheduleOrLesson10 =
+          request.type === "reschedule" || request.type === "lesson10";
+        
+        // If it's a reschedule/lesson10 request, always include it
+        if (isRescheduleOrLesson10) return true;
+        
+        // For new requests, exclude learners who already have schedules
+        return !scheduledLearnerIds.has(request.learner_id);
+      });
 
       return filteredLearners;
     },
