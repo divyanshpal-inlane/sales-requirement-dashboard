@@ -542,7 +542,7 @@ const LearnerLLDetails = () => {
                   className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  Generate Form-14
+                  Generate Forms
                 </Button>
               </div>
             ) : (
