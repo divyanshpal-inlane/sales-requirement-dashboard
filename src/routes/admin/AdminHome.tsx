@@ -2,6 +2,7 @@ import {
   BookOpenCheck,
   Bug,
   Calendar,
+  CalendarOff,
   Check,
   ClipboardList,
   CreditCard,
@@ -9,6 +10,7 @@ import {
   EyeOff,
   Handshake,
   LayoutGrid,
+  LifeBuoy,
   ListChecks,
   Loader2,
   Lock,
@@ -20,6 +22,7 @@ import {
   Upload,
   UserPlus,
   Users,
+  UserX,
   Wallet,
   Wrench,
 } from "lucide-react";
@@ -203,6 +206,27 @@ const featureConfig: Record<
     icon: Users,
     link: "/admin/user-management",
     color: "text-indigo-500",
+  },
+  leave_management: {
+    title: "Leave Management",
+    description: "Approve instructor leave and arrange replacement instructors",
+    icon: CalendarOff,
+    link: "/admin/leave-management",
+    color: "text-rose-500",
+  },
+  no_show_management: {
+    title: "No-show Management",
+    description: "Manage learner and instructor no-show cases",
+    icon: UserX,
+    link: "/admin/no-shows",
+    color: "text-orange-500",
+  },
+  support_tickets: {
+    title: "Support Tickets",
+    description: "View and resolve instructor support requests",
+    icon: LifeBuoy,
+    link: "/admin/support-tickets",
+    color: "text-sky-500",
   },
  } as const;
 

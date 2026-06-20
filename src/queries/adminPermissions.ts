@@ -132,6 +132,24 @@ export const ADMIN_PERMISSIONS = {
       description: "Create and manage admin team members and their permissions",
       route: "/admin/user-management",
     },
+    leave_management: {
+      key: "leave_management",
+      label: "Leave Management",
+      description: "Approve instructor leave and arrange replacement instructors",
+      route: "/admin/leave-management",
+    },
+    no_show_management: {
+      key: "no_show_management",
+      label: "No-show Management",
+      description: "Manage learner and instructor no-show cases",
+      route: "/admin/no-shows",
+    },
+    support_tickets: {
+      key: "support_tickets",
+      label: "Support Tickets",
+      description: "View and resolve instructor support tickets",
+      route: "/admin/support-tickets",
+    },
   } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;
