@@ -164,6 +164,29 @@ async function fetchCompletedDates(
     .map((s) => s.date);
 }
 
+/**
+ * Count of classes *assigned* to the instructor in a date range — i.e. real
+ * bookings, whatever their progress: booked + ongoing + completed, excluding
+ * tentative / paused / cancelled. Used as the denominator for "done vs assigned".
+ */
+async function fetchAssignedCount(
+  instructorId: string,
+  start: string,
+  end: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("Schedule")
+    .select("isTentative")
+    .eq("instructor_id", instructorId)
+    .in("status", ["booked", "ongoing", "completed"])
+    .gte("date", start)
+    .lte("date", end);
+  if (error) throw error;
+  return ((data ?? []) as Array<{ isTentative: boolean | null }>).filter(
+    (s) => !s.isTentative,
+  ).length;
+}
+
 // ---------------------------------------------------------------------------
 // Instructor-facing: computed earnings for the Earnings screens
 // ---------------------------------------------------------------------------
@@ -181,6 +204,7 @@ export interface InstructorEarningsData {
   bonusMtd: number;
   hasLastMonthData: boolean;
   classesThisMonth: number;
+  assignedThisMonth: number;
 }
 
 export function useInstructorEarnings(phone: string | undefined) {
@@ -198,22 +222,33 @@ export function useInstructorEarnings(phone: string | undefined) {
       const minDate = earliestPeriodStart(periods);
       const maxDate = periods.today.end;
 
-      const [completedDates, adjustmentsRes, config, settings, payoutsRes] =
-        await Promise.all([
-          fetchCompletedDates(instr.id, minDate, maxDate),
-          supabase
-            .from("instructor_earning_adjustment")
-            .select("amount, type, effective_date")
-            .eq("instructor_id", instr.id)
-            .gte("effective_date", minDate)
-            .lte("effective_date", maxDate),
-          fetchEarningConfig(),
-          fetchInstructorSettings(instr.id),
-          supabase
-            .from("instructor_payout")
-            .select("*")
-            .eq("instructor_id", instr.id),
-        ]);
+      const [
+        completedDates,
+        adjustmentsRes,
+        config,
+        settings,
+        payoutsRes,
+        assignedThisMonth,
+      ] = await Promise.all([
+        fetchCompletedDates(instr.id, minDate, maxDate),
+        supabase
+          .from("instructor_earning_adjustment")
+          .select("amount, type, effective_date")
+          .eq("instructor_id", instr.id)
+          .gte("effective_date", minDate)
+          .lte("effective_date", maxDate),
+        fetchEarningConfig(),
+        fetchInstructorSettings(instr.id),
+        supabase
+          .from("instructor_payout")
+          .select("*")
+          .eq("instructor_id", instr.id),
+        fetchAssignedCount(
+          instr.id,
+          periods.thisMonth.start,
+          periods.thisMonth.end,
+        ),
+      ]);
 
       if (adjustmentsRes.error) throw adjustmentsRes.error;
       if (payoutsRes.error) throw payoutsRes.error;
@@ -281,6 +316,7 @@ export function useInstructorEarnings(phone: string | undefined) {
         ]),
         hasLastMonthData: totals.lastMonth.classes > 0,
         classesThisMonth: totals.thisMonth.classes,
+        assignedThisMonth,
       };
     },
   });

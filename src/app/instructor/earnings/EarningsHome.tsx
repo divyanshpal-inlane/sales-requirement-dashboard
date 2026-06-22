@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   BarChart3,
   Coins,
-  Flame,
   Loader2,
   Phone,
 } from "lucide-react";
@@ -16,7 +15,6 @@ import { useMaskedCall } from "@/hooks/useMaskedCall";
 import {
   useInstructorEarnings,
   useInstructorKAM,
-  useInstructorRank,
 } from "@/queries/instructorEarnings";
 import { formatINR } from "@/utils/earnings";
 
@@ -35,7 +33,6 @@ export default function EarningsHome() {
   const { phone } = useUser();
   const { data, isLoading, isError } = useInstructorEarnings(phone);
   const { data: kam } = useInstructorKAM(data?.instructorId);
-  const { data: rank } = useInstructorRank(data?.instructorId);
   const { initiateCall, isCallLoading } = useMaskedCall();
   const [period, setPeriod] = useState<PeriodTab>("thisWeek");
 
@@ -51,24 +48,22 @@ export default function EarningsHome() {
   const firstName = (data.instructorName ?? "").split(/\s+/)[0] || "there";
   const monthEarnings = data.periods.thisMonth.earnings;
   const classesDone = data.classesThisMonth;
-  const target = data.monthlyTarget;
-  const remaining = Math.max(0, target - classesDone);
+  const assigned = data.assignedThisMonth;
+  const remaining = Math.max(0, assigned - classesDone);
   const progressPct =
-    target > 0 ? Math.min(100, (classesDone / target) * 100) : 0;
+    assigned > 0 ? Math.min(100, (classesDone / assigned) * 100) : 0;
 
   const selected = data.periods[period];
-  const topPercent =
-    rank && rank.total > 0 ? Math.ceil(rank.percentile * 100) : null;
 
   return (
     <div className="flex h-full flex-col bg-gray-50">
       {/* Header */}
-      <div className="relative bg-[#00CE84] px-5 pb-16 pt-5 text-white">
+      <div className="relative bg-[#00CE84] px-5 pb-12 pt-4 text-white">
         <button
           type="button"
           onClick={() => navigate("/instructor")}
           aria-label="Back to dashboard"
-          className="absolute left-4 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-white/20"
+          className="absolute left-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/20"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -83,7 +78,7 @@ export default function EarningsHome() {
         </div>
       </div>
 
-      <div className="-mt-12 flex-1 space-y-4 overflow-y-auto px-4 pb-6">
+      <div className="-mt-8 flex-1 space-y-4 overflow-y-auto px-4 pb-6">
         {/* Hero earnings card */}
         <div className="rounded-2xl bg-white p-5 shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -98,7 +93,7 @@ export default function EarningsHome() {
             <div className="mb-1 flex items-center justify-between text-sm">
               <span className="text-gray-600">Classes done this month</span>
               <span className="rounded-full bg-[#E8FAF3] px-2 py-0.5 text-xs font-semibold text-[#00874F]">
-                {classesDone} / {target}
+                {classesDone} / {assigned}
               </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
@@ -158,18 +153,6 @@ export default function EarningsHome() {
             </p>
           </div>
         </div>
-
-        {/* Streak / availability strip */}
-        {topPercent !== null && (
-          <div className="flex items-start gap-3 rounded-xl bg-[#D9FF7A] p-4">
-            <Flame className="mt-0.5 h-5 w-5 shrink-0 text-[#0F1F14]" />
-            <p className="text-sm font-medium text-[#0F1F14]">
-              You&apos;re in the{" "}
-              <span className="font-bold">top {topPercent}%</span> of
-              instructors this month. Stay available to hold your rank.
-            </p>
-          </div>
-        )}
 
         {/* Discrepancy / Contact KAM */}
         {kam && (
