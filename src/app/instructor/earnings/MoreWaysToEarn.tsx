@@ -1,5 +1,4 @@
-import { Car, Gift, Lightbulb, Star, Trophy, Users } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Car, Gift, Lightbulb, Star, Users } from "lucide-react";
 
 import { useUser } from "@/context/auth-context";
 import {
@@ -8,7 +7,6 @@ import {
   useEarningConfig,
   useEarningPrograms,
   useInstructorEarnings,
-  useInstructorRank,
 } from "@/queries/instructorEarnings";
 import { formatINR } from "@/utils/earnings";
 
@@ -17,8 +15,8 @@ import { BackHeader, ScreenMessage, Spinner } from "./_shared";
 const ICONS: Record<string, typeof Gift> = {
   refer_learner: Star,
   refer_instructor: Users,
-  leaderboard_bonus: Trophy,
   lane_cars: Car,
+  review_bonus: Star,
 };
 
 const PILL: Record<ProgramStatusPill, { label: string; className: string }> = {
@@ -35,7 +33,6 @@ export default function MoreWaysToEarn() {
   const { data: earnings } = useInstructorEarnings(phone);
   const { data: programs, isLoading } = useEarningPrograms();
   const { data: config } = useEarningConfig();
-  const { data: rank } = useInstructorRank(earnings?.instructorId);
 
   return (
     <div className="flex h-full flex-col bg-gray-50">
@@ -49,7 +46,7 @@ export default function MoreWaysToEarn() {
             {formatINR(earnings?.bonusMtd ?? 0)} earned from bonuses
           </p>
           <p className="mt-1 text-sm opacity-90">
-            Refer, rank up and earn more — see how below
+            Refer and earn more — see how below
           </p>
         </div>
 
@@ -65,7 +62,7 @@ export default function MoreWaysToEarn() {
               Active opportunities
             </p>
             {programs.map((program) => (
-              <ProgramCard key={program.id} program={program} rank={rank} />
+              <ProgramCard key={program.id} program={program} />
             ))}
           </div>
         )}
@@ -82,27 +79,13 @@ export default function MoreWaysToEarn() {
   );
 }
 
-function ProgramCard({
-  program,
-  rank,
-}: {
-  program: EarningProgram;
-  rank?: { rank: number; topN: number } | null;
-}) {
-  const navigate = useNavigate();
+function ProgramCard({ program }: { program: EarningProgram }) {
   const Icon = ICONS[program.key] ?? Gift;
   const pill = PILL[program.status_pill];
   const isComingSoon = program.status_pill === "coming_soon";
 
-  const isLeaderboard = program.key === "leaderboard_bonus";
-  const spotsAway = rank && rank.rank > rank.topN ? rank.rank - rank.topN : 0;
-
   const handleCta = () => {
     if (isComingSoon) return;
-    if (isLeaderboard) {
-      navigate("/instructor/earnings/compare");
-      return;
-    }
     if (program.cta_url) {
       window.open(program.cta_url, "_blank", "noopener,noreferrer");
     }
@@ -131,18 +114,6 @@ function ProgramCard({
           {program.amount_label && (
             <p className="mt-2 text-sm font-bold text-[#00874F]">
               {program.amount_label}
-            </p>
-          )}
-
-          {isLeaderboard && rank && (
-            <p className="mt-2 inline-block rounded-full bg-[#EFE8FF] px-2.5 py-1 text-xs font-medium text-[#6D5BD0]">
-              {rank.rank > 0
-                ? `You're at #${rank.rank}${
-                    spotsAway > 0
-                      ? ` — ${spotsAway} spots away`
-                      : " — in the bonus zone 🎉"
-                  }`
-                : "Complete classes to enter the ranking"}
             </p>
           )}
 

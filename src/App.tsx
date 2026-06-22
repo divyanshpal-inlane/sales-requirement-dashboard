@@ -13,6 +13,9 @@ import {
 import Instructor from "@/app/instructor/Instructor";
 import EarningsComparison from "@/app/instructor/earnings/EarningsComparison";
 import EarningsHome from "@/app/instructor/earnings/EarningsHome";
+import LeaveHome from "@/app/instructor/leave/LeaveHome";
+import ReportNoShow from "@/app/instructor/no-show/ReportNoShow";
+import SupportHome from "@/app/instructor/support/SupportHome";
 import MoreWaysToEarn from "@/app/instructor/earnings/MoreWaysToEarn";
 import InstructorProfile from "@/app/instructor/InstructorProfile";
 import OTP from "@/app/instructor/OTP";
@@ -72,6 +75,9 @@ import StartLesson from "@/routes/startLesson";
 
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import FeedbackManagement from "./routes/admin/FeedbackManagement";
+import LeaveManagement from "./routes/admin/LeaveManagement";
+import NoShowManagement from "./routes/admin/NoShowManagement";
+import SupportTickets from "./routes/admin/SupportTickets";
 import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import PaymentTracker from "./routes/admin/PaymentTracker";
@@ -242,6 +248,30 @@ export default function App() {
               }
             />
             <Route
+              path="/instructor/leave"
+              element={
+                <ProtectedInstructorRoute>
+                  <LeaveHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/report-no-show"
+              element={
+                <ProtectedInstructorRoute>
+                  <ReportNoShow />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/support"
+              element={
+                <ProtectedInstructorRoute>
+                  <SupportHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
               path="/otp/start/:learnerId/:scheduleId"
               element={
                 <ProtectedInstructorRoute>
@@ -327,6 +357,9 @@ export default function App() {
               />
               <Route path="payment-tracker" element={<PaymentTracker />} />
               <Route path="feedback" element={<FeedbackManagement />} />
+              <Route path="leave-management" element={<LeaveManagement />} />
+              <Route path="no-shows" element={<NoShowManagement />} />
+              <Route path="support-tickets" element={<SupportTickets />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />
