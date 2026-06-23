@@ -74,6 +74,7 @@ import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
+import CarCommerceLeads from "./routes/admin/CarCommerceLeads";
 import FeedbackManagement from "./routes/admin/FeedbackManagement";
 import LeaveManagement from "./routes/admin/LeaveManagement";
 import NoShowManagement from "./routes/admin/NoShowManagement";
@@ -357,6 +358,10 @@ export default function App() {
               />
               <Route path="payment-tracker" element={<PaymentTracker />} />
               <Route path="feedback" element={<FeedbackManagement />} />
+              <Route
+                path="car-commerce-leads"
+                element={<CarCommerceLeads />}
+              />
               <Route path="leave-management" element={<LeaveManagement />} />
               <Route path="no-shows" element={<NoShowManagement />} />
               <Route path="support-tickets" element={<SupportTickets />} />
