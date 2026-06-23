@@ -6,4 +6,7 @@ dist-ssr
 node_modules/*
 .env
 
+# Standardized on pnpm — do not commit the npm lockfile
+package-lock.json
+
 .cursorrules
