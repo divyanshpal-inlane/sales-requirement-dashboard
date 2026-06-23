@@ -257,6 +257,26 @@ export default function CourseFeedbackPage({
         feedbackJson: finalFeedback,
       });
 
+      // Persist structured car-buying intent on the learner (car-commerce lead)
+      // so it's queryable/exportable, not just buried in the feedback JSON.
+      if (planningToBuy && learnerId) {
+        const { error: leadError } = await supabase
+          .from("Learner")
+          .update({
+            car_intent_planning: planningToBuy,
+            car_intent_type: planningToBuy === "Yes" ? carType : null,
+            car_intent_condition: planningToBuy === "Yes" ? carCondition : null,
+            car_intent_timeframe: planningToBuy === "Yes" ? buyTimeframe : null,
+            car_intent_source: "instructor_feedback",
+            car_intent_updated_at: new Date().toISOString(),
+          })
+          .eq("id", learnerId);
+        if (leadError) {
+          // Non-fatal: don't block the feedback flow on a lead-capture hiccup.
+          console.error("Failed to save car-intent lead", leadError);
+        }
+      }
+
       toast({
         title: "Feedback Saved Successfully",
         description: "Feedback has been recorded.",
