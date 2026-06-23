@@ -150,6 +150,12 @@ export const ADMIN_PERMISSIONS = {
       description: "View and resolve instructor support tickets",
       route: "/admin/support-tickets",
     },
+    car_commerce_leads: {
+      key: "car_commerce_leads",
+      label: "Car Commerce Leads",
+      description: "Learners who want to buy a car — with CSV export",
+      route: "/admin/car-commerce-leads",
+    },
   } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;

@@ -3,6 +3,7 @@ import {
   Bug,
   Calendar,
   CalendarOff,
+  Car,
   Check,
   ClipboardList,
   CreditCard,
@@ -227,6 +228,13 @@ const featureConfig: Record<
     icon: LifeBuoy,
     link: "/admin/support-tickets",
     color: "text-sky-500",
+  },
+  car_commerce_leads: {
+    title: "Car Commerce Leads",
+    description: "Learners who want to buy a car — with CSV export",
+    icon: Car,
+    link: "/admin/car-commerce-leads",
+    color: "text-rose-500",
   },
  } as const;
 
