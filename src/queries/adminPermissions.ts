@@ -54,6 +54,13 @@ export const ADMIN_PERMISSIONS = {
       "Create and delete Key Account Managers; assign instructors to them",
     route: "/admin/kam-management",
   },
+  instructor_earnings: {
+    key: "instructor_earnings",
+    label: "Instructor Earnings",
+    description:
+      "Per-class rates, targets, payouts, adjustments, and earning programs",
+    route: "/admin/instructor-earnings",
+  },
   lessons_dashboard: {
     key: "lessons_dashboard",
     label: "Lessons Dashboard",
@@ -124,6 +131,36 @@ export const ADMIN_PERMISSIONS = {
       label: "User Management",
       description: "Create and manage admin team members and their permissions",
       route: "/admin/user-management",
+    },
+    leave_management: {
+      key: "leave_management",
+      label: "Leave Management",
+      description: "Approve instructor leave and arrange replacement instructors",
+      route: "/admin/leave-management",
+    },
+    no_show_management: {
+      key: "no_show_management",
+      label: "No-show Management",
+      description: "Manage learner and instructor no-show cases",
+      route: "/admin/no-shows",
+    },
+    support_tickets: {
+      key: "support_tickets",
+      label: "Support Tickets",
+      description: "View and resolve instructor support tickets",
+      route: "/admin/support-tickets",
+    },
+    car_commerce_leads: {
+      key: "car_commerce_leads",
+      label: "Car Commerce Leads",
+      description: "Learners who want to buy a car — with CSV export",
+      route: "/admin/car-commerce-leads",
+    },
+    ll_customer_migration: {
+      key: "ll_customer_migration",
+      label: "LL Customer Migration",
+      description: "Bulk-import existing Learner's License customers from CSV",
+      route: "/admin/ll-customer-migration",
     },
   } as const;
 

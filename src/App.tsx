@@ -11,6 +11,12 @@ import {
 } from "react-router-dom";
 
 import Instructor from "@/app/instructor/Instructor";
+import EarningsComparison from "@/app/instructor/earnings/EarningsComparison";
+import EarningsHome from "@/app/instructor/earnings/EarningsHome";
+import LeaveHome from "@/app/instructor/leave/LeaveHome";
+import ReportNoShow from "@/app/instructor/no-show/ReportNoShow";
+import SupportHome from "@/app/instructor/support/SupportHome";
+import MoreWaysToEarn from "@/app/instructor/earnings/MoreWaysToEarn";
 import InstructorProfile from "@/app/instructor/InstructorProfile";
 import OTP from "@/app/instructor/OTP";
 import LessonReview from "@/app/LessonReview";
@@ -36,6 +42,7 @@ import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import UserManagement from "@/routes/admin/UserManagement";
+import InstructorEarnings from "@/routes/admin/InstructorEarnings";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorMatrix from "@/routes/admin/InstructorMatrix";
 import InstructorsManagement, {
@@ -48,6 +55,7 @@ import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
+import LLCustomerMigration from "@/routes/admin/LLCustomerMigration";
 import LessonsDashboard from "@/routes/admin/LessonsDashboard";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminSettings from "@/routes/admin/Settings";
@@ -67,7 +75,11 @@ import Start from "@/routes/start";
 import StartLesson from "@/routes/startLesson";
 
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
+import CarCommerceLeads from "./routes/admin/CarCommerceLeads";
 import FeedbackManagement from "./routes/admin/FeedbackManagement";
+import LeaveManagement from "./routes/admin/LeaveManagement";
+import NoShowManagement from "./routes/admin/NoShowManagement";
+import SupportTickets from "./routes/admin/SupportTickets";
 import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import PaymentTracker from "./routes/admin/PaymentTracker";
@@ -214,6 +226,54 @@ export default function App() {
               }
             />
             <Route
+              path="/instructor/earnings"
+              element={
+                <ProtectedInstructorRoute>
+                  <EarningsHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/earnings/more"
+              element={
+                <ProtectedInstructorRoute>
+                  <MoreWaysToEarn />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/earnings/compare"
+              element={
+                <ProtectedInstructorRoute>
+                  <EarningsComparison />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/leave"
+              element={
+                <ProtectedInstructorRoute>
+                  <LeaveHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/report-no-show"
+              element={
+                <ProtectedInstructorRoute>
+                  <ReportNoShow />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
+              path="/instructor/support"
+              element={
+                <ProtectedInstructorRoute>
+                  <SupportHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
               path="/otp/start/:learnerId/:scheduleId"
               element={
                 <ProtectedInstructorRoute>
@@ -249,6 +309,10 @@ export default function App() {
               <Route index element={<AdminHome />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructor-matrix" element={<InstructorMatrix />} />
+              <Route
+                path="instructor-earnings"
+                element={<InstructorEarnings />}
+              />
               <Route path="kam-management" element={<KAMManagement />} />
               <Route path="lessons-dashboard" element={<LessonsDashboard />} />
               <Route path="instructors" element={<InstructorsManagement />} />
@@ -282,6 +346,10 @@ export default function App() {
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
               <Route
+                path="ll-customer-migration"
+                element={<LLCustomerMigration />}
+              />
+              <Route
                 path="instructor-onboarding"
                 element={<InstructorOnboardingPage />}
               />
@@ -295,6 +363,13 @@ export default function App() {
               />
               <Route path="payment-tracker" element={<PaymentTracker />} />
               <Route path="feedback" element={<FeedbackManagement />} />
+              <Route
+                path="car-commerce-leads"
+                element={<CarCommerceLeads />}
+              />
+              <Route path="leave-management" element={<LeaveManagement />} />
+              <Route path="no-shows" element={<NoShowManagement />} />
+              <Route path="support-tickets" element={<SupportTickets />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

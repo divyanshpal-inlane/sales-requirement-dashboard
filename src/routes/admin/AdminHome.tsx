@@ -2,6 +2,8 @@ import {
   BookOpenCheck,
   Bug,
   Calendar,
+  CalendarOff,
+  Car,
   Check,
   ClipboardList,
   CreditCard,
@@ -9,6 +11,7 @@ import {
   EyeOff,
   Handshake,
   LayoutGrid,
+  LifeBuoy,
   ListChecks,
   Loader2,
   Lock,
@@ -20,6 +23,8 @@ import {
   Upload,
   UserPlus,
   Users,
+  UserX,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -119,6 +124,13 @@ const featureConfig: Record<
     link: "/admin/kam-management",
     color: "text-amber-500",
   },
+  instructor_earnings: {
+    title: "Instructor Earnings",
+    description: "Rates, targets, payouts, adjustments, and earning programs",
+    icon: Wallet,
+    link: "/admin/instructor-earnings",
+    color: "text-green-600",
+  },
   lessons_dashboard: {
     title: "Lessons Dashboard",
     description: "Consolidated view of all scheduled lessons with filters",
@@ -195,6 +207,41 @@ const featureConfig: Record<
     icon: Users,
     link: "/admin/user-management",
     color: "text-indigo-500",
+  },
+  leave_management: {
+    title: "Leave Management",
+    description: "Approve instructor leave and arrange replacement instructors",
+    icon: CalendarOff,
+    link: "/admin/leave-management",
+    color: "text-rose-500",
+  },
+  no_show_management: {
+    title: "No-show Management",
+    description: "Manage learner and instructor no-show cases",
+    icon: UserX,
+    link: "/admin/no-shows",
+    color: "text-orange-500",
+  },
+  support_tickets: {
+    title: "Support Tickets",
+    description: "View and resolve instructor support requests",
+    icon: LifeBuoy,
+    link: "/admin/support-tickets",
+    color: "text-sky-500",
+  },
+  car_commerce_leads: {
+    title: "Car Commerce Leads",
+    description: "Learners who want to buy a car — with CSV export",
+    icon: Car,
+    link: "/admin/car-commerce-leads",
+    color: "text-rose-500",
+  },
+  ll_customer_migration: {
+    title: "LL Customer Migration",
+    description: "Bulk-import existing Learner's License customers from CSV",
+    icon: Upload,
+    link: "/admin/ll-customer-migration",
+    color: "text-violet-500",
   },
  } as const;
 

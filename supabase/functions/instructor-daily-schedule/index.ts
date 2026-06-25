@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
         messages: [
           {
             clientWaNumber: instructorPhone,
-            templateName: "instructor_reminder_class_message_1_day_before",
+            templateName: "instructor_reminder_class_message_1_day_before_v2",
             templateContent:
               "Hey {{1}}, We hope your day went well and you had the best time! Here is your schedule for tomorrow: {{2}} {{3}} {{4}} {{5}} {{6}} {{7}} {{8}} Please check your calendar for more details and plan your day accordingly! 😊 Thank you! The Lane Team 🚘",
             templateHeader: "",

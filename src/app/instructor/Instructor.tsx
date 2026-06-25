@@ -31,7 +31,11 @@ import {
   Plus,
   Save,
   Unlink,
+  CalendarOff,
+  LifeBuoy,
   User,
+  UserX,
+  Wallet,
   X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -1442,6 +1446,46 @@ function Instructor() {
                   Create Event
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/instructor/earnings")}
+                className="flex items-center gap-1 text-xs"
+              >
+                <Wallet className="h-3 w-3" />
+                Earnings
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/instructor/leave")}
+                className="flex items-center gap-1 text-xs"
+              >
+                <CalendarOff className="h-3 w-3" />
+                Leave
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/instructor/report-no-show")}
+                className="flex items-center gap-1 text-xs"
+              >
+                <UserX className="h-3 w-3" />
+                No-show
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/instructor/support")}
+                className="flex items-center gap-1 text-xs"
+              >
+                <LifeBuoy className="h-3 w-3" />
+                Support
+              </Button>
 
               <button
                 onClick={handleProfileClick}

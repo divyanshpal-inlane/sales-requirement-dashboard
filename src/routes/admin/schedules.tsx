@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
+import { COURSES_DATA } from "@/constants/courses";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
@@ -1805,6 +1806,9 @@ export const LearnerSchedulesManager = ({
     { date: "", start_time: "", end_time: "", duration: 1, instructor_id: "" },
   ]);
   const [topupLessonId, setTopupLessonId] = useState<string>("");
+  // Course the topup lessons belong to — used to resolve the learner-facing
+  // lesson-plan names (COURSES_DATA) instead of the DB's placeholder descriptions.
+  const [topupCourseId, setTopupCourseId] = useState<string | null>(null);
   const [topupLessons, setTopupLessons] = useState<
     Array<{
       id: string;
@@ -1842,7 +1846,10 @@ export const LearnerSchedulesManager = ({
         lessonQuery = lessonQuery.eq("course_id", resolvedCourseId);
       }
       const { data: lessonRows } = await lessonQuery;
-      if (!cancelled) setTopupLessons(lessonRows ?? []);
+      if (!cancelled) {
+        setTopupCourseId(resolvedCourseId);
+        setTopupLessons(lessonRows ?? []);
+      }
     })();
     return () => {
       cancelled = true;
@@ -3169,6 +3176,12 @@ export const LearnerSchedulesManager = ({
                 <label className="text-sm font-medium text-gray-700">
                   Lesson
                 </label>
+                {topupCourseId && COURSES_DATA[topupCourseId] && (
+                  <p className="text-xs text-gray-500">
+                    {COURSES_DATA[topupCourseId].label} · plan names as shown to
+                    the learner
+                  </p>
+                )}
                 <Select
                   value={topupLessonId}
                   onValueChange={setTopupLessonId}
@@ -3184,13 +3197,26 @@ export const LearnerSchedulesManager = ({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {topupLessons.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        Lesson {l.number}
-                        {l.description ? ` — ${l.description}` : ""}
-                        {l.duration ? ` (${l.duration}h)` : ""}
-                      </SelectItem>
-                    ))}
+                    {topupLessons.map((l) => {
+                      // Prefer the learner-facing lesson-plan name (the same
+                      // COURSES_DATA source the learner sees) over the DB's
+                      // placeholder description.
+                      const planName =
+                        (l.number != null && topupCourseId
+                          ? COURSES_DATA[topupCourseId]?.lessonsData?.[
+                              String(l.number)
+                            ]?.description
+                          : undefined) ??
+                        l.description ??
+                        null;
+                      return (
+                        <SelectItem key={l.id} value={l.id}>
+                          Lesson {l.number}
+                          {planName ? ` — ${planName}` : ""}
+                          {l.duration ? ` (${l.duration}h)` : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

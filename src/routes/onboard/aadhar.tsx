@@ -19,6 +19,9 @@ const TIMELINE_OPTIONS = [
   "Sometime later / still deciding",
 ];
 
+// Q2 (purchase timeline) only applies to the "buy my own car" motivation.
+const CAR_OPTION = "Finally buy my own car";
+
 // Route stays /onboard/aadhar; this screen now captures car-commerce intent
 // instead of the Aadhaar state (licence info is filled by admin).
 export default function ExcitementQuestions() {
@@ -27,16 +30,21 @@ export default function ExcitementQuestions() {
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const wantsCar = motivation === CAR_OPTION;
 
   const handleContinueClick = useCallback(() => {
-    if (!motivation || !timeline) {
-      alert("Please answer both questions");
+    if (!motivation) {
+      alert("Please answer the question");
+      return;
+    }
+    if (wantsCar && !timeline) {
+      alert("Please tell us when you see yourself getting a car");
       return;
     }
     mutate(
       {
         driving_motivation: motivation,
-        car_purchase_timeline: timeline,
+        car_purchase_timeline: wantsCar ? timeline : "",
         onboarding_completed: true,
       },
       {
@@ -47,7 +55,7 @@ export default function ExcitementQuestions() {
         },
       },
     );
-  }, [mutate, navigate, motivation, timeline, queryClient]);
+  }, [mutate, navigate, motivation, timeline, wantsCar, queryClient]);
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -83,7 +91,11 @@ export default function ExcitementQuestions() {
               <button
                 key={option.label}
                 type="button"
-                onClick={() => setMotivation(option.label)}
+                onClick={() => {
+                  setMotivation(option.label);
+                  // Clear the follow-up answer when switching off the car option
+                  if (option.label !== CAR_OPTION) setTimeline("");
+                }}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left transition-colors",
                   motivation === option.label
@@ -98,35 +110,37 @@ export default function ExcitementQuestions() {
           </div>
         </div>
 
-        <div className="space-y-3">
-          <h3 className="text-lg font-medium">
-            When do you see yourself getting one?
-          </h3>
-          <div className="flex flex-col gap-3">
-            {TIMELINE_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setTimeline(option)}
-                className={cn(
-                  "flex w-full items-center rounded-xl border-2 p-4 text-left font-medium transition-colors",
-                  timeline === option
-                    ? "border-primary bg-primary/5"
-                    : "border-gray-200 hover:bg-gray-50",
-                )}
-              >
-                {option}
-              </button>
-            ))}
+        {wantsCar && (
+          <div className="space-y-3">
+            <h3 className="text-lg font-medium">
+              When do you see yourself getting one?
+            </h3>
+            <div className="flex flex-col gap-3">
+              {TIMELINE_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setTimeline(option)}
+                  className={cn(
+                    "flex w-full items-center rounded-xl border-2 p-4 text-left font-medium transition-colors",
+                    timeline === option
+                      ? "border-primary bg-primary/5"
+                      : "border-gray-200 hover:bg-gray-50",
+                  )}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="sticky bottom-0 border-t bg-white p-4">
         <Button
           onClick={handleContinueClick}
           className="w-full"
-          disabled={isPending || !motivation || !timeline}
+          disabled={isPending || !motivation || (wantsCar && !timeline)}
         >
           Continue
         </Button>
