@@ -357,7 +357,7 @@ serve(async (req) => {
               <td>${date}</td>
               <td>${formatIndianTime(lesson.startTime)} - ${formatIndianTime(lesson.endTime)}</td>
               <td>${lesson.pickupLocation}</td>
-              <td>${lesson.instructorName || instructorName || "Contact Inlane"}</td><td>${lesson.instructorPhone || "Contact Inlane"}</td>
+              <td>${lesson.instructorName || instructorName || "Contact Inlane"}</td>${isLearner ? "" : `<td>${lesson.instructorPhone || "Contact Inlane"}</td>`}
             </tr>`;
           })
           .join("");
@@ -384,7 +384,7 @@ serve(async (req) => {
                       <th>Time</th>
                       <th>Pickup Location</th>
                       <th>Instructor Name</th>
-                      <th>Instructor Phone</th>
+                      ${isLearner ? "" : "<th>Instructor Phone</th>"}
                     </tr>
                     ${lessonsTable}
                   </table>

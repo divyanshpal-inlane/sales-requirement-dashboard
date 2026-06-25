@@ -103,10 +103,20 @@ export async function sendMultiEventCalendarInvite(
           ? `Driving Lesson ${event.lessonNumber} - ${learnerName} (CANCELLED)`
           : `Driving Lesson ${event.lessonNumber} - ${learnerName}`;
 
-        // Enhanced description with instructor details and app link
-        const description = event.isCancellation
-          ? `CANCELLED: Driving lesson ${event.lessonNumber} with InLane.\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}\nPhone: ${event.instructorPhone || "Contact InLane for details"}\n\nLearner: ${learnerName}\nPhone: ${learnerPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/login`
-          : `Driving lesson ${event.lessonNumber} with InLane.\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}\nPhone: ${event.instructorPhone || "Contact InLane for details"}\n\nLearner: ${learnerName}\nPhone: ${learnerPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/login`;
+        // Enhanced description with instructor details and app link.
+        // The learner's copy omits the instructor's phone number (learners use
+        // the in-app masked call instead); the instructor's own copy keeps it.
+        const buildDescription = (includeInstructorPhone: boolean) => {
+          const prefix = event.isCancellation
+            ? `CANCELLED: Driving lesson ${event.lessonNumber} with InLane.`
+            : `Driving lesson ${event.lessonNumber} with InLane.`;
+          const instructorPhoneLine = includeInstructorPhone
+            ? `\nPhone: ${event.instructorPhone || "Contact InLane for details"}`
+            : "";
+          return `${prefix}\n\nPickup location: ${event.pickupLocation}\n\nInstructor: ${event.instructorName || instructorName}${instructorPhoneLine}\n\nLearner: ${learnerName}\nPhone: ${learnerPhone || "Contact InLane for details"}\n\nView your schedule: https://inlane-web-app.vercel.app/login`;
+        };
+        const description = buildDescription(false); // learner copy
+        const instructorDescription = buildDescription(true); // instructor copy
 
         // Use existing UID or the one we generated
         const uid = event.uid || uidMap[event.lessonNumber] || uuidv4();
@@ -130,7 +140,7 @@ export async function sendMultiEventCalendarInvite(
           event.startTime,
           event.endTime,
           summary,
-          description,
+          instructorDescription,
           event.pickupLocation,
           import.meta.env.VITE_SMTP_FROM,
           instructorEmail,
