@@ -236,6 +236,13 @@ const featureConfig: Record<
     link: "/admin/car-commerce-leads",
     color: "text-rose-500",
   },
+  ll_customer_migration: {
+    title: "LL Customer Migration",
+    description: "Bulk-import existing Learner's License customers from CSV",
+    icon: Upload,
+    link: "/admin/ll-customer-migration",
+    color: "text-violet-500",
+  },
  } as const;
 
 // Note: view_unmasked_phone_numbers controls visibility of sensitive data but doesn't have a dashboard feature card
