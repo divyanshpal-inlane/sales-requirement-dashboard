@@ -176,10 +176,10 @@ function PaymentPage() {
           // Auto-detect demo/topup from the latest enrollment when the URL
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
-          const enrollmentType = enrollment?.progress?.type;
+          const enrollmentTypeFromProgress = (enrollment?.progress as { type?: string; selectedModules?: string[] })?.type;
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentType === "demo"
+            enrollmentTypeFromProgress === "demo"
           ) {
             setPaymentDetails((prev) => ({
               ...prev,
@@ -200,7 +200,7 @@ function PaymentPage() {
           }
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentType === "topup"
+            enrollmentTypeFromProgress === "topup"
           ) {
             const topupHours = Math.max(
               1,
@@ -225,18 +225,28 @@ function PaymentPage() {
             return;
           }
 
-          // Get course details (only if courseId exists)
-          let course = null;
-          if (courseId) {
-            const { data: courseData, error: courseError } = await supabase
-              .from("Courses")
-              .select("price, id")
-              .eq("id", courseId)
-              .single();
+           // Extract course type and selected modules from progress
+           const enrollmentType = enrollment?.progress?.type || "regular";
+           const selectedModulesFromProgress = enrollment?.progress?.selectedModules || [];
 
-            if (courseError) throw new Error("Failed to fetch course details");
-            course = courseData;
-          }
+           // Get course details (only if courseId exists)
+           let course = null;
+           if (courseId) {
+             const { data: courseData, error: courseError } = await supabase
+               .from("Courses")
+               .select("price, id")
+               .eq("id", courseId)
+               .single();
+
+             if (courseError) throw new Error("Failed to fetch course details");
+             course = courseData;
+           }
+
+           // If this is a custom course, set the selected modules from progress
+           if (enrollmentType === "custom" && selectedModulesFromProgress.length > 0) {
+             setSelectedModules(selectedModulesFromProgress);
+             setCourseSelectionType("custom");
+           }
 
           // Check if this is a second installment payment by looking for a completed first installment payment
           let isSecondInstallment = false;
@@ -1030,10 +1040,82 @@ function PaymentPage() {
               </div>
             )}
 
-            {/* Show simple course dropdown if already enrolled (prefilled), but not for demo */}
+            {/* Show custom course details when prefilled (read-only) */}
             {type === "course" &&
               isPrefilled &&
-              courseSelectionType !== "demo" && (
+              courseSelectionType === "custom" && (
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="courseType"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      Course Type
+                    </label>
+                    <div
+                      id="courseType"
+                      className="rounded-md border bg-muted px-3 py-2 text-sm"
+                    >
+                      Custom Course
+                    </div>
+                  </div>
+
+                  {selectedModules.length > 0 && (
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">
+                        Selected Modules
+                      </label>
+                      <div className="space-y-2">
+                        {selectedModules.map((moduleId) => {
+                          const module = SKILL_MODULES.find(
+                            (m) => m.id === moduleId,
+                          );
+                          const moduleCourse = courses?.find(
+                            (c) => c.id === module?.courseId,
+                          );
+                          const modulePrice = moduleCourse?.price || 0;
+
+                          return (
+                            <div
+                              key={moduleId}
+                              className="flex items-start space-x-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">
+                                    {module?.label}
+                                  </span>
+                                  <span className="text-sm font-semibold">
+                                    ₹{modulePrice}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                  {module?.hours} hours - {module?.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3 rounded-lg bg-blue-50 p-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Hours:</span>
+                          <span className="font-medium">
+                            {paymentDetails.totalHours} hours
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {/* Show selected course details when prefilled (read-only) */}
+            {type === "course" &&
+              isPrefilled &&
+              courseSelectionType !== "demo" &&
+              courseSelectionType !== "custom" && (
                 <div>
                   <label
                     htmlFor="courseId"
