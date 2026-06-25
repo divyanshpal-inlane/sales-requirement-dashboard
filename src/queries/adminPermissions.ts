@@ -156,6 +156,12 @@ export const ADMIN_PERMISSIONS = {
       description: "Learners who want to buy a car — with CSV export",
       route: "/admin/car-commerce-leads",
     },
+    ll_customer_migration: {
+      key: "ll_customer_migration",
+      label: "LL Customer Migration",
+      description: "Bulk-import existing Learner's License customers from CSV",
+      route: "/admin/ll-customer-migration",
+    },
   } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;

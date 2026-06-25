@@ -55,6 +55,7 @@ import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
+import LLCustomerMigration from "@/routes/admin/LLCustomerMigration";
 import LessonsDashboard from "@/routes/admin/LessonsDashboard";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminSettings from "@/routes/admin/Settings";
@@ -344,6 +345,10 @@ export default function App() {
                 element={<LearnerIssueFixer />}
               />
               <Route path="learner-migration" element={<LearnerMigration />} />
+              <Route
+                path="ll-customer-migration"
+                element={<LLCustomerMigration />}
+              />
               <Route
                 path="instructor-onboarding"
                 element={<InstructorOnboardingPage />}
