@@ -23,7 +23,7 @@ import {
 } from "./GatewaySelectionDialog";
 import { RazorpayCheckout } from "./RazorpayCheckout";
 
-type CourseSelectionType = "predefined" | "custom" | "demo" | "topup";
+type CourseSelectionType = "predefined" | "custom" | "demo" | "test" | "topup";
 
 interface PaymentDetails {
   amount: number;
@@ -379,8 +379,8 @@ function PaymentPage() {
 
   // Update payment amount when payment option changes
   useEffect(() => {
-    // Skip for demo - fixed price
-    if (courseSelectionType === "demo")
+    // Skip for demo and test - fixed price
+    if (courseSelectionType === "demo" || courseSelectionType === "test")
       return;
 
     // Use functional update to get the latest state values
@@ -454,6 +454,17 @@ function PaymentPage() {
         amount: DEMO_COURSE.price,
         totalAmount: DEMO_COURSE.price,
         totalHours: DEMO_COURSE.hours,
+        selectedModules: [],
+      }));
+    } else if (type === "test") {
+      // Set test pricing (₹10 for testing)
+      setPaymentDetails((prev) => ({
+        ...prev,
+        paymentType: "demo", // Use demo type for backend processing
+        courseId: "",
+        amount: 10,
+        totalAmount: 10,
+        totalHours: 1,
         selectedModules: [],
       }));
     } else if (type === "custom") {
@@ -544,6 +555,9 @@ function PaymentPage() {
     } else if (courseSelectionType === "topup") {
       const topupHours = Math.max(1, paymentDetails.totalHours || 1);
       finalAmount = topupHours * DEMO_COURSE.price;
+      finalInstallmentType = "full";
+    } else if (courseSelectionType === "test") {
+      finalAmount = 10;
       finalInstallmentType = "full";
     } else if (paymentDetails.installmentType !== "second_half") {
       finalAmount = paymentOption === "full" ? totalAmount : installment1Amount;
@@ -810,6 +824,28 @@ function PaymentPage() {
                       </div>
                     </div>
 
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "test"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("test")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "test"}
+                        onChange={() => handleCourseTypeChange("test")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Test Payment - ₹10</p>
+                        <p className="text-xs text-gray-500">
+                          For testing purposes only
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -994,24 +1030,33 @@ function PaymentPage() {
               </div>
             )}
 
-            {/* Show selected course details when prefilled (read-only) */}
+            {/* Show simple course dropdown if already enrolled (prefilled), but not for demo */}
             {type === "course" &&
               isPrefilled &&
               courseSelectionType !== "demo" && (
                 <div>
                   <label
-                    htmlFor="courseName"
+                    htmlFor="courseId"
                     className="mb-1 block text-sm font-medium"
                   >
                     Selected Course
                   </label>
-                  <div
-                    id="courseName"
-                    className="rounded-md border bg-muted px-3 py-2 text-sm"
+                  <Select
+                    value={paymentDetails.courseId}
+                    onValueChange={handleCourseChange}
+                    disabled={isPrefilled}
                   >
-                    {courses?.find((c) => c.id === paymentDetails.courseId)
-                      ?.name || "Course"}
-                  </div>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses?.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name} - {course.total_lessons} Lessons
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             <div>
@@ -1093,7 +1138,8 @@ function PaymentPage() {
             )}
             {!isSecondInstallment &&
               displayAmount > 0 &&
-              courseSelectionType !== "demo" && (
+              courseSelectionType !== "demo" &&
+              courseSelectionType !== "test" && (
                 <div className="space-y-2">
                   <label
                     htmlFor="paymentOption"
@@ -1214,7 +1260,8 @@ function PaymentPage() {
                 paymentData={{
                   ...getPreparedPaymentData(),
                   paymentType:
-                    courseSelectionType === "demo"
+                    courseSelectionType === "demo" ||
+                    courseSelectionType === "test"
                       ? "demo"
                       : courseSelectionType === "custom"
                         ? "custom"
