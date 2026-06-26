@@ -176,10 +176,10 @@ function PaymentPage() {
           // Auto-detect demo/topup from the latest enrollment when the URL
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
-          const enrollmentTypeFromProgress = (enrollment?.progress as { type?: string; selectedModules?: string[] })?.type;
+          const enrollmentType = enrollment?.progress?.type;
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentTypeFromProgress === "demo"
+            enrollmentType === "demo"
           ) {
             setPaymentDetails((prev) => ({
               ...prev,
@@ -200,7 +200,7 @@ function PaymentPage() {
           }
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentTypeFromProgress === "topup"
+            enrollmentType === "topup"
           ) {
             const topupHours = Math.max(
               1,
@@ -225,28 +225,18 @@ function PaymentPage() {
             return;
           }
 
-           // Extract course type and selected modules from progress
-           const enrollmentType = enrollment?.progress?.type || "regular";
-           const selectedModulesFromProgress = enrollment?.progress?.selectedModules || [];
+          // Get course details (only if courseId exists)
+          let course = null;
+          if (courseId) {
+            const { data: courseData, error: courseError } = await supabase
+              .from("Courses")
+              .select("price, id")
+              .eq("id", courseId)
+              .single();
 
-           // Get course details (only if courseId exists)
-           let course = null;
-           if (courseId) {
-             const { data: courseData, error: courseError } = await supabase
-               .from("Courses")
-               .select("price, id")
-               .eq("id", courseId)
-               .single();
-
-             if (courseError) throw new Error("Failed to fetch course details");
-             course = courseData;
-           }
-
-           // If this is a custom course, set the selected modules from progress
-           if (enrollmentType === "custom" && selectedModulesFromProgress.length > 0) {
-             setSelectedModules(selectedModulesFromProgress);
-             setCourseSelectionType("custom");
-           }
+            if (courseError) throw new Error("Failed to fetch course details");
+            course = courseData;
+          }
 
           // Check if this is a second installment payment by looking for a completed first installment payment
           let isSecondInstallment = false;
