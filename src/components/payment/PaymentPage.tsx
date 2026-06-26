@@ -176,12 +176,11 @@ function PaymentPage() {
           // Auto-detect demo/topup from the latest enrollment when the URL
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
-          const enrollmentTypeFromProgressCheck = enrollment?.progress?.type;
+          const enrollmentType = enrollment?.progress?.type;
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentTypeFromProgressCheck === "demo"
+            enrollmentType === "demo"
           ) {
-
             setPaymentDetails((prev) => ({
               ...prev,
               email: learner.email || "",
@@ -201,7 +200,7 @@ function PaymentPage() {
           }
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentTypeFromProgressCheck === "topup"
+            enrollmentType === "topup"
           ) {
             const topupHours = Math.max(
               1,
@@ -222,58 +221,6 @@ function PaymentPage() {
               selectedModules: [],
             }));
             setCourseSelectionType("topup");
-            setIsPrefilled(true);
-            return;
-          }
-
-          // Extract course type and selected modules from progress
-          const enrollmentType = enrollment?.progress?.type || "regular";
-          const selectedModulesFromProgress = enrollment?.progress?.selectedModules || [];
-
-          // Handle custom course - calculate amount from selected modules
-          if (
-            !enrollment?.payment_status?.includes("paid") &&
-            enrollmentType === "custom" &&
-            selectedModulesFromProgress.length > 0
-          ) {
-            // Calculate total hours and price based on selected modules
-            const totalHours = selectedModulesFromProgress.reduce((sum: number, modId: string) => {
-              const module = SKILL_MODULES.find((m) => m.id === modId);
-              return sum + (module?.hours || 0);
-            }, 0);
-
-            // Calculate price by summing up individual module course prices
-            let totalPrice = 0;
-            selectedModulesFromProgress.forEach((modId: string) => {
-              const module = SKILL_MODULES.find((m) => m.id === modId);
-              if (module && courses) {
-                const moduleCourse = courses.find((c) => c.id === module.courseId);
-                totalPrice += moduleCourse?.price || 0;
-              }
-            });
-
-            const customAmount = roundPrice(totalPrice);
-            const installment1Amount = roundPrice(customAmount / 2);
-            const installment2Amount = customAmount - installment1Amount;
-
-            setPaymentDetails((prev) => ({
-              ...prev,
-              email: learner.email || "",
-              phone: learner.phone || "",
-              name: learner.name || "",
-              learnerId: learner.id,
-              paymentType: "custom",
-              courseId: "",
-              amount: customAmount,
-              totalAmount: customAmount,
-              totalHours: totalHours,
-              selectedModules: selectedModulesFromProgress,
-              installmentType: "full",
-              installment1Amount: installment1Amount,
-              installment2Amount: installment2Amount,
-            }));
-            setSelectedModules(selectedModulesFromProgress);
-            setCourseSelectionType("custom");
             setIsPrefilled(true);
             return;
           }
@@ -797,8 +744,250 @@ function PaymentPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-           <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {type === "course" && !isPrefilled && (
+              <>
+                {/* Course Type Selection */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">
+                    Choose Course Type
+                  </label>
+                  <div className="space-y-2">
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "predefined"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("predefined")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "predefined"}
+                        onChange={() => handleCourseTypeChange("predefined")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Select a Course</p>
+                        <p className="text-xs text-gray-500">
+                          Choose from our predefined course packages
+                        </p>
+                      </div>
+                    </div>
 
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "custom"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("custom")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "custom"}
+                        onChange={() => handleCourseTypeChange("custom")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Build Your Own Course</p>
+                        <p className="text-xs text-gray-500">
+                          Select individual skill modules you want to learn
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "demo"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("demo")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "demo"}
+                        onChange={() => handleCourseTypeChange("demo")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">
+                          Demo Lesson - ₹{DEMO_COURSE.price}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {DEMO_COURSE.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex cursor-pointer items-center space-x-3 rounded-lg border p-3 ${
+                        courseSelectionType === "test"
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
+                      }`}
+                      onClick={() => handleCourseTypeChange("test")}
+                    >
+                      <input
+                        type="radio"
+                        name="courseType"
+                        checked={courseSelectionType === "test"}
+                        onChange={() => handleCourseTypeChange("test")}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <p className="font-medium">Test Payment - ₹10</p>
+                        <p className="text-xs text-gray-500">
+                          For testing purposes only
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Predefined Course Dropdown */}
+                {courseSelectionType === "predefined" && (
+                  <div>
+                    <label
+                      htmlFor="courseId"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      Select Course
+                    </label>
+                    <Select
+                      value={paymentDetails.courseId}
+                      onValueChange={handleCourseChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses?.map((course) => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.name} - {course.total_lessons} Lessons
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {hasCompletedDemo && (
+                      <p className="mt-1 text-xs text-green-600">
+                        ₹{completedDemoCount * DEMO_COURSE.price} credit from
+                        your {completedDemoCount} demo
+                        {completedDemoCount === 1 ? "" : "s"} will be deducted
+                        from the course price
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Course Module Selection */}
+                {courseSelectionType === "custom" && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">
+                      Select Skill Modules
+                    </label>
+                    <div className="space-y-2">
+                      {SKILL_MODULES.map((module) => {
+                        const moduleCourse = courses?.find(
+                          (c) => c.id === module.courseId,
+                        );
+                        const modulePrice = moduleCourse?.price || 0;
+                        const isSelected = selectedModules.includes(module.id);
+
+                        return (
+                          <div
+                            key={module.id}
+                            className={`flex cursor-pointer items-start space-x-3 rounded-lg border p-3 ${
+                              isSelected
+                                ? "border-primary bg-primary/5"
+                                : "border-gray-200"
+                            }`}
+                            onClick={() => handleModuleToggle(module.id)}
+                          >
+                            <div
+                              className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                                isSelected
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-gray-300"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg
+                                  className="h-3 w-3"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="cursor-pointer font-medium">
+                                  {module.label}
+                                </span>
+                                <span className="text-sm font-semibold">
+                                  ₹{modulePrice}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                {module.hours} hours - {module.description}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {selectedModules.length > 0 && (
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Hours:</span>
+                          <span className="font-medium">
+                            {paymentDetails.totalHours} hours
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Price:</span>
+                          <span className="font-medium">
+                            ₹{paymentDetails.totalAmount}
+                          </span>
+                        </div>
+                        {hasCompletedDemo && (
+                          <p className="mt-1 text-xs text-green-600">
+                            Demo discount of ₹
+                            {completedDemoCount * DEMO_COURSE.price} applied (
+                            {completedDemoCount} demo
+                            {completedDemoCount === 1 ? "" : "s"})
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Demo Course Info */}
+                {courseSelectionType === "demo" && (
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertDescription>
+                      <strong>Demo Lesson</strong> - Try a {DEMO_COURSE.hours}
+                      -hour introductory lesson for just ₹{DEMO_COURSE.price}.
+                      If you decide to purchase a full course later, this amount
+                      will be deducted from your course price!
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
 
             {/* Show demo info when opened via topup payment link */}
             {isPrefilled && courseSelectionType === "demo" && (
@@ -841,45 +1030,108 @@ function PaymentPage() {
               </div>
             )}
 
-            {/* Custom course summary — selected modules set by admin */}
-            {isPrefilled && courseSelectionType === "custom" && selectedModules.length > 0 && (
-              <div className="space-y-3">
-                <Alert className="border-blue-200 bg-blue-50">
-                  <AlertDescription>
-                    <strong>Custom Course</strong> - Selected skill modules
-                  </AlertDescription>
-                </Alert>
-                <div className="rounded-lg bg-gray-50 p-3 space-y-2">
-                  <label className="text-sm font-medium">Selected Modules:</label>
-                  {selectedModules.map((moduleId) => {
-                    const module = SKILL_MODULES.find((m) => m.id === moduleId);
-                    const moduleCourse = courses?.find(
-                      (c) => c.id === module?.courseId,
-                    );
-                    return (
-                      <div key={moduleId} className="flex justify-between text-sm">
-                        <span>{module?.label}</span>
-                        <span className="text-gray-600">{module?.hours} hours</span>
-                      </div>
-                    );
-                  })}
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Total Hours:</span>
-                      <span>{paymentDetails.totalHours} hours</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Total Price:</span>
-                      <span>₹{paymentDetails.totalAmount}</span>
+            {/* Show custom course details when prefilled (read-only) */}
+            {type === "course" &&
+              isPrefilled &&
+              courseSelectionType === "custom" && (
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="courseType"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      Course Type
+                    </label>
+                    <div
+                      id="courseType"
+                      className="rounded-md border bg-muted px-3 py-2 text-sm"
+                    >
+                      Custom Course
                     </div>
                   </div>
+
+                  {selectedModules.length > 0 && (
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">
+                        Selected Modules
+                      </label>
+                      <div className="space-y-2">
+                        {selectedModules.map((moduleId) => {
+                          const module = SKILL_MODULES.find(
+                            (m) => m.id === moduleId,
+                          );
+                          const moduleCourse = courses?.find(
+                            (c) => c.id === module?.courseId,
+                          );
+                          const modulePrice = moduleCourse?.price || 0;
+
+                          return (
+                            <div
+                              key={moduleId}
+                              className="flex items-start space-x-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">
+                                    {module?.label}
+                                  </span>
+                                  <span className="text-sm font-semibold">
+                                    ₹{modulePrice}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                  {module?.hours} hours - {module?.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3 rounded-lg bg-blue-50 p-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Hours:</span>
+                          <span className="font-medium">
+                            {paymentDetails.totalHours} hours
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
 
+            {/* Show selected course details when prefilled (read-only) */}
+            {type === "course" &&
+              isPrefilled &&
+              courseSelectionType !== "demo" &&
+              courseSelectionType !== "custom" && (
+                <div>
+                  <label
+                    htmlFor="courseId"
+                    className="mb-1 block text-sm font-medium"
+                  >
+                    Selected Course
+                  </label>
+                  <Select
+                    value={paymentDetails.courseId}
+                    onValueChange={handleCourseChange}
+                    disabled={isPrefilled}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses?.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name} - {course.total_lessons} Lessons
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             <div>
-
-
               <label
                 htmlFor="amount"
                 className="mb-1 block text-sm font-medium"
@@ -913,7 +1165,7 @@ function PaymentPage() {
                     onChange={handleInputChange}
                     required
                     className="w-full"
-                    disabled
+                    disabled={isPrefilled}
                   />
                 </div>
                 <div>
@@ -931,7 +1183,7 @@ function PaymentPage() {
                     onChange={handleInputChange}
                     required
                     className="w-full"
-                    disabled
+                    disabled={isPrefilled}
                   />
                 </div>
                 <div>
@@ -951,10 +1203,9 @@ function PaymentPage() {
                     className="w-full"
                     pattern="[0-9]{10}"
                     title="Please enter a valid 10-digit phone number"
-                    disabled
+                    disabled={isPrefilled}
                   />
                 </div>
-
               </>
             )}
             {!isSecondInstallment &&
@@ -1015,33 +1266,27 @@ function PaymentPage() {
               className="w-full"
               disabled={
                 isLoading ||
-                (!isPrefilled &&
-                  type === "course" &&
+                (type === "course" &&
                   courseSelectionType === "predefined" &&
                   !paymentDetails.courseId) ||
-                (!isPrefilled &&
-                  type === "course" &&
+                (type === "course" &&
                   courseSelectionType === "custom" &&
                   selectedModules.length === 0) ||
-                (!paymentDetails.requestId && type === "reschedule") ||
-                (isPrefilled && paymentDetails.amount === 0)
+                (!paymentDetails.requestId && type === "reschedule")
               }
             >
               {isLoading
                 ? "Processing..."
-                : !isPrefilled &&
-                    type === "course" &&
+                : type === "course" &&
                     courseSelectionType === "predefined" &&
                     !paymentDetails.courseId
                   ? "Select a Course to Continue"
-                  : !isPrefilled &&
-                      type === "course" &&
+                  : type === "course" &&
                       courseSelectionType === "custom" &&
                       selectedModules.length === 0
                     ? "Select Modules to Continue"
                     : `Pay ₹${paymentDetails.amount}`}
             </Button>
-
           </form>
           <div className="mt-6 text-center text-sm">
             <span className="text-black">By continuing, you agree to our</span>
