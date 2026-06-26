@@ -798,7 +798,44 @@ function PaymentPage() {
               </div>
             )}
 
+            {/* Custom course summary — selected modules set by admin */}
+            {isPrefilled && courseSelectionType === "custom" && selectedModules.length > 0 && (
+              <div className="space-y-3">
+                <Alert className="border-blue-200 bg-blue-50">
+                  <AlertDescription>
+                    <strong>Custom Course</strong> - Selected skill modules
+                  </AlertDescription>
+                </Alert>
+                <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+                  <label className="text-sm font-medium">Selected Modules:</label>
+                  {selectedModules.map((moduleId) => {
+                    const module = SKILL_MODULES.find((m) => m.id === moduleId);
+                    const moduleCourse = courses?.find(
+                      (c) => c.id === module?.courseId,
+                    );
+                    return (
+                      <div key={moduleId} className="flex justify-between text-sm">
+                        <span>{module?.label}</span>
+                        <span className="text-gray-600">{module?.hours} hours</span>
+                      </div>
+                    );
+                  })}
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>Total Hours:</span>
+                      <span>{paymentDetails.totalHours} hours</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>Total Price:</span>
+                      <span>₹{paymentDetails.totalAmount}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
+
 
               <label
                 htmlFor="amount"
@@ -935,27 +972,33 @@ function PaymentPage() {
               className="w-full"
               disabled={
                 isLoading ||
-                (type === "course" &&
+                (!isPrefilled &&
+                  type === "course" &&
                   courseSelectionType === "predefined" &&
                   !paymentDetails.courseId) ||
-                (type === "course" &&
+                (!isPrefilled &&
+                  type === "course" &&
                   courseSelectionType === "custom" &&
                   selectedModules.length === 0) ||
-                (!paymentDetails.requestId && type === "reschedule")
+                (!paymentDetails.requestId && type === "reschedule") ||
+                (isPrefilled && paymentDetails.amount === 0)
               }
             >
               {isLoading
                 ? "Processing..."
-                : type === "course" &&
+                : !isPrefilled &&
+                    type === "course" &&
                     courseSelectionType === "predefined" &&
                     !paymentDetails.courseId
                   ? "Select a Course to Continue"
-                  : type === "course" &&
+                  : !isPrefilled &&
+                      type === "course" &&
                       courseSelectionType === "custom" &&
                       selectedModules.length === 0
                     ? "Select Modules to Continue"
                     : `Pay ₹${paymentDetails.amount}`}
             </Button>
+
           </form>
           <div className="mt-6 text-center text-sm">
             <span className="text-black">By continuing, you agree to our</span>
