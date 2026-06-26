@@ -176,11 +176,12 @@ function PaymentPage() {
           // Auto-detect demo/topup from the latest enrollment when the URL
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
-          const enrollmentType = enrollment?.progress?.type;
+          const enrollmentTypeFromProgressCheck = enrollment?.progress?.type;
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentType === "demo"
+            enrollmentTypeFromProgressCheck === "demo"
           ) {
+
             setPaymentDetails((prev) => ({
               ...prev,
               email: learner.email || "",
@@ -200,7 +201,7 @@ function PaymentPage() {
           }
           if (
             !enrollment?.payment_status?.includes("paid") &&
-            enrollmentType === "topup"
+            enrollmentTypeFromProgressCheck === "topup"
           ) {
             const topupHours = Math.max(
               1,
@@ -221,6 +222,58 @@ function PaymentPage() {
               selectedModules: [],
             }));
             setCourseSelectionType("topup");
+            setIsPrefilled(true);
+            return;
+          }
+
+          // Extract course type and selected modules from progress
+          const enrollmentType = enrollment?.progress?.type || "regular";
+          const selectedModulesFromProgress = enrollment?.progress?.selectedModules || [];
+
+          // Handle custom course - calculate amount from selected modules
+          if (
+            !enrollment?.payment_status?.includes("paid") &&
+            enrollmentType === "custom" &&
+            selectedModulesFromProgress.length > 0
+          ) {
+            // Calculate total hours and price based on selected modules
+            const totalHours = selectedModulesFromProgress.reduce((sum: number, modId: string) => {
+              const module = SKILL_MODULES.find((m) => m.id === modId);
+              return sum + (module?.hours || 0);
+            }, 0);
+
+            // Calculate price by summing up individual module course prices
+            let totalPrice = 0;
+            selectedModulesFromProgress.forEach((modId: string) => {
+              const module = SKILL_MODULES.find((m) => m.id === modId);
+              if (module && courses) {
+                const moduleCourse = courses.find((c) => c.id === module.courseId);
+                totalPrice += moduleCourse?.price || 0;
+              }
+            });
+
+            const customAmount = roundPrice(totalPrice);
+            const installment1Amount = roundPrice(customAmount / 2);
+            const installment2Amount = customAmount - installment1Amount;
+
+            setPaymentDetails((prev) => ({
+              ...prev,
+              email: learner.email || "",
+              phone: learner.phone || "",
+              name: learner.name || "",
+              learnerId: learner.id,
+              paymentType: "custom",
+              courseId: "",
+              amount: customAmount,
+              totalAmount: customAmount,
+              totalHours: totalHours,
+              selectedModules: selectedModulesFromProgress,
+              installmentType: "full",
+              installment1Amount: installment1Amount,
+              installment2Amount: installment2Amount,
+            }));
+            setSelectedModules(selectedModulesFromProgress);
+            setCourseSelectionType("custom");
             setIsPrefilled(true);
             return;
           }
