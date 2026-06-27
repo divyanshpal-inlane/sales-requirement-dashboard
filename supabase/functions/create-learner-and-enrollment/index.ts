@@ -47,6 +47,22 @@ export async function createLearnerAndEnrollment(data: {
     totalLessons,
   } = data;
 
+  // Check if learner with this phone already exists
+  const { data: existingLearner, error: checkError } = await supabase
+    .from("Learner")
+    .select("id")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  if (checkError) {
+    console.error("Supabase phone check error:", checkError);
+    throw new Error(checkError.message || "Failed to check learner existence");
+  }
+
+  if (existingLearner) {
+    throw new Error("Learner already registered");
+  }
+
   // Create learner entry
   const { data: learners, error: learnerError } = await supabase
     .from("Learner")
@@ -114,8 +130,14 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error creating learner and enrollment:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    const errorMessage = error.message || "An error occurred";
+    
+    // Return 400 for "Learner already registered" error (validation error)
+    // Return 500 for other errors (server errors)
+    const statusCode = errorMessage === "Learner already registered" ? 400 : 500;
+    
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: statusCode,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
