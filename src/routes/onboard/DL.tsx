@@ -172,7 +172,7 @@ export default function DLQuestion() {
         </div>
       </header>
 
-      <div className="flex h-full flex-col gap-6 p-6">
+      <div className="flex flex-1 flex-col gap-6 p-6">
         <div className="flex flex-col items-center">
           <h2 className="text-center text-2xl">
             Do you have a DL for a Four Wheeler?
@@ -180,6 +180,26 @@ export default function DLQuestion() {
           <p className="text-lg">Let us know to proceed further.</p>
         </div>
 
+        <footer className="mt-auto flex flex-col text-center text-sm">
+          By continuing, you agree to our
+          <nav className="flex flex-row justify-center gap-4">
+            <a
+              href="/terms-of-service"
+              className="text-muted-foreground hover:text-blue-500 hover:underline"
+            >
+              Terms of Service
+            </a>
+            <a
+              href="/privacy-policies"
+              className="text-muted-foreground hover:text-blue-500 hover:underline"
+            >
+              Privacy Policies
+            </a>
+          </nav>
+        </footer>
+      </div>
+
+      <div className="sticky bottom-0 border-t bg-white p-4">
         <div className="flex flex-col gap-4">
           <Button
             disabled={isPending}
@@ -198,24 +218,6 @@ export default function DLQuestion() {
           </Button>
         </div>
       </div>
-
-      <footer className="mb-12 mt-auto flex flex-col text-center text-sm">
-        By continuing, you agree to our
-        <nav className="flex flex-row justify-center gap-4">
-          <a
-            href="/terms-of-service"
-            className="text-muted-foreground hover:text-blue-500 hover:underline"
-          >
-            Terms of Service
-          </a>
-          <a
-            href="/privacy-policies"
-            className="text-muted-foreground hover:text-blue-500 hover:underline"
-          >
-            Privacy Policies
-          </a>
-        </nav>
-      </footer>
     </div>
   );
 }

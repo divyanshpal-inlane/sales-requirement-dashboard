@@ -1261,32 +1261,34 @@ function PaymentPage() {
                 </AlertDescription>
               </Alert>
             )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={
-                isLoading ||
-                (type === "course" &&
-                  courseSelectionType === "predefined" &&
-                  !paymentDetails.courseId) ||
-                (type === "course" &&
-                  courseSelectionType === "custom" &&
-                  selectedModules.length === 0) ||
-                (!paymentDetails.requestId && type === "reschedule")
-              }
-            >
-              {isLoading
-                ? "Processing..."
-                : type === "course" &&
+            <div className="sticky bottom-0 z-10 -mx-6 border-t bg-white px-6 py-4">
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  isLoading ||
+                  (type === "course" &&
                     courseSelectionType === "predefined" &&
-                    !paymentDetails.courseId
-                  ? "Select a Course to Continue"
+                    !paymentDetails.courseId) ||
+                  (type === "course" &&
+                    courseSelectionType === "custom" &&
+                    selectedModules.length === 0) ||
+                  (!paymentDetails.requestId && type === "reschedule")
+                }
+              >
+                {isLoading
+                  ? "Processing..."
                   : type === "course" &&
-                      courseSelectionType === "custom" &&
-                      selectedModules.length === 0
-                    ? "Select Modules to Continue"
-                    : `Pay ₹${paymentDetails.amount}`}
-            </Button>
+                      courseSelectionType === "predefined" &&
+                      !paymentDetails.courseId
+                    ? "Select a Course to Continue"
+                    : type === "course" &&
+                        courseSelectionType === "custom" &&
+                        selectedModules.length === 0
+                      ? "Select Modules to Continue"
+                      : `Pay ₹${paymentDetails.amount}`}
+              </Button>
+            </div>
           </form>
           <div className="mt-6 text-center text-sm">
             <span className="text-black">By continuing, you agree to our</span>
