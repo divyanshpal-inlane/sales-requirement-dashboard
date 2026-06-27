@@ -172,7 +172,7 @@ export default function RescheduleSelector({
         </div>
       </ScrollArea>
 
-      <div className="flex items-center justify-between">
+      <div className="sticky bottom-0 flex items-center justify-between border-t bg-white py-3">
         <div className="text-sm">
           {selectedLessons.length} lesson{selectedLessons.length !== 1 && "s"}{" "}
           selected
