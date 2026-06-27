@@ -282,6 +282,30 @@ export default function LearnerManagement() {
         return;
       }
 
+      // Check if learner with this phone already exists
+      const { data: existingLearners, error: checkError } = await supabase
+        .from("Learner")
+        .select("id")
+        .eq("phone", learnerData.phone);
+
+      if (checkError) {
+        toast({
+          title: "Error",
+          description: "Failed to check learner existence",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (existingLearners && existingLearners.length > 0) {
+        toast({
+          title: "Error",
+          description: "Learner already registered",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Validate course selection based on type
       if (courseType === "predefined" && !selectedCourseId) {
         toast({
@@ -367,19 +391,66 @@ export default function LearnerManagement() {
       // Close the dialog before sending to backend to disable multiple clicks
       setIsCreateLearnerDialogOpen(false); // Close the create learner dialog
 
-      // send to backend
-      console.log("Sending data to edge function", dataToSend);
-      const { data, error } = await supabase.functions.invoke(
-        "create-learner-and-enrollment",
-        {
-          body: JSON.stringify(dataToSend),
-        },
-      );
+       // send to backend
+       let responseData: any = null;
+       
+       try {
+         const response = await supabase.functions.invoke(
+           "create-learner-and-enrollment",
+           {
+             body: JSON.stringify(dataToSend),
+           },
+         );
 
-      if (error) throw error;
+
+         // Check if there was an error in the response
+         if (response.error) {
+           // Re-throw the Supabase FunctionsHttpError to be caught below
+           throw response.error;
+         }
+
+         const { data } = response;
+         // If data is null, something went wrong
+         if (!data) {
+           throw new Error("No data received from server");
+         }
+         
+         // Check if data has learner (success case)
+         if (!data.learner) {
+           throw new Error("Learner data missing from response");
+         }
+
+         responseData = data;
+       } catch (error: any) {
+         
+         // Try to extract error message from the edge function error
+         let errorMessage = "Failed to create learner";
+         
+         // Check if context.response exists (Supabase FunctionsHttpError format)
+         if (error && error.context && error.context.response) {
+           try {
+             let errorData = error.context.response;
+             
+             if (typeof errorData === "string") {
+               errorData = JSON.parse(errorData);
+             }
+             
+             if (errorData && errorData.error) {
+               errorMessage = errorData.error;
+             }
+           } catch (parseError) {
+           }
+         } else if (error && error.message) {
+           // Fallback: Use the error message directly
+           errorMessage = error.message;
+         }
+         
+         throw new Error(errorMessage);
+       }
 
       // Ensure we set the created learner ID and enrollment ID
-      if (data && data.learner && data.learner.id) {
+      if (responseData && responseData.learner && responseData.learner.id) {
+        const data = responseData;
         setCreatedLearnerId(data.learner.id);
 
         // Store enrollment ID for payment link
@@ -429,9 +500,18 @@ export default function LearnerManagement() {
         throw new Error("No learner ID returned");
       }
     } catch (err) {
+      // Reopen the dialog so user can try again
+      setIsCreateLearnerDialogOpen(true);
+      
+      // Get the error message
+      let errorDescription = "An error occurred";
+      if (err instanceof Error) {
+        errorDescription = err.message;
+      }
+      
       toast({
         title: "Error",
-        description: err.message || "An error occurred",
+        description: errorDescription,
         variant: "destructive",
       });
       setCreatedLearnerId(null); // Reset createdLearnerId in case of error
