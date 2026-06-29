@@ -446,6 +446,7 @@ export default function LearnerIssueFixer() {
               {/* Data Editor */}
               <Card className="flex-1 overflow-hidden">
                 <DataEditor
+                  key={selectedLearner.id}
                   learner={selectedLearner}
                   enrollments={
                     learnersWithIssues.find((l) => l.id === selectedLearnerId)
@@ -538,33 +539,298 @@ function DataEditor({
   );
 }
 
-// Learner Editor
+// ============================================================================
+// Learner Editor — full, config-driven editor for every column on Learner.
+// Add a new column to LEARNER_FIELD_GROUPS and it becomes editable + persisted.
+// ============================================================================
+
+type LearnerFieldType =
+  | "text"
+  | "number"
+  | "date"
+  | "boolean"
+  | "triBoolean"
+  | "json"
+  | "address"
+  | "readonly";
+
+interface LearnerFieldDef {
+  key: keyof Learner;
+  label: string;
+  type: LearnerFieldType;
+  help?: string;
+  full?: boolean; // span both grid columns
+  multiline?: boolean; // text fields rendered as a textarea
+}
+
+interface LearnerFieldGroup {
+  title: string;
+  fields: LearnerFieldDef[];
+}
+
+const LEARNER_FIELD_GROUPS: LearnerFieldGroup[] = [
+  {
+    title: "Personal",
+    fields: [
+      { key: "name", label: "Name", type: "text" },
+      {
+        key: "phone",
+        label: "Phone",
+        type: "text",
+        help: "Login identifier — change with care",
+      },
+      { key: "email", label: "Email", type: "text" },
+      { key: "dob", label: "Date of Birth", type: "date" },
+      {
+        key: "driving_motivation",
+        label: "Driving Motivation",
+        type: "text",
+        full: true,
+      },
+    ],
+  },
+  {
+    title: "Address & Location",
+    fields: [
+      {
+        key: "pick_up_location",
+        label: "Pickup Address",
+        type: "address",
+        full: true,
+        help: "Google Places — auto-fills area, city, pincode, lat/lng",
+      },
+      { key: "area", label: "Area", type: "text" },
+      { key: "city", label: "City", type: "text" },
+      { key: "pincode", label: "Pincode", type: "text" },
+      { key: "address_lat", label: "Latitude", type: "number" },
+      { key: "address_lng", label: "Longitude", type: "number" },
+      { key: "aadhar_state", label: "Aadhaar State", type: "text" },
+      {
+        key: "address_change_required",
+        label: "Address Change Required",
+        type: "boolean",
+      },
+    ],
+  },
+  {
+    title: "Learner's License (LL)",
+    fields: [
+      { key: "LL_result", label: "LL Result", type: "triBoolean" },
+      { key: "LL_received", label: "LL Received", type: "boolean" },
+      { key: "LL_received_date", label: "LL Received Date", type: "date" },
+      { key: "LL_test_date", label: "LL Test Date", type: "date" },
+      { key: "LL_application_id", label: "LL Application ID", type: "text" },
+      {
+        key: "LL_application_approved",
+        label: "LL Application Approved",
+        type: "boolean",
+      },
+      { key: "LL_approved_date", label: "LL Approved Date", type: "date" },
+      {
+        key: "LL_team_appointment_booked",
+        label: "LL Appointment Booked",
+        type: "boolean",
+      },
+      { key: "is_LL_form_filled", label: "LL Form Filled", type: "boolean" },
+      { key: "has_postLL_done", label: "Post-LL Done", type: "boolean" },
+    ],
+  },
+  {
+    title: "Driving License (DL)",
+    fields: [
+      { key: "has_a_DL", label: "Has DL", type: "boolean" },
+      { key: "DL_result", label: "DL Result", type: "triBoolean" },
+      { key: "DL_received", label: "DL Received", type: "boolean" },
+      { key: "DL_test_date", label: "DL Test Date", type: "date" },
+      { key: "DL_received_date", label: "DL Received Date", type: "date" },
+      { key: "DL_id", label: "DL ID", type: "text" },
+      {
+        key: "has_two_wheeler_license",
+        label: "Has Two-Wheeler License",
+        type: "boolean",
+      },
+    ],
+  },
+  {
+    title: "Scheduling & Preferences",
+    fields: [
+      { key: "needs_scheduling", label: "Needs Scheduling", type: "boolean" },
+      {
+        key: "onboarding_completed",
+        label: "Onboarding Completed",
+        type: "boolean",
+      },
+      { key: "enabled", label: "Enabled", type: "boolean" },
+      { key: "has_lesson10_booked", label: "Lesson 10 Booked", type: "boolean" },
+      { key: "start_date", label: "Start Date", type: "date" },
+      {
+        key: "preferred_start_date",
+        label: "Preferred Start Date",
+        type: "date",
+      },
+      {
+        key: "preferred_completion_days",
+        label: "Preferred Completion Days",
+        type: "number",
+      },
+      {
+        key: "prefers_two_hour_classes",
+        label: "Prefers 2-Hour Classes",
+        type: "boolean",
+      },
+      {
+        key: "two_hour_days",
+        label: "Two-Hour Days",
+        type: "text",
+        help: "e.g. comma-separated days",
+      },
+      {
+        key: "unavailability",
+        label: "Unavailability (JSON)",
+        type: "json",
+        full: true,
+      },
+    ],
+  },
+  {
+    title: "Car Commerce / Intent",
+    fields: [
+      { key: "car_intent_type", label: "Car Intent Type", type: "text" },
+      { key: "car_intent_planning", label: "Car Intent Planning", type: "text" },
+      {
+        key: "car_intent_condition",
+        label: "Car Intent Condition",
+        type: "text",
+      },
+      {
+        key: "car_intent_timeframe",
+        label: "Car Intent Timeframe",
+        type: "text",
+      },
+      { key: "car_intent_source", label: "Car Intent Source", type: "text" },
+      {
+        key: "car_purchase_timeline",
+        label: "Car Purchase Timeline",
+        type: "text",
+      },
+      {
+        key: "car_intent_updated_at",
+        label: "Car Intent Updated",
+        type: "readonly",
+      },
+    ],
+  },
+  {
+    title: "Account & Notes",
+    fields: [
+      {
+        key: "password",
+        label: "Password",
+        type: "text",
+        help: "Login password — change with care",
+      },
+      {
+        key: "comments",
+        label: "Comments",
+        type: "text",
+        full: true,
+        multiline: true,
+      },
+      { key: "signed_up", label: "Signed Up", type: "readonly" },
+      { key: "created_at", label: "Created At", type: "readonly" },
+      { key: "id", label: "Learner ID", type: "readonly" },
+    ],
+  },
+];
+
+const EDITABLE_LEARNER_FIELDS = LEARNER_FIELD_GROUPS.flatMap(
+  (g) => g.fields,
+).filter((f) => f.type !== "readonly");
+
+// Normalize any stored date/timestamp string to YYYY-MM-DD for <input type="date">.
+function normalizeDateForInput(val: unknown): string {
+  if (!val || typeof val !== "string") return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(val)) return val.slice(0, 10);
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Build a form-friendly (mostly string) representation of a learner row.
+function buildLearnerFormState(learner: Learner): Record<string, any> {
+  const state: Record<string, any> = {};
+  for (const field of EDITABLE_LEARNER_FIELDS) {
+    const raw = (learner as any)[field.key];
+    switch (field.type) {
+      case "boolean":
+        state[field.key] = Boolean(raw);
+        break;
+      case "triBoolean":
+        state[field.key] =
+          raw === true ? "true" : raw === false ? "false" : "null";
+        break;
+      case "number":
+        state[field.key] = raw == null ? "" : String(raw);
+        break;
+      case "date":
+        state[field.key] = normalizeDateForInput(raw);
+        break;
+      case "json":
+        state[field.key] = raw == null ? "" : JSON.stringify(raw, null, 2);
+        break;
+      default: // text, address
+        state[field.key] = raw == null ? "" : String(raw);
+    }
+  }
+  return state;
+}
+
+// Convert a form value back to the value that should be written to the DB.
+// Throws on invalid JSON (caught by the save handler).
+function learnerFormValueToDb(field: LearnerFieldDef, value: any): any {
+  switch (field.type) {
+    case "boolean":
+      return Boolean(value);
+    case "triBoolean":
+      return value === "true" ? true : value === "false" ? false : null;
+    case "number": {
+      if (value === "" || value == null) return null;
+      const n = Number(value);
+      return isNaN(n) ? null : n;
+    }
+    case "date":
+      return value ? value : null;
+    case "json":
+      if (typeof value !== "string" || value.trim() === "") return null;
+      return JSON.parse(value);
+    default: {
+      const s = typeof value === "string" ? value.trim() : value;
+      return s === "" ? null : s;
+    }
+  }
+}
+
 function LearnerEditor({ learner }: { learner: Learner }) {
   const updateMutation = useUpdateLearnerAdmin();
-  const [formData, setFormData] = useState({
-    name: learner.name || "",
-    phone: learner.phone || "",
-    area: learner.area || "",
-    pick_up_location: learner.pick_up_location || "",
-    address_lat: learner.address_lat,
-    address_lng: learner.address_lng,
-    city: learner.city || "",
-    pincode: learner.pincode || "",
-    has_a_DL: learner.has_a_DL || false,
-    LL_result: learner.LL_result,
-    LL_received: learner.LL_received || false,
-    DL_result: learner.DL_result,
-    DL_received: learner.DL_received || false,
-    onboarding_completed: learner.onboarding_completed || false,
-    dob: learner.dob || "",
-    comments: learner.comments || "",
-  });
+  const { toast } = useToast();
+  const [formData, setFormData] = useState<Record<string, any>>(() =>
+    buildLearnerFormState(learner),
+  );
+  // Baseline used to detect changes; reset after a successful save.
+  const [initialData, setInitialData] = useState<Record<string, any>>(() =>
+    buildLearnerFormState(learner),
+  );
 
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const [areaSearch, setAreaSearch] = useState("");
 
-  // Initialize Google Places autocomplete
+  const setField = (key: string, value: any) =>
+    setFormData((prev) => ({ ...prev, [key]: value }));
+
+  // Initialize Google Places autocomplete on the address field
   useEffect(() => {
     let listener: google.maps.MapsEventListener | null = null;
 
@@ -603,13 +869,12 @@ function LearnerEditor({ learner }: { learner: Learner }) {
         setFormData((prev) => ({
           ...prev,
           pick_up_location: place.formatted_address!,
-          address_lat: lat,
-          address_lng: lng,
+          address_lat: String(lat),
+          address_lng: String(lng),
           city: cityComp?.long_name || prev.city,
           pincode: pincodeComp?.long_name || prev.pincode,
           area: sublocalityComp?.long_name || prev.area,
         }));
-        if (sublocalityComp) setAreaSearch(sublocalityComp.long_name);
       });
     });
 
@@ -622,182 +887,275 @@ function LearnerEditor({ learner }: { learner: Learner }) {
     };
   }, []);
 
-  const handleSave = () => {
-    updateMutation.mutate({
-      id: learner.id,
-      updates: formData,
-    });
+  // Which fields differ from the saved baseline
+  const changedKeys = useMemo(() => {
+    return EDITABLE_LEARNER_FIELDS.filter(
+      (field) =>
+        JSON.stringify(initialData[field.key] ?? null) !==
+        JSON.stringify(formData[field.key] ?? null),
+    ).map((f) => f.key);
+  }, [formData, initialData]);
+
+  const handleSave = async () => {
+    if (!formData.phone || String(formData.phone).trim() === "") {
+      toast({
+        title: "Phone required",
+        description: "Phone cannot be empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (changedKeys.length === 0) {
+      toast({ title: "No changes", description: "Nothing to save." });
+      return;
+    }
+
+    const updates: Record<string, unknown> = {};
+    try {
+      for (const field of EDITABLE_LEARNER_FIELDS) {
+        if (changedKeys.includes(field.key)) {
+          updates[field.key] = learnerFormValueToDb(
+            field,
+            formData[field.key],
+          );
+        }
+      }
+    } catch {
+      toast({
+        title: "Invalid JSON",
+        description: "Fix the Unavailability JSON before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await updateMutation.mutateAsync({
+        id: learner.id,
+        updates: updates as Partial<
+          Database["public"]["Tables"]["Learner"]["Update"]
+        >,
+      });
+      setInitialData({ ...formData });
+      toast({
+        title: "Saved",
+        description: `Updated ${changedKeys.length} field(s) in the database.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Save failed",
+        description: error?.message || "Could not update learner.",
+        variant: "destructive",
+      });
+    }
   };
 
+  const handleReset = () => {
+    setFormData({ ...initialData });
+    if (addressInputRef.current) {
+      addressInputRef.current.value = initialData.pick_up_location || "";
+    }
+  };
+
+  const renderField = (field: LearnerFieldDef) => {
+    const value = formData[field.key];
+    const labelEl = <Label className="text-xs">{field.label}</Label>;
+    const helpEl = field.help ? (
+      <p className="text-[10px] text-muted-foreground">{field.help}</p>
+    ) : null;
+
+    switch (field.type) {
+      case "boolean":
+        return (
+          <div className="flex h-full items-center justify-between rounded-lg border p-2">
+            <Label className="text-xs">{field.label}</Label>
+            <Checkbox
+              checked={Boolean(value)}
+              onCheckedChange={(checked: boolean) =>
+                setField(field.key, checked)
+              }
+            />
+          </div>
+        );
+      case "triBoolean":
+        return (
+          <>
+            {labelEl}
+            <Select
+              value={value ?? "null"}
+              onValueChange={(v) => setField(field.key, v)}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="null">Not set</SelectItem>
+                <SelectItem value="true">Pass</SelectItem>
+                <SelectItem value="false">Fail</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        );
+      case "number":
+        return (
+          <>
+            {labelEl}
+            <Input
+              type="number"
+              value={value ?? ""}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="h-8 text-sm"
+            />
+            {helpEl}
+          </>
+        );
+      case "date":
+        return (
+          <>
+            {labelEl}
+            <Input
+              type="date"
+              value={value ?? ""}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="h-8 text-sm"
+            />
+            {helpEl}
+          </>
+        );
+      case "json":
+        return (
+          <>
+            {labelEl}
+            <Textarea
+              value={value ?? ""}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="font-mono text-xs"
+              rows={4}
+              placeholder="null"
+            />
+            {helpEl}
+          </>
+        );
+      case "address":
+        return (
+          <>
+            {labelEl}
+            <Input
+              ref={addressInputRef}
+              defaultValue={value}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="h-8 text-sm"
+              placeholder="Type to search address..."
+            />
+            {helpEl}
+          </>
+        );
+      case "readonly": {
+        const raw = (learner as any)[field.key];
+        let display = raw == null ? "—" : String(raw);
+        if (raw && field.key !== "id") {
+          const d = new Date(raw);
+          if (!isNaN(d.getTime())) display = d.toLocaleString();
+        }
+        return (
+          <>
+            {labelEl}
+            <div className="flex h-8 items-center overflow-hidden text-ellipsis rounded-md border bg-gray-50 px-3 text-xs text-muted-foreground">
+              {display}
+            </div>
+          </>
+        );
+      }
+      default: // text
+        return field.multiline ? (
+          <>
+            {labelEl}
+            <Textarea
+              value={value ?? ""}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="text-sm"
+              rows={2}
+            />
+            {helpEl}
+          </>
+        ) : (
+          <>
+            {labelEl}
+            <Input
+              value={value ?? ""}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="h-8 text-sm"
+            />
+            {helpEl}
+          </>
+        );
+    }
+  };
+
+  const lat = Number(formData.address_lat);
+  const lng = Number(formData.address_lng);
+  const hasCoords = !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Name</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="h-8 text-sm"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Phone</Label>
-          <Input
-            value={formData.phone}
-            onChange={(e) =>
-              setFormData({ ...formData, phone: e.target.value })
-            }
-            className="h-8 text-sm"
-          />
-        </div>
-        <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Pickup Address</Label>
-          <Input
-            ref={addressInputRef}
-            defaultValue={formData.pick_up_location}
-            onChange={(e) =>
-              setFormData({ ...formData, pick_up_location: e.target.value })
-            }
-            className="h-8 text-sm"
-            placeholder="Type to search address..."
-          />
-          <p className="text-[10px] text-muted-foreground">
-            Google Places — auto-fills area, city, pincode, lat/lng
+    <div className="space-y-5 pb-2">
+      {LEARNER_FIELD_GROUPS.map((group) => (
+        <div key={group.title} className="space-y-3">
+          <p className="border-b pb-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
+            {group.title}
           </p>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Area</Label>
-          <Input
-            value={formData.area}
-            onChange={(e) => {
-              setFormData({ ...formData, area: e.target.value });
-              setAreaSearch(e.target.value);
-            }}
-            className="h-8 text-sm"
-            placeholder="e.g., Koramangala"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">City</Label>
-          <Input
-            value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            className="h-8 text-sm"
-            placeholder="e.g., Bangalore"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Pincode</Label>
-          <Input
-            value={formData.pincode}
-            onChange={(e) =>
-              setFormData({ ...formData, pincode: e.target.value })
-            }
-            className="h-8 text-sm"
-            placeholder="e.g., 560034"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Date of Birth</Label>
-          <Input
-            type="date"
-            value={formData.dob}
-            onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-            className="h-8 text-sm"
-          />
-        </div>
-        {formData.address_lat && formData.address_lng && (
-          <div className="col-span-2">
+          <div className="grid grid-cols-2 gap-3">
+            {group.fields.map((field) => (
+              <div
+                key={String(field.key)}
+                className={
+                  field.full ? "col-span-2 space-y-1" : "space-y-1"
+                }
+              >
+                {renderField(field)}
+              </div>
+            ))}
+          </div>
+          {group.title === "Address & Location" && hasCoords && (
             <a
-              href={`https://maps.google.com/?q=${formData.address_lat},${formData.address_lng}`}
+              href={`https://maps.google.com/?q=${lat},${lng}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
-              View on Google Maps ({formData.address_lat.toFixed(4)},{" "}
-              {formData.address_lng.toFixed(4)})
+              View on Google Maps ({lat.toFixed(4)}, {lng.toFixed(4)})
             </a>
-          </div>
+          )}
+        </div>
+      ))}
+
+      <div className="sticky bottom-0 -mx-3 flex items-center gap-3 border-t bg-white px-3 py-3">
+        <Button
+          onClick={handleSave}
+          disabled={updateMutation.isPending || changedKeys.length === 0}
+          size="sm"
+        >
+          <Save className="mr-2 h-4 w-4" />
+          {updateMutation.isPending
+            ? "Saving..."
+            : changedKeys.length > 0
+              ? `Save ${changedKeys.length} Change${changedKeys.length > 1 ? "s" : ""}`
+              : "Save Changes"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          disabled={updateMutation.isPending || changedKeys.length === 0}
+        >
+          Reset
+        </Button>
+        {changedKeys.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {changedKeys.length} unsaved change
+            {changedKeys.length > 1 ? "s" : ""}
+          </span>
         )}
       </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <Label className="text-xs">Has DL</Label>
-          <Checkbox
-            checked={formData.has_a_DL}
-            onCheckedChange={(checked: boolean) =>
-              setFormData({ ...formData, has_a_DL: checked })
-            }
-          />
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <Label className="text-xs">LL Passed</Label>
-          <Checkbox
-            checked={formData.LL_result === true}
-            onCheckedChange={(checked: boolean) =>
-              setFormData({ ...formData, LL_result: checked ? true : null })
-            }
-          />
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <Label className="text-xs">LL Received</Label>
-          <Checkbox
-            checked={formData.LL_received}
-            onCheckedChange={(checked: boolean) =>
-              setFormData({ ...formData, LL_received: checked })
-            }
-          />
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <Label className="text-xs">DL Passed</Label>
-          <Checkbox
-            checked={formData.DL_result === true}
-            onCheckedChange={(checked: boolean) =>
-              setFormData({ ...formData, DL_result: checked ? true : null })
-            }
-          />
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <Label className="text-xs">DL Received</Label>
-          <Checkbox
-            checked={formData.DL_received}
-            onCheckedChange={(checked: boolean) =>
-              setFormData({ ...formData, DL_received: checked })
-            }
-          />
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <Label className="text-xs">Onboarding Done</Label>
-          <Checkbox
-            checked={formData.onboarding_completed}
-            onCheckedChange={(checked: boolean) =>
-              setFormData({ ...formData, onboarding_completed: checked })
-            }
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <Label className="text-xs">Comments</Label>
-        <Textarea
-          value={formData.comments}
-          onChange={(e) =>
-            setFormData({ ...formData, comments: e.target.value })
-          }
-          className="text-sm"
-          rows={2}
-        />
-      </div>
-
-      <Button
-        onClick={handleSave}
-        disabled={updateMutation.isPending}
-        size="sm"
-      >
-        <Save className="mr-2 h-4 w-4" />
-        {updateMutation.isPending ? "Saving..." : "Save Changes"}
-      </Button>
     </div>
   );
 }
