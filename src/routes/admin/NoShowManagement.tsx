@@ -1,5 +1,12 @@
 import { format } from "date-fns";
-import { AlertTriangle, ArrowLeft, Check, Loader2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  IndianRupee,
+  Loader2,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +22,13 @@ import {
   usePotentialInstructorNoShows,
   useResolveNoShow,
 } from "@/queries/noShow";
+import {
+  NO_SHOW_FEE_AMOUNT,
+  NoShowFee,
+  useAllNoShowFees,
+  useChargeNoShowFee,
+  useReviewAppeal,
+} from "@/queries/noShowFees";
 
 const PARTY_STYLE: Record<string, string> = {
   learner: "border-blue-200 bg-blue-50 text-blue-700",
@@ -34,6 +48,7 @@ const fmtWhen = (c: NoShowCase) =>
 function ReportedCases() {
   const { data: cases, isLoading } = useNoShowCases();
   const resolve = useResolveNoShow();
+  const charge = useChargeNoShowFee();
   const { data: admin } = useCurrentAdmin();
   const { toast } = useToast();
 
@@ -44,6 +59,32 @@ function ReportedCases() {
     } catch (e) {
       toast({
         title: "Action failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const chargeFee = async (c: NoShowCase) => {
+    if (
+      !window.confirm(
+        `Charge ₹${NO_SHOW_FEE_AMOUNT} no-show fee to ${c.learnerName ?? "this learner"}? They will be notified.`,
+      )
+    )
+      return;
+    try {
+      await charge.mutateAsync({
+        scheduleId: c.schedule_id,
+        noShowId: c.id,
+        markedBy: admin?.name ?? "Admin",
+      });
+      toast({
+        title: `₹${NO_SHOW_FEE_AMOUNT} fee charged`,
+        description: "Logged under Fees & Appeals; learner notified.",
+      });
+    } catch (e) {
+      toast({
+        title: "Couldn't charge fee",
         description: e instanceof Error ? e.message : "Please try again.",
         variant: "destructive",
       });
@@ -93,7 +134,18 @@ function ReportedCases() {
               )}
             </div>
             {c.status === "open" && (
-              <div className="flex shrink-0 gap-1">
+              <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                {c.no_show_party === "learner" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 border-rose-200 text-rose-700 hover:bg-rose-50"
+                    disabled={charge.isPending}
+                    onClick={() => chargeFee(c)}
+                  >
+                    <IndianRupee className="mr-1 h-3 w-3" /> Charge ₹{NO_SHOW_FEE_AMOUNT}
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="h-8" disabled={resolve.isPending} onClick={() => act(c.id, "resolved")}>
                   <Check className="mr-1 h-3 w-3" /> Resolve
                 </Button>
@@ -171,6 +223,195 @@ function PotentialInstructorNoShows() {
   );
 }
 
+const FEE_STATUS_STYLE: Record<string, string> = {
+  pending: "border-amber-200 bg-amber-100 text-amber-800",
+  confirmed: "border-slate-200 bg-slate-100 text-slate-700",
+  deducted: "border-emerald-200 bg-emerald-100 text-emerald-800",
+  appealed: "border-orange-200 bg-orange-100 text-orange-800",
+  waived: "border-blue-200 bg-blue-100 text-blue-700",
+  paid: "border-emerald-200 bg-emerald-100 text-emerald-800",
+};
+
+const APPEAL_REASON_LABEL: Record<string, string> = {
+  instructor_no_show: "Instructor didn't show",
+  system_error: "System / booking error",
+  emergency: "Emergency / personal",
+  other: "Other",
+};
+
+const fmtFeeWhen = (f: NoShowFee) =>
+  f.date
+    ? `${format(new Date(f.date), "EEE d MMM")}${f.startTime ? ` · ${f.startTime.slice(0, 5)}` : ""}`
+    : "—";
+
+function FeesAndAppeals() {
+  const { data: fees, isLoading } = useAllNoShowFees();
+  const review = useReviewAppeal();
+  const { data: admin } = useCurrentAdmin();
+  const { toast } = useToast();
+
+  const decide = async (
+    f: NoShowFee,
+    decision: "approve" | "reject" | "partial",
+  ) => {
+    if (!f.appeal) return;
+    let refundAmount: number | undefined;
+    if (decision === "partial") {
+      const raw = window.prompt(
+        `Refund amount (₹), max ${f.amount}. The rest stands as the fee.`,
+        String(Math.floor(f.amount / 2)),
+      );
+      if (raw == null) return;
+      refundAmount = Number(raw);
+      if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount >= f.amount) {
+        toast({
+          title: "Invalid amount",
+          description: `Enter a number between 1 and ${f.amount - 1}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    try {
+      await review.mutateAsync({
+        appealId: f.appeal.id,
+        feeId: f.id,
+        feeAmount: f.amount,
+        learnerId: f.learner_id,
+        decision,
+        refundAmount,
+        reviewerName: admin?.name ?? "Admin",
+      });
+      toast({
+        title:
+          decision === "approve"
+            ? "Appeal approved — fee waived"
+            : decision === "reject"
+              ? "Appeal rejected — fee stands"
+              : "Partial refund applied",
+      });
+    } catch (e) {
+      toast({
+        title: "Review failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  if (!fees || fees.length === 0)
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-sm text-muted-foreground">
+          No no-show fees yet. Charge one from a learner case under “Reported
+          cases”.
+        </CardContent>
+      </Card>
+    );
+
+  const pendingAppeals = fees.filter(
+    (f) => f.appeal && f.appeal.status === "pending",
+  );
+
+  return (
+    <div className="space-y-4">
+      {pendingAppeals.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-sm font-semibold">
+            Pending appeals ({pendingAppeals.length})
+          </h2>
+          <div className="space-y-2">
+            {pendingAppeals.map((f) => (
+              <Card key={f.id} className="border-orange-200">
+                <CardContent className="space-y-2 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{f.learnerName ?? "Learner"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {fmtFeeWhen(f)} · ₹{f.amount}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {APPEAL_REASON_LABEL[f.appeal!.reason] ?? f.appeal!.reason}
+                    </Badge>
+                  </div>
+                  {f.appeal!.description && (
+                    <p className="text-xs text-muted-foreground">
+                      “{f.appeal!.description}”
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      disabled={review.isPending}
+                      onClick={() => decide(f, "approve")}
+                    >
+                      <Check className="mr-1 h-3 w-3" /> Approve (waive)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      disabled={review.isPending}
+                      onClick={() => decide(f, "partial")}
+                    >
+                      Partial refund
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 text-muted-foreground"
+                      disabled={review.isPending}
+                      onClick={() => decide(f, "reject")}
+                    >
+                      <X className="mr-1 h-3 w-3" /> Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h2 className="mb-2 text-sm font-semibold">All fees ({fees.length})</h2>
+        <div className="space-y-2">
+          {fees.map((f) => (
+            <Card key={f.id}>
+              <CardContent className="flex items-center justify-between gap-3 p-3">
+                <div className="min-w-0 text-sm">
+                  <div className="font-medium">{f.learnerName ?? "Learner"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {fmtFeeWhen(f)}
+                    {f.lessonNumber != null ? ` · Lesson ${f.lessonNumber}` : ""}
+                    {f.instructorName ? ` · ${f.instructorName}` : ""}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="text-sm font-semibold">₹{f.amount}</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] capitalize ${FEE_STATUS_STYLE[f.status] ?? ""}`}
+                  >
+                    {f.status}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NoShowManagement() {
   return (
     <div className="min-h-screen bg-muted/30 p-4 sm:p-6">
@@ -192,10 +433,14 @@ export default function NoShowManagement() {
         <Tabs defaultValue="reported">
           <TabsList>
             <TabsTrigger value="reported">Reported cases</TabsTrigger>
+            <TabsTrigger value="fees">Fees &amp; appeals</TabsTrigger>
             <TabsTrigger value="potential">Potential instructor no-shows</TabsTrigger>
           </TabsList>
           <TabsContent value="reported" className="mt-4">
             <ReportedCases />
+          </TabsContent>
+          <TabsContent value="fees" className="mt-4">
+            <FeesAndAppeals />
           </TabsContent>
           <TabsContent value="potential" className="mt-4">
             <PotentialInstructorNoShows />

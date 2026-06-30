@@ -14,6 +14,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  ReceiptText,
   Save,
   User,
   X,
@@ -715,6 +716,18 @@ export default function Profile2() {
             )}
           </CardContent>
         </Card>
+
+        {/* Fees & charges */}
+        <button
+          onClick={() => navigate("/fees")}
+          className="flex w-full items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3 transition-colors hover:bg-primary/10"
+        >
+          <div className="flex items-center gap-2">
+            <ReceiptText className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Fees & charges</span>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </button>
 
         {/* Logout Button */}
         <Button
