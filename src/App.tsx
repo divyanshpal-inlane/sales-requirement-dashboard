@@ -62,6 +62,7 @@ import AdminSettings from "@/routes/admin/Settings";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
+import Fees from "@/routes/fees";
 import Home from "@/routes/home";
 import InstructorAuth from "@/routes/InstructorAuth";
 import LoadingAndRedirect from "@/routes/LoadingandRedirect";
@@ -150,6 +151,7 @@ export default function App() {
                 }
               />
               <Route path="help" element={<HelpSupport />} />
+              <Route path="fees" element={<Fees />} />
               <Route path="profile" element={<Profile2 />} />
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
