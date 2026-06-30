@@ -1001,3 +1001,77 @@ export function useDeleteLearnerAllData() {
     },
   });
 }
+
+// ============================================================================
+// Enrollment plan-edit audit log (PRD-ADMIN-004 §5.4)
+// Append-only history of payment-plan edits. Table created in
+// 20260630_add_enrollment_plan_audit.sql. Not yet in the generated
+// database.types.ts, so the supabase client is cast for these two calls only —
+// regenerate types with `supabase gen types` to drop the casts.
+// ============================================================================
+
+export interface EnrollmentPlanAuditChange {
+  field: string;
+  label: string;
+  old: string | number | null;
+  new: string | number | null;
+}
+
+export interface EnrollmentPlanAuditRow {
+  id: string;
+  enrollment_id: string | null;
+  learner_id: string | null;
+  editor_id: string | null;
+  editor_name: string | null;
+  reason: string | null;
+  changes: EnrollmentPlanAuditChange[];
+  created_at: string;
+}
+
+// Read the edit history for one enrollment, newest first.
+export function useEnrollmentPlanAudit(enrollmentId?: string) {
+  return useQuery({
+    queryKey: ["enrollment-plan-audit", enrollmentId],
+    queryFn: async () => {
+      if (!enrollmentId) return [] as EnrollmentPlanAuditRow[];
+      const { data, error } = await (supabase as any)
+        .from("enrollment_plan_audit")
+        .select("*")
+        .eq("enrollment_id", enrollmentId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as EnrollmentPlanAuditRow[];
+    },
+    enabled: !!enrollmentId,
+  });
+}
+
+// Append one audit row for a plan edit.
+export function useCreateEnrollmentPlanAudit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (entry: {
+      enrollment_id: string;
+      learner_id: string;
+      editor_id?: string | null;
+      editor_name?: string | null;
+      reason?: string | null;
+      changes: EnrollmentPlanAuditChange[];
+    }) => {
+      const { data, error } = await (supabase as any)
+        .from("enrollment_plan_audit")
+        .insert(entry)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as EnrollmentPlanAuditRow;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["enrollment-plan-audit", variables.enrollment_id],
+      });
+    },
+  });
+}
