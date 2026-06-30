@@ -3,9 +3,15 @@ import {
   ArrowLeft,
   CheckCircle,
   ChevronRight,
+  Copy,
+  History,
+  Link2,
+  Lock,
+  MessageCircle,
   RefreshCw,
   Save,
   Search,
+  Send,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -39,15 +45,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  EnrollmentPlanAuditChange,
   useCreateEnrollmentAdmin,
+  useCreateEnrollmentPlanAudit,
   useCreatePaymentAdmin,
   useDeleteLearnerAllData,
+  useEnrollmentPlanAudit,
   useLearnerSchedulesAdmin,
   useLearnersWithIssues,
   useUpdateEnrollmentAdmin,
   useUpdateLearnerAdmin,
   useUpdatePaymentAdmin,
 } from "@/queries/learner";
+import { useCurrentUser } from "@/queries/userManagement";
 import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/types/database.types";
 import { googleMapsLoader } from "@/utils/googleMaps";
@@ -55,6 +65,26 @@ import { googleMapsLoader } from "@/utils/googleMaps";
 type Learner = Database["public"]["Tables"]["Learner"]["Row"];
 type Enrollment = Database["public"]["Tables"]["enrollment"]["Row"];
 type Payment = Database["public"]["Tables"]["payment"]["Row"];
+
+// Course catalogue offered when (re)assigning a plan — mirrors the list used by
+// the create-learner flow in LearnerManagement.tsx so an edited plan offers the
+// same packages a learner could have been created with. `duration` = lessons.
+const PREDEFINED_COURSES: { id: string; name: string; duration: number }[] = [
+  { id: "e129f667-0510-4f07-9847-edb58356dc74", name: "Beginner Course", duration: 10 },
+  { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
+  { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
+  { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
+  { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
+  { id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb", name: "Parking + Flyover", duration: 4 },
+  { id: "abddddb8-3f54-41ea-a64b-5ba55988b12a", name: "Slopes + Parking", duration: 4 },
+  { id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936", name: "Traffic + Parking", duration: 6 },
+  { id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3", name: "Traffic + Flyover", duration: 6 },
+  { id: "b991363c-6791-411e-9cb8-6723e40d0a0a", name: "Traffic + Parking + Flyover", duration: 8 },
+];
+
+const PAYMENT_LINK_BASE = "https://inlane-web-app.vercel.app/payment";
+
+type PaymentPlan = "full" | "half" | "custom";
 
 interface Issue {
   type: "enrollment" | "payment" | "schedule" | "learner";
@@ -492,6 +522,9 @@ function DataEditor({
           <TabsTrigger value="enrollment" className="text-xs">
             Enrollment
           </TabsTrigger>
+          <TabsTrigger value="plan" className="text-xs">
+            Plan &amp; Link
+          </TabsTrigger>
           <TabsTrigger value="payment" className="text-xs">
             Payment
           </TabsTrigger>
@@ -511,6 +544,14 @@ function DataEditor({
 
         <TabsContent value="enrollment" className="m-0 p-3">
           <EnrollmentEditor enrollments={enrollments} learnerId={learner.id} />
+        </TabsContent>
+
+        <TabsContent value="plan" className="m-0 p-3">
+          <PaymentPlanEditor
+            learner={learner}
+            enrollments={enrollments}
+            payments={payments}
+          />
         </TabsContent>
 
         <TabsContent value="payment" className="m-0 p-3">
@@ -1958,6 +1999,572 @@ function PaymentEditor({
           <p>
             <strong>Reference:</strong> {payment.gateway_reference || "N/A"}
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Payment Plan Editor (PRD-ADMIN-004)
+// Edit course / plan / amount on an EXISTING learner and re-send the payment
+// link — without creating a duplicate learner. Phone (the login id) is never
+// editable here. Blocks once any payment is received, requires a confirmation
+// diff, and logs every change to the append-only enrollment_plan_audit table.
+// ============================================================================
+function PaymentPlanEditor({
+  learner,
+  enrollments,
+  payments,
+}: {
+  learner: Learner;
+  enrollments: (Enrollment & {
+    Courses?: {
+      id: string;
+      name: string | null;
+      duration: number | null;
+      total_lessons: number | null;
+    } | null;
+  })[];
+  payments: Payment[];
+}) {
+  const { toast } = useToast();
+  const updateEnrollment = useUpdateEnrollmentAdmin();
+  const createAudit = useCreateEnrollmentPlanAudit();
+  const { data: currentUser } = useCurrentUser();
+  const editor = currentUser as
+    | { id?: string; name?: string; phone?: string }
+    | null
+    | undefined;
+
+  const enrollment = enrollments[0];
+  const linkedCourse = (enrollment as any)?.Courses;
+  const existingProgress = enrollment?.progress as {
+    type?: string;
+    total_hours?: number;
+  } | null;
+
+  // Any money received (half or full) blocks plan edits — changing the plan
+  // afterwards is refund territory, explicitly out of scope (PRD §3, §5.2).
+  const hasReceivedPayment =
+    enrollment?.payment_status === "full_paid" ||
+    enrollment?.payment_status === "half_paid" ||
+    payments.some(
+      (p) =>
+        p.status === "completed" ||
+        p.status === "full_paid" ||
+        p.status === "half_paid",
+    );
+
+  // Course catalogue + the currently-linked course (if it isn't predefined),
+  // so the dropdown always shows the current value.
+  const courseOptions = [...PREDEFINED_COURSES];
+  if (
+    enrollment?.course_id &&
+    !courseOptions.some((c) => c.id === enrollment.course_id)
+  ) {
+    courseOptions.unshift({
+      id: enrollment.course_id,
+      name: linkedCourse?.name || "Current course",
+      duration:
+        linkedCourse?.total_lessons ||
+        linkedCourse?.duration ||
+        existingProgress?.total_hours ||
+        0,
+    });
+  }
+  const courseName = (id: string) =>
+    courseOptions.find((c) => c.id === id)?.name || "Unknown course";
+
+  // Baseline = current DB values.
+  const initCourseId = enrollment?.course_id || "";
+  const initAmount = enrollment?.amount ?? 0;
+  const initI1 = enrollment?.installment1_amount ?? 0;
+  const initI2 = enrollment?.installment2_amount ?? 0;
+  const initialPlan: PaymentPlan =
+    initI2 === 0 ? "full" : Math.abs(initI1 - initI2) <= 1 ? "half" : "custom";
+
+  const [courseId, setCourseId] = useState(initCourseId);
+  const [plan, setPlan] = useState<PaymentPlan>(initialPlan);
+  const [totalAmount, setTotalAmount] = useState<number>(initAmount);
+  const [customDueNow, setCustomDueNow] = useState<number>(initI1 || initAmount);
+  const [reason, setReason] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const selectedCourse = courseOptions.find((c) => c.id === courseId);
+  const totalLessons =
+    selectedCourse?.duration || existingProgress?.total_hours || 0;
+
+  // Derived installment amounts from the chosen plan.
+  const dueNow =
+    plan === "full"
+      ? totalAmount
+      : plan === "half"
+        ? Math.round(totalAmount / 2)
+        : Number(customDueNow) || 0;
+  const secondInstallment = Math.max(0, totalAmount - dueNow);
+
+  const planLabel = (p: PaymentPlan) =>
+    p === "full" ? "Full payment" : p === "half" ? "Half (50:50)" : "Custom";
+
+  // Changes vs the DB baseline — drives the confirm modal and the audit row.
+  const changes: EnrollmentPlanAuditChange[] = [];
+  if (courseId !== initCourseId)
+    changes.push({
+      field: "course_id",
+      label: "Course",
+      old: courseName(initCourseId),
+      new: courseName(courseId),
+    });
+  if (initialPlan !== plan)
+    changes.push({
+      field: "plan",
+      label: "Payment Plan",
+      old: planLabel(initialPlan),
+      new: planLabel(plan),
+    });
+  if (totalAmount !== initAmount)
+    changes.push({
+      field: "amount",
+      label: "Total Amount (₹)",
+      old: initAmount,
+      new: totalAmount,
+    });
+  if (dueNow !== initI1)
+    changes.push({
+      field: "installment1_amount",
+      label: "Amount Due Now (₹)",
+      old: initI1,
+      new: dueNow,
+    });
+  if (secondInstallment !== initI2)
+    changes.push({
+      field: "installment2_amount",
+      label: "Second Installment (₹)",
+      old: initI2,
+      new: secondInstallment,
+    });
+  const hasChanges = changes.length > 0;
+
+  const buildPaymentLink = () =>
+    `${PAYMENT_LINK_BASE}?phone=${encodeURIComponent(learner.phone || "")}`;
+
+  const waHref = (link: string) => {
+    const digits = (learner.phone || "").replace(/\D/g, "");
+    const waPhone = digits.length === 10 ? `91${digits}` : digits;
+    const msg =
+      `Hi ${learner.name || "there"}, here is your updated Lane payment link ` +
+      `for ${courseName(courseId)} — ₹${dueNow} due now: ${link}`;
+    return `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const copyLink = async (link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({
+        title: "Copied",
+        description: "Payment link copied to clipboard.",
+      });
+    } catch {
+      toast({ title: "Copy failed", description: link, variant: "destructive" });
+    }
+  };
+
+  const handleSaveClick = () => {
+    if (!enrollment) return;
+    if (totalAmount < 1 || dueNow < 1) {
+      toast({
+        title: "Invalid amount",
+        description: "Total and amount due now must be at least ₹1.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!hasChanges) {
+      toast({ title: "No changes detected", description: "Nothing to update." });
+      return;
+    }
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (!enrollment) return;
+    setIsSaving(true);
+    try {
+      // 1. Update the enrollment in place — no new learner row is created.
+      await updateEnrollment.mutateAsync({
+        id: enrollment.id,
+        updates: {
+          course_id: courseId,
+          amount: totalAmount,
+          installment_mode: plan === "full" ? "full" : "installment",
+          installment1_amount: dueNow,
+          installment2_amount: secondInstallment,
+          progress: {
+            type: existingProgress?.type || "course",
+            total_hours: totalLessons,
+          },
+        },
+      });
+
+      // 2. Append the audit row (best-effort: a logging failure must not lose
+      //    the edit that already succeeded).
+      try {
+        await createAudit.mutateAsync({
+          enrollment_id: enrollment.id,
+          learner_id: learner.id,
+          editor_id: editor?.id ?? null,
+          editor_name: editor?.name || editor?.phone || "Unknown",
+          reason: reason.trim() || null,
+          changes,
+        });
+      } catch (e) {
+        console.error("Failed to write plan-edit audit log", e);
+      }
+
+      // 3. Re-send the payment link. It's the same deterministic phone link,
+      //    which now reflects the new amount because the payment page reads
+      //    live enrollment data. Best-effort — the link is valid regardless,
+      //    and copy / WhatsApp fallbacks are always shown below.
+      const link = buildPaymentLink();
+      try {
+        await supabase.functions.invoke("send-payment-link-email", {
+          body: {
+            learnerEmail: learner.email,
+            learnerName: learner.name,
+            course: courseName(courseId),
+            amount: dueNow,
+            paymentLink: link,
+          },
+        });
+        await supabase.functions.invoke("send-message", {
+          body: {
+            message_type: "PAYMENT_LINK",
+            learner_id: learner.id,
+            enrollment_id: enrollment.id,
+            course_name: courseName(courseId),
+            payment_amount: dueNow,
+            duration: totalLessons,
+            payment_link: link,
+          },
+        });
+        toast({
+          title: "Plan updated & link sent",
+          description: `New link sent to ${learner.name || learner.phone}.`,
+        });
+      } catch (e) {
+        console.error("Payment link dispatch failed", e);
+        toast({
+          title: "Plan updated — link not auto-sent",
+          description:
+            "Saved the new plan, but sending the link failed. Use Copy / WhatsApp below to share it.",
+          variant: "destructive",
+        });
+      }
+
+      setGeneratedLink(link);
+      setReason("");
+      setConfirmOpen(false);
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description:
+          err?.message || "Could not update the plan. No changes saved.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!enrollment) {
+    return (
+      <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <p className="text-sm font-medium text-orange-800">No enrollment</p>
+        </div>
+        <p className="text-xs text-orange-600">
+          This learner has no enrollment to edit. Create one through the normal
+          payment flow first.
+        </p>
+      </div>
+    );
+  }
+
+  if (hasReceivedPayment) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4">
+          <div className="mb-1 flex items-center gap-2">
+            <Lock className="h-4 w-4 text-red-600" />
+            <p className="text-sm font-semibold text-red-800">
+              Payment already received. Edits not permitted.
+            </p>
+          </div>
+          <p className="text-xs text-red-600">
+            Payment received on this record — contact support to make changes.
+            Refunds and reversals are out of scope for this tool.
+          </p>
+        </div>
+        <EditHistory enrollmentId={enrollment.id} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Phone is permanent */}
+      <div className="rounded-lg border bg-gray-50 p-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5" />
+          Phone (login ID) — permanent, cannot be changed
+        </div>
+        <p className="mt-1 text-sm font-medium">{learner.phone || "N/A"}</p>
+      </div>
+
+      {/* Plan fields */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Course / Package</Label>
+          <Select value={courseId} onValueChange={setCourseId}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select course" />
+            </SelectTrigger>
+            <SelectContent>
+              {courseOptions.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name} ({c.duration} lessons)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Payment Plan</Label>
+          <Select
+            value={plan}
+            onValueChange={(v) => setPlan(v as PaymentPlan)}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="full">Full payment</SelectItem>
+              <SelectItem value="half">Half (50:50)</SelectItem>
+              <SelectItem value="custom">Custom amount</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Total Amount (₹)</Label>
+          <Input
+            type="number"
+            min={1}
+            value={totalAmount || ""}
+            onChange={(e) => setTotalAmount(Number(e.target.value))}
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Amount Due Now (₹)</Label>
+          {plan === "custom" ? (
+            <Input
+              type="number"
+              min={1}
+              value={customDueNow || ""}
+              onChange={(e) => setCustomDueNow(Number(e.target.value))}
+              className="h-8 text-sm"
+            />
+          ) : (
+            <div className="flex h-8 items-center rounded-md border bg-gray-50 px-3 text-sm text-muted-foreground">
+              ₹{dueNow}
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground">
+            Second installment: ₹{secondInstallment}
+          </p>
+        </div>
+      </div>
+
+      {/* Internal note */}
+      <div className="space-y-1">
+        <Label className="text-xs font-medium">
+          Reason / internal note (optional)
+        </Label>
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          className="text-sm"
+          placeholder="e.g. customer switched from full to 50:50 split"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Recorded in Edit History. Not sent to the customer.
+        </p>
+      </div>
+
+      <Button
+        onClick={handleSaveClick}
+        disabled={isSaving || !hasChanges}
+        size="sm"
+        className="w-full"
+      >
+        <Send className="mr-2 h-4 w-4" />
+        {hasChanges
+          ? `Review ${changes.length} Change${changes.length > 1 ? "s" : ""} & Regenerate Link`
+          : "No changes"}
+      </Button>
+
+      {/* Newly generated link */}
+      {generatedLink && (
+        <div className="space-y-2 rounded-lg border border-green-300 bg-green-50 p-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-green-800">
+            <Link2 className="h-4 w-4" /> New payment link
+          </div>
+          <p className="break-all rounded border bg-white p-2 text-xs">
+            {generatedLink}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 bg-white text-xs"
+              onClick={() => copyLink(generatedLink)}
+            >
+              <Copy className="mr-1 h-3.5 w-3.5" /> Copy
+            </Button>
+            <a
+              href={waHref(generatedLink)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button
+                size="sm"
+                className="h-7 bg-green-600 text-xs hover:bg-green-700"
+              >
+                <MessageCircle className="mr-1 h-3.5 w-3.5" /> Share on WhatsApp
+              </Button>
+            </a>
+          </div>
+        </div>
+      )}
+
+      <EditHistory enrollmentId={enrollment.id} />
+
+      {/* Confirmation modal (PRD §5.3) */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm plan change</DialogTitle>
+            <DialogDescription>
+              Review the changes before regenerating the payment link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {changes.map((c) => (
+              <div
+                key={c.field}
+                className="flex items-center justify-between rounded border p-2 text-sm"
+              >
+                <span className="text-muted-foreground">{c.label}</span>
+                <span>
+                  <span className="text-red-600 line-through">
+                    {String(c.old)}
+                  </span>{" "}
+                  → <span className="font-medium text-green-700">{String(c.new)}</span>
+                </span>
+              </div>
+            ))}
+            {reason.trim() && (
+              <p className="text-xs text-muted-foreground">
+                Note: {reason.trim()}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              The link URL stays the same but now reflects the new amount, and a
+              fresh link will be emailed + messaged to the customer.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Confirm & Regenerate Link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Collapsible append-only edit history for a learner's plan (PRD §5.4).
+function EditHistory({ enrollmentId }: { enrollmentId: string }) {
+  const { data: entries, isLoading } = useEnrollmentPlanAudit(enrollmentId);
+  const [open, setOpen] = useState(false);
+  const count = entries?.length || 0;
+
+  return (
+    <div className="rounded-lg border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between p-3 text-sm font-medium"
+      >
+        <span className="flex items-center gap-2">
+          <History className="h-4 w-4" /> Edit History ({count})
+        </span>
+        <ChevronRight
+          className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="space-y-2 border-t p-3">
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : count === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No edits recorded yet.
+            </p>
+          ) : (
+            entries!.map((e) => (
+              <div key={e.id} className="rounded border p-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">
+                    {e.editor_name || "Unknown"}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {new Date(e.created_at).toLocaleString()}
+                  </span>
+                </div>
+                {e.reason && (
+                  <p className="mt-1 italic text-muted-foreground">
+                    "{e.reason}"
+                  </p>
+                )}
+                <ul className="mt-1 space-y-0.5">
+                  {(e.changes || []).map((c, i) => (
+                    <li key={i}>
+                      <span className="text-muted-foreground">{c.label}: </span>
+                      <span className="text-red-600 line-through">
+                        {String(c.old)}
+                      </span>
+                      {" → "}
+                      <span className="text-green-700">{String(c.new)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
