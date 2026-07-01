@@ -393,23 +393,43 @@ serve(async (req) => {
     }
 
     // 3c. Handle custom course payment
-    if (
-      paymentType === "custom" &&
-      selectedModules &&
-      selectedModules.length > 0
-    ) {
-      const lessonsToUnlock = Math.min(Math.ceil((totalHours || 0) / 1), 10);
+    if (paymentType === "custom") {
+      // Reuse an existing pending custom enrollment (e.g. one an admin built and
+      // sent a payment link for) instead of inserting a duplicate — mirrors the
+      // demo/topup reuse pattern above. A locked/admin link won't resend the
+      // modules, so fall back to whatever the enrollment already recorded.
+      const { data: existingPendingCustom } = await supabaseClient
+        .from("enrollment")
+        .select("id, progress")
+        .eq("learner_id", learnerId)
+        .is("course_id", null)
+        .neq("payment_status", "full_paid")
+        .filter("progress->>type", "eq", "custom")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const existingProgress =
+        (existingPendingCustom?.progress as {
+          selected_modules?: string[];
+          total_hours?: number;
+        } | null) || null;
+      const mergedModules =
+        selectedModules && selectedModules.length > 0
+          ? selectedModules
+          : existingProgress?.selected_modules || [];
+      const mergedHours = totalHours || existingProgress?.total_hours || 0;
+
+      const lessonsToUnlock = Math.min(Math.ceil((mergedHours || 0) / 1), 10);
       const unlockedLessons = Array.from(
         { length: lessonsToUnlock },
         (_, i) => i + 1,
       );
 
-      const { error: customError } = await supabaseClient
-        .from("enrollment")
-        .insert([
-          {
-            learner_id: learnerId,
-            course_id: null,
+      if (existingPendingCustom) {
+        const { error: customUpdateError } = await supabaseClient
+          .from("enrollment")
+          .update({
             payment_id: paymentRecord.id,
             status: "pending",
             payment_status: "pending",
@@ -418,18 +438,47 @@ serve(async (req) => {
             installment2_amount: installment2Amount,
             unlocked_lessons:
               installmentType === "first_half"
-                ? getHalfPaymentLessons(totalHours || 10)
+                ? getHalfPaymentLessons(mergedHours || 10)
                 : unlockedLessons,
             progress: {
               type: "custom",
-              selected_modules: selectedModules,
-              total_hours: totalHours,
+              selected_modules: mergedModules,
+              total_hours: mergedHours,
               is_demo_upgrade: isDemoUpgrade || false,
             },
-          },
-        ]);
+          })
+          .eq("id", existingPendingCustom.id);
 
-      if (customError) throw customError;
+        if (customUpdateError) throw customUpdateError;
+      } else if (selectedModules && selectedModules.length > 0) {
+        // No existing enrollment — a brand-new custom flow started by the learner.
+        const { error: customError } = await supabaseClient
+          .from("enrollment")
+          .insert([
+            {
+              learner_id: learnerId,
+              course_id: null,
+              payment_id: paymentRecord.id,
+              status: "pending",
+              payment_status: "pending",
+              installment_mode: installmentType || "full",
+              installment1_amount: installment1Amount,
+              installment2_amount: installment2Amount,
+              unlocked_lessons:
+                installmentType === "first_half"
+                  ? getHalfPaymentLessons(mergedHours || 10)
+                  : unlockedLessons,
+              progress: {
+                type: "custom",
+                selected_modules: selectedModules,
+                total_hours: mergedHours,
+                is_demo_upgrade: isDemoUpgrade || false,
+              },
+            },
+          ]);
+
+        if (customError) throw customError;
+      }
     }
 
     // 4. Get Orange PG configuration from environment
