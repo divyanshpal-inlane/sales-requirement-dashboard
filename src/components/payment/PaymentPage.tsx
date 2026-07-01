@@ -177,6 +177,14 @@ function PaymentPage() {
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
           const enrollmentType = enrollment?.progress?.type;
+          // Custom bundles (built by admin) have no course_id — identify them by
+          // progress.type. An existing custom enrollment is FINAL: prefill & lock
+          // it like a predefined course so the learner just pays the admin's
+          // amount instead of being shown the module picker again.
+          const isCustom = !courseId && enrollmentType === "custom";
+          const customHours = (
+            enrollment?.progress as { total_hours?: number } | null
+          )?.total_hours;
           if (
             !enrollment?.payment_status?.includes("paid") &&
             enrollmentType === "demo"
@@ -308,12 +316,14 @@ function PaymentPage() {
             phone: learner.phone || "",
             name: learner.name || "",
             learnerId: learner.id,
-            // Only set course/payment fields if there's an actual enrollment
-            // This prevents overwriting amounts set by demo/test selection
-            ...(courseId
+            // Set course/payment fields for a real enrollment — predefined
+            // (course_id) or a custom bundle. This prevents overwriting amounts
+            // set by demo/test selection.
+            ...(courseId || isCustom
               ? {
                   courseId: courseId,
                   enrollmentId: enrollmentId,
+                  paymentType: isCustom ? "custom" : "course",
                   amount: paymentAmount,
                   installmentType: isSecondInstallment
                     ? "second_half"
@@ -321,6 +331,9 @@ function PaymentPage() {
                       ? "full"
                       : "first_half",
                   totalAmount: totalAmount,
+                  totalHours: isCustom
+                    ? (customHours ?? prev.totalHours)
+                    : prev.totalHours,
                   parentPaymentId: parentPaymentId,
                   installment1Amount: installment1Amount,
                   installment2Amount: installment2Amount,
@@ -339,8 +352,11 @@ function PaymentPage() {
             setPaymentOption("installment");
           }
 
-          // Only mark as prefilled if there's an actual enrollment with a course
-          setIsPrefilled(!!courseId);
+          // Mark prefilled for a real enrollment — predefined (course_id) or a
+          // custom bundle — so the course/module picker stays hidden and the
+          // admin's selection is final. Custom shows the read-only summary below.
+          if (isCustom) setCourseSelectionType("custom");
+          setIsPrefilled(!!courseId || isCustom);
 
           // Count completed demo payments for upgrade credit pricing
           const { data: demoPayments, error: demoError } = await supabase
