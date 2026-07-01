@@ -1,0 +1,13 @@
+# pnpm 10/11 blocks dependency build scripts by default and Vercel treats an
+# unresolved gate as fatal (ERR_PNPM_IGNORED_BUILDS). Give an explicit decision
+# for every flagged package so `pnpm install` exits cleanly.
+#
+# Only esbuild needs its build script for the Vite build. The rest are dev-only
+# and safe to skip: supabase (CLI), pre-commit + spawn-sync (git hook), and
+# @swc/core (unused — vite.config.ts uses the Babel @vitejs/plugin-react).
+allowBuilds:
+  esbuild: true
+  '@swc/core': false
+  pre-commit: false
+  spawn-sync: false
+  supabase: false
