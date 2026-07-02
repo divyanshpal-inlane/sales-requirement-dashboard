@@ -1283,10 +1283,15 @@ function PaymentPage() {
                 className="w-full"
                 disabled={
                   isLoading ||
+                  // A prefilled course is locked by the admin — its course /
+                  // modules / amount are already set, so never gate the button
+                  // on picking them (the picker isn't even shown).
                   (type === "course" &&
+                    !isPrefilled &&
                     courseSelectionType === "predefined" &&
                     !paymentDetails.courseId) ||
                   (type === "course" &&
+                    !isPrefilled &&
                     courseSelectionType === "custom" &&
                     selectedModules.length === 0) ||
                   (!paymentDetails.requestId && type === "reschedule")
@@ -1295,10 +1300,12 @@ function PaymentPage() {
                 {isLoading
                   ? "Processing..."
                   : type === "course" &&
+                      !isPrefilled &&
                       courseSelectionType === "predefined" &&
                       !paymentDetails.courseId
                     ? "Select a Course to Continue"
                     : type === "course" &&
+                        !isPrefilled &&
                         courseSelectionType === "custom" &&
                         selectedModules.length === 0
                       ? "Select Modules to Continue"
