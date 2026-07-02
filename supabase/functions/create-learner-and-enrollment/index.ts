@@ -33,6 +33,7 @@ export async function createLearnerAndEnrollment(data: {
   courseTypeSelection?: string;
   totalLessons?: number;
   selectedModules?: string[];
+  modulePrices?: Record<string, number>;
 }) {
   const {
     name,
@@ -47,6 +48,7 @@ export async function createLearnerAndEnrollment(data: {
     courseTypeSelection,
     totalLessons,
     selectedModules,
+    modulePrices,
   } = data;
 
   // Check if learner with this phone already exists
@@ -88,6 +90,9 @@ export async function createLearnerAndEnrollment(data: {
             // Persist the picked skill modules so the learner's payment link can
             // show the actual course name the admin sold them.
             selected_modules: selectedModules || [],
+            // Per-module (possibly discounted) prices set by the admin, so the
+            // payment page shows the real itemised breakdown.
+            module_prices: modulePrices || {},
           }
         : { type: "course", total_hours: totalLessons || 0 };
 
