@@ -32,6 +32,7 @@ export async function createLearnerAndEnrollment(data: {
   unlockedLessons: number[];
   courseTypeSelection?: string;
   totalLessons?: number;
+  selectedModules?: string[];
 }) {
   const {
     name,
@@ -45,6 +46,7 @@ export async function createLearnerAndEnrollment(data: {
     unlockedLessons,
     courseTypeSelection,
     totalLessons,
+    selectedModules,
   } = data;
 
   // Check if learner with this phone already exists
@@ -80,7 +82,13 @@ export async function createLearnerAndEnrollment(data: {
     courseTypeSelection === "demo"
       ? { type: "demo", total_hours: 1 }
       : courseTypeSelection === "custom"
-        ? { type: "custom", total_hours: totalLessons || 0 }
+        ? {
+            type: "custom",
+            total_hours: totalLessons || 0,
+            // Persist the picked skill modules so the learner's payment link can
+            // show the actual course name the admin sold them.
+            selected_modules: selectedModules || [],
+          }
         : { type: "course", total_hours: totalLessons || 0 };
 
   // Create enrollment entry (course_id is NULL for demo/custom courses)

@@ -182,9 +182,14 @@ function PaymentPage() {
           // it like a predefined course so the learner just pays the admin's
           // amount instead of being shown the module picker again.
           const isCustom = !courseId && enrollmentType === "custom";
-          const customHours = (
-            enrollment?.progress as { total_hours?: number } | null
-          )?.total_hours;
+          const customProgress = enrollment?.progress as {
+            total_hours?: number;
+            selected_modules?: string[];
+          } | null;
+          const customHours = customProgress?.total_hours;
+          // The skill modules the admin picked, persisted on the enrollment, so
+          // the learner sees the actual course they were sold (not just "Custom").
+          const customModules = customProgress?.selected_modules ?? [];
           if (
             !enrollment?.payment_status?.includes("paid") &&
             enrollmentType === "demo"
@@ -355,7 +360,10 @@ function PaymentPage() {
           // Mark prefilled for a real enrollment — predefined (course_id) or a
           // custom bundle — so the course/module picker stays hidden and the
           // admin's selection is final. Custom shows the read-only summary below.
-          if (isCustom) setCourseSelectionType("custom");
+          if (isCustom) {
+            setCourseSelectionType("custom");
+            if (customModules.length > 0) setSelectedModules(customModules);
+          }
           setIsPrefilled(!!courseId || isCustom);
 
           // Count completed demo payments for upgrade credit pricing
@@ -1053,16 +1061,24 @@ function PaymentPage() {
                 <div className="space-y-3">
                   <div>
                     <label
-                      htmlFor="courseType"
+                      htmlFor="courseName"
                       className="mb-1 block text-sm font-medium"
                     >
-                      Course Type
+                      Course
                     </label>
                     <div
-                      id="courseType"
-                      className="rounded-md border bg-muted px-3 py-2 text-sm"
+                      id="courseName"
+                      className="rounded-md border bg-muted px-3 py-2 text-sm font-medium"
                     >
-                      Custom Course
+                      {selectedModules.length > 0
+                        ? selectedModules
+                            .map(
+                              (id) =>
+                                SKILL_MODULES.find((m) => m.id === id)?.label,
+                            )
+                            .filter(Boolean)
+                            .join(" + ")
+                        : "Custom Course"}
                     </div>
                   </div>
 
