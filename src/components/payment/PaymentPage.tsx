@@ -62,6 +62,10 @@ function PaymentPage() {
   const [courseSelectionType, setCourseSelectionType] =
     useState<CourseSelectionType>("predefined");
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  // Admin-set per-module prices for a prefilled custom course (module id -> ₹).
+  const [modulePriceMap, setModulePriceMap] = useState<Record<string, number>>(
+    {},
+  );
   const [hasCompletedDemo, setHasCompletedDemo] = useState(false);
   const [completedDemoCount, setCompletedDemoCount] = useState(0);
   const [demoPaymentId, setDemoPaymentId] = useState<string | null>(null);
@@ -185,11 +189,15 @@ function PaymentPage() {
           const customProgress = enrollment?.progress as {
             total_hours?: number;
             selected_modules?: string[];
+            module_prices?: Record<string, number>;
           } | null;
           const customHours = customProgress?.total_hours;
           // The skill modules the admin picked, persisted on the enrollment, so
           // the learner sees the actual course they were sold (not just "Custom").
           const customModules = customProgress?.selected_modules ?? [];
+          // Admin-set (possibly discounted) per-module prices, for the itemised
+          // breakdown; falls back to the module's list price when absent.
+          const customModulePrices = customProgress?.module_prices ?? {};
           if (
             !enrollment?.payment_status?.includes("paid") &&
             enrollmentType === "demo"
@@ -363,6 +371,7 @@ function PaymentPage() {
           if (isCustom) {
             setCourseSelectionType("custom");
             if (customModules.length > 0) setSelectedModules(customModules);
+            setModulePriceMap(customModulePrices);
           }
           setIsPrefilled(!!courseId || isCustom);
 
@@ -1095,7 +1104,12 @@ function PaymentPage() {
                           const moduleCourse = courses?.find(
                             (c) => c.id === module?.courseId,
                           );
-                          const modulePrice = moduleCourse?.price || 0;
+                          // Prefer the admin-set (discounted) price; fall back to
+                          // the module's list price for older enrollments.
+                          const modulePrice =
+                            modulePriceMap[moduleId] ??
+                            moduleCourse?.price ??
+                            0;
 
                           return (
                             <div
