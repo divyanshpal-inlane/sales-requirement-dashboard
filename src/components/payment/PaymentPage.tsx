@@ -114,18 +114,42 @@ function PaymentPage() {
           if (error || !learner)
             throw new Error("Failed to fetch learner details");
 
-          // If URL has type=demo, auto-select demo course with pre-filled info
+          // Fetch the learner's latest enrollment up front so the demo / topup /
+          // course prefills can all read its admin-set amount.
+          const { data: enrollments, error: enrollmentError } = await supabase
+            .from("enrollment")
+            .select(
+              "id, course_id, amount, payment_status, status, unlocked_lessons, installment_mode, installment1_amount, installment2_amount, progress",
+            )
+            .eq("learner_id", learner.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          if (enrollmentError)
+            throw new Error("Failed to fetch enrollment details");
+
+          const enrollment =
+            enrollments && enrollments.length > 0 ? enrollments[0] : null;
+          const courseId = enrollment?.course_id || "";
+          const enrollmentId = enrollment?.id || "";
+          const installmentMode = enrollment?.installment_mode || "full";
+
+          // If URL has type=demo, prefill the demo lesson. The amount comes from
+          // the enrollment (admin can set any demo price), falling back to the
+          // default demo price for links without a saved enrollment.
           if (urlType === "demo") {
+            const demoAmount = enrollment?.amount || DEMO_COURSE.price;
             setPaymentDetails((prev) => ({
               ...prev,
               email: learner.email || "",
               phone: learner.phone || "",
               name: learner.name || "",
               learnerId: learner.id,
+              enrollmentId,
               paymentType: "demo",
               courseId: "",
-              amount: DEMO_COURSE.price,
-              totalAmount: DEMO_COURSE.price,
+              amount: demoAmount,
+              totalAmount: demoAmount,
               totalHours: DEMO_COURSE.hours,
               selectedModules: [],
             }));
@@ -158,25 +182,6 @@ function PaymentPage() {
             return;
           }
 
-          // Check if there's an existing enrollment for this learner
-          const { data: enrollments, error: enrollmentError } = await supabase
-            .from("enrollment")
-            .select(
-              "id, course_id, amount, payment_status, status, unlocked_lessons, installment_mode, installment1_amount, installment2_amount, progress",
-            )
-            .eq("learner_id", learner.id)
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          if (enrollmentError)
-            throw new Error("Failed to fetch enrollment details");
-
-          const enrollment =
-            enrollments && enrollments.length > 0 ? enrollments[0] : null;
-          const courseId = enrollment?.course_id || "";
-          const enrollmentId = enrollment?.id || "";
-          const installmentMode = enrollment?.installment_mode || "full";
-
           // Auto-detect demo/topup from the latest enrollment when the URL
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
@@ -202,16 +207,18 @@ function PaymentPage() {
             !enrollment?.payment_status?.includes("paid") &&
             enrollmentType === "demo"
           ) {
+            const demoAmount = enrollment?.amount || DEMO_COURSE.price;
             setPaymentDetails((prev) => ({
               ...prev,
               email: learner.email || "",
               phone: learner.phone || "",
               name: learner.name || "",
               learnerId: learner.id,
+              enrollmentId,
               paymentType: "demo",
               courseId: "",
-              amount: DEMO_COURSE.price,
-              totalAmount: DEMO_COURSE.price,
+              amount: demoAmount,
+              totalAmount: demoAmount,
               totalHours: DEMO_COURSE.hours,
               selectedModules: [],
             }));
@@ -583,7 +590,8 @@ function PaymentPage() {
     let finalInstallmentType = paymentDetails.installmentType;
 
     if (courseSelectionType === "demo") {
-      finalAmount = DEMO_COURSE.price;
+      // Admin can set any demo price; fall back to the default only when unset.
+      finalAmount = paymentDetails.amount || DEMO_COURSE.price;
       finalInstallmentType = "full";
     } else if (courseSelectionType === "topup") {
       const topupHours = Math.max(1, paymentDetails.totalHours || 1);
@@ -1027,7 +1035,7 @@ function PaymentPage() {
               <Alert>
                 <AlertDescription>
                   <strong>Demo Lesson</strong> - {DEMO_COURSE.hours}-hour
-                  introductory lesson for ₹{DEMO_COURSE.price}
+                  introductory lesson for ₹{paymentDetails.amount}
                 </AlertDescription>
               </Alert>
             )}
