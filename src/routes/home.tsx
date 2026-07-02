@@ -306,7 +306,10 @@ export default function Home() {
   };
   const isWaiveredLesson = (lessonNumber: number | null | undefined) => {
     if (!lessonNumber) return false;
+    // Only show waivered message if payment is half_paid (not full_paid or completed)
+    const isHalfPaid = enrolledCourse?.payment_status === "half_paid";
     return (
+      isHalfPaid &&
       lessonNumber > maxNumLessonsOnHalfInstallment &&
       enabledLessonForInstallmentStatus(lessonNumber)
     );
