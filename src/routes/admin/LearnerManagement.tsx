@@ -453,10 +453,10 @@ export default function LearnerManagement() {
         dataToSend.courseId = "";
         dataToSend.courseName = courseName;
       } else if (courseType === "demo") {
-        // For demo, course_id is NULL, use demo config
+        // For demo, course_id is NULL. Amount is whatever the admin entered
+        // (defaults to DEMO_CONFIG.price but is editable — no longer forced).
         dataToSend.courseId = "";
         dataToSend.courseName = "Demo Lesson";
-        dataToSend.amount = DEMO_CONFIG.price;
       }
 
       // Set unlocked lessons - unlock 1 lesson for half_paid
@@ -930,7 +930,7 @@ export default function LearnerManagement() {
                     <Label className="text-right">Course Info</Label>
                     <div className="col-span-3">
                       <Badge variant="secondary" className="text-sm">
-                        Demo Lesson - 1 hour - ₹{DEMO_CONFIG.price}
+                        Demo Lesson - 1 hour - ₹{learnerData.amount}
                       </Badge>
                     </div>
                   </div>
@@ -962,7 +962,7 @@ export default function LearnerManagement() {
                     min={0}
                     className="col-span-3"
                     onWheel={(e) => e.currentTarget.blur()}
-                    disabled={courseType === "demo" || courseType === "custom"}
+                    disabled={courseType === "custom"}
                   />
                 </div>
                 {/* Hide installment options for demo courses */}
