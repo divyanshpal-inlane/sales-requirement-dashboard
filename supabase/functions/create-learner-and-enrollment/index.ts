@@ -34,6 +34,10 @@ export async function createLearnerAndEnrollment(data: {
   totalLessons?: number;
   selectedModules?: string[];
   modulePrices?: Record<string, number>;
+  has_a_DL?: boolean;
+  has_two_wheeler_license?: boolean;
+  address_change_required?: boolean;
+  LL_received?: boolean;
 }) {
   const {
     name,
@@ -49,6 +53,10 @@ export async function createLearnerAndEnrollment(data: {
     totalLessons,
     selectedModules,
     modulePrices,
+    has_a_DL,
+    has_two_wheeler_license,
+    address_change_required,
+    LL_received,
   } = data;
 
   // Check if learner with this phone already exists
@@ -67,10 +75,20 @@ export async function createLearnerAndEnrollment(data: {
     throw new Error("Learner already registered");
   }
 
-  // Create learner entry
+  // Create learner entry (license flags come from the admin form)
   const { data: learners, error: learnerError } = await supabase
     .from("Learner")
-    .insert([{ name, email, phone }])
+    .insert([
+      {
+        name,
+        email,
+        phone,
+        has_a_DL: has_a_DL ?? false,
+        has_two_wheeler_license: has_two_wheeler_license ?? false,
+        address_change_required: address_change_required ?? false,
+        LL_received: LL_received ?? false,
+      },
+    ])
     .select()
     .maybeSingle();
 
@@ -96,7 +114,12 @@ export async function createLearnerAndEnrollment(data: {
           }
         : { type: "course", total_hours: totalLessons || 0 };
 
-  // Create enrollment entry (course_id is NULL for demo/custom courses)
+  // Create enrollment entry (course_id is NULL for demo/custom courses).
+  // payment_status is set to "pending" (not left NULL) so the reuse lookups in
+  // process-payment / create-razorpay-order — which filter on
+  // `payment_status != 'full_paid'` — actually match this row and update it in
+  // place instead of inserting a duplicate. (In SQL, NULL <> 'full_paid' is
+  // NULL, so a NULL row would be silently excluded.)
   const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollment")
     .insert([
@@ -104,6 +127,7 @@ export async function createLearnerAndEnrollment(data: {
         learner_id: learners.id,
         course_id: courseId || null,
         amount,
+        payment_status: "pending",
         installment_mode: installmentType,
         installment1_amount: installment1Amount,
         installment2_amount: installment2Amount,
