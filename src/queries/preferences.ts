@@ -106,7 +106,7 @@ export function useSchedulingRequests() {
       // Check which learners already have schedules
       const { data: existingSchedules, error: scheduleError } = await supabase
         .from("Schedule")
-        .select("learner_id")
+        .select("learner_id, created_at")
         .in("learner_id", learnerIds)
         .neq("status", "paused"); // Exclude paused schedules
 
@@ -116,22 +116,37 @@ export function useSchedulingRequests() {
         return learners;
       }
 
-      // Get unique learner IDs that already have schedules
-      const scheduledLearnerIds = new Set(
-        (existingSchedules || []).map((s) => s.learner_id),
-      );
+      // Latest non-paused schedule per learner. Only a schedule created AFTER
+      // a request means that request was already handled — schedules that
+      // predate it (e.g. a demo schedule from before a course upgrade) must
+      // not hide the learner's new scheduling need.
+      const latestScheduleAtByLearner = new Map<string, number>();
+      for (const s of existingSchedules || []) {
+        if (!s.learner_id || !s.created_at) continue;
+        const createdAt = new Date(s.created_at).getTime();
+        const prev = latestScheduleAtByLearner.get(s.learner_id);
+        if (prev === undefined || createdAt > prev) {
+          latestScheduleAtByLearner.set(s.learner_id, createdAt);
+        }
+      }
 
       // Filter out learners who already have schedules, BUT keep reschedule and lesson10 requests
       // Reschedule requests are specifically for learners who already have schedules they want to reschedule
       const filteredLearners = learners.filter((request) => {
         const isRescheduleOrLesson10 =
           request.type === "reschedule" || request.type === "lesson10";
-        
+
         // If it's a reschedule/lesson10 request, always include it
         if (isRescheduleOrLesson10) return true;
-        
-        // For new requests, exclude learners who already have schedules
-        return !scheduledLearnerIds.has(request.learner_id);
+
+        // For new requests, exclude learners whose schedule was created after
+        // the request (i.e. the request has already been fulfilled)
+        const latestScheduleAt = latestScheduleAtByLearner.get(
+          request.learner_id,
+        );
+        if (latestScheduleAt === undefined) return true;
+        if (!request.created_at) return false;
+        return latestScheduleAt <= new Date(request.created_at).getTime();
       });
 
       return filteredLearners;
