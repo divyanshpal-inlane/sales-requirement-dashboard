@@ -129,7 +129,6 @@ const PREDEFINED_COURSES = [
     duration: 8,
   },
 ];
-const DEMO_CREDIT = 1;
 
 export default function AdminSchedules() {
   const navigate = useNavigate();
@@ -1790,6 +1789,15 @@ export const LearnerSchedulesManager = ({
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [upgradeSelectedCourse, setUpgradeSelectedCourse] = useState("");
+  // Ops-editable course price (defaults to the Courses list price) so a
+  // discounted deal (e.g. ₹7000 instead of ₹10000) can be offered directly.
+  const [upgradeCustomPrice, setUpgradeCustomPrice] = useState("");
+  const [upgradeCoursePrices, setUpgradeCoursePrices] = useState<
+    Record<string, number>
+  >({});
+  // Sum of what the learner actually paid across completed demos — demo price
+  // is variable, so credit the real paid amount, not a fixed constant.
+  const [upgradeDemoCredit, setUpgradeDemoCredit] = useState(0);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const completeRescheduleRequestMutation =
@@ -2284,23 +2292,82 @@ export const LearnerSchedulesManager = ({
     }
   };
 
+  // Load list prices and the learner's completed-demo credit when the
+  // upgrade dialog opens, so ops sees real numbers before confirming.
+  useEffect(() => {
+    if (!showUpgradeDialog || !learner?.id) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: courseRows }, { data: demoPayments }] = await Promise.all(
+        [
+          supabase
+            .from("Courses")
+            .select("id, price")
+            .in(
+              "id",
+              PREDEFINED_COURSES.map((c) => c.id),
+            ),
+          supabase
+            .from("payment")
+            .select("amount")
+            .eq("learner_id", learner.id)
+            .eq("payment_type", "demo")
+            .eq("status", "completed"),
+        ],
+      );
+      if (cancelled) return;
+      const prices: Record<string, number> = {};
+      (courseRows || []).forEach((c: any) => {
+        prices[c.id] = Math.round(Number(c.price) || 0);
+      });
+      setUpgradeCoursePrices(prices);
+      setUpgradeDemoCredit(
+        (demoPayments || []).reduce(
+          (sum: number, p: any) => sum + (Number(p.amount) || 0),
+          0,
+        ),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showUpgradeDialog, learner?.id]);
+
+  const upgradeCoursePrice = Math.round(Number(upgradeCustomPrice) || 0);
+  const upgradeFinalAmount = Math.max(
+    0,
+    upgradeCoursePrice - upgradeDemoCredit,
+  );
+
   const handleUpgradeToCourse = async () => {
     if (!upgradeSelectedCourse || !learner) return;
     const course = PREDEFINED_COURSES.find(
       (c) => c.id === upgradeSelectedCourse,
     );
     if (!course) return;
+    if (upgradeCoursePrice <= 0) {
+      toast({
+        title: "Invalid price",
+        description: "Enter a course price greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setIsUpgrading(true);
 
-      // Create new enrollment for the selected course
+      // Create new enrollment for the selected course. Storing the negotiated
+      // amount (course price minus demo credit) is what makes both the payment
+      // page and the payment backends charge/validate this exact figure —
+      // without it they fall back to the course list price.
       const { error: enrollError } = await supabase.from("enrollment").insert({
         learner_id: learner.id,
         course_id: course.id,
         status: "pending",
         payment_status: "pending",
         installment_mode: "full",
+        amount: upgradeFinalAmount,
         unlocked_lessons: Array.from(
           { length: course.duration },
           (_, i) => i + 1,
@@ -2321,7 +2388,6 @@ export const LearnerSchedulesManager = ({
       // Send payment link via WhatsApp. Pre-enrolled course is the latest
       // enrollment for this learner, so PaymentPage will auto-prefill via
       // the existing enrollment lookup (no need for a type param here).
-      // Admin sees demo credit applied automatically on the learner side.
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
       await supabase.functions.invoke("send-message", {
         body: {
@@ -2329,17 +2395,18 @@ export const LearnerSchedulesManager = ({
           learner_id: learner.id,
           payment_link: paymentLink,
           course_name: course.name,
-          payment_amount: Math.max(0, (course as any).price ?? 0),
+          payment_amount: upgradeFinalAmount,
           duration: course.duration,
         },
       });
 
       setShowUpgradeDialog(false);
       setUpgradeSelectedCourse("");
+      setUpgradeCustomPrice("");
       await syncData();
       toast({
         title: "Upgrade Initiated",
-        description: `${learner.name} enrolled in ${course.name}. Payment link sent. Demo ₹${DEMO_CREDIT} credit will be applied.`,
+        description: `${learner.name} enrolled in ${course.name} at ₹${upgradeCoursePrice}. Demo credit ₹${upgradeDemoCredit} applied — payment link sent for ₹${upgradeFinalAmount}.`,
       });
     } catch (error: any) {
       toast({
@@ -3482,14 +3549,19 @@ export const LearnerSchedulesManager = ({
           <DialogHeader>
             <DialogTitle>Upgrade to Full Course</DialogTitle>
             <DialogDescription>
-              Select a course for {learner?.name}. Demo payment of ₹
-              {DEMO_CREDIT} will be credited toward the course fee.
+              Select a course for {learner?.name}. The price is editable for
+              discounted deals — the demo amount already paid is deducted and
+              the payment link is sent for the balance.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Select
               value={upgradeSelectedCourse}
-              onValueChange={setUpgradeSelectedCourse}
+              onValueChange={(value) => {
+                setUpgradeSelectedCourse(value);
+                const listPrice = upgradeCoursePrices[value];
+                setUpgradeCustomPrice(listPrice ? String(listPrice) : "");
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a course" />
@@ -3498,17 +3570,65 @@ export const LearnerSchedulesManager = ({
                 {PREDEFINED_COURSES.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name} — {c.duration} hours
+                    {upgradeCoursePrices[c.id]
+                      ? ` — ₹${upgradeCoursePrices[c.id]}`
+                      : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
             {upgradeSelectedCourse && (
-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-                Demo credit of ₹{DEMO_CREDIT} will be applied. A payment link
-                will be sent to the learner for the remaining balance.
+              <div>
+                <label
+                  htmlFor="upgradePrice"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Course Price (₹)
+                </label>
+                <Input
+                  id="upgradePrice"
+                  type="number"
+                  min={1}
+                  value={upgradeCustomPrice}
+                  onChange={(e) => setUpgradeCustomPrice(e.target.value)}
+                  placeholder="e.g. 7000"
+                />
+                {upgradeCoursePrices[upgradeSelectedCourse] ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    List price ₹{upgradeCoursePrices[upgradeSelectedCourse]} —
+                    edit to offer a discounted price.
+                  </p>
+                ) : null}
               </div>
             )}
+
+            {upgradeSelectedCourse && upgradeCoursePrice > 0 && (
+              <div className="space-y-1 rounded-md bg-green-50 p-3 text-sm text-green-700">
+                <div className="flex justify-between">
+                  <span>Course price</span>
+                  <span>₹{upgradeCoursePrice}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Demo credit (paid)</span>
+                  <span>− ₹{upgradeDemoCredit}</span>
+                </div>
+                <div className="flex justify-between border-t border-green-200 pt-1 font-medium">
+                  <span>Payment link amount</span>
+                  <span>₹{upgradeFinalAmount}</span>
+                </div>
+              </div>
+            )}
+
+            {upgradeSelectedCourse &&
+              upgradeCoursePrice > 0 &&
+              upgradeFinalAmount <= 0 && (
+                <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-700">
+                  The demo credit covers the whole course price — nothing is
+                  left to pay, so a payment link can&apos;t be sent. Increase
+                  the price.
+                </div>
+              )}
 
             <div className="flex justify-end gap-2">
               <Button
@@ -3519,7 +3639,12 @@ export const LearnerSchedulesManager = ({
               </Button>
               <Button
                 onClick={handleUpgradeToCourse}
-                disabled={!upgradeSelectedCourse || isUpgrading}
+                disabled={
+                  !upgradeSelectedCourse ||
+                  upgradeCoursePrice <= 0 ||
+                  upgradeFinalAmount <= 0 ||
+                  isUpgrading
+                }
               >
                 {isUpgrading ? "Upgrading..." : "Upgrade & Send Payment Link"}
               </Button>
