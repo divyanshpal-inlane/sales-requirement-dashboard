@@ -1893,6 +1893,31 @@ function CreateSchedule({
     },
   });
 
+  // Completed demos count toward the upgraded course: each completed demo
+  // (1 hr) stands in for one of the course's first lessons. So a 10-lesson
+  // course after 1 completed demo is scheduled as lessons 2..10 (9 lessons),
+  // mirroring the demo credit the admin upgrade applies to the price.
+  const { data: completedDemoCount = 0 } = useQuery({
+    queryKey: ["completedDemoCount", learnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment")
+        .select("id")
+        .eq("learner_id", learnerId)
+        .eq("payment_type", "demo")
+        .eq("status", "completed");
+      if (error) throw error;
+      return data?.length ?? 0;
+    },
+    enabled: !!learnerId,
+  });
+
+  // Number of course lessons the completed demos stand in for. Only real
+  // (non-virtual) course "new" requests are affected — never demo/topup
+  // virtual-lesson requests or reschedules.
+  const demoLessonOffset =
+    request.type === "new" && !isVirtualLessons ? completedDemoCount : 0;
+
   // find the minimum lesson number that needs to be re-scheduled from
   // all the lessons that are requested
   const lessons = allLessons?.filter((l) => request.lesson_ids.includes(l.id));
@@ -1904,7 +1929,9 @@ function CreateSchedule({
 
   // Required lessons to schedule
   const requiredLessonCount =
-    request.type === "new" ? totalCourseHours : request.lesson_ids.length;
+    request.type === "new"
+      ? Math.max(1, totalCourseHours - demoLessonOffset)
+      : request.lesson_ids.length;
 
   const minLessonNumber =
     lessons && lessons.length > 0
@@ -3011,12 +3038,15 @@ function CreateSchedule({
       ? [...allLessons].sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
       : [];
 
-    // Find the next lesson number after completed lessons
+    // Find the next lesson number after completed lessons. Completed demos are
+    // treated as the course's first lesson(s), so scheduling starts after them
+    // (e.g. lessons 2..10 for a 10-lesson course + 1 demo).
     const maxCompletedLessonNumber = Math.max(
       ...completedLessons.map(
         (s) => courseLessons.find((l) => l.id === s.lesson_id)?.number ?? 0,
       ),
       0,
+      demoLessonOffset,
     );
 
     // Get available lessons for upcoming slots
