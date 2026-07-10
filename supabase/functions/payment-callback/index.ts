@@ -522,26 +522,40 @@ serve(async (req) => {
               );
             }
           } else {
-            const lessonIds = Array.from(
-              { length: topupHours },
-              (_, i) => `virtual-lesson-${i + 1}`,
-            );
-
-            const { error: rescheduleRequestError } = await supabaseClient
+            // Skip if a pending "new" request already exists. This callback can
+            // fire twice (webhook + client), and a duplicate pending request
+            // keeps the learner stuck in the admin New Schedules tab even after
+            // they've been scheduled.
+            const { data: existingReq } = await supabaseClient
               .from("reschedule_requests")
-              .insert({
-                learner_id: payment.learner_id,
-                lesson_ids: lessonIds,
-                amount: 0,
-                status: "pending",
-                type: "new",
-              });
+              .select("id")
+              .eq("learner_id", payment.learner_id)
+              .eq("type", "new")
+              .eq("status", "pending")
+              .maybeSingle();
 
-            if (rescheduleRequestError) {
-              console.error(
-                "Error creating scheduling request for topup:",
-                rescheduleRequestError,
+            if (!existingReq) {
+              const lessonIds = Array.from(
+                { length: topupHours },
+                (_, i) => `virtual-lesson-${i + 1}`,
               );
+
+              const { error: rescheduleRequestError } = await supabaseClient
+                .from("reschedule_requests")
+                .insert({
+                  learner_id: payment.learner_id,
+                  lesson_ids: lessonIds,
+                  amount: 0,
+                  status: "pending",
+                  type: "new",
+                });
+
+              if (rescheduleRequestError) {
+                console.error(
+                  "Error creating scheduling request for topup:",
+                  rescheduleRequestError,
+                );
+              }
             }
           }
         } else if (paymentType === "custom") {
