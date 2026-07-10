@@ -276,17 +276,30 @@ export async function completePayment(
         .eq("learner_id", payment.learner_id)
         .eq("status", "pending_payment");
     } else {
-      const lessonIds = Array.from(
-        { length: topupHours },
-        (_, i) => `virtual-lesson-${i + 1}`,
-      );
-      await supabaseClient.from("reschedule_requests").insert({
-        learner_id: payment.learner_id,
-        lesson_ids: lessonIds,
-        amount: 0,
-        status: "pending",
-        type: "new",
-      });
+      // Don't create a second pending "new" request if one already exists —
+      // this payment path can run twice (webhook + client callback), and a
+      // duplicate pending request leaks the learner into the admin New
+      // Schedules tab even after they've been scheduled.
+      const { data: existingReq } = await supabaseClient
+        .from("reschedule_requests")
+        .select("id")
+        .eq("learner_id", payment.learner_id)
+        .eq("type", "new")
+        .eq("status", "pending")
+        .maybeSingle();
+      if (!existingReq) {
+        const lessonIds = Array.from(
+          { length: topupHours },
+          (_, i) => `virtual-lesson-${i + 1}`,
+        );
+        await supabaseClient.from("reschedule_requests").insert({
+          learner_id: payment.learner_id,
+          lesson_ids: lessonIds,
+          amount: 0,
+          status: "pending",
+          type: "new",
+        });
+      }
     }
   } else if (paymentType === "custom") {
     const { data: enrollment, error: enrollmentQueryError } =
