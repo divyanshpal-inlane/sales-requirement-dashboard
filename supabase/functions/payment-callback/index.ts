@@ -276,7 +276,8 @@ serve(async (req) => {
             .select("id")
             .eq("learner_id", payment.learner_id)
             .eq("payment_type", "demo")
-            .eq("status", "completed");
+            // A demo consumed by an upgrade is flipped to "upgraded", count both.
+            .in("status", ["completed", "upgraded"]);
           const demoSkip = Math.min(completedDemoPayments?.length ?? 0, 10);
           const totalCourseLessons = 10;
           const remainingLessons = Math.max(0, totalCourseLessons - demoSkip);
