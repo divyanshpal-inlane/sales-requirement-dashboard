@@ -1905,7 +1905,9 @@ function CreateSchedule({
         .select("id")
         .eq("learner_id", learnerId)
         .eq("payment_type", "demo")
-        .eq("status", "completed");
+        // A demo consumed by an upgrade is flipped to "upgraded", so count
+        // both — otherwise the demo hour stops being deducted after upgrade.
+        .in("status", ["completed", "upgraded"]);
       if (error) throw error;
       return data?.length ?? 0;
     },
