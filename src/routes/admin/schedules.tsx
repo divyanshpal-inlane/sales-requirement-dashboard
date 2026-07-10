@@ -1798,6 +1798,9 @@ export const LearnerSchedulesManager = ({
   // Sum of what the learner actually paid across completed demos — demo price
   // is variable, so credit the real paid amount, not a fixed constant.
   const [upgradeDemoCredit, setUpgradeDemoCredit] = useState(0);
+  // Count of completed demos (each = 1 hr) — deducted from the course lesson
+  // count, so a 10-lesson course after 1 demo is scheduled as 9 lessons.
+  const [upgradeDemoCount, setUpgradeDemoCount] = useState(0);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const completeRescheduleRequestMutation =
@@ -2327,6 +2330,7 @@ export const LearnerSchedulesManager = ({
           0,
         ),
       );
+      setUpgradeDemoCount((demoPayments || []).length);
     })();
     return () => {
       cancelled = true;
@@ -2337,6 +2341,15 @@ export const LearnerSchedulesManager = ({
   const upgradeFinalAmount = Math.max(
     0,
     upgradeCoursePrice - upgradeDemoCredit,
+  );
+  const upgradeCourseDuration =
+    PREDEFINED_COURSES.find((c) => c.id === upgradeSelectedCourse)?.duration ??
+    0;
+  // Completed demos (1 hr each) count as the course's first lessons, so the
+  // learner is scheduled for the remaining lessons only (e.g. lessons 2..10).
+  const upgradeLessonCount = Math.max(
+    1,
+    upgradeCourseDuration - upgradeDemoCount,
   );
 
   const handleUpgradeToCourse = async () => {
@@ -2368,11 +2381,14 @@ export const LearnerSchedulesManager = ({
         payment_status: "pending",
         installment_mode: "full",
         amount: upgradeFinalAmount,
+        // Demo hours already delivered count as the first lessons, so unlock
+        // and count only the remaining ones (e.g. lessons 2..10 for a
+        // 10-lesson course after 1 demo).
         unlocked_lessons: Array.from(
-          { length: course.duration },
-          (_, i) => i + 1,
+          { length: upgradeLessonCount },
+          (_, i) => upgradeDemoCount + i + 1,
         ),
-        progress: { type: "course", total_hours: course.duration },
+        progress: { type: "course", total_hours: upgradeLessonCount },
       });
       if (enrollError) throw enrollError;
 
@@ -2396,7 +2412,7 @@ export const LearnerSchedulesManager = ({
           payment_link: paymentLink,
           course_name: course.name,
           payment_amount: upgradeFinalAmount,
-          duration: course.duration,
+          duration: upgradeLessonCount,
         },
       });
 
@@ -2406,7 +2422,7 @@ export const LearnerSchedulesManager = ({
       await syncData();
       toast({
         title: "Upgrade Initiated",
-        description: `${learner.name} enrolled in ${course.name} at ₹${upgradeCoursePrice}. Demo credit ₹${upgradeDemoCredit} applied — payment link sent for ₹${upgradeFinalAmount}.`,
+        description: `${learner.name} enrolled in ${course.name} — ${upgradeLessonCount} lesson${upgradeLessonCount === 1 ? "" : "s"} at ₹${upgradeCoursePrice}. Demo credit ₹${upgradeDemoCredit} applied — payment link sent for ₹${upgradeFinalAmount}.`,
       });
     } catch (error: any) {
       toast({
@@ -3613,6 +3629,15 @@ export const LearnerSchedulesManager = ({
                   <span>Demo credit (paid)</span>
                   <span>− ₹{upgradeDemoCredit}</span>
                 </div>
+                {upgradeDemoCount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Lessons</span>
+                    <span>
+                      {upgradeCourseDuration} − {upgradeDemoCount} demo ={" "}
+                      {upgradeLessonCount}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-green-200 pt-1 font-medium">
                   <span>Payment link amount</span>
                   <span>₹{upgradeFinalAmount}</span>
