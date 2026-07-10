@@ -69,6 +69,10 @@ function PaymentPage() {
   const [hasCompletedDemo, setHasCompletedDemo] = useState(false);
   const [completedDemoCount, setCompletedDemoCount] = useState(0);
   const [demoPaymentId, setDemoPaymentId] = useState<string | null>(null);
+  // Actual amount paid across completed demos — credited toward an upgrade.
+  // Demo price is variable (₹1/₹200/₹300/…), so use the real paid total, not
+  // count × the current DEMO_COURSE.price.
+  const [demoCreditTotal, setDemoCreditTotal] = useState(0);
 
   // Gateway selection state
   const [showGatewayDialog, setShowGatewayDialog] = useState(false);
@@ -395,6 +399,12 @@ function PaymentPage() {
             setHasCompletedDemo(true);
             setCompletedDemoCount(demoPayments.length);
             setDemoPaymentId(demoPayments[0].id);
+            setDemoCreditTotal(
+              demoPayments.reduce(
+                (sum, p) => sum + (Number(p.amount) || 0),
+                0,
+              ),
+            );
           } else if (demoError) {
             console.log("Demo payment check skipped:", demoError.message);
           }
@@ -458,10 +468,10 @@ function PaymentPage() {
     const selectedCourse = courses?.find((course) => course.id === courseId);
     const coursePrice = roundPrice(selectedCourse?.price || 0);
 
-    // Apply demo discount: one ₹599 credit per completed demo
-    const demoCreditAmount = completedDemoCount * DEMO_COURSE.price;
+    // Apply demo discount: credit the actual amount paid across completed
+    // demos (demo price is variable, so never assume a fixed per-demo value).
     const finalPrice = hasCompletedDemo
-      ? Math.max(0, coursePrice - demoCreditAmount)
+      ? Math.max(0, coursePrice - demoCreditTotal)
       : coursePrice;
 
     const installment1Amount = roundPrice(finalPrice / 2);
@@ -555,10 +565,10 @@ function PaymentPage() {
       }
     });
 
-    // Apply demo discount: one ₹599 credit per completed demo
-    const demoCreditAmount = completedDemoCount * DEMO_COURSE.price;
+    // Apply demo discount: credit the actual amount paid across completed
+    // demos (demo price is variable, so never assume a fixed per-demo value).
     const finalPrice = hasCompletedDemo
-      ? Math.max(0, totalPrice - demoCreditAmount)
+      ? Math.max(0, totalPrice - demoCreditTotal)
       : totalPrice;
 
     const installment1Amount = roundPrice(finalPrice / 2);
@@ -916,8 +926,8 @@ function PaymentPage() {
                     </Select>
                     {hasCompletedDemo && (
                       <p className="mt-1 text-xs text-green-600">
-                        ₹{completedDemoCount * DEMO_COURSE.price} credit from
-                        your {completedDemoCount} demo
+                        ₹{demoCreditTotal} credit from your{" "}
+                        {completedDemoCount} demo
                         {completedDemoCount === 1 ? "" : "s"} will be deducted
                         from the course price
                       </p>
@@ -1005,8 +1015,7 @@ function PaymentPage() {
                         </div>
                         {hasCompletedDemo && (
                           <p className="mt-1 text-xs text-green-600">
-                            Demo discount of ₹
-                            {completedDemoCount * DEMO_COURSE.price} applied (
+                            Demo discount of ₹{demoCreditTotal} applied (
                             {completedDemoCount} demo
                             {completedDemoCount === 1 ? "" : "s"})
                           </p>
