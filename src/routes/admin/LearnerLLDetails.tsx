@@ -12,6 +12,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Form14Generator from "@/components/admin/Form14Generator";
+import SheetFormsDialog from "@/components/admin/SheetFormsDialog";
 
 import {
   LearnerInfo,
@@ -115,6 +116,7 @@ const LearnerLLDetails = () => {
   const [form14Learner, setForm14Learner] = useState<any>(null);
   const [bulkBusy, setBulkBusy] = useState<null | "pdf" | "csv">(null);
   const [bulkProgress, setBulkProgress] = useState("");
+  const [sheetFormsOpen, setSheetFormsOpen] = useState(false);
   const {
     data: learners,
     isLoading,
@@ -403,8 +405,7 @@ const LearnerLLDetails = () => {
         filteredLearners.map((l) => l.id),
       );
       const pdfBytes = await generateAllFormsMergedPDF(
-        filteredLearners,
-        periods,
+        filteredLearners.map((l) => ({ learner: l, period: periods.get(l.id) })),
         (done, total) => setBulkProgress(`Generating ${done}/${total}...`),
       );
       downloadPDF(
@@ -540,6 +541,16 @@ const LearnerLLDetails = () => {
                 Cert Sheet (CSV)
               </Button>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSheetFormsOpen(true)}
+              disabled={bulkBusy !== null}
+              className="mt-2 w-full border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Forms from Sheet (all customers)
+            </Button>
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[600px] overflow-y-auto">
@@ -929,6 +940,11 @@ const LearnerLLDetails = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Forms from compliance sheet (any customer, matched by phone) */}
+      <SheetFormsDialog
+        open={sheetFormsOpen}
+        onClose={() => setSheetFormsOpen(false)}
+      />
       {/* Form-14 Generator Dialog */}
       {form14Learner && (
         <Form14Generator
