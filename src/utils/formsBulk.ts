@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Form14Data, generateForm14PDF } from "@/utils/generateForm14";
 import { Form5CertificateData, generateForm5PDF } from "@/utils/generateForm5";
 import { Form15Data, generateForm15PDF } from "@/utils/generateForm15";
+import { lastTenDigits } from "@/utils/phone";
 
 // Fixed values from the Form-5 certificate spec sheet.
 export const SCHOOL_NAME = "Inlane Motor Driving Training School";
@@ -35,6 +36,22 @@ export interface BulkFormLearner {
 export interface TrainingPeriod {
   first: string | null; // yyyy-MM-dd
   last: string | null; // yyyy-MM-dd
+}
+
+/** Values supplied by the compliance sheet, taking precedence over the DB. */
+export interface SheetOverrides {
+  name?: string;
+  email?: string;
+  dob?: string; // dd/MM/yyyy
+  guardian?: string; // "Son/Wife/Daughter of" name
+  enrolledOn?: string; // LL application date, dd/MM/yyyy
+  certDate?: string; // DL test date, dd/MM/yyyy
+}
+
+export interface FormsEntry {
+  learner: BulkFormLearner;
+  period?: TrainingPeriod;
+  overrides?: SheetOverrides;
 }
 
 const fmt = (iso: string | null | undefined) =>
@@ -93,19 +110,26 @@ const residingAt = (learner: BulkFormLearner) =>
 export function buildBulkFormData(
   learner: BulkFormLearner,
   period: TrainingPeriod | undefined,
+  overrides: SheetOverrides = {},
 ) {
   const serial = serialNumberFor(learner);
-  const enrollmentDate = fmt(learner.created_at) || format(new Date(), "dd/MM/yyyy");
+  const name = overrides.name || learner.name || "";
+  const email = overrides.email || learner.email || undefined;
+  const dob = overrides.dob || fmt(learner.dob);
+  const enrollmentDate =
+    overrides.enrolledOn ||
+    fmt(learner.created_at) ||
+    format(new Date(), "dd/MM/yyyy");
   const periodFrom = fmt(period?.first) || enrollmentDate;
   const periodTo = fmt(period?.last);
   const address = residingAt(learner);
 
   const form14: Form14Data = {
     enrollmentNumber: serial,
-    name: learner.name || "",
-    guardianName: "",
+    name,
+    guardianName: overrides.guardian || "",
     permanentAddress: address,
-    dob: fmt(learner.dob),
+    dob,
     vehicleClass: VEHICLE_CLASS,
     enrollmentDate,
     llNumber: learner.LL_id || learner.LL_application_id || "",
@@ -113,20 +137,21 @@ export function buildBulkFormData(
     dlNumber: learner.DL_id || undefined,
     dlIssueDate: fmt(learner.DL_received_date) || undefined,
     phone: learner.phone,
-    email: learner.email || undefined,
+    email,
   };
 
   const form15: Form15Data = {
     schoolName: SCHOOL_NAME.toUpperCase(),
-    traineeName: learner.name || "",
+    traineeName: name,
     enrollmentNumber: serial,
     enrollmentDate,
   };
 
   const form5: Form5CertificateData = {
     certificateNo: serial,
-    date: periodTo || format(new Date(), "dd/MM/yyyy"),
-    name: learner.name || "",
+    date: overrides.certDate || periodTo || format(new Date(), "dd/MM/yyyy"),
+    name,
+    guardian: overrides.guardian || undefined,
     address,
     enrolledOn: enrollmentDate,
     serialNumber: serial,
@@ -139,21 +164,21 @@ export function buildBulkFormData(
 }
 
 /**
- * One merged PDF for every learner in the list: Form 14, Form 15 and the
- * Form-5 certificate per learner, in list order.
+ * One merged PDF for every entry: Form 14, Form 15 and the Form-5
+ * certificate per learner, in list order.
  */
 export async function generateAllFormsMergedPDF(
-  learners: BulkFormLearner[],
-  periods: Map<string, TrainingPeriod>,
+  entries: FormsEntry[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<Uint8Array> {
   const merged = await PDFDocument.create();
 
-  for (let i = 0; i < learners.length; i++) {
-    const learner = learners[i];
+  for (let i = 0; i < entries.length; i++) {
+    const { learner, period, overrides } = entries[i];
     const { form14, form15, form5 } = buildBulkFormData(
       learner,
-      periods.get(learner.id),
+      period,
+      overrides,
     );
     const parts = await Promise.all([
       generateForm14PDF(form14),
@@ -165,10 +190,217 @@ export async function generateAllFormsMergedPDF(
       const pages = await merged.copyPages(doc, doc.getPageIndices());
       pages.forEach((p) => merged.addPage(p));
     }
-    onProgress?.(i + 1, learners.length);
+    onProgress?.(i + 1, entries.length);
   }
 
   return merged.save();
+}
+
+/**
+ * Look up learners by phone (last-10-digit identity, matching any stored
+ * format). Returns a map keyed by last-10 digits; when several learners share
+ * a phone, the most recently created one wins.
+ */
+export async function matchLearnersByPhone(
+  phones: string[],
+): Promise<Map<string, BulkFormLearner>> {
+  const keys = [
+    ...new Set(phones.map(lastTenDigits).filter((d) => d.length === 10)),
+  ];
+  const matched = new Map<string, BulkFormLearner>();
+  const CHUNK = 20;
+
+  for (let i = 0; i < keys.length; i += CHUNK) {
+    const chunk = keys.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from("Learner")
+      .select(
+        // LL_id exists in the live DB but is missing from the stale generated
+        // types, hence the returns<> cast.
+        "id, name, phone, email, dob, pick_up_location, area, city, pincode, aadhar_state, created_at, LL_application_id, LL_id, DL_id, DL_received_date",
+      )
+      .or(chunk.map((d) => `phone.ilike.%${d}`).join(","))
+      .returns<BulkFormLearner[]>();
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const key = lastTenDigits(row.phone);
+      if (key.length !== 10) continue;
+      const existing = matched.get(key);
+      if (
+        !existing ||
+        new Date(row.created_at ?? 0) > new Date(existing.created_at ?? 0)
+      ) {
+        matched.set(key, row);
+      }
+    }
+  }
+  return matched;
+}
+
+/** One customer row pasted from the compliance sheet's "Data dump" tab. */
+export interface SheetCustomer {
+  name: string;
+  phone: string;
+  email?: string;
+  dob?: string; // dd/MM/yyyy
+  guardian?: string;
+  enrolledOn?: string; // dd/MM/yyyy
+  certDate?: string; // dd/MM/yyyy
+}
+
+// Sheet dates are US-style M/d/yyyy; normalise to dd/MM/yyyy.
+const SHEET_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+const normalizeSheetDate = (value: string): string | null => {
+  const m = value.trim().match(SHEET_DATE);
+  if (!m) return null;
+  return `${m[2].padStart(2, "0")}/${m[1].padStart(2, "0")}/${m[3]}`;
+};
+
+const splitLine = (line: string): string[] => {
+  if (line.includes("\t")) return line.split("\t").map((c) => c.trim());
+  // Basic CSV with quoted fields
+  const cells: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') {
+        quoted = false;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === ",") {
+      cells.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  cells.push(cur.trim());
+  return cells;
+};
+
+const looksLikePhone = (cell: string) => {
+  const digits = cell.replace(/\D/g, "");
+  return digits.length >= 10 && !/[a-zA-Z@]/.test(cell);
+};
+
+/**
+ * Parse rows pasted from the "Data dump for all forms" tab (TSV when copied
+ * from Google Sheets, CSV also accepted). Header rows and rows without a
+ * valid phone number are skipped. Column positions are inferred per row —
+ * name is the last text cell before the phone; after the phone: email is the
+ * cell containing "@", the first date is the DOB, the first remaining text
+ * cell is the guardian, and later dates are Enrolled On then the DL test
+ * date, matching the sheet's column order.
+ */
+export function parseSheetCustomers(text: string): {
+  customers: SheetCustomer[];
+  skipped: number;
+} {
+  const customers: SheetCustomer[] = [];
+  let skipped = 0;
+
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const cells = splitLine(line);
+    const phoneIdx = cells.findIndex(looksLikePhone);
+    if (phoneIdx === -1) {
+      skipped++;
+      continue;
+    }
+    const name =
+      cells
+        .slice(0, phoneIdx)
+        .filter((c) => c && !SHEET_DATE.test(c))
+        .pop() || "";
+    const customer: SheetCustomer = {
+      name,
+      phone: lastTenDigits(cells[phoneIdx]),
+    };
+
+    const datesAfterGuardian: string[] = [];
+    for (const cell of cells.slice(phoneIdx + 1)) {
+      if (!cell) continue;
+      if (cell.includes("@")) {
+        customer.email = customer.email || cell;
+        continue;
+      }
+      const date = normalizeSheetDate(cell);
+      if (date) {
+        if (!customer.dob) customer.dob = date;
+        else datesAfterGuardian.push(date);
+        continue;
+      }
+      if (looksLikePhone(cell)) continue; // stray extra phone
+      customer.guardian = customer.guardian || cell;
+    }
+    customer.enrolledOn = datesAfterGuardian[0];
+    customer.certDate = datesAfterGuardian[1];
+    customers.push(customer);
+  }
+
+  return { customers, skipped };
+}
+
+const DATA_DUMP_HEADERS = [
+  "Certificate No.",
+  "Trainee Name (Shri/Smt/Kumari)",
+  "Customer Phone number",
+  "Customer Email id",
+  "Customer DOB",
+  "Son/Wife/Daughter of",
+  "Enrolled On",
+  "Date",
+  "School Name",
+  "School Address",
+  "Residing At",
+  "Serial No. (Form 14 In-Out Register)",
+  "Class of Vehicle / Training",
+  "Training Period From",
+  "Training Period To",
+  "Physical Fitness & Responsibility Confirmed",
+  "Issued By",
+  "Signatory",
+];
+
+/**
+ * CSV in the exact column order of the sheet's "Data dump for all forms"
+ * tab, ready to paste back over it.
+ */
+export function buildDataDumpCSV(entries: FormsEntry[]): string {
+  const rows = entries.map(({ learner, period, overrides = {} }) => {
+    const serial = serialNumberFor(learner);
+    return [
+      serial,
+      overrides.name || learner.name || "",
+      lastTenDigits(learner.phone) || learner.phone || "",
+      overrides.email || learner.email || "",
+      overrides.dob || fmt(learner.dob),
+      overrides.guardian || "",
+      overrides.enrolledOn || fmt(learner.created_at),
+      overrides.certDate || "",
+      SCHOOL_NAME,
+      SCHOOL_ADDRESS,
+      learner.id ? residingAt(learner) : "",
+      serial,
+      VEHICLE_CLASS,
+      fmt(period?.first),
+      fmt(period?.last),
+      FITNESS_CONFIRMED,
+      ISSUED_BY,
+      "", // Signatory — physical signature
+    ]
+      .map(csvCell)
+      .join(",");
+  });
+  return [DATA_DUMP_HEADERS.map(csvCell).join(","), ...rows].join("\n");
 }
 
 const CSV_HEADERS = [
