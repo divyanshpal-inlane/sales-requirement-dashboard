@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { differenceInDays } from "date-fns";
-import { ArrowLeft, FileText, Search } from "lucide-react";
+import { differenceInDays, format } from "date-fns";
+import {
+  ArrowLeft,
+  FileText,
+  Loader2,
+  Search,
+  Sheet,
+  Download,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -25,6 +32,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  buildCertificateSheetCSV,
+  downloadCSV,
+  fetchTrainingPeriods,
+  generateAllFormsMergedPDF,
+} from "@/utils/formsBulk";
+import { downloadPDF } from "@/utils/generateForm14";
 
 // Animated Search Bar Component
 const AnimatedSearchBar = ({ value, onChange, placeholder }) => {
@@ -99,6 +113,8 @@ const LearnerLLDetails = () => {
   const [LearnerId, setLearnerId] = useState("");
   const [form14Open, setForm14Open] = useState(false);
   const [form14Learner, setForm14Learner] = useState<any>(null);
+  const [bulkBusy, setBulkBusy] = useState<null | "pdf" | "csv">(null);
+  const [bulkProgress, setBulkProgress] = useState("");
   const {
     data: learners,
     isLoading,
@@ -378,6 +394,72 @@ const LearnerLLDetails = () => {
       },
     );
   };
+  const handleBulkFormsPDF = async () => {
+    if (!filteredLearners?.length) return;
+    setBulkBusy("pdf");
+    setBulkProgress("Fetching class dates...");
+    try {
+      const periods = await fetchTrainingPeriods(
+        filteredLearners.map((l) => l.id),
+      );
+      const pdfBytes = await generateAllFormsMergedPDF(
+        filteredLearners,
+        periods,
+        (done, total) => setBulkProgress(`Generating ${done}/${total}...`),
+      );
+      downloadPDF(
+        pdfBytes,
+        `AllForms_${format(new Date(), "yyyy-MM-dd")}.pdf`,
+      );
+      toast({
+        title: "Success",
+        description: `Form 14, 15 & Certificate generated for ${filteredLearners.length} learner(s) in one PDF.`,
+      });
+    } catch (error) {
+      console.error("Error generating bulk forms:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to generate forms",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(null);
+      setBulkProgress("");
+    }
+  };
+
+  const handleBulkSheetCSV = async () => {
+    if (!filteredLearners?.length) return;
+    setBulkBusy("csv");
+    setBulkProgress("Fetching class dates...");
+    try {
+      const periods = await fetchTrainingPeriods(
+        filteredLearners.map((l) => l.id),
+      );
+      const csv = buildCertificateSheetCSV(filteredLearners, periods);
+      downloadCSV(
+        csv,
+        `CertificateSheet_${format(new Date(), "yyyy-MM-dd")}.csv`,
+      );
+      toast({
+        title: "Success",
+        description: `Certificate sheet exported for ${filteredLearners.length} learner(s).`,
+      });
+    } catch (error) {
+      console.error("Error exporting certificate sheet:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to export sheet",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(null);
+      setBulkProgress("");
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-gray-50"
@@ -425,6 +507,38 @@ const LearnerLLDetails = () => {
                   className="rounded-lg border-2 border-gray-200 py-2 pl-10 pr-4 transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkFormsPDF}
+                disabled={bulkBusy !== null || !filteredLearners?.length}
+                className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
+                {bulkBusy === "pdf" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {bulkBusy === "pdf" && bulkProgress
+                  ? bulkProgress
+                  : "All Forms (PDF)"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkSheetCSV}
+                disabled={bulkBusy !== null || !filteredLearners?.length}
+                className="flex-1 border-green-300 text-green-700 hover:bg-green-50"
+              >
+                {bulkBusy === "csv" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sheet className="mr-2 h-4 w-4" />
+                )}
+                Cert Sheet (CSV)
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="p-0">
