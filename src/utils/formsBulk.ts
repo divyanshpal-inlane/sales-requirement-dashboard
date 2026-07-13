@@ -108,9 +108,10 @@ export async function fetchTrainingPeriods(
 }
 
 /**
- * Every past (or today's) non-cancelled class per learner, oldest first —
- * the rows of the Form-15 driving-hours register. Queries in chunks and pages
- * past PostgREST's 1000-row cap.
+ * Every past (or today's) class per learner, oldest first — the rows of the
+ * Form-15 driving-hours register. Cancelled and paused classes are excluded;
+ * only classes that actually happened (or are booked for today) count.
+ * Queries in chunks and pages past PostgREST's 1000-row cap.
  */
 export async function fetchTrainingSessions(
   learnerIds: string[],
@@ -129,6 +130,7 @@ export async function fetchTrainingSessions(
         .select("learner_id, date, start_time, end_time")
         .in("learner_id", chunk)
         .neq("status", "cancelled")
+        .neq("status", "paused")
         .lte("date", today)
         .order("date", { ascending: true })
         .order("start_time", { ascending: true })
