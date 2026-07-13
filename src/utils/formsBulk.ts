@@ -4,7 +4,11 @@ import { PDFDocument } from "pdf-lib";
 import { supabase } from "@/lib/supabaseClient";
 import { Form14Data, generateForm14PDF } from "@/utils/generateForm14";
 import { Form5CertificateData, generateForm5PDF } from "@/utils/generateForm5";
-import { Form15Data, generateForm15PDF } from "@/utils/generateForm15";
+import {
+  Form15Data,
+  Form15Session,
+  generateForm15PDF,
+} from "@/utils/generateForm15";
 import { lastTenDigits } from "@/utils/phone";
 
 // Fixed values from the Form-5 certificate spec sheet.
@@ -36,6 +40,12 @@ export interface BulkFormLearner {
 export interface TrainingPeriod {
   first: string | null; // yyyy-MM-dd
   last: string | null; // yyyy-MM-dd
+}
+
+export interface TrainingSession {
+  date: string; // yyyy-MM-dd
+  start_time: string; // HH:mm:ss
+  end_time: string; // HH:mm:ss
 }
 
 /** Values supplied by the compliance sheet, taking precedence over the DB. */
@@ -97,6 +107,63 @@ export async function fetchTrainingPeriods(
   return periods;
 }
 
+/**
+ * Every past (or today's) non-cancelled class per learner, oldest first —
+ * the rows of the Form-15 driving-hours register. Queries in chunks and pages
+ * past PostgREST's 1000-row cap.
+ */
+export async function fetchTrainingSessions(
+  learnerIds: string[],
+): Promise<Map<string, TrainingSession[]>> {
+  const sessions = new Map<string, TrainingSession[]>();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const CHUNK = 100;
+  const PAGE_SIZE = 1000;
+
+  for (let i = 0; i < learnerIds.length; i += CHUNK) {
+    const chunk = learnerIds.slice(i, i + CHUNK);
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from("Schedule")
+        .select("learner_id, date, start_time, end_time")
+        .in("learner_id", chunk)
+        .neq("status", "cancelled")
+        .lte("date", today)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw new Error(error.message);
+      for (const row of data ?? []) {
+        if (!row.learner_id || !row.date) continue;
+        const list = sessions.get(row.learner_id) ?? [];
+        list.push({
+          date: row.date,
+          start_time: row.start_time,
+          end_time: row.end_time,
+        });
+        sessions.set(row.learner_id, list);
+      }
+      if (!data || data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+  }
+  return sessions;
+}
+
+const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
+
+/** Schedule rows → Form-15 table rows (signature columns stay blank). */
+export const toForm15Sessions = (
+  sessions: TrainingSession[],
+): Form15Session[] =>
+  sessions.map((s) => ({
+    date: fmt(s.date),
+    fromHrs: hhmm(s.start_time),
+    toHrs: hhmm(s.end_time),
+    vehicleClass: "LMV",
+  }));
+
 export const serialNumberFor = (learner: BulkFormLearner) =>
   learner.id?.substring(0, 8).toUpperCase() || "";
 
@@ -111,6 +178,7 @@ export function buildBulkFormData(
   learner: BulkFormLearner,
   period: TrainingPeriod | undefined,
   overrides: SheetOverrides = {},
+  sessions: TrainingSession[] = [],
 ) {
   const serial = serialNumberFor(learner);
   const name = overrides.name || learner.name || "";
@@ -145,6 +213,7 @@ export function buildBulkFormData(
     traineeName: name,
     enrollmentNumber: serial,
     enrollmentDate,
+    sessions: toForm15Sessions(sessions),
   };
 
   const form5: Form5CertificateData = {
@@ -172,6 +241,9 @@ export async function generateAllFormsMergedPDF(
   onProgress?: (done: number, total: number) => void,
 ): Promise<Uint8Array> {
   const merged = await PDFDocument.create();
+  const sessionsByLearner = await fetchTrainingSessions(
+    entries.map((e) => e.learner.id).filter(Boolean),
+  );
 
   for (let i = 0; i < entries.length; i++) {
     const { learner, period, overrides } = entries[i];
@@ -179,6 +251,7 @@ export async function generateAllFormsMergedPDF(
       learner,
       period,
       overrides,
+      sessionsByLearner.get(learner.id) ?? [],
     );
     const parts = await Promise.all([
       generateForm14PDF(form14),

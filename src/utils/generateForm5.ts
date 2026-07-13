@@ -14,7 +14,7 @@ export interface Form5CertificateData {
 }
 
 /**
- * Fills the Lane Motor Driving School Form-5 Certificate (A5, 420 x 595.55).
+ * Fills the Inlane Motor Driving School Form-5 Certificate (A4, 595 x 842).
  *
  * Blanks are inline within the certificate sentences; positions were measured
  * from the template. Coordinates below are pdf-lib (origin = bottom-left).
@@ -34,11 +34,11 @@ export async function generateForm5PDF(
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const textColor = rgb(0.05, 0.05, 0.25);
   // Lift values a few points so they rest on the dotted blank, not through it.
-  const LINE_LIFT = 4;
+  const LINE_LIFT = 6;
 
-  const fit = (text: string, maxWidth: number, base = 10) => {
+  const fit = (text: string, maxWidth: number, base = 14) => {
     let size = base;
-    while (size > 7 && font.widthOfTextAtSize(text, size) > maxWidth) {
+    while (size > 10 && font.widthOfTextAtSize(text, size) > maxWidth) {
       size -= 0.5;
     }
     let out = text;
@@ -69,7 +69,7 @@ export async function generateForm5PDF(
   const drawWrapped = (
     text: string | undefined | null,
     slots: { x: number; y: number; maxWidth: number }[],
-    size = 10,
+    size = 14,
   ) => {
     if (!text) return;
     const words = text.split(/\s+/).filter(Boolean);
@@ -96,19 +96,19 @@ export async function generateForm5PDF(
     }
   };
 
-  drawAnswer(data.certificateNo, 50, 383, 100); // No.
-  drawAnswer(data.date, 305, 383, 95); // Date
-  drawAnswer(data.name, 222, 359, 180); // Shri/Smt./Kumari ___
-  drawAnswer(data.guardian, 145, 335, 255); // Son/Wife/Daughter of ___
+  drawAnswer(data.certificateNo, 71, 541, 142); // No.
+  drawAnswer(data.date, 448, 541, 118); // Date
+  drawAnswer(data.name, 314, 508, 255); // Shri/Smt./Kumari ___
+  drawAnswer(data.guardian, 205, 474, 361); // Son/Wife/Daughter of ___
   drawWrapped(data.address, [
-    { x: 82, y: 311, maxWidth: 318 },
-    { x: 28, y: 287, maxWidth: 372 },
+    { x: 116, y: 440, maxWidth: 450 },
+    { x: 40, y: 406, maxWidth: 527 },
   ]); // residing at ___ (2 lines)
-  drawAnswer(data.enrolledOn, 168, 263, 130); // enrolled in this school on ___
-  drawAnswer(data.serialNumber, 170, 239, 100); // serial number ___
-  drawAnswer(data.vehicleClass, 30, 192, 238); // training in driving of ___
-  drawAnswer(data.periodFrom, 160, 167, 240); // for a period from ___
-  drawAnswer(data.periodTo, 38, 143, 160); // to ___ satisfactorily
+  drawAnswer(data.enrolledOn, 238, 372, 184); // enrolled in this school on ___
+  drawAnswer(data.serialNumber, 241, 338, 142); // serial number ___
+  drawAnswer(data.vehicleClass, 42, 271, 337); // training in driving of ___
+  drawAnswer(data.periodFrom, 227, 236, 340); // for a period from ___
+  drawAnswer(data.periodTo, 54, 202, 227); // to ___ satisfactorily
 
   return pdfDoc.save();
 }

@@ -29,7 +29,12 @@ import {
 } from "@/utils/generateForm14";
 import { Form5CertificateData, generateForm5PDF } from "@/utils/generateForm5";
 import { Form15Data, generateForm15PDF } from "@/utils/generateForm15";
-import { fetchTrainingPeriods } from "@/utils/formsBulk";
+import {
+  fetchTrainingPeriods,
+  fetchTrainingSessions,
+  SCHOOL_NAME,
+  toForm15Sessions,
+} from "@/utils/formsBulk";
 
 interface LearnerForForm14 {
   id: string;
@@ -125,6 +130,16 @@ export default function Form14Generator({
     },
   });
 
+  // Every non-cancelled past class — the Form-15 driving-hours rows.
+  const { data: trainingSessions } = useQuery({
+    queryKey: ["trainingSessions", learner.id],
+    enabled: open && !!learner.id,
+    queryFn: async () => {
+      const sessions = await fetchTrainingSessions([learner.id]);
+      return sessions.get(learner.id) ?? [];
+    },
+  });
+
   useEffect(() => {
     if (!trainingPeriod) return;
     setFormData((prev) => ({
@@ -166,10 +181,11 @@ export default function Form14Generator({
   });
 
   const buildForm15Data = (): Form15Data => ({
-    schoolName: "LANE MOTOR DRIVING TRAINING SCHOOL",
+    schoolName: SCHOOL_NAME.toUpperCase(),
     traineeName: formData.name,
     enrollmentNumber: formData.enrollmentNumber,
     enrollmentDate: formData.enrollmentDate,
+    sessions: toForm15Sessions(trainingSessions ?? []),
   });
 
   const buildForm5Data = (): Form5CertificateData => ({
