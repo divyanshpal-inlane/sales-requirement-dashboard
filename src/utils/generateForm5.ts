@@ -1,5 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
+import { toWinAnsi } from "@/utils/winAnsi";
+
 export interface Form5CertificateData {
   certificateNo?: string;
   date?: string;
@@ -60,6 +62,7 @@ export async function generateForm5PDF(
     y: number,
     maxWidth: number,
   ) => {
+    text = text && toWinAnsi(text);
     if (!text) return;
     const { out, size } = fit(text, maxWidth);
     page.drawText(out, { x, y: y + LINE_LIFT, size, font, color: textColor });
@@ -71,6 +74,7 @@ export async function generateForm5PDF(
     slots: { x: number; y: number; maxWidth: number }[],
     size = 14,
   ) => {
+    text = text && toWinAnsi(text);
     if (!text) return;
     const words = text.split(/\s+/).filter(Boolean);
     let wi = 0;
