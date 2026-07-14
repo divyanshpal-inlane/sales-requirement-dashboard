@@ -1,5 +1,7 @@
 import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from "pdf-lib";
 
+import { toWinAnsi } from "@/utils/winAnsi";
+
 /** One driving session — a row in the Form-15 hours register. */
 export interface Form15Session {
   date: string; // dd/MM/yyyy
@@ -68,6 +70,7 @@ export async function generateForm15PDF(data: Form15Data): Promise<Uint8Array> {
   const LINE_LIFT = 4;
 
   const drawAnswer = (text: string | undefined, y: number) => {
+    text = text && toWinAnsi(text);
     if (!text) return;
     const x = 392;
     const maxWidth = 195;
@@ -125,6 +128,7 @@ function fillSessionsTable(
     y: number,
     base = 9,
   ) => {
+    text = toWinAnsi(text);
     const maxWidth = COLS[col + 1] - COLS[col] - 6;
     let size = base;
     while (size > 5 && font.widthOfTextAtSize(text, size) > maxWidth) {
