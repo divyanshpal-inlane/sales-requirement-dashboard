@@ -28,6 +28,13 @@ export const ADMIN_PERMISSIONS = {
     description: "Process and update learner's license applications",
     route: "/admin/learner-ll-details",
   },
+  ll_pipeline: {
+    key: "ll_pipeline",
+    label: "LL \u2192 DL Pipeline",
+    description:
+      "End-to-end RTO application tracking: docs, call, scrutiny, LL/DL tests, delivery",
+    route: "/admin/ll-pipeline",
+  },
   post_ll_applications: {
     key: "post_ll_applications",
     label: "Post-LL Applications",

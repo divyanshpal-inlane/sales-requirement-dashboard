@@ -96,6 +96,14 @@ const featureConfig: Record<
     link: "/admin/learner-ll-details",
     color: "text-green-500",
   },
+  ll_pipeline: {
+    title: "LL \u2192 DL Pipeline",
+    description:
+      "Track every RTO application end-to-end: docs, call, scrutiny, tests, delivery",
+    icon: ClipboardList,
+    link: "/admin/ll-pipeline",
+    color: "text-cyan-600",
+  },
   post_ll_applications: {
     title: "Post-LL Applications",
     description: "Process and update driver's license applications",

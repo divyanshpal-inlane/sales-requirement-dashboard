@@ -56,6 +56,7 @@ import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
 import LLCustomerMigration from "@/routes/admin/LLCustomerMigration";
+import LLPipeline from "@/routes/admin/LLPipeline";
 import LessonsDashboard from "@/routes/admin/LessonsDashboard";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminSettings from "@/routes/admin/Settings";
@@ -324,6 +325,7 @@ export default function App() {
               />
 
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
+              <Route path="ll-pipeline" element={<LLPipeline />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
               <Route path="learner-details" element={<LearnerDetails />} />
               <Route
