@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { COURSES_DATA } from "@/constants/courses";
+import { BEGINNER_COURSE_ID, COURSES_DATA } from "@/constants/courses";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
@@ -129,7 +129,6 @@ const PREDEFINED_COURSES = [
     duration: 8,
   },
 ];
-const DEMO_CREDIT = 1;
 
 export default function AdminSchedules() {
   const navigate = useNavigate();
@@ -298,11 +297,17 @@ export default function AdminSchedules() {
 
       if (error) throw error;
 
-      // Step 4: Renumber lessons (only for new schedules, not reschedules)
+      // Step 4: Renumber lessons (only for new schedules, not reschedules).
+      // NOTE: this block does NOT execute today — rescheduleLessonNumber is 1
+      // for "new" and >=1 for reschedule/lesson10, so `!rescheduleLessonNumber`
+      // is always false. The gate looks inverted vs. its own comment. Enabling
+      // it mutates the course-shared Lesson.number, so that's a deliberate
+      // decision, not a silent flip. The logic below is kept duration-aware and
+      // error-checked so it can't silently corrupt numbering if it is enabled.
       if (!rescheduleLessonNumber && !isVirtualLessons && courseId) {
         const { data: allSchedules, error: fetchError } = await supabase
           .from("Schedule")
-          .select("id, date, start_time, Lesson!inner(id, number)")
+          .select("id, date, start_time, end_time, Lesson!inner(id, number)")
           .eq("learner_id", learnerId)
           .eq("course_id", courseId)
           .order("date", { ascending: true })
@@ -315,18 +320,35 @@ export default function AdminSchedules() {
               new Date(`${b.date}T${b.start_time}`).getTime(),
           );
 
+          // Duration-aware numbering: a 2-hour row covers 2 lesson numbers, so
+          // the next row must start after those (start numbers 1,3,5… for
+          // back-to-back 2hr blocks). Using the raw row index (i+1) produced a
+          // dense 1..N that collides with the unique (course_id, number)
+          // constraint against the lessons a 2hr block skipped.
+          let lessonCounter = 1;
           const updates = sortedSchedules
-            .map((s, i) => ({
-              lessonId: s.Lesson?.id,
-              current: s.Lesson?.number,
-              next: i + 1,
-            }))
+            .map((s) => {
+              const sm =
+                parseInt(s.start_time?.split(":")[0] || "0") * 60 +
+                parseInt(s.start_time?.split(":")[1] || "0");
+              const em =
+                parseInt(s.end_time?.split(":")[0] || "0") * 60 +
+                parseInt(s.end_time?.split(":")[1] || "0");
+              const durHours = Math.max(1, Math.round((em - sm) / 60));
+              const startLesson = lessonCounter;
+              lessonCounter += durHours;
+              return {
+                lessonId: s.Lesson?.id,
+                current: s.Lesson?.number,
+                next: startLesson,
+              };
+            })
             .filter((u) => u.lessonId && u.current !== u.next);
 
           if (updates.length > 0) {
             // Two-pass update to avoid unique constraint (course_id, number) conflicts:
             // Pass 1: Set all to temporary high numbers
-            await Promise.all(
+            const pass1 = await Promise.all(
               updates.map((u, i) =>
                 supabase
                   .from("Lesson")
@@ -335,7 +357,7 @@ export default function AdminSchedules() {
               ),
             );
             // Pass 2: Set to final correct numbers
-            await Promise.all(
+            const pass2 = await Promise.all(
               updates.map((u) =>
                 supabase
                   .from("Lesson")
@@ -343,6 +365,18 @@ export default function AdminSchedules() {
                   .eq("id", u.lessonId),
               ),
             );
+            // Surface failures instead of silently leaving lessons stuck at the
+            // temporary 1000+ numbers (e.g. a residual collision with a skipped
+            // lesson's retained number in a resort scenario).
+            const renumberErrors = [...pass1, ...pass2]
+              .map((r) => r.error)
+              .filter(Boolean);
+            if (renumberErrors.length > 0) {
+              console.error(
+                "Lesson renumber failed for some rows:",
+                renumberErrors,
+              );
+            }
           }
         }
       }
@@ -1790,6 +1824,18 @@ export const LearnerSchedulesManager = ({
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [upgradeSelectedCourse, setUpgradeSelectedCourse] = useState("");
+  // Ops-editable course price (defaults to the Courses list price) so a
+  // discounted deal (e.g. ₹7000 instead of ₹10000) can be offered directly.
+  const [upgradeCustomPrice, setUpgradeCustomPrice] = useState("");
+  const [upgradeCoursePrices, setUpgradeCoursePrices] = useState<
+    Record<string, number>
+  >({});
+  // Sum of what the learner actually paid across completed demos — demo price
+  // is variable, so credit the real paid amount, not a fixed constant.
+  const [upgradeDemoCredit, setUpgradeDemoCredit] = useState(0);
+  // Count of completed demos (each = 1 hr) — deducted from the course lesson
+  // count, so a 10-lesson course after 1 demo is scheduled as 9 lessons.
+  const [upgradeDemoCount, setUpgradeDemoCount] = useState(0);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const completeRescheduleRequestMutation =
@@ -2284,28 +2330,105 @@ export const LearnerSchedulesManager = ({
     }
   };
 
+  // Load list prices and the learner's completed-demo credit when the
+  // upgrade dialog opens, so ops sees real numbers before confirming.
+  useEffect(() => {
+    if (!showUpgradeDialog || !learner?.id) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: courseRows }, { data: demoPayments }] = await Promise.all(
+        [
+          supabase
+            .from("Courses")
+            .select("id, price")
+            .in(
+              "id",
+              PREDEFINED_COURSES.map((c) => c.id),
+            ),
+          supabase
+            .from("payment")
+            .select("amount")
+            .eq("learner_id", learner.id)
+            .eq("payment_type", "demo")
+            .eq("status", "completed"),
+        ],
+      );
+      if (cancelled) return;
+      const prices: Record<string, number> = {};
+      (courseRows || []).forEach((c: any) => {
+        prices[c.id] = Math.round(Number(c.price) || 0);
+      });
+      setUpgradeCoursePrices(prices);
+      setUpgradeDemoCredit(
+        (demoPayments || []).reduce(
+          (sum: number, p: any) => sum + (Number(p.amount) || 0),
+          0,
+        ),
+      );
+      setUpgradeDemoCount((demoPayments || []).length);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showUpgradeDialog, learner?.id]);
+
+  const upgradeCoursePrice = Math.round(Number(upgradeCustomPrice) || 0);
+  const upgradeFinalAmount = Math.max(
+    0,
+    upgradeCoursePrice - upgradeDemoCredit,
+  );
+  const upgradeCourseDuration =
+    PREDEFINED_COURSES.find((c) => c.id === upgradeSelectedCourse)?.duration ??
+    0;
+  // Completed demos (1 hr each) count as the course's first lessons ONLY for
+  // the Beginner course, where the demo doubles as lesson 1 (e.g. lessons
+  // 2..10 remain). For specialty courses (2-hr Flyover/Parking etc.) the demo
+  // replaces nothing — subtracting it collapsed a 2-hour course to 1 hour on
+  // the scheduling side. The ₹ demo credit still applies to every course.
+  const upgradeDemoLessonOffset =
+    upgradeSelectedCourse === BEGINNER_COURSE_ID ? upgradeDemoCount : 0;
+  const upgradeLessonCount = Math.max(
+    1,
+    upgradeCourseDuration - upgradeDemoLessonOffset,
+  );
+
   const handleUpgradeToCourse = async () => {
     if (!upgradeSelectedCourse || !learner) return;
     const course = PREDEFINED_COURSES.find(
       (c) => c.id === upgradeSelectedCourse,
     );
     if (!course) return;
+    if (upgradeCoursePrice <= 0) {
+      toast({
+        title: "Invalid price",
+        description: "Enter a course price greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setIsUpgrading(true);
 
-      // Create new enrollment for the selected course
+      // Create new enrollment for the selected course. Storing the negotiated
+      // amount (course price minus demo credit) is what makes both the payment
+      // page and the payment backends charge/validate this exact figure —
+      // without it they fall back to the course list price.
       const { error: enrollError } = await supabase.from("enrollment").insert({
         learner_id: learner.id,
         course_id: course.id,
         status: "pending",
         payment_status: "pending",
         installment_mode: "full",
+        amount: upgradeFinalAmount,
+        // For the Beginner course, demo hours already delivered count as the
+        // first lessons, so unlock only the remaining ones (e.g. 2..10 after
+        // 1 demo). Other courses unlock from lesson 1.
         unlocked_lessons: Array.from(
-          { length: course.duration },
-          (_, i) => i + 1,
+          { length: upgradeLessonCount },
+          (_, i) => upgradeDemoLessonOffset + i + 1,
         ),
-        progress: { type: "course", total_hours: course.duration },
+        progress: { type: "course", total_hours: upgradeLessonCount },
       });
       if (enrollError) throw enrollError;
 
@@ -2321,7 +2444,6 @@ export const LearnerSchedulesManager = ({
       // Send payment link via WhatsApp. Pre-enrolled course is the latest
       // enrollment for this learner, so PaymentPage will auto-prefill via
       // the existing enrollment lookup (no need for a type param here).
-      // Admin sees demo credit applied automatically on the learner side.
       const paymentLink = `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}`;
       await supabase.functions.invoke("send-message", {
         body: {
@@ -2329,17 +2451,18 @@ export const LearnerSchedulesManager = ({
           learner_id: learner.id,
           payment_link: paymentLink,
           course_name: course.name,
-          payment_amount: Math.max(0, (course as any).price ?? 0),
-          duration: course.duration,
+          payment_amount: upgradeFinalAmount,
+          duration: upgradeLessonCount,
         },
       });
 
       setShowUpgradeDialog(false);
       setUpgradeSelectedCourse("");
+      setUpgradeCustomPrice("");
       await syncData();
       toast({
         title: "Upgrade Initiated",
-        description: `${learner.name} enrolled in ${course.name}. Payment link sent. Demo ₹${DEMO_CREDIT} credit will be applied.`,
+        description: `${learner.name} enrolled in ${course.name} — ${upgradeLessonCount} lesson${upgradeLessonCount === 1 ? "" : "s"} at ₹${upgradeCoursePrice}. Demo credit ₹${upgradeDemoCredit} applied — payment link sent for ₹${upgradeFinalAmount}.`,
       });
     } catch (error: any) {
       toast({
@@ -3482,14 +3605,19 @@ export const LearnerSchedulesManager = ({
           <DialogHeader>
             <DialogTitle>Upgrade to Full Course</DialogTitle>
             <DialogDescription>
-              Select a course for {learner?.name}. Demo payment of ₹
-              {DEMO_CREDIT} will be credited toward the course fee.
+              Select a course for {learner?.name}. The price is editable for
+              discounted deals — the demo amount already paid is deducted and
+              the payment link is sent for the balance.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Select
               value={upgradeSelectedCourse}
-              onValueChange={setUpgradeSelectedCourse}
+              onValueChange={(value) => {
+                setUpgradeSelectedCourse(value);
+                const listPrice = upgradeCoursePrices[value];
+                setUpgradeCustomPrice(listPrice ? String(listPrice) : "");
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a course" />
@@ -3498,17 +3626,74 @@ export const LearnerSchedulesManager = ({
                 {PREDEFINED_COURSES.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name} — {c.duration} hours
+                    {upgradeCoursePrices[c.id]
+                      ? ` — ₹${upgradeCoursePrices[c.id]}`
+                      : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
             {upgradeSelectedCourse && (
-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-                Demo credit of ₹{DEMO_CREDIT} will be applied. A payment link
-                will be sent to the learner for the remaining balance.
+              <div>
+                <label
+                  htmlFor="upgradePrice"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Course Price (₹)
+                </label>
+                <Input
+                  id="upgradePrice"
+                  type="number"
+                  min={1}
+                  value={upgradeCustomPrice}
+                  onChange={(e) => setUpgradeCustomPrice(e.target.value)}
+                  placeholder="e.g. 7000"
+                />
+                {upgradeCoursePrices[upgradeSelectedCourse] ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    List price ₹{upgradeCoursePrices[upgradeSelectedCourse]} —
+                    edit to offer a discounted price.
+                  </p>
+                ) : null}
               </div>
             )}
+
+            {upgradeSelectedCourse && upgradeCoursePrice > 0 && (
+              <div className="space-y-1 rounded-md bg-green-50 p-3 text-sm text-green-700">
+                <div className="flex justify-between">
+                  <span>Course price</span>
+                  <span>₹{upgradeCoursePrice}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Demo credit (paid)</span>
+                  <span>− ₹{upgradeDemoCredit}</span>
+                </div>
+                {upgradeDemoLessonOffset > 0 && (
+                  <div className="flex justify-between">
+                    <span>Lessons</span>
+                    <span>
+                      {upgradeCourseDuration} − {upgradeDemoLessonOffset} demo
+                      = {upgradeLessonCount}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-green-200 pt-1 font-medium">
+                  <span>Payment link amount</span>
+                  <span>₹{upgradeFinalAmount}</span>
+                </div>
+              </div>
+            )}
+
+            {upgradeSelectedCourse &&
+              upgradeCoursePrice > 0 &&
+              upgradeFinalAmount <= 0 && (
+                <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-700">
+                  The demo credit covers the whole course price — nothing is
+                  left to pay, so a payment link can&apos;t be sent. Increase
+                  the price.
+                </div>
+              )}
 
             <div className="flex justify-end gap-2">
               <Button
@@ -3519,7 +3704,12 @@ export const LearnerSchedulesManager = ({
               </Button>
               <Button
                 onClick={handleUpgradeToCourse}
-                disabled={!upgradeSelectedCourse || isUpgrading}
+                disabled={
+                  !upgradeSelectedCourse ||
+                  upgradeCoursePrice <= 0 ||
+                  upgradeFinalAmount <= 0 ||
+                  isUpgrading
+                }
               >
                 {isUpgrading ? "Upgrading..." : "Upgrade & Send Payment Link"}
               </Button>

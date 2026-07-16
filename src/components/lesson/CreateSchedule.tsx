@@ -27,6 +27,7 @@ import {
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
 import MapWithRoute from "@/components/mapWithRoute";
+import { BEGINNER_COURSE_ID } from "@/constants/courses";
 import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1874,7 +1875,13 @@ function CreateSchedule({
         .from("Lesson")
         .select("*")
         .eq("course_id", courseId)
-        .order("number", { ascending: true });
+        // Secondary sort on id makes "first record per number" deterministic.
+        // Without it, two separate queries can order same-number duplicate rows
+        // differently, so this dedup and the learner-side useLessons dedup keep
+        // DIFFERENT ids for a number — then request.lesson_ids and allLessons
+        // no longer intersect on that number, triggering "not enough lessons".
+        .order("number", { ascending: true })
+        .order("id", { ascending: true });
 
       if (error) throw error;
       // Deduplicate lessons by number - keep only the first record per lesson number
@@ -1893,6 +1900,43 @@ function CreateSchedule({
     },
   });
 
+  // Completed demos count toward the upgraded course: each completed demo
+  // (1 hr) stands in for one of the course's first lessons. So a 10-lesson
+  // course after 1 completed demo is scheduled as lessons 2..10 (9 lessons),
+  // mirroring the demo credit the admin upgrade applies to the price.
+  const { data: completedDemoCount = 0 } = useQuery({
+    queryKey: ["completedDemoCount", learnerId],
+    queryFn: async () => {
+      // A demo payment flips completed -> upgraded once the learner upgrades to
+      // a course, so an upgraded learner has NO "completed" demo left. Counting
+      // only "completed" here silently drops the demo credit for exactly the
+      // upgraded population this offset exists for, inflating requiredLessonCount
+      // by one and making the required selection un-submittable.
+      const { data, error } = await supabase
+        .from("payment")
+        .select("id")
+        .eq("learner_id", learnerId)
+        .eq("payment_type", "demo")
+        .in("status", ["completed", "upgraded"]);
+      if (error) throw error;
+      return data?.length ?? 0;
+    },
+    enabled: !!learnerId,
+  });
+
+  // Number of course lessons the completed demos stand in for. Only real
+  // (non-virtual) course "new" requests are affected — never demo/topup
+  // virtual-lesson requests or reschedules. The offset applies ONLY to the
+  // Beginner course, where the demo doubles as lesson 1: subtracting demos
+  // from short specialty courses (e.g. 2-hour Flyover/Parking) collapsed
+  // requiredLessonCount to 1 hour and broke their scheduling entirely.
+  const demoLessonOffset =
+    request.type === "new" &&
+    !isVirtualLessons &&
+    allLessons?.[0]?.course_id === BEGINNER_COURSE_ID
+      ? completedDemoCount
+      : 0;
+
   // find the minimum lesson number that needs to be re-scheduled from
   // all the lessons that are requested
   const lessons = allLessons?.filter((l) => request.lesson_ids.includes(l.id));
@@ -1904,7 +1948,9 @@ function CreateSchedule({
 
   // Required lessons to schedule
   const requiredLessonCount =
-    request.type === "new" ? totalCourseHours : request.lesson_ids.length;
+    request.type === "new"
+      ? Math.max(1, totalCourseHours - demoLessonOffset)
+      : request.lesson_ids.length;
 
   const minLessonNumber =
     lessons && lessons.length > 0
@@ -2479,8 +2525,18 @@ function CreateSchedule({
       maxTime,
     ]);
 
+    // Hours still needed for this request, so we never offer a 2-hour class
+    // when only 1 hour remains (which would overshoot requiredLessonCount and
+    // leave a selection that can't be submitted).
+    const remainingHours = Math.max(
+      0,
+      requiredLessonCount - countUniqueHourlySlots(selectedSlots),
+    );
+    const canSelectTwoHours = remainingHours >= 2;
+
     const handleConfirm = () => {
-      onConfirm(instructorId, classDuration);
+      const duration = canSelectTwoHours ? classDuration : 1;
+      onConfirm(instructorId, duration);
       setClassDuration(1);
       onClose();
     };
@@ -2719,12 +2775,18 @@ function CreateSchedule({
                   1 Hour
                 </button>
                 <button
+                  disabled={!canSelectTwoHours}
+                  title={
+                    canSelectTwoHours
+                      ? undefined
+                      : "Only 1 hour left for this request"
+                  }
                   className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    classDuration === 2
+                    classDuration === 2 && canSelectTwoHours
                       ? "bg-primary text-white"
                       : "border bg-white text-gray-600 hover:bg-gray-100"
-                  }`}
-                  onClick={() => setClassDuration(2)}
+                  } ${!canSelectTwoHours ? "cursor-not-allowed opacity-50" : ""}`}
+                  onClick={() => canSelectTwoHours && setClassDuration(2)}
                 >
                   2 Hours
                 </button>
@@ -2847,6 +2909,20 @@ function CreateSchedule({
     const numHalfHourSlots = duration * 2;
     if (checkOverlapEndOfDay(hour, minute, numHalfHourSlots)) {
       alert("Cannot select this duration: lesson would exceed end of day.");
+      return;
+    }
+
+    // Guard against overshooting the required lesson count. handleSlotClick only
+    // checks the count BEFORE the duration is known, so a 2-hour pick with a
+    // single hour remaining would push the selection past requiredLessonCount —
+    // leaving a selection that can never equal it and can't be submitted.
+    const alreadySelectedHours = countUniqueHourlySlots(selectedSlots);
+    if (alreadySelectedHours + duration > requiredLessonCount) {
+      toast({
+        title: "Not enough hours remaining",
+        description: `Only ${requiredLessonCount - alreadySelectedHours} hour(s) left for this request — choose a 1-hour class.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -3011,12 +3087,15 @@ function CreateSchedule({
       ? [...allLessons].sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
       : [];
 
-    // Find the next lesson number after completed lessons
+    // Find the next lesson number after completed lessons. Completed demos are
+    // treated as the course's first lesson(s), so scheduling starts after them
+    // (e.g. lessons 2..10 for a 10-lesson course + 1 demo).
     const maxCompletedLessonNumber = Math.max(
       ...completedLessons.map(
         (s) => courseLessons.find((l) => l.id === s.lesson_id)?.number ?? 0,
       ),
       0,
+      demoLessonOffset,
     );
 
     // Get available lessons for upcoming slots
