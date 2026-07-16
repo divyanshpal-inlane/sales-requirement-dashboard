@@ -16,10 +16,13 @@ export interface Form5CertificateData {
 }
 
 /**
- * Fills the Inlane Motor Driving School Form-5 Certificate (A4, 595 x 842).
+ * Fills the Inlane Motor Driving School Form-5 Certificate.
  *
- * Blanks are inline within the certificate sentences; positions were measured
- * from the template. Coordinates below are pdf-lib (origin = bottom-left).
+ * The template is a Canva export with MediaBox [0, 8.04, 315, 455.04] —
+ * i.e. a ~315 x 447 pt visible page whose origin sits 8 pt above y = 0.
+ * The coordinates below are absolute pdf-lib user-space values (the 8 pt
+ * MediaBox offset is already baked in), measured against the dotted
+ * blanks by rasterising the template.
  */
 export async function generateForm5PDF(
   data: Form5CertificateData,
@@ -35,13 +38,17 @@ export async function generateForm5PDF(
   const page = pdfDoc.getPages()[0];
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const textColor = rgb(0.05, 0.05, 0.25);
-  // Lift values a few points so they rest on the dotted blank, not through it.
-  const LINE_LIFT = 6;
+  // Lift values a couple of points so they rest on the dotted blank, not
+  // through it. (The page is roughly half A4, so lifts/sizes are ~half of
+  // the old A4 template's values.)
+  const LINE_LIFT = 2;
+  const BASE_SIZE = 9;
+  const MIN_SIZE = 6;
 
-  const fit = (text: string, maxWidth: number, base = 14) => {
+  const fit = (text: string, maxWidth: number, base = BASE_SIZE) => {
     let size = base;
-    while (size > 10 && font.widthOfTextAtSize(text, size) > maxWidth) {
-      size -= 0.5;
+    while (size > MIN_SIZE && font.widthOfTextAtSize(text, size) > maxWidth) {
+      size -= 0.25;
     }
     let out = text;
     if (font.widthOfTextAtSize(out, size) > maxWidth) {
@@ -72,7 +79,7 @@ export async function generateForm5PDF(
   const drawWrapped = (
     text: string | undefined | null,
     slots: { x: number; y: number; maxWidth: number }[],
-    size = 14,
+    size = BASE_SIZE,
   ) => {
     text = text && toWinAnsi(text);
     if (!text) return;
@@ -100,19 +107,19 @@ export async function generateForm5PDF(
     }
   };
 
-  drawAnswer(data.certificateNo, 71, 541, 142); // No.
-  drawAnswer(data.date, 448, 541, 118); // Date
-  drawAnswer(data.name, 314, 508, 255); // Shri/Smt./Kumari ___
-  drawAnswer(data.guardian, 205, 474, 361); // Son/Wife/Daughter of ___
+  drawAnswer(data.certificateNo, 36, 294, 74); // No.
+  drawAnswer(data.date, 234, 294, 58); // Date
+  drawAnswer(data.name, 216, 276, 77); // Shri/Smt./Kumari ___
+  drawAnswer(data.guardian, 114, 258.5, 179); // Son/Wife/Daughter of ___
   drawWrapped(data.address, [
-    { x: 116, y: 440, maxWidth: 450 },
-    { x: 40, y: 406, maxWidth: 527 },
+    { x: 53, y: 240.5, maxWidth: 240 },
+    { x: 27, y: 222.5, maxWidth: 262 },
   ]); // residing at ___ (2 lines)
-  drawAnswer(data.enrolledOn, 238, 372, 184); // enrolled in this school on ___
-  drawAnswer(data.serialNumber, 241, 338, 142); // serial number ___
-  drawAnswer(data.vehicleClass, 42, 271, 337); // training in driving of ___
-  drawAnswer(data.periodFrom, 227, 236, 340); // for a period from ___
-  drawAnswer(data.periodTo, 54, 202, 227); // to ___ satisfactorily
+  drawAnswer(data.enrolledOn, 138, 204.5, 80); // enrolled in this school on ___
+  drawAnswer(data.serialNumber, 131, 186.5, 74); // serial number ___
+  drawAnswer(data.vehicleClass, 23, 153, 177); // training in driving of ___
+  drawAnswer(data.periodFrom, 131, 133, 162); // for a period from ___
+  drawAnswer(data.periodTo, 32, 117, 134); // to ___ satisfactorily
 
   return pdfDoc.save();
 }

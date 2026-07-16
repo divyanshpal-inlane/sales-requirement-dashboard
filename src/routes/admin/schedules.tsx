@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { COURSES_DATA } from "@/constants/courses";
+import { BEGINNER_COURSE_ID, COURSES_DATA } from "@/constants/courses";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
@@ -297,11 +297,17 @@ export default function AdminSchedules() {
 
       if (error) throw error;
 
-      // Step 4: Renumber lessons (only for new schedules, not reschedules)
+      // Step 4: Renumber lessons (only for new schedules, not reschedules).
+      // NOTE: this block does NOT execute today — rescheduleLessonNumber is 1
+      // for "new" and >=1 for reschedule/lesson10, so `!rescheduleLessonNumber`
+      // is always false. The gate looks inverted vs. its own comment. Enabling
+      // it mutates the course-shared Lesson.number, so that's a deliberate
+      // decision, not a silent flip. The logic below is kept duration-aware and
+      // error-checked so it can't silently corrupt numbering if it is enabled.
       if (!rescheduleLessonNumber && !isVirtualLessons && courseId) {
         const { data: allSchedules, error: fetchError } = await supabase
           .from("Schedule")
-          .select("id, date, start_time, Lesson!inner(id, number)")
+          .select("id, date, start_time, end_time, Lesson!inner(id, number)")
           .eq("learner_id", learnerId)
           .eq("course_id", courseId)
           .order("date", { ascending: true })
@@ -314,18 +320,35 @@ export default function AdminSchedules() {
               new Date(`${b.date}T${b.start_time}`).getTime(),
           );
 
+          // Duration-aware numbering: a 2-hour row covers 2 lesson numbers, so
+          // the next row must start after those (start numbers 1,3,5… for
+          // back-to-back 2hr blocks). Using the raw row index (i+1) produced a
+          // dense 1..N that collides with the unique (course_id, number)
+          // constraint against the lessons a 2hr block skipped.
+          let lessonCounter = 1;
           const updates = sortedSchedules
-            .map((s, i) => ({
-              lessonId: s.Lesson?.id,
-              current: s.Lesson?.number,
-              next: i + 1,
-            }))
+            .map((s) => {
+              const sm =
+                parseInt(s.start_time?.split(":")[0] || "0") * 60 +
+                parseInt(s.start_time?.split(":")[1] || "0");
+              const em =
+                parseInt(s.end_time?.split(":")[0] || "0") * 60 +
+                parseInt(s.end_time?.split(":")[1] || "0");
+              const durHours = Math.max(1, Math.round((em - sm) / 60));
+              const startLesson = lessonCounter;
+              lessonCounter += durHours;
+              return {
+                lessonId: s.Lesson?.id,
+                current: s.Lesson?.number,
+                next: startLesson,
+              };
+            })
             .filter((u) => u.lessonId && u.current !== u.next);
 
           if (updates.length > 0) {
             // Two-pass update to avoid unique constraint (course_id, number) conflicts:
             // Pass 1: Set all to temporary high numbers
-            await Promise.all(
+            const pass1 = await Promise.all(
               updates.map((u, i) =>
                 supabase
                   .from("Lesson")
@@ -334,7 +357,7 @@ export default function AdminSchedules() {
               ),
             );
             // Pass 2: Set to final correct numbers
-            await Promise.all(
+            const pass2 = await Promise.all(
               updates.map((u) =>
                 supabase
                   .from("Lesson")
@@ -342,6 +365,18 @@ export default function AdminSchedules() {
                   .eq("id", u.lessonId),
               ),
             );
+            // Surface failures instead of silently leaving lessons stuck at the
+            // temporary 1000+ numbers (e.g. a residual collision with a skipped
+            // lesson's retained number in a resort scenario).
+            const renumberErrors = [...pass1, ...pass2]
+              .map((r) => r.error)
+              .filter(Boolean);
+            if (renumberErrors.length > 0) {
+              console.error(
+                "Lesson renumber failed for some rows:",
+                renumberErrors,
+              );
+            }
           }
         }
       }
@@ -2345,11 +2380,16 @@ export const LearnerSchedulesManager = ({
   const upgradeCourseDuration =
     PREDEFINED_COURSES.find((c) => c.id === upgradeSelectedCourse)?.duration ??
     0;
-  // Completed demos (1 hr each) count as the course's first lessons, so the
-  // learner is scheduled for the remaining lessons only (e.g. lessons 2..10).
+  // Completed demos (1 hr each) count as the course's first lessons ONLY for
+  // the Beginner course, where the demo doubles as lesson 1 (e.g. lessons
+  // 2..10 remain). For specialty courses (2-hr Flyover/Parking etc.) the demo
+  // replaces nothing — subtracting it collapsed a 2-hour course to 1 hour on
+  // the scheduling side. The ₹ demo credit still applies to every course.
+  const upgradeDemoLessonOffset =
+    upgradeSelectedCourse === BEGINNER_COURSE_ID ? upgradeDemoCount : 0;
   const upgradeLessonCount = Math.max(
     1,
-    upgradeCourseDuration - upgradeDemoCount,
+    upgradeCourseDuration - upgradeDemoLessonOffset,
   );
 
   const handleUpgradeToCourse = async () => {
@@ -2381,12 +2421,12 @@ export const LearnerSchedulesManager = ({
         payment_status: "pending",
         installment_mode: "full",
         amount: upgradeFinalAmount,
-        // Demo hours already delivered count as the first lessons, so unlock
-        // and count only the remaining ones (e.g. lessons 2..10 for a
-        // 10-lesson course after 1 demo).
+        // For the Beginner course, demo hours already delivered count as the
+        // first lessons, so unlock only the remaining ones (e.g. 2..10 after
+        // 1 demo). Other courses unlock from lesson 1.
         unlocked_lessons: Array.from(
           { length: upgradeLessonCount },
-          (_, i) => upgradeDemoCount + i + 1,
+          (_, i) => upgradeDemoLessonOffset + i + 1,
         ),
         progress: { type: "course", total_hours: upgradeLessonCount },
       });
@@ -3629,12 +3669,12 @@ export const LearnerSchedulesManager = ({
                   <span>Demo credit (paid)</span>
                   <span>− ₹{upgradeDemoCredit}</span>
                 </div>
-                {upgradeDemoCount > 0 && (
+                {upgradeDemoLessonOffset > 0 && (
                   <div className="flex justify-between">
                     <span>Lessons</span>
                     <span>
-                      {upgradeCourseDuration} − {upgradeDemoCount} demo ={" "}
-                      {upgradeLessonCount}
+                      {upgradeCourseDuration} − {upgradeDemoLessonOffset} demo
+                      = {upgradeLessonCount}
                     </span>
                   </div>
                 )}

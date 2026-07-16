@@ -9,6 +9,10 @@ import { TRAFFIC_PARKING_LESSON_CONTENT } from "@/constants/content/traffic-park
 import { TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT } from "@/constants/content/traffic-parking-flyover";
 import { LESSON_CONTENT, LessonContent } from "@/constants/Lesson";
 
+// The 10-lesson Beginner course. The demo lesson doubles as this course's
+// first lesson, so demo-credit lesson offsets apply ONLY to this course.
+export const BEGINNER_COURSE_ID = "e129f667-0510-4f07-9847-edb58356dc74";
+
 const COURSES = [
   "e129f667-0510-4f07-9847-edb58356dc74",
   "f60e5fdb-787a-4b40-844d-4e66416a6c8f",

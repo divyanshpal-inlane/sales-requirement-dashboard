@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
 
+// The 10-lesson Beginner course. The demo lesson doubles as this course's
+// first lesson, so demo-credit lesson skipping applies ONLY to this course.
+const BEGINNER_COURSE_ID = "e129f667-0510-4f07-9847-edb58356dc74";
+
 function getHalfPaymentLessons(totalHours: number): number[] {
   if (totalHours <= 1) return [1];
   if (totalHours === 2) return [1];
@@ -84,15 +88,41 @@ export async function completePayment(
     let newPaymentStatus = enrollment.payment_status;
     let unlockedLessons = enrollment.unlocked_lessons || [];
 
-    const { data: completedDemoPayments } = await supabaseClient
-      .from("payment")
-      .select("id")
-      .eq("learner_id", payment.learner_id)
-      .eq("payment_type", "demo")
-      // A demo consumed by an upgrade is flipped to "upgraded", so count both.
-      .in("status", ["completed", "upgraded"]);
-    const demoSkip = Math.min(completedDemoPayments?.length ?? 0, 10);
-    const totalCourseLessons = 10;
+    // Course length comes from the actual course row — it was previously
+    // hardcoded to 10, which unlocked phantom lessons for the short specialty
+    // courses (e.g. 2-hour Flyover/Parking).
+    let totalCourseLessons = enrollment.progress?.total_hours || 10;
+    if (enrollment.course_id) {
+      const { data: courseRow } = await supabaseClient
+        .from("Courses")
+        .select("total_lessons, duration")
+        .eq("id", enrollment.course_id)
+        .maybeSingle();
+      totalCourseLessons =
+        courseRow?.total_lessons ||
+        courseRow?.duration ||
+        totalCourseLessons;
+    }
+
+    // Demo-as-lesson-1 skipping applies ONLY to the Beginner course, where
+    // the demo doubles as lesson 1. Include "upgraded" demos: the demo
+    // payment is flipped completed -> upgraded when the learner upgrades to
+    // a course, so counting only "completed" loses the demo credit and
+    // unlocks one lesson too many (must stay in sync with the same count in
+    // CreateSchedule).
+    let demoSkip = 0;
+    if (enrollment.course_id === BEGINNER_COURSE_ID) {
+      const { data: completedDemoPayments } = await supabaseClient
+        .from("payment")
+        .select("id")
+        .eq("learner_id", payment.learner_id)
+        .eq("payment_type", "demo")
+        .in("status", ["completed", "upgraded"]);
+      demoSkip = Math.min(
+        completedDemoPayments?.length ?? 0,
+        totalCourseLessons,
+      );
+    }
     const remainingLessons = Math.max(0, totalCourseLessons - demoSkip);
     const fullUnlock = Array.from(
       { length: remainingLessons },
