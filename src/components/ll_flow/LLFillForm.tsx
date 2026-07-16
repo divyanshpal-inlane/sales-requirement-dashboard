@@ -80,15 +80,18 @@ export default function LLFillForm({
       >
         Documents List
       </Button>
-      <Button
-        className="mb-4 w-full py-3 text-lg"
-        onClick={handleContinueClick}
-      >
-        Continue to Form
-      </Button>
-      <Button className="w-full py-3 text-lg" onClick={handleReturnClick}>
-        I do not have documents ready
-      </Button>
+
+      <div className="sticky bottom-0 space-y-3 border-t bg-white py-4">
+        <Button
+          className="w-full py-3 text-lg"
+          onClick={handleContinueClick}
+        >
+          Continue to Form
+        </Button>
+        <Button className="w-full py-3 text-lg" onClick={handleReturnClick}>
+          I do not have documents ready
+        </Button>
+      </div>
 
       <ImagePopup
         isOpen={isPopupOpen}

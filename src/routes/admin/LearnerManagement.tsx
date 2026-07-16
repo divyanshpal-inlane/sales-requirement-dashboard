@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+import { useCourses } from "@/queries/payment";
 
 import { HalfPaidTracker } from "./HalfPaidTracker";
 import { IncompletePaymentsCard } from "./IncompletePaymentsCard";
@@ -69,12 +70,34 @@ const PREDEFINED_COURSES = [
   },
 ];
 
-// Skill modules for custom course
+// Skill modules for custom course. `courseId` maps each module to its standalone
+// course so its list price can be looked up (and used as the default, editable
+// per-module price when building a discounted custom course).
 const SKILL_MODULES = [
-  { id: "flyover", name: "Flyover", hours: 2 },
-  { id: "parking", name: "Parking", hours: 2 },
-  { id: "slopes", name: "Slopes", hours: 2 },
-  { id: "traffic", name: "Traffic", hours: 4 },
+  {
+    id: "flyover",
+    name: "Flyover",
+    hours: 2,
+    courseId: "f60e5fdb-787a-4b40-844d-4e66416a6c8f",
+  },
+  {
+    id: "parking",
+    name: "Parking",
+    hours: 2,
+    courseId: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27",
+  },
+  {
+    id: "slopes",
+    name: "Slopes",
+    hours: 2,
+    courseId: "cc5fb06a-419f-4766-a79b-221c81bf9826",
+  },
+  {
+    id: "traffic",
+    name: "Traffic",
+    hours: 4,
+    courseId: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f",
+  },
 ];
 
 // Demo course config
@@ -85,6 +108,10 @@ export default function LearnerManagement() {
   const [courseType, setCourseType] = useState<CourseType>("predefined");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  // Per-module price for a custom course (keyed by module id). Defaults to the
+  // module's list price; editable so sales can discount individual modules.
+  const [modulePrices, setModulePrices] = useState<Record<string, number>>({});
+  const { data: coursesData } = useCourses();
 
   const [learnerData, setLearnerData] = useState({
     name: "",
@@ -157,6 +184,63 @@ export default function LearnerManagement() {
     );
   };
 
+  // A module's list price from the Courses table (default before any discount).
+  const standardModulePrice = (courseId: string): number => {
+    const c = coursesData?.find((x) => x.id === courseId);
+    return typeof c?.price === "number" ? c.price : 2000;
+  };
+
+  // Recompute the custom-course amount (sum of per-module prices) and keep the
+  // installment split + display name in sync.
+  const syncCustomAmount = (
+    sel: string[],
+    prices: Record<string, number>,
+  ) => {
+    const total = sel.reduce((sum, id) => sum + (Number(prices[id]) || 0), 0);
+    const moduleNames = sel.map(
+      (id) => SKILL_MODULES.find((m) => m.id === id)?.name || "",
+    );
+    setLearnerData((prev) => {
+      const inst1 =
+        prev.installmentType === "installment"
+          ? Math.round(total / 2)
+          : total;
+      const inst2 = prev.installmentType === "installment" ? total - inst1 : 0;
+      return {
+        ...prev,
+        courseId: "",
+        courseName:
+          moduleNames.length > 0
+            ? `Custom: ${moduleNames.join(" + ")}`
+            : "Custom Course",
+        amount: total,
+        installment1Amount: inst1,
+        installment2Amount: inst2,
+      };
+    });
+  };
+
+  // Toggle a custom module and default/clear its price, then re-sum.
+  const toggleCustomModule = (module: (typeof SKILL_MODULES)[number]) => {
+    const isSelected = selectedModules.includes(module.id);
+    const newSel = isSelected
+      ? selectedModules.filter((id) => id !== module.id)
+      : [...selectedModules, module.id];
+    const newPrices = { ...modulePrices };
+    if (isSelected) delete newPrices[module.id];
+    else newPrices[module.id] = standardModulePrice(module.courseId);
+    setSelectedModules(newSel);
+    setModulePrices(newPrices);
+    syncCustomAmount(newSel, newPrices);
+  };
+
+  // Edit one module's price (for a discount) and re-sum.
+  const setCustomModulePrice = (moduleId: string, price: number) => {
+    const newPrices = { ...modulePrices, [moduleId]: price };
+    setModulePrices(newPrices);
+    syncCustomAmount(selectedModules, newPrices);
+  };
+
   // Legacy courses array for compatibility
   const courses = PREDEFINED_COURSES;
 
@@ -165,6 +249,7 @@ export default function LearnerManagement() {
     setCourseType("predefined");
     setSelectedCourseId("");
     setSelectedModules([]);
+    setModulePrices({});
     setLearnerData({
       name: "",
       email: "",
@@ -282,6 +367,30 @@ export default function LearnerManagement() {
         return;
       }
 
+      // Check if learner with this phone already exists
+      const { data: existingLearners, error: checkError } = await supabase
+        .from("Learner")
+        .select("id")
+        .eq("phone", learnerData.phone);
+
+      if (checkError) {
+        toast({
+          title: "Error",
+          description: "Failed to check learner existence",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (existingLearners && existingLearners.length > 0) {
+        toast({
+          title: "Error",
+          description: "Learner already registered",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Validate course selection based on type
       if (courseType === "predefined" && !selectedCourseId) {
         toast({
@@ -325,7 +434,7 @@ export default function LearnerManagement() {
       }
 
       // Build data to send based on course type
-      const dataToSend = { ...learnerData };
+      const dataToSend = { ...learnerData, modulePrices };
 
       // Set course type specific data
       dataToSend.courseTypeSelection = courseType;
@@ -344,10 +453,10 @@ export default function LearnerManagement() {
         dataToSend.courseId = "";
         dataToSend.courseName = courseName;
       } else if (courseType === "demo") {
-        // For demo, course_id is NULL, use demo config
+        // For demo, course_id is NULL. Amount is whatever the admin entered
+        // (defaults to DEMO_CONFIG.price but is editable — no longer forced).
         dataToSend.courseId = "";
         dataToSend.courseName = "Demo Lesson";
-        dataToSend.amount = DEMO_CONFIG.price;
       }
 
       // Set unlocked lessons - unlock 1 lesson for half_paid
@@ -367,19 +476,66 @@ export default function LearnerManagement() {
       // Close the dialog before sending to backend to disable multiple clicks
       setIsCreateLearnerDialogOpen(false); // Close the create learner dialog
 
-      // send to backend
-      console.log("Sending data to edge function", dataToSend);
-      const { data, error } = await supabase.functions.invoke(
-        "create-learner-and-enrollment",
-        {
-          body: JSON.stringify(dataToSend),
-        },
-      );
+       // send to backend
+       let responseData: any = null;
+       
+       try {
+         const response = await supabase.functions.invoke(
+           "create-learner-and-enrollment",
+           {
+             body: JSON.stringify(dataToSend),
+           },
+         );
 
-      if (error) throw error;
+
+         // Check if there was an error in the response
+         if (response.error) {
+           // Re-throw the Supabase FunctionsHttpError to be caught below
+           throw response.error;
+         }
+
+         const { data } = response;
+         // If data is null, something went wrong
+         if (!data) {
+           throw new Error("No data received from server");
+         }
+         
+         // Check if data has learner (success case)
+         if (!data.learner) {
+           throw new Error("Learner data missing from response");
+         }
+
+         responseData = data;
+       } catch (error: any) {
+         
+         // Try to extract error message from the edge function error
+         let errorMessage = "Failed to create learner";
+         
+         // Check if context.response exists (Supabase FunctionsHttpError format)
+         if (error && error.context && error.context.response) {
+           try {
+             let errorData = error.context.response;
+             
+             if (typeof errorData === "string") {
+               errorData = JSON.parse(errorData);
+             }
+             
+             if (errorData && errorData.error) {
+               errorMessage = errorData.error;
+             }
+           } catch (parseError) {
+           }
+         } else if (error && error.message) {
+           // Fallback: Use the error message directly
+           errorMessage = error.message;
+         }
+         
+         throw new Error(errorMessage);
+       }
 
       // Ensure we set the created learner ID and enrollment ID
-      if (data && data.learner && data.learner.id) {
+      if (responseData && responseData.learner && responseData.learner.id) {
+        const data = responseData;
         setCreatedLearnerId(data.learner.id);
 
         // Store enrollment ID for payment link
@@ -429,9 +585,18 @@ export default function LearnerManagement() {
         throw new Error("No learner ID returned");
       }
     } catch (err) {
+      // Reopen the dialog so user can try again
+      setIsCreateLearnerDialogOpen(true);
+      
+      // Get the error message
+      let errorDescription = "An error occurred";
+      if (err instanceof Error) {
+        errorDescription = err.message;
+      }
+      
       toast({
         title: "Error",
-        description: err.message || "An error occurred",
+        description: errorDescription,
         variant: "destructive",
       });
       setCreatedLearnerId(null); // Reset createdLearnerId in case of error
@@ -631,6 +796,7 @@ export default function LearnerManagement() {
                       // Reset selections when type changes
                       setSelectedCourseId("");
                       setSelectedModules([]);
+                      setModulePrices({});
                       // Update learnerData based on type
                       if (value === "demo") {
                         setLearnerData((prev) => ({
@@ -704,47 +870,56 @@ export default function LearnerManagement() {
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="pt-2 text-right">Select Modules</Label>
                     <div className="col-span-3 space-y-2">
-                      {SKILL_MODULES.map((module) => (
-                        <div
-                          key={module.id}
-                          className="flex items-center space-x-2"
-                        >
-                          <Checkbox
-                            id={module.id}
-                            checked={selectedModules.includes(module.id)}
-                            onCheckedChange={() => {
-                              toggleModule(module.id);
-                              // Update learnerData with custom course info
-                              const newModules = selectedModules.includes(
-                                module.id,
-                              )
-                                ? selectedModules.filter(
-                                    (id) => id !== module.id,
-                                  )
-                                : [...selectedModules, module.id];
-                              const moduleNames = newModules.map(
-                                (id) =>
-                                  SKILL_MODULES.find((m) => m.id === id)
-                                    ?.name || "",
-                              );
-                              setLearnerData((prev) => ({
-                                ...prev,
-                                courseId: "",
-                                courseName:
-                                  moduleNames.length > 0
-                                    ? `Custom: ${moduleNames.join(" + ")}`
-                                    : "Custom Course",
-                              }));
-                            }}
-                          />
-                          <Label
-                            htmlFor={module.id}
-                            className="cursor-pointer font-normal"
+                      {SKILL_MODULES.map((module) => {
+                        const checked = selectedModules.includes(module.id);
+                        return (
+                          <div
+                            key={module.id}
+                            className="flex items-center gap-2"
                           >
-                            {module.name} ({module.hours} hrs)
-                          </Label>
-                        </div>
-                      ))}
+                            <Checkbox
+                              id={module.id}
+                              checked={checked}
+                              onCheckedChange={() => toggleCustomModule(module)}
+                            />
+                            <Label
+                              htmlFor={module.id}
+                              className="flex-1 cursor-pointer font-normal"
+                            >
+                              {module.name} ({module.hours} hrs)
+                            </Label>
+                            {checked && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">
+                                  ₹
+                                </span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={modulePrices[module.id] ?? ""}
+                                  onChange={(e) =>
+                                    setCustomModulePrice(
+                                      module.id,
+                                      Number(e.target.value),
+                                    )
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  className="h-8 w-24"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {selectedModules.length > 0 && (
+                        <p className="pt-1 text-sm font-medium">
+                          Total: ₹
+                          {selectedModules.reduce(
+                            (sum, id) => sum + (Number(modulePrices[id]) || 0),
+                            0,
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -755,7 +930,7 @@ export default function LearnerManagement() {
                     <Label className="text-right">Course Info</Label>
                     <div className="col-span-3">
                       <Badge variant="secondary" className="text-sm">
-                        Demo Lesson - 1 hour - ₹{DEMO_CONFIG.price}
+                        Demo Lesson - 1 hour - ₹{learnerData.amount}
                       </Badge>
                     </div>
                   </div>
@@ -787,7 +962,7 @@ export default function LearnerManagement() {
                     min={0}
                     className="col-span-3"
                     onWheel={(e) => e.currentTarget.blur()}
-                    disabled={courseType === "demo"}
+                    disabled={courseType === "custom"}
                   />
                 </div>
                 {/* Hide installment options for demo courses */}

@@ -62,9 +62,17 @@ function PaymentPage() {
   const [courseSelectionType, setCourseSelectionType] =
     useState<CourseSelectionType>("predefined");
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  // Admin-set per-module prices for a prefilled custom course (module id -> ₹).
+  const [modulePriceMap, setModulePriceMap] = useState<Record<string, number>>(
+    {},
+  );
   const [hasCompletedDemo, setHasCompletedDemo] = useState(false);
   const [completedDemoCount, setCompletedDemoCount] = useState(0);
   const [demoPaymentId, setDemoPaymentId] = useState<string | null>(null);
+  // Actual amount paid across completed demos — credited toward an upgrade.
+  // Demo price is variable (₹1/₹200/₹300/…), so use the real paid total, not
+  // count × the current DEMO_COURSE.price.
+  const [demoCreditTotal, setDemoCreditTotal] = useState(0);
 
   // Gateway selection state
   const [showGatewayDialog, setShowGatewayDialog] = useState(false);
@@ -110,18 +118,42 @@ function PaymentPage() {
           if (error || !learner)
             throw new Error("Failed to fetch learner details");
 
-          // If URL has type=demo, auto-select demo course with pre-filled info
+          // Fetch the learner's latest enrollment up front so the demo / topup /
+          // course prefills can all read its admin-set amount.
+          const { data: enrollments, error: enrollmentError } = await supabase
+            .from("enrollment")
+            .select(
+              "id, course_id, amount, payment_status, status, unlocked_lessons, installment_mode, installment1_amount, installment2_amount, progress",
+            )
+            .eq("learner_id", learner.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          if (enrollmentError)
+            throw new Error("Failed to fetch enrollment details");
+
+          const enrollment =
+            enrollments && enrollments.length > 0 ? enrollments[0] : null;
+          const courseId = enrollment?.course_id || "";
+          const enrollmentId = enrollment?.id || "";
+          const installmentMode = enrollment?.installment_mode || "full";
+
+          // If URL has type=demo, prefill the demo lesson. The amount comes from
+          // the enrollment (admin can set any demo price), falling back to the
+          // default demo price for links without a saved enrollment.
           if (urlType === "demo") {
+            const demoAmount = enrollment?.amount || DEMO_COURSE.price;
             setPaymentDetails((prev) => ({
               ...prev,
               email: learner.email || "",
               phone: learner.phone || "",
               name: learner.name || "",
               learnerId: learner.id,
+              enrollmentId,
               paymentType: "demo",
               courseId: "",
-              amount: DEMO_COURSE.price,
-              totalAmount: DEMO_COURSE.price,
+              amount: demoAmount,
+              totalAmount: demoAmount,
               totalHours: DEMO_COURSE.hours,
               selectedModules: [],
             }));
@@ -154,43 +186,43 @@ function PaymentPage() {
             return;
           }
 
-          // Check if there's an existing enrollment for this learner
-          const { data: enrollments, error: enrollmentError } = await supabase
-            .from("enrollment")
-            .select(
-              "id, course_id, amount, payment_status, status, unlocked_lessons, installment_mode, installment1_amount, installment2_amount, progress",
-            )
-            .eq("learner_id", learner.id)
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          if (enrollmentError)
-            throw new Error("Failed to fetch enrollment details");
-
-          const enrollment =
-            enrollments && enrollments.length > 0 ? enrollments[0] : null;
-          const courseId = enrollment?.course_id || "";
-          const enrollmentId = enrollment?.id || "";
-          const installmentMode = enrollment?.installment_mode || "full";
-
           // Auto-detect demo/topup from the latest enrollment when the URL
           // didn't specify a type. This makes the bare /payment?phone=... link
           // work without requiring the caller to know about &type=demo.
           const enrollmentType = enrollment?.progress?.type;
+          // Custom bundles (built by admin) have no course_id — identify them by
+          // progress.type. An existing custom enrollment is FINAL: prefill & lock
+          // it like a predefined course so the learner just pays the admin's
+          // amount instead of being shown the module picker again.
+          const isCustom = !courseId && enrollmentType === "custom";
+          const customProgress = enrollment?.progress as {
+            total_hours?: number;
+            selected_modules?: string[];
+            module_prices?: Record<string, number>;
+          } | null;
+          const customHours = customProgress?.total_hours;
+          // The skill modules the admin picked, persisted on the enrollment, so
+          // the learner sees the actual course they were sold (not just "Custom").
+          const customModules = customProgress?.selected_modules ?? [];
+          // Admin-set (possibly discounted) per-module prices, for the itemised
+          // breakdown; falls back to the module's list price when absent.
+          const customModulePrices = customProgress?.module_prices ?? {};
           if (
             !enrollment?.payment_status?.includes("paid") &&
             enrollmentType === "demo"
           ) {
+            const demoAmount = enrollment?.amount || DEMO_COURSE.price;
             setPaymentDetails((prev) => ({
               ...prev,
               email: learner.email || "",
               phone: learner.phone || "",
               name: learner.name || "",
               learnerId: learner.id,
+              enrollmentId,
               paymentType: "demo",
               courseId: "",
-              amount: DEMO_COURSE.price,
-              totalAmount: DEMO_COURSE.price,
+              amount: demoAmount,
+              totalAmount: demoAmount,
               totalHours: DEMO_COURSE.hours,
               selectedModules: [],
             }));
@@ -308,12 +340,14 @@ function PaymentPage() {
             phone: learner.phone || "",
             name: learner.name || "",
             learnerId: learner.id,
-            // Only set course/payment fields if there's an actual enrollment
-            // This prevents overwriting amounts set by demo/test selection
-            ...(courseId
+            // Set course/payment fields for a real enrollment — predefined
+            // (course_id) or a custom bundle. This prevents overwriting amounts
+            // set by demo/test selection.
+            ...(courseId || isCustom
               ? {
                   courseId: courseId,
                   enrollmentId: enrollmentId,
+                  paymentType: isCustom ? "custom" : "course",
                   amount: paymentAmount,
                   installmentType: isSecondInstallment
                     ? "second_half"
@@ -321,6 +355,9 @@ function PaymentPage() {
                       ? "full"
                       : "first_half",
                   totalAmount: totalAmount,
+                  totalHours: isCustom
+                    ? (customHours ?? prev.totalHours)
+                    : prev.totalHours,
                   parentPaymentId: parentPaymentId,
                   installment1Amount: installment1Amount,
                   installment2Amount: installment2Amount,
@@ -339,8 +376,15 @@ function PaymentPage() {
             setPaymentOption("installment");
           }
 
-          // Only mark as prefilled if there's an actual enrollment with a course
-          setIsPrefilled(!!courseId);
+          // Mark prefilled for a real enrollment — predefined (course_id) or a
+          // custom bundle — so the course/module picker stays hidden and the
+          // admin's selection is final. Custom shows the read-only summary below.
+          if (isCustom) {
+            setCourseSelectionType("custom");
+            if (customModules.length > 0) setSelectedModules(customModules);
+            setModulePriceMap(customModulePrices);
+          }
+          setIsPrefilled(!!courseId || isCustom);
 
           // Count completed demo payments for upgrade credit pricing
           const { data: demoPayments, error: demoError } = await supabase
@@ -355,6 +399,12 @@ function PaymentPage() {
             setHasCompletedDemo(true);
             setCompletedDemoCount(demoPayments.length);
             setDemoPaymentId(demoPayments[0].id);
+            setDemoCreditTotal(
+              demoPayments.reduce(
+                (sum, p) => sum + (Number(p.amount) || 0),
+                0,
+              ),
+            );
           } else if (demoError) {
             console.log("Demo payment check skipped:", demoError.message);
           }
@@ -418,10 +468,10 @@ function PaymentPage() {
     const selectedCourse = courses?.find((course) => course.id === courseId);
     const coursePrice = roundPrice(selectedCourse?.price || 0);
 
-    // Apply demo discount: one ₹599 credit per completed demo
-    const demoCreditAmount = completedDemoCount * DEMO_COURSE.price;
+    // Apply demo discount: credit the actual amount paid across completed
+    // demos (demo price is variable, so never assume a fixed per-demo value).
     const finalPrice = hasCompletedDemo
-      ? Math.max(0, coursePrice - demoCreditAmount)
+      ? Math.max(0, coursePrice - demoCreditTotal)
       : coursePrice;
 
     const installment1Amount = roundPrice(finalPrice / 2);
@@ -515,10 +565,10 @@ function PaymentPage() {
       }
     });
 
-    // Apply demo discount: one ₹599 credit per completed demo
-    const demoCreditAmount = completedDemoCount * DEMO_COURSE.price;
+    // Apply demo discount: credit the actual amount paid across completed
+    // demos (demo price is variable, so never assume a fixed per-demo value).
     const finalPrice = hasCompletedDemo
-      ? Math.max(0, totalPrice - demoCreditAmount)
+      ? Math.max(0, totalPrice - demoCreditTotal)
       : totalPrice;
 
     const installment1Amount = roundPrice(finalPrice / 2);
@@ -550,7 +600,8 @@ function PaymentPage() {
     let finalInstallmentType = paymentDetails.installmentType;
 
     if (courseSelectionType === "demo") {
-      finalAmount = DEMO_COURSE.price;
+      // Admin can set any demo price; fall back to the default only when unset.
+      finalAmount = paymentDetails.amount || DEMO_COURSE.price;
       finalInstallmentType = "full";
     } else if (courseSelectionType === "topup") {
       const topupHours = Math.max(1, paymentDetails.totalHours || 1);
@@ -875,8 +926,8 @@ function PaymentPage() {
                     </Select>
                     {hasCompletedDemo && (
                       <p className="mt-1 text-xs text-green-600">
-                        ₹{completedDemoCount * DEMO_COURSE.price} credit from
-                        your {completedDemoCount} demo
+                        ₹{demoCreditTotal} credit from your{" "}
+                        {completedDemoCount} demo
                         {completedDemoCount === 1 ? "" : "s"} will be deducted
                         from the course price
                       </p>
@@ -964,8 +1015,7 @@ function PaymentPage() {
                         </div>
                         {hasCompletedDemo && (
                           <p className="mt-1 text-xs text-green-600">
-                            Demo discount of ₹
-                            {completedDemoCount * DEMO_COURSE.price} applied (
+                            Demo discount of ₹{demoCreditTotal} applied (
                             {completedDemoCount} demo
                             {completedDemoCount === 1 ? "" : "s"})
                           </p>
@@ -994,7 +1044,7 @@ function PaymentPage() {
               <Alert>
                 <AlertDescription>
                   <strong>Demo Lesson</strong> - {DEMO_COURSE.hours}-hour
-                  introductory lesson for ₹{DEMO_COURSE.price}
+                  introductory lesson for ₹{paymentDetails.amount}
                 </AlertDescription>
               </Alert>
             )}
@@ -1030,10 +1080,95 @@ function PaymentPage() {
               </div>
             )}
 
-            {/* Show simple course dropdown if already enrolled (prefilled), but not for demo */}
+            {/* Show custom course details when prefilled (read-only) */}
             {type === "course" &&
               isPrefilled &&
-              courseSelectionType !== "demo" && (
+              courseSelectionType === "custom" && (
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="courseName"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      Course
+                    </label>
+                    <div
+                      id="courseName"
+                      className="rounded-md border bg-muted px-3 py-2 text-sm font-medium"
+                    >
+                      {selectedModules.length > 0
+                        ? selectedModules
+                            .map(
+                              (id) =>
+                                SKILL_MODULES.find((m) => m.id === id)?.label,
+                            )
+                            .filter(Boolean)
+                            .join(" + ")
+                        : "Custom Course"}
+                    </div>
+                  </div>
+
+                  {selectedModules.length > 0 && (
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">
+                        Selected Modules
+                      </label>
+                      <div className="space-y-2">
+                        {selectedModules.map((moduleId) => {
+                          const module = SKILL_MODULES.find(
+                            (m) => m.id === moduleId,
+                          );
+                          const moduleCourse = courses?.find(
+                            (c) => c.id === module?.courseId,
+                          );
+                          // Prefer the admin-set (discounted) price; fall back to
+                          // the module's list price for older enrollments.
+                          const modulePrice =
+                            modulePriceMap[moduleId] ??
+                            moduleCourse?.price ??
+                            0;
+
+                          return (
+                            <div
+                              key={moduleId}
+                              className="flex items-start space-x-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">
+                                    {module?.label}
+                                  </span>
+                                  <span className="text-sm font-semibold">
+                                    ₹{modulePrice}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                  {module?.hours} hours - {module?.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3 rounded-lg bg-blue-50 p-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Hours:</span>
+                          <span className="font-medium">
+                            {paymentDetails.totalHours} hours
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {/* Show selected course details when prefilled (read-only) */}
+            {type === "course" &&
+              isPrefilled &&
+              courseSelectionType !== "demo" &&
+              courseSelectionType !== "custom" && (
                 <div>
                   <label
                     htmlFor="courseId"
@@ -1189,32 +1324,41 @@ function PaymentPage() {
                 </AlertDescription>
               </Alert>
             )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={
-                isLoading ||
-                (type === "course" &&
-                  courseSelectionType === "predefined" &&
-                  !paymentDetails.courseId) ||
-                (type === "course" &&
-                  courseSelectionType === "custom" &&
-                  selectedModules.length === 0) ||
-                (!paymentDetails.requestId && type === "reschedule")
-              }
-            >
-              {isLoading
-                ? "Processing..."
-                : type === "course" &&
+            <div className="sticky bottom-0 z-10 -mx-6 border-t bg-white px-6 py-4">
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  isLoading ||
+                  // A prefilled course is locked by the admin — its course /
+                  // modules / amount are already set, so never gate the button
+                  // on picking them (the picker isn't even shown).
+                  (type === "course" &&
+                    !isPrefilled &&
                     courseSelectionType === "predefined" &&
-                    !paymentDetails.courseId
-                  ? "Select a Course to Continue"
+                    !paymentDetails.courseId) ||
+                  (type === "course" &&
+                    !isPrefilled &&
+                    courseSelectionType === "custom" &&
+                    selectedModules.length === 0) ||
+                  (!paymentDetails.requestId && type === "reschedule")
+                }
+              >
+                {isLoading
+                  ? "Processing..."
                   : type === "course" &&
-                      courseSelectionType === "custom" &&
-                      selectedModules.length === 0
-                    ? "Select Modules to Continue"
-                    : `Pay ₹${paymentDetails.amount}`}
-            </Button>
+                      !isPrefilled &&
+                      courseSelectionType === "predefined" &&
+                      !paymentDetails.courseId
+                    ? "Select a Course to Continue"
+                    : type === "course" &&
+                        !isPrefilled &&
+                        courseSelectionType === "custom" &&
+                        selectedModules.length === 0
+                      ? "Select Modules to Continue"
+                      : `Pay ₹${paymentDetails.amount}`}
+              </Button>
+            </div>
           </form>
           <div className="mt-6 text-center text-sm">
             <span className="text-black">By continuing, you agree to our</span>

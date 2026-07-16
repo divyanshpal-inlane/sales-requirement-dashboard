@@ -7,6 +7,10 @@ export const SUPPORT_PHONE_TEL = "+917316914676"; // tel: link (E.164, no leadin
 export const SUPPORT_PHONE_WHATSAPP = "917316914676"; // wa.me requires country code, no leading 0
 export const SUPPORT_EMAIL = "support@inlane.in";
 
+// Sales line — used by the learner "Chat with Sales" CTA after a demo/first class.
+export const SALES_PHONE_DISPLAY = "7338098798";
+export const SALES_PHONE_TEL = "+917338098798"; // tel: link (E.164)
+
 export const telHref = (e164 = SUPPORT_PHONE_TEL) => `tel:${e164}`;
 export const whatsappHref = (text?: string) =>
   `https://wa.me/${SUPPORT_PHONE_WHATSAPP}${

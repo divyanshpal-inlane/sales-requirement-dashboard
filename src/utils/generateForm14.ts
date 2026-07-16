@@ -1,5 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
+import { toWinAnsi } from "@/utils/winAnsi";
+
 export interface Form14Data {
   enrollmentNumber: string;
   name: string;
@@ -59,6 +61,7 @@ export async function generateForm14PDF(data: Form14Data): Promise<Uint8Array> {
     y: number,
     opts?: { x?: number; maxWidth?: number; size?: number },
   ) => {
+    text = text && toWinAnsi(text);
     if (!text) return;
     const x = opts?.x ?? answerX;
     const maxWidth = opts?.maxWidth ?? answerMaxWidth;

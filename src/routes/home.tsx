@@ -17,6 +17,7 @@ import {
   CheckCircle,
   Clock,
   Lock,
+  Phone,
   RefreshCw,
   Scroll,
   Star,
@@ -54,6 +55,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LESSON_CONTENT } from "@/constants/Lesson";
+import { SALES_PHONE_TEL, telHref } from "@/constants/support";
 import { supabase } from "@/lib/supabaseClient";
 // useUpdateScheduleStatus removed — lesson status changes are handled by instructor OTP flow only
 import {
@@ -306,7 +308,10 @@ export default function Home() {
   };
   const isWaiveredLesson = (lessonNumber: number | null | undefined) => {
     if (!lessonNumber) return false;
+    // Only show waivered message if payment is half_paid (not full_paid or completed)
+    const isHalfPaid = enrolledCourse?.payment_status === "half_paid";
     return (
+      isHalfPaid &&
       lessonNumber > maxNumLessonsOnHalfInstallment &&
       enabledLessonForInstallmentStatus(lessonNumber)
     );
@@ -1013,8 +1018,6 @@ export default function Home() {
                             (l) => l.status?.toUpperCase() === "COMPLETED",
                           ).length ?? 0;
                         const demoCompleted = completedDemoCount > 0;
-                        const canBookAnotherDemo = completedDemoCount < 4;
-                        const demoCredit = completedDemoCount * 1;
                         // If demo learner hasn't captured pickup address yet,
                         // route them through the same /createSchedule/details
                         // flow as regular learners. Without this, admin can't
@@ -1053,84 +1056,16 @@ export default function Home() {
                                   <CheckCircle className="h-12 w-12 text-green-600" />
                                 </div>
                                 <h2 className="text-xl font-semibold">
-                                  {completedDemoCount === 1
-                                    ? "Demo Lesson Completed!"
-                                    : `${completedDemoCount} Demo Lessons Completed!`}
+                                  One class down. Ready for next step?
                                 </h2>
-                                <p className="text-sm text-muted-foreground">
-                                  What would you like to do next?
-                                </p>
                               </div>
 
-                              <Link
-                                to={`/payment?phone=${learner?.phone}&type=demo`}
-                                className={
-                                  canBookAnotherDemo
-                                    ? ""
-                                    : "pointer-events-none"
-                                }
-                              >
-                                <Card
-                                  className={
-                                    canBookAnotherDemo
-                                      ? "transition hover:border-primary hover:shadow-sm"
-                                      : "opacity-50"
-                                  }
-                                >
-                                  <CardContent className="flex items-center justify-between p-4">
-                                    <div className="text-left">
-                                      <div className="font-semibold">
-                                        Another Demo Lesson
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {canBookAnotherDemo
-                                          ? `₹1 · ${4 - completedDemoCount} left (max 4)`
-                                          : "You've used all 4 demo lessons"}
-                                      </div>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                                  </CardContent>
-                                </Card>
-                              </Link>
-
-                              <Link
-                                to={`/payment?phone=${learner?.phone}&type=topup&hours=1`}
-                              >
-                                <Card className="transition hover:border-primary hover:shadow-sm">
-                                  <CardContent className="flex items-center justify-between p-4">
-                                    <div className="text-left">
-                                      <div className="font-semibold">
-                                        Topup Class
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        ₹1/hr · Pick any number of hours
-                                      </div>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                                  </CardContent>
-                                </Card>
-                              </Link>
-
-                              <Link to={`/payment?phone=${learner?.phone}`}>
-                                <Card className="border-primary transition hover:shadow-sm">
-                                  <CardContent className="flex items-center justify-between p-4">
-                                    <div className="text-left">
-                                      <div className="font-semibold">
-                                        Upgrade to Full Course
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        ₹{demoCredit} credit from your{" "}
-                                        {completedDemoCount} demo
-                                        {completedDemoCount === 1
-                                          ? ""
-                                          : "s"}{" "}
-                                        applied
-                                      </div>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 text-primary" />
-                                  </CardContent>
-                                </Card>
-                              </Link>
+                              <Button asChild className="w-full gap-2">
+                                <a href={telHref(SALES_PHONE_TEL)}>
+                                  <Phone className="h-5 w-5" />
+                                  Chat with Sales
+                                </a>
+                              </Button>
                             </div>
                           );
                         }

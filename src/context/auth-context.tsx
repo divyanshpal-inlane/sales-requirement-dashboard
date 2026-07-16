@@ -212,71 +212,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return;
   };
 
-  const requestPasswordResetAlternative = async (phone: string) => {
-    // First check if user exists in Learner table
-    const { data: userData, error: userError } = await supabase
-      .from("Learner")
-      .select("id")
-      .eq("phone", phone)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+   const requestPasswordResetAlternative = async (phone: string) => {
+     // Check if user exists in Learner table
+     const { data: userData, error: userError } = await supabase
+       .from("Learner")
+       .select("id")
+       .eq("phone", phone)
+       .maybeSingle();
 
-    if (userError || !userData) {
-      throw new Error("No account found with this phone number");
-    }
+     if (userError || !userData) {
+       throw new Error("No account found with this phone number");
+     }
 
-    // Also verify user exists in auth.users before sending OTP
-    const normalizedPhone = phone.replace(/\D/g, "");
-    const phoneVariants = [
-      normalizedPhone,
-      `+91${normalizedPhone}`,
-      `91${normalizedPhone}`,
-      normalizedPhone.replace(/^91/, ""),
-    ];
+     // Generate OTP and send
+     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const { data: users, error: authError } =
-      await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+     otpStore.set(phone, {
+       otp,
+       timestamp: Date.now() + 10 * 60 * 1000,
+     });
 
-    if (authError) {
-      throw new Error("Failed to verify account. Please try again.");
-    }
+     await supabase.functions.invoke("send-message", {
+       body: {
+         message_type: "PASSWORD_RESET_OTP",
+         learner_id: userData.id,
+         otp: otp,
+       },
+     });
 
-    const authUser = users?.users.find((user) => {
-      if (!user.phone) return false;
-      const userPhoneNormalized = user.phone.replace(/\D/g, "");
-      return phoneVariants.some(
-        (variant) =>
-          variant === user.phone ||
-          variant === userPhoneNormalized ||
-          userPhoneNormalized.endsWith(normalizedPhone) ||
-          normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, "")),
-      );
-    });
-
-    if (!authUser) {
-      throw new Error(
-        "No account found with this phone number. Please sign up first.",
-      );
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    otpStore.set(phone, {
-      otp,
-      timestamp: Date.now() + 10 * 60 * 1000,
-    });
-
-    await supabase.functions.invoke("send-message", {
-      body: {
-        message_type: "PASSWORD_RESET_OTP",
-        learner_id: userData.id,
-        otp: otp,
-      },
-    });
-
-    return;
-  };
+     return;
+   };
 
   const verifyOtpAndResetPassword = async (
     phone: string,
@@ -370,7 +335,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Failed to update password: " + updateError.message);
       }
     } catch (error) {
-      throw new Error("Password reset failed: " + error.message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error("Password reset failed: " + errorMsg);
     }
 
     otpStore.delete(phone);

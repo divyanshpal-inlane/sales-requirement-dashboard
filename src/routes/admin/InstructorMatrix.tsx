@@ -7,16 +7,15 @@ import {
   Download,
   Loader2,
   RefreshCcw,
-  Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { InstructorMatrixCell } from "@/components/admin/InstructorMatrixCell";
 import { InstructorMatrixDrawer } from "@/components/admin/InstructorMatrixDrawer";
+import { InstructorMultiSelect } from "@/components/admin/InstructorMultiSelect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   buildInstructorMatrix,
@@ -30,7 +29,8 @@ const getMonday = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
 
 export default function InstructorMatrix() {
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
-  const [search, setSearch] = useState("");
+  // Instructors picked in the multi-select. Empty = show everyone.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openRow, setOpenRow] = useState<MatrixRow | null>(null);
   const [hideOffDuty, setHideOffDuty] = useState(false);
   // View A (default): tentative holds count as busy. View B: exclude them.
@@ -56,20 +56,22 @@ export default function InstructorMatrix() {
     [raw, countTentative],
   );
 
+  // The full instructor list for the picker (all enabled instructors).
+  const allInstructors = useMemo(
+    () => (data ? data.rows.map((r) => r.instructor) : []),
+    [data],
+  );
+
   const visibleRows = useMemo(() => {
     if (!data) return [] as MatrixRow[];
-    const q = search.trim().toLowerCase();
+    const selected = new Set(selectedIds);
     return data.rows.filter((r) => {
-      if (q) {
-        const hay = `${r.instructor.name ?? ""} ${
-          r.instructor.phone ?? ""
-        }`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
+      // When instructors are picked, show only those; otherwise show everyone.
+      if (selected.size > 0 && !selected.has(r.instructor.id)) return false;
       if (hideOffDuty && r.weekCapacityHours === 0) return false;
       return true;
     });
-  }, [data, search, hideOffDuty]);
+  }, [data, selectedIds, hideOffDuty]);
 
   const visibleTotals = useMemo(() => {
     return visibleRows.reduce(
@@ -100,9 +102,9 @@ export default function InstructorMatrix() {
     "EEE d MMM yyyy",
   )}`;
 
-  // Export the full week for every enabled instructor (search / hide-off-duty
-  // are intentionally ignored) as a styled .xlsx workbook: a colour-coded Matrix
-  // grid, a Bookings detail table, and a Summary table.
+  // Export the full week for every enabled instructor (the instructor picker /
+  // hide-off-duty are intentionally ignored) as a styled .xlsx workbook: a
+  // colour-coded Matrix grid, a Bookings detail table, and a Summary table.
   const handleExport = async () => {
     if (!raw || !data || exporting) return;
     setExporting(true);
@@ -194,13 +196,11 @@ export default function InstructorMatrix() {
               </Button>
               <span className="ml-2 text-sm font-medium">{weekLabel}</span>
             </div>
-            <div className="relative ml-auto w-full max-w-xs">
-              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search instructor"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
+            <div className="ml-auto w-full max-w-md">
+              <InstructorMultiSelect
+                instructors={allInstructors}
+                selectedIds={selectedIds}
+                onChange={setSelectedIds}
               />
             </div>
             <label className="flex items-center gap-2 text-sm">

@@ -54,6 +54,9 @@ export default function CarCommerceLeads() {
     );
   };
 
+  const fmtDate = (d: string | null) =>
+    d ? format(new Date(d), "d MMM yy") : "—";
+
   return (
     <div className="min-h-screen bg-muted/30 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -152,7 +155,7 @@ export default function CarCommerceLeads() {
               </div>
             ) : (
               <ScrollArea>
-                <table className="w-full min-w-[1000px] text-sm">
+                <table className="w-full min-w-[1300px] text-sm">
                   <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
                     <tr className="[&>th]:p-2 [&>th]:text-left">
                       <th>Name</th>
@@ -166,6 +169,9 @@ export default function CarCommerceLeads() {
                       <th>Condition</th>
                       <th>Buy timeframe</th>
                       <th>Updated</th>
+                      <th>1st Class</th>
+                      <th>50% Class</th>
+                      <th>Last Class</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -193,6 +199,15 @@ export default function CarCommerceLeads() {
                           {r.carIntentUpdatedAt
                             ? format(new Date(r.carIntentUpdatedAt), "d MMM yy")
                             : "—"}
+                        </td>
+                        <td className="whitespace-nowrap text-xs">
+                          {fmtDate(r.firstClassDate)}
+                        </td>
+                        <td className="whitespace-nowrap text-xs">
+                          {fmtDate(r.midClassDate)}
+                        </td>
+                        <td className="whitespace-nowrap text-xs">
+                          {fmtDate(r.lastClassDate)}
                         </td>
                       </tr>
                     ))}

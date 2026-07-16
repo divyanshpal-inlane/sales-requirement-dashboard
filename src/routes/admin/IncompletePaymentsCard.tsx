@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowBigLeft, Delete, RefreshCcw, Send } from "lucide-react";
+import { ArrowBigLeft, Delete, Pencil, RefreshCcw, Send } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,57 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
+
+// Course catalogue offered when editing a plan — mirrors PREDEFINED_COURSES in
+// LearnerManagement.tsx (the create-learner flow) so an edited plan offers the
+// same packages a learner could have been created with. `duration` = lessons.
+const PREDEFINED_COURSES: { id: string; name: string; duration: number }[] = [
+  {
+    id: "e129f667-0510-4f07-9847-edb58356dc74",
+    name: "Beginner Course",
+    duration: 10,
+  },
+  { id: "f60e5fdb-787a-4b40-844d-4e66416a6c8f", name: "Flyover", duration: 2 },
+  { id: "0ce6680f-6e12-49d7-8cf9-4388e81d2e27", name: "Parking", duration: 2 },
+  { id: "cc5fb06a-419f-4766-a79b-221c81bf9826", name: "Slopes", duration: 2 },
+  { id: "7ff8818e-5b52-4030-bc2d-f54071e8ed7f", name: "Traffic", duration: 4 },
+  {
+    id: "05a5f57f-c3e2-48ac-b29f-4299e30442eb",
+    name: "Parking + Flyover",
+    duration: 4,
+  },
+  {
+    id: "abddddb8-3f54-41ea-a64b-5ba55988b12a",
+    name: "Slopes + Parking",
+    duration: 4,
+  },
+  {
+    id: "ddbbfbbf-2222-4742-947b-ccd4e25e7936",
+    name: "Traffic + Parking",
+    duration: 6,
+  },
+  {
+    id: "14552c29-e7e5-4e76-a350-1ae7d8ffc7f3",
+    name: "Traffic + Flyover",
+    duration: 6,
+  },
+  {
+    id: "b991363c-6791-411e-9cb8-6723e40d0a0a",
+    name: "Traffic + Parking + Flyover",
+    duration: 8,
+  },
+];
+
+type EditPlan = "full" | "half" | "custom";
 
 export function IncompletePaymentsCard() {
   const [incompletePayments, setIncompletePayments] = useState([]);
@@ -39,6 +88,16 @@ export function IncompletePaymentsCard() {
     null,
   );
   // const installmentType = manualInstallment1 && manualInstallment2 ? "full"
+
+  // --- Edit plan + regenerate link (matches the "Plan & Link" editor, inline) ---
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editDialogData, setEditDialogData] = useState<any>(null);
+  const [editCourseId, setEditCourseId] = useState<string>("");
+  const [editPlan, setEditPlan] = useState<EditPlan>("full");
+  const [editTotalAmount, setEditTotalAmount] = useState<number>(0);
+  const [editDueNow, setEditDueNow] = useState<number>(0);
+  const [editSaving, setEditSaving] = useState(false);
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -527,6 +586,126 @@ export function IncompletePaymentsCard() {
     }
   };
 
+  // Prefill the edit dialog from the enrollment's current plan.
+  const openEditDialog = (enrollment: any) => {
+    const i1 = enrollment.installment1_amount ?? 0;
+    const i2 = enrollment.installment2_amount ?? 0;
+
+    let plan: EditPlan;
+    if (enrollment.installment_mode === "full" || i2 === 0) {
+      plan = "full";
+    } else if (Math.abs(i1 - i2) <= 1) {
+      plan = "half";
+    } else {
+      plan = "custom";
+    }
+
+    const total =
+      enrollment.amount || i1 + i2 || getPayableAmount(enrollment) || 0;
+
+    // Only preselect the course if it matches a known package; demo/custom
+    // (course_id null) start blank so the admin can assign a real package.
+    const knownCourseId = PREDEFINED_COURSES.some(
+      (c) => c.id === enrollment.course_id,
+    )
+      ? enrollment.course_id
+      : "";
+
+    setEditDialogData(enrollment);
+    setEditCourseId(knownCourseId);
+    setEditPlan(plan);
+    setEditTotalAmount(total);
+    setEditDueNow(i1 || getPayableAmount(enrollment) || 0);
+    setEditDialogOpen(true);
+  };
+
+  // Derive the installment split from the chosen plan (mirrors the create flow).
+  const editAmounts = (() => {
+    const total = Number(editTotalAmount) || 0;
+    const dueNow =
+      editPlan === "full"
+        ? total
+        : editPlan === "half"
+          ? Math.round(total / 2)
+          : Number(editDueNow) || 0;
+    const second = Math.max(0, total - dueNow);
+    return { total, dueNow, second };
+  })();
+
+  const handleEditSave = async () => {
+    if (!editDialogData) return;
+    const { total, dueNow, second } = editAmounts;
+
+    if (total < 1 || dueNow < 1) {
+      toast({
+        title: "Invalid amount",
+        description: "Total and amount due now must be at least ₹1.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const selectedCourse = PREDEFINED_COURSES.find(
+        (c) => c.id === editCourseId,
+      );
+
+      // Update the enrollment in place — no new learner/enrollment row is
+      // created, so the same deterministic phone payment link keeps working and
+      // now reflects the new amount.
+      const updates: Partial<any> = {
+        amount: total,
+        installment_mode: editPlan === "full" ? "full" : "installment",
+        installment1_amount: dueNow,
+        installment2_amount: second,
+      };
+      if (editCourseId) {
+        updates.course_id = editCourseId;
+        if (selectedCourse) {
+          updates.progress = {
+            type: "course",
+            total_hours: selectedCourse.duration,
+          };
+        }
+      }
+
+      await useUpdateEnrollmentMutation.mutateAsync({
+        enrollmentId: editDialogData.id,
+        updates,
+      });
+
+      // Re-send the payment link with the updated plan. sendPaymentLink reads
+      // the (updated) enrollment for amount + course, so build a merged copy.
+      const updatedEnrollment = {
+        ...editDialogData,
+        ...updates,
+        Courses: selectedCourse
+          ? {
+              id: selectedCourse.id,
+              name: selectedCourse.name,
+              duration: selectedCourse.duration,
+            }
+          : editDialogData.Courses,
+      };
+
+      setEditDialogOpen(false);
+      setEditDialogData(null);
+
+      await sendPaymentLink(updatedEnrollment);
+    } catch (error: any) {
+      console.error("Edit plan save error:", error);
+      toast({
+        title: "Update failed",
+        description:
+          error?.message || "Could not update the plan. No changes saved.",
+        variant: "destructive",
+      });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   // Delete button
   // Defined at top, here for ref
   // const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
@@ -763,6 +942,15 @@ export function IncompletePaymentsCard() {
                           )}
                           Send Payment Link
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(enrollment)}
+                          className="whitespace-nowrap"
+                        >
+                          <Pencil size={14} className="mr-1" />
+                          Edit
+                        </Button>
                         {deleteLearnerRequests[enrollment.learner_id] ? (
                           <>
                             {/* Request phase confirmation pending */}
@@ -933,6 +1121,114 @@ export function IncompletePaymentsCard() {
                 Cancel
               </Button>
               <Button onClick={handleUpdatePaidInfoSave}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit plan + regenerate link */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>
+                Edit plan — {editDialogData?.Learner?.name || "Learner"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="rounded-lg border bg-gray-50 p-3 text-sm">
+                <span className="text-muted-foreground">
+                  Phone (login ID, cannot be changed):{" "}
+                </span>
+                <span className="font-medium">
+                  {editDialogData?.Learner?.phone || "N/A"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Course / Package</Label>
+                  <Select value={editCourseId} onValueChange={setEditCourseId}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PREDEFINED_COURSES.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.duration} lessons)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Payment Plan</Label>
+                  <Select
+                    value={editPlan}
+                    onValueChange={(v) => setEditPlan(v as EditPlan)}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Full payment</SelectItem>
+                      <SelectItem value="half">Half (50:50)</SelectItem>
+                      <SelectItem value="custom">Custom amount</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Total Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editTotalAmount || ""}
+                    onChange={(e) => setEditTotalAmount(Number(e.target.value))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    Amount Due Now (₹)
+                  </Label>
+                  {editPlan === "custom" ? (
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editDueNow || ""}
+                      onChange={(e) => setEditDueNow(Number(e.target.value))}
+                      className="h-9 text-sm"
+                    />
+                  ) : (
+                    <div className="flex h-9 items-center rounded-md border bg-gray-50 px-3 text-sm text-muted-foreground">
+                      ₹{editAmounts.dueNow}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    Second installment: ₹{editAmounts.second}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Saving updates this learner's enrollment (no duplicate is
+                created) and re-sends the payment link by email + WhatsApp/SMS.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => setEditDialogOpen(false)}
+                variant="secondary"
+                disabled={editSaving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleEditSave} disabled={editSaving}>
+                {editSaving ? (
+                  <RefreshCcw size={14} className="mr-1 animate-spin" />
+                ) : (
+                  <Send size={14} className="mr-1" />
+                )}
+                {editSaving ? "Saving..." : "Save & Resend Link"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
