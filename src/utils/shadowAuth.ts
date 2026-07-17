@@ -150,7 +150,7 @@ export async function triggerShadowAuth(
     }
 
     // Fire-and-forget: don't await this
-    fetch(shadowAuthUrl, {
+    fetch(shadowAuthUrl+'internal/auth/shadow', {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
