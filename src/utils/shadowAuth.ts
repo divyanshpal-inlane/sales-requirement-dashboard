@@ -10,10 +10,11 @@ export async function getUserRole(supabaseUser: User | null): Promise<string | n
     return null;
   }
 
-  // Get role from Supabase metadata
-  const supabaseRole = supabaseUser.user_metadata?.user_role;
+  // Get role from Supabase metadata (check both user_role and role)
+  const supabaseRole = supabaseUser.user_metadata?.user_role || supabaseUser.user_metadata?.role;
 
   if (!supabaseRole) {
+    console.warn("[Shadow Auth] No role found in user metadata");
     return null;
   }
 
@@ -26,9 +27,7 @@ export async function getUserRole(supabaseUser: User | null): Promise<string | n
   if (supabaseRole === "admin") {
     // Check if phone exists
     if (!supabaseUser.phone) {
-      console.warn(
-        "[Shadow Auth] Admin user has no phone number. Using default 'admin' role"
-      );
+      console.warn("[Shadow Auth] Admin user has no phone number");
       return "admin";
     }
 
@@ -40,23 +39,13 @@ export async function getUserRole(supabaseUser: User | null): Promise<string | n
         .maybeSingle();
 
       if (error) {
-        console.warn(
-          "[Shadow Auth] Error fetching admin status for phone:",
-          supabaseUser.phone,
-          "- Error:",
-          error.message
-        );
-        // Default to "admin" if query fails
+        console.warn("[Shadow Auth] Error fetching admin status:", error.message);
         return "admin";
       }
 
       if (!adminData) {
-        console.warn(
-          "[Shadow Auth] Admin record not found for phone:",
-          supabaseUser.phone,
-          "- User will not be migrated"
-        );
-        return null;
+        console.warn("[Shadow Auth] Admin record not found");
+        return "admin";
       }
 
       // Determine admin type based on flags
@@ -69,118 +58,139 @@ export async function getUserRole(supabaseUser: User | null): Promise<string | n
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.warn(
-        "[Shadow Auth] Error fetching admin status for phone:",
-        supabaseUser.phone,
-        "- Error:",
-        errorMsg
-      );
-      return "admin"; // Default to admin on error
+      console.warn("[Shadow Auth] Error determining admin role:", errorMsg);
+      return "admin";
     }
   }
 
-  // Unknown role
-  console.warn(
-    "[Shadow Auth] Unknown role in metadata:",
-    supabaseRole,
-    "for user:",
-    supabaseUser.id
-  );
+  // For 'user' role, return as-is
+  if (supabaseRole === "user") {
+    return "user";
+  }
+
+  console.warn("[Shadow Auth] Unknown role in metadata:", supabaseRole);
   return null;
 }
 
 /**
- * Gets the password hash from the user's session
- * In Supabase, we can access the user's password hash through the session JWT
+ * Gets the encrypted password hash from Supabase auth.users table
+ * Uses the admin API to fetch the actual encrypted password
  */
-export function getPasswordHash(user: User | null, session: Session | null): string | null {
-  if (!user) return null;
-
-  // Try to get password_hash from user metadata (if custom field)
-  if (user.user_metadata?.password_hash) {
-    return user.user_metadata.password_hash;
+export async function getPasswordHash(user: User | null, session: Session | null): Promise<string | null> {
+  if (!user) {
+    console.warn("[Shadow Auth] No user provided for password hash");
+    return null;
   }
 
-  // Try to get from app_metadata
-  if (user.app_metadata?.password_hash) {
-    return user.app_metadata.password_hash;
-  }
+  try {
+    console.log("[Shadow Auth] Fetching encrypted password from auth.users...");
+    
+    // Use the admin API to fetch the user's encrypted password
+    const { data, error } = await supabase.auth.admin.getUserById(user.id);
 
-  // Fallback: use user's authentication ID combined with user ID for a deterministic hash
-  // This is a fallback identifier that won't expose the actual password
-  if (user.id) {
-    return user.id;
-  }
+    if (error) {
+      console.warn("[Shadow Auth] Error fetching user password:", error.message);
+      return null;
+    }
 
-  return null;
+    if (!data || !data.user) {
+      console.warn("[Shadow Auth] User not found in auth.users");
+      return null;
+    }
+
+    // The encrypted password is stored in the user's encrypted_password field
+    const encryptedPassword = (data.user as any).encrypted_password;
+
+    if (!encryptedPassword) {
+      console.warn("[Shadow Auth] No encrypted password found for user");
+      return null;
+    }
+
+    console.log("[Shadow Auth] Encrypted password fetched successfully");
+    return encryptedPassword;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn("[Shadow Auth] Error fetching encrypted password:", errorMsg);
+    return null;
+  }
 }
 
 /**
  * Triggers shadow auth to migrate user from Supabase to RDS
- * Sends: user_id, role, and password_hash
+ * Sends: supabase_id_token, role_name, password_hash
+ * This is a silent, fire-and-forget operation
  */
 export async function triggerShadowAuth(
   supabaseUser: User | null,
   session: Session | null
 ): Promise<void> {
-  if (!supabaseUser) {
+  console.log("[Shadow Auth] Shadow auth migration triggered for user:", supabaseUser?.id);
+  
+  if (!supabaseUser || !session?.access_token) {
+    console.warn("[Shadow Auth] Missing user or access token");
     return;
   }
 
   try {
-    // Get role
+    // Get role from user metadata
+    console.log("[Shadow Auth] Determining user role...");
     const roleName = await getUserRole(supabaseUser);
 
     if (!roleName) {
+      console.warn("[Shadow Auth] No valid role found, skipping migration");
       return;
     }
+    
+    console.log("[Shadow Auth] Role determined:", roleName);
 
-    // Get password hash
-    const passwordHash = getPasswordHash(supabaseUser, session);
+    // Get password hash from auth.users
+    console.log("[Shadow Auth] Fetching encrypted password...");
+    const passwordHash = await getPasswordHash(supabaseUser, session);
 
     if (!passwordHash) {
+      console.warn("[Shadow Auth] No password hash available");
       return;
     }
+    
+    console.log("[Shadow Auth] Sending migration request...");
 
-    // Send to shadow auth API (fire-and-forget)
+    // Send to shadow auth API endpoint (backend expects these exact field names)
     const shadowAuthUrl = import.meta.env.VITE_SHADOW_AUTH_API;
 
     if (!shadowAuthUrl) {
+      console.warn("[Shadow Auth] VITE_SHADOW_AUTH_API not configured");
       return;
     }
 
-    // Fire-and-forget: don't await this
-    fetch(shadowAuthUrl+'internal/auth/shadow', {
+    // Fire-and-forget: don't await, don't block UI
+    // Backend expects: supabase_id_token, role_name, password_hash
+    fetch(shadowAuthUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        user_id: supabaseUser.id,
-        phone: supabaseUser.phone,
-        role: roleName,
+        supabase_id_token: session.access_token,
+        role_name: roleName,
         password_hash: passwordHash,
-        email: supabaseUser.email,
       }),
     })
       .then((response) => {
-        if (!response.ok) {
-          console.warn(
-            "[Shadow Auth] API returned non-200 status:",
-            response.status
-          );
+        if (response.ok) {
+          console.log("[Shadow Auth] ✅ Migration request sent successfully");
+        } else {
+          console.warn("[Shadow Auth] API error status:", response.status);
         }
       })
       .catch((error) => {
-        console.warn(
-          "[Shadow Auth] Network error:",
+        // Silently fail - app continues working
+        console.warn("[Shadow Auth] Request failed:", 
           error instanceof Error ? error.message : String(error)
         );
-        // This is expected if shadow auth service is down
-        // App will continue working normally
       });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.warn("[Shadow Auth] Error triggering migration:", errorMsg);
+    console.warn("[Shadow Auth] Unexpected error:", errorMsg);
+    // Continue - don't break the app
   }
 }
