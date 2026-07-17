@@ -144,6 +144,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log("[AUTH] Login successful!");
+    console.log("[AUTH] Triggering shadow auth with:", {
+      userId: data.user?.id,
+      hasSession: !!data.session,
+      role: data.user?.user_metadata?.user_role,
+    });
     
     // Trigger shadow auth after successful login
     triggerShadowAuth(data.user, data.session);
