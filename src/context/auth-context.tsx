@@ -2,6 +2,7 @@ import { User } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { triggerShadowAuth } from "@/utils/shadowAuth";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
@@ -40,6 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      // Trigger shadow auth for existing session
+      if (session?.user) {
+        triggerShadowAuth(session.user, session);
+      }
     });
 
     // Listen for changes on auth state (logged in, signed out, etc.)
@@ -48,6 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      // Trigger shadow auth when user signs in
+      if (_event === 'SIGNED_IN' && session?.user) {
+        triggerShadowAuth(session.user, session);
+      }
     });
 
     return () => subscription.unsubscribe();
