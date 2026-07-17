@@ -73,44 +73,48 @@ export async function getUserRole(supabaseUser: User | null): Promise<string | n
 }
 
 /**
- * Gets the encrypted password hash from Supabase auth.users table
- * Uses the service role key (supabaseAdmin) to fetch the actual encrypted password
+ * Gets the hashed password from Supabase auth.users table
+ * Uses direct query from auth.users table
  */
 export async function getPasswordHash(user: User | null, session: Session | null): Promise<string | null> {
-  if (!user) {
-    console.warn("[Shadow Auth] No user provided for password hash");
+  if (!user || !user.phone) {
+    console.warn("[Shadow Auth] No user or phone provided for password hash");
     return null;
   }
 
   try {
-    console.log("[Shadow Auth] Fetching encrypted password from auth.users table...");
+    console.log("[Shadow Auth] Fetching hashed password from auth.users table...");
     
-    // Use the service role key (supabaseAdmin) to fetch the user's encrypted password
-    const { data, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
+    // Query auth.users table directly to get the hashed password
+    const { data: authUser, error: queryError } = await (supabase as any)
+      .from("auth.users")
+      .select("*")
+      .eq("phone", user.phone)
+      .single();
 
-    if (error) {
-      console.warn("[Shadow Auth] Error fetching user password:", error.message);
+    if (queryError) {
+      console.warn("[Shadow Auth] Error querying auth.users:", queryError.message);
       return null;
     }
 
-    if (!data || !data.user) {
+    if (!authUser) {
       console.warn("[Shadow Auth] User not found in auth.users");
       return null;
     }
 
-    // The encrypted password is stored in the user's encrypted_password field
-    const encryptedPassword = (data.user as any).encrypted_password;
+    // Get the hashed password - it could be in encrypted_password or password field
+    const passwordHash = authUser.encrypted_password || authUser.password;
 
-    if (!encryptedPassword) {
-      console.warn("[Shadow Auth] No encrypted password found for user");
+    if (!passwordHash) {
+      console.warn("[Shadow Auth] No password hash found in auth.users");
       return null;
     }
 
-    console.log("[Shadow Auth] ✅ Encrypted password fetched successfully");
-    return encryptedPassword;
+    console.log("[Shadow Auth] ✅ Password hash fetched successfully");
+    return passwordHash;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.warn("[Shadow Auth] Error fetching encrypted password:", errorMsg);
+    console.warn("[Shadow Auth] Error fetching password hash:", errorMsg);
     return null;
   }
 }
