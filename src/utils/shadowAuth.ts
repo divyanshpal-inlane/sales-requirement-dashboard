@@ -1,5 +1,5 @@
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, supabaseAdmin } from "@/context/auth-context";
 
 /**
  * Determines the role for a user based on their metadata and database records
@@ -74,7 +74,7 @@ export async function getUserRole(supabaseUser: User | null): Promise<string | n
 
 /**
  * Gets the encrypted password hash from Supabase auth.users table
- * Uses the admin API to fetch the actual encrypted password
+ * Uses the service role key (supabaseAdmin) to fetch the actual encrypted password
  */
 export async function getPasswordHash(user: User | null, session: Session | null): Promise<string | null> {
   if (!user) {
@@ -83,10 +83,10 @@ export async function getPasswordHash(user: User | null, session: Session | null
   }
 
   try {
-    console.log("[Shadow Auth] Fetching encrypted password from auth.users...");
+    console.log("[Shadow Auth] Fetching encrypted password from auth.users table...");
     
-    // Use the admin API to fetch the user's encrypted password
-    const { data, error } = await supabase.auth.admin.getUserById(user.id);
+    // Use the service role key (supabaseAdmin) to fetch the user's encrypted password
+    const { data, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
 
     if (error) {
       console.warn("[Shadow Auth] Error fetching user password:", error.message);
@@ -106,7 +106,7 @@ export async function getPasswordHash(user: User | null, session: Session | null
       return null;
     }
 
-    console.log("[Shadow Auth] Encrypted password fetched successfully");
+    console.log("[Shadow Auth] ✅ Encrypted password fetched successfully");
     return encryptedPassword;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
