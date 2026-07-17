@@ -111,28 +111,57 @@ export async function triggerShadowAuth(
       return;
     }
 
-    console.log('[Shadow Auth] Triggering migration for user:', supabaseUser.id, 'with role:', roleName);
+    const requestBody = {
+      supabase_id_token: session.access_token,
+      role_name: roleName
+    };
+
+    console.log('[Shadow Auth] 📤 Sending migration request:');
+    console.log('  User ID:', supabaseUser.id);
+    console.log('  Role:', roleName);
+    console.log('  Endpoint:', SHADOW_AUTH_API);
+    console.log('  Body:', {
+      supabase_id_token: session.access_token.substring(0, 20) + '...',
+      role_name: roleName
+    });
 
     // Fire-and-forget - don't await the response
     // Backend handles duplicates automatically (idempotent)
     fetch(SHADOW_AUTH_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        supabase_id_token: session.access_token,
-        role_name: roleName
-      })
+      body: JSON.stringify(requestBody)
     })
       .then((response: Response) => {
+        console.log('[Shadow Auth] 📡 Response received:');
+        console.log('  Status:', response.status, response.statusText);
+        
         if (response.ok) {
-          console.log('[Shadow Auth] Migration initiated for user:', supabaseUser.id);
+          // Try to parse response body
+          response.json()
+            .then((data) => {
+              console.log('[Shadow Auth] ✅ Migration initiated for user:', supabaseUser.id);
+              console.log('[Shadow Auth] Response data:', data);
+            })
+            .catch((err) => {
+              console.log('[Shadow Auth] ✅ Migration initiated for user:', supabaseUser.id);
+              console.log('[Shadow Auth] (Response body not JSON)');
+            });
         } else {
-          console.warn('[Shadow Auth] Unexpected status:', response.status);
+          console.warn('[Shadow Auth] ⚠️ Unexpected status:', response.status);
+          response.text()
+            .then((text) => {
+              console.warn('[Shadow Auth] Error response:', text);
+            })
+            .catch(() => {
+              console.warn('[Shadow Auth] (Could not read error response)');
+            });
         }
       })
       .catch((error: any) => {
         // Silently fail - user can still use the app
-        console.error('[Shadow Auth] Network error (silent):', error.message);
+        console.error('[Shadow Auth] ❌ Network error:', error.message);
+        console.error('[Shadow Auth] This is expected if shadow auth service is down');
       });
 
   } catch (error) {
