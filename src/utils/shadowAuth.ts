@@ -1,5 +1,6 @@
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/context/auth-context";
+import { isFeatureEnabled } from "@/services/featureFlagService";
 
 /**
  * Get role from Supabase user metadata and database
@@ -127,17 +128,29 @@ const SHADOW_AUTH_API =
  * so they get created in the AWS RDS database with the correct role assigned.
  * 
  * This is a fire-and-forget operation - errors are logged but don't block the app.
+ * 
+ * Feature Flag Check:
+ * - Fetches the `shadow_auth_enabled` feature flag from the backend
+ * - If disabled, skips the Shadow Auth API call entirely
+ * - Uses in-memory caching with 1-hour TTL to minimize API calls
  */
 export async function triggerShadowAuth(
   supabaseUser: User | null,
   session: Session | null
 ): Promise<void> {
   if (!supabaseUser || !session?.access_token) {
-    console.warn('[Shadow Auth] No user or access token available, skipping migration');
     return;
   }
 
   try {
+    // Check feature flag: shadow_auth_enabled
+    const shadowAuthEnabled = await isFeatureEnabled('shadow_auth_enabled');
+    
+    if (!shadowAuthEnabled) {
+      return;
+    }
+
+
     // Get role - this requires await as it checks Admin table
     const roleName = await getUserRole(supabaseUser);
 
