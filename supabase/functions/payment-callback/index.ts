@@ -638,6 +638,48 @@ serve(async (req) => {
             .eq("id", enrollment.id);
 
           if (enrollmentError) throw enrollmentError;
+
+          // The admin scheduler has no Courses/Lesson rows to fall back on for
+          // a custom course (course_id is NULL), so reschedule_requests
+          // .lesson_ids is the ONLY signal for how many hours to schedule —
+          // see CreateSchedule's isVirtualLessons branch. Without this, a
+          // demo->custom upgrade left the demo's stale ["virtual-lesson-1"]
+          // request in place and every custom course looked like a single
+          // 1-hour lesson on the admin side.
+          //
+          // Always list ALL lessons regardless of installment state: unlike
+          // the learner-facing unlocked_lessons, the admin schedules the whole
+          // custom course up front even when only the first installment is
+          // paid.
+          const customLessonIds = Array.from(
+            { length: lessonsToUnlock },
+            (_, i) => `virtual-lesson-${i + 1}`,
+          );
+          // Update rather than skip when a pending request already exists —
+          // the stale 1-lesson demo request IS the bug, so a !existingReq
+          // guard (as used by the demo/topup branches) would preserve it.
+          const { data: existingCustomReq } = await supabaseClient
+            .from("reschedule_requests")
+            .select("id")
+            .eq("learner_id", payment.learner_id)
+            .eq("type", "new")
+            .eq("status", "pending")
+            .maybeSingle();
+
+          if (existingCustomReq) {
+            await supabaseClient
+              .from("reschedule_requests")
+              .update({ lesson_ids: customLessonIds })
+              .eq("id", existingCustomReq.id);
+          } else {
+            await supabaseClient.from("reschedule_requests").insert({
+              learner_id: payment.learner_id,
+              lesson_ids: customLessonIds,
+              amount: 0,
+              status: "pending",
+              type: "new",
+            });
+          }
         }
 
         // Send thank you message

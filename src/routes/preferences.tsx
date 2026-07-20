@@ -45,7 +45,18 @@ function Preferences() {
     const unlockedLessons = enrollment?.unlocked_lessons || [];
     const totalHours = enrollment?.progress?.total_hours || 1;
 
-    if (unlockedLessons.length > 0) {
+    if (isCustom) {
+      // Custom courses are always scheduled in full, so derive the count from
+      // total_hours rather than unlocked_lessons. On a half-paid custom
+      // enrollment unlocked_lessons only holds the first installment's half,
+      // which would send the admin a half-length request — and lesson_ids is
+      // the ONLY thing telling the admin scheduler how many hours a custom
+      // course needs (there is no course_id to look lessons up by).
+      lessonsToSchedule = Array.from(
+        { length: totalHours },
+        (_, i) => `virtual-lesson-${i + 1}`,
+      );
+    } else if (unlockedLessons.length > 0) {
       // Use unlocked_lessons array - create virtual lesson IDs
       lessonsToSchedule = unlockedLessons.map(
         (num: number) => `virtual-lesson-${num}`,
