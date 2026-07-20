@@ -1841,12 +1841,50 @@ function CreateSchedule({
 
   // Fetch lessons for the selected course
   const { data: allLessons } = useQuery({
-    queryKey: ["lessons", request.lesson_ids, isVirtualLessons],
+    queryKey: ["lessons", request.lesson_ids, isVirtualLessons, learnerId],
     queryFn: async () => {
       // For demo/custom courses with virtual lesson IDs, create mock lesson objects
       if (isVirtualLessons) {
-        return request.lesson_ids.map((id, index) => ({
-          id,
+        // A custom course has no Courses/Lesson rows to fall back on, so the
+        // hour count would otherwise come solely from request.lesson_ids — and
+        // that list can be stale. A demo -> custom upgrade leaves the demo's
+        // 1-entry ["virtual-lesson-1"] request behind, which made every custom
+        // course look like a single 1-hour lesson here no matter how many hours
+        // were actually bought. The enrollment is the source of truth, so read
+        // the hour count from it instead.
+        //
+        // Only the LATEST active enrollment counts: a learner who finishes a
+        // custom course and then buys a top-up still has the (active) custom
+        // enrollment on file, and its hours must not override the top-up's own
+        // correct lesson_ids.
+        //
+        // Custom courses are always scheduled in full, even when only the first
+        // installment is paid — hence total_hours rather than unlocked_lessons.
+        const { data: latestEnrollment } = await supabase
+          .from("enrollment")
+          .select("progress")
+          .eq("learner_id", learnerId)
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const progress = latestEnrollment?.progress as {
+          type?: string;
+          total_hours?: number;
+        } | null;
+        const customHours =
+          progress?.type === "custom"
+            ? Math.ceil(Number(progress.total_hours) || 0)
+            : 0;
+
+        const virtualCount =
+          customHours > 0 ? customHours : request.lesson_ids.length;
+
+        return Array.from({ length: virtualCount }, (_, index) => ({
+          // Reuse the request's own ids where they exist so any downstream
+          // intersection with request.lesson_ids still matches.
+          id: request.lesson_ids[index] ?? `virtual-lesson-${index + 1}`,
           number: index + 1,
           course_id: null,
           name: `Lesson ${index + 1}`,
