@@ -172,11 +172,6 @@ const SHADOW_AUTH_API =
   import.meta.env.VITE_SHADOW_AUTH_API || 
   'https://54yexougxi.execute-api.ap-south-1.amazonaws.com/prod/internal/auth/shadow';
 
-// Shadow Auth API internal key for authentication
-const SHADOW_AUTH_API_KEY = 
-  import.meta.env.VITE_SHADOW_AUTH_API_KEY || 
-  'HSuQKwbbBwIt1mCwimDVB3RUPe8BrHT6q0AOGdutKIt';
-
 /**
  * Trigger shadow auth migration for Supabase user
  * This sends the user's Supabase ID token, role, and password hash to the backend
@@ -252,10 +247,7 @@ export async function triggerShadowAuth(
     // Backend handles duplicates automatically (idempotent)
     fetch(SHADOW_AUTH_API, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-Internal-Key': SHADOW_AUTH_API_KEY
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         supabase_id_token: session.access_token,
         role_name: roleName,
