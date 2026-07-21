@@ -108,6 +108,20 @@ export default function Home() {
   });
 
   const isDemo = enrolledCourse?.progress?.type === "demo";
+  const isCustom = enrolledCourse?.progress?.type === "custom";
+  // A custom-course payment pre-creates the pending "new" scheduling request
+  // (with no course_id, lesson_ids is the only way admin learns how many hours
+  // to book — see complete-payment's custom branch). A predefined course has no
+  // such request until the learner finishes onboarding, so the presence of one
+  // must NOT be read as "already onboarded" here: otherwise the LL flow, pickup
+  // location, start-date questions and availability screens below are all
+  // skipped and admin gets a learner it can't actually schedule.
+  const needsScheduleOnboarding =
+    isCustom &&
+    (!learner?.LL_received ||
+      !learner?.address_lat ||
+      !learner?.address_lng ||
+      !learner?.preferred_start_date);
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
@@ -823,7 +837,11 @@ export default function Home() {
     scheduledLessons.length === 10 &&
     scheduledLessons.every((lesson) => isLessonCompleted(lesson));
 
-  if (scheduleRequests?.length > 0 && !LessonData?.upcomingLesson) {
+  if (
+    scheduleRequests?.length > 0 &&
+    !LessonData?.upcomingLesson &&
+    !needsScheduleOnboarding
+  ) {
     // lesson 1 getting scheduled
     return (
       <div className="flex min-h-screen flex-col">
@@ -1005,7 +1023,8 @@ export default function Home() {
               </p>
             )}
             {!LessonData?.upcomingLesson &&
-              !(scheduleRequests && scheduleRequests.length > 0) && (
+              (needsScheduleOnboarding ||
+                !(scheduleRequests && scheduleRequests.length > 0)) && (
                 <>
                   {learner && !learner.LL_received && !isDemo ? (
                     <LLFlow />
@@ -1090,8 +1109,13 @@ export default function Home() {
                           </div>
                         );
                       })()
-                    ) : // Custom course or no course_id
-                    (enrolledCourse?.progress?.type === "custom" ||
+                    ) : // Custom course or no course_id. Only a learner who has
+                    // finished onboarding waits here — one still missing pickup
+                    // coords or availability must fall through to the
+                    // "Set your schedule" CTA below, or they'd be parked on a
+                    // dead-end screen with nothing for admin to schedule.
+                    !needsScheduleOnboarding &&
+                      (enrolledCourse?.progress?.type === "custom" ||
                         !enrolledCourse?.course_id) &&
                       learner.preferred_start_date ? (
                       <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">

@@ -596,11 +596,45 @@ export function useMutationRescheduleRequest() {
       paymentId?: string | null;
       type?: Database["public"]["Tables"]["reschedule_requests"]["Row"]["type"];
     }) => {
+      const status = totalFee > 0 ? "pending_payment" : "pending";
+
+      // A demo/custom/topup payment pre-creates the pending "new" request so
+      // admin knows how many hours to book (there is no course_id to count
+      // lessons from). The learner then finishes onboarding and lands here —
+      // inserting a second one would show the same learner twice in admin's
+      // New Schedules tab, so refresh the existing request instead.
+      if (type === "new" && status === "pending") {
+        const { data: existingRequest } = await supabase
+          .from("reschedule_requests")
+          .select("id")
+          .eq("learner_id", learnerId)
+          .eq("type", "new")
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingRequest) {
+          const { data: updatedRequest, error: updateError } = await supabase
+            .from("reschedule_requests")
+            .update({
+              amount: totalFee,
+              lesson_ids: lessonIds,
+              payment_id: paymentId,
+            })
+            .eq("id", existingRequest.id)
+            .select()
+            .single();
+          if (updateError) throw updateError;
+          return updatedRequest;
+        }
+      }
+
       const { data: rescheduleRequest, error: rescheduleError } = await supabase
         .from("reschedule_requests")
         .insert({
           amount: totalFee,
-          status: totalFee > 0 ? "pending_payment" : "pending",
+          status,
           learner_id: learnerId,
           lesson_ids: lessonIds,
           payment_id: paymentId,
