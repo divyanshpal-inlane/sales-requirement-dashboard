@@ -3,6 +3,56 @@ import { supabase } from "@/context/auth-context";
 import { isFeatureEnabled } from "@/services/featureFlagService";
 
 /**
+ * Deduplication tracking for Shadow Auth calls
+ * Prevents triggering Shadow Auth multiple times for the same session
+ * Key format: "userId:sessionId" to handle concurrent sessions
+ */
+const processedSessions = new Set<string>();
+
+/**
+ * Generate a unique key for deduplication
+ * Uses userId + hash of first 20 chars of access token
+ */
+function getSessionKey(supabaseUser: User, session: Session): string {
+  const tokenPrefix = session.access_token.substring(0, 20);
+  return `${supabaseUser.id}:${tokenPrefix}`;
+}
+
+/**
+ * Check if Shadow Auth has already been triggered for this session
+ */
+function isSessionProcessed(supabaseUser: User, session: Session): boolean {
+  const key = getSessionKey(supabaseUser, session);
+  return processedSessions.has(key);
+}
+
+/**
+ * Mark session as processed to prevent duplicate triggers
+ */
+function markSessionProcessed(supabaseUser: User, session: Session): void {
+  const key = getSessionKey(supabaseUser, session);
+  processedSessions.add(key);
+}
+
+/**
+ * Cleanup old sessions from tracking (prevent memory leak)
+ * Keep only the most recent 100 sessions
+ */
+function cleanupOldSessions(): void {
+  if (processedSessions.size > 100) {
+    // Convert to array, keep last 100 entries
+    const entries = Array.from(processedSessions);
+    const entriesToKeep = entries.slice(-100);
+    
+    processedSessions.clear();
+    entriesToKeep.forEach(entry => processedSessions.add(entry));
+    
+    console.log('[Shadow Auth] Cleanup: Kept last 100 sessions, cleared', entries.length - 100);
+  }
+}
+
+
+/**
  * Get role from Supabase user metadata and database
  * Supabase stores: "admin", "learner", "instructor"
  * Backend expects: "super_admin", "admin", "user", "learner", "instructor"
@@ -122,12 +172,22 @@ const SHADOW_AUTH_API =
   import.meta.env.VITE_SHADOW_AUTH_API || 
   'https://54yexougxi.execute-api.ap-south-1.amazonaws.com/prod/internal/auth/shadow';
 
+// Shadow Auth API internal key for authentication
+const SHADOW_AUTH_API_KEY = 
+  import.meta.env.VITE_SHADOW_AUTH_API_KEY || 
+  'HSuQKwbbBwIt1mCwimDVB3RUPe8BrHT6q0AOGdutKIt';
+
 /**
  * Trigger shadow auth migration for Supabase user
  * This sends the user's Supabase ID token, role, and password hash to the backend
  * so they get created in the AWS RDS database with the correct role assigned.
  * 
  * This is a fire-and-forget operation - errors are logged but don't block the app.
+ * 
+ * Deduplication:
+ * - Tracks processed sessions to prevent duplicate API calls
+ * - Multiple triggers from getSession/onAuthStateChange/login all handled automatically
+ * - Only sends one Shadow Auth request per unique session
  * 
  * Feature Flag Check:
  * - Fetches the `shadow_auth_enabled` feature flag from the backend
@@ -139,6 +199,12 @@ export async function triggerShadowAuth(
   session: Session | null
 ): Promise<void> {
   if (!supabaseUser || !session?.access_token) {
+    return;
+  }
+
+  // DEDUPLICATION CHECK: Skip if this session was already processed
+  if (isSessionProcessed(supabaseUser, session)) {
+    console.log('[Shadow Auth] ℹ️ Session already processed for user:', supabaseUser.id, '- Skipping duplicate trigger');
     return;
   }
 
@@ -177,11 +243,19 @@ export async function triggerShadowAuth(
 
     console.log('[Shadow Auth] Triggering migration for user:', supabaseUser.id, 'with role:', roleName);
 
+    // Mark this session as processed BEFORE initiating fetch
+    // This prevents race conditions if triggerShadowAuth is called again while fetch is in-flight
+    markSessionProcessed(supabaseUser, session);
+    cleanupOldSessions(); // Cleanup tracking to prevent memory leaks
+
     // Fire-and-forget - don't await the response
     // Backend handles duplicates automatically (idempotent)
     fetch(SHADOW_AUTH_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Internal-Key': SHADOW_AUTH_API_KEY
+      },
       body: JSON.stringify({
         supabase_id_token: session.access_token,
         role_name: roleName,
@@ -190,7 +264,7 @@ export async function triggerShadowAuth(
     })
       .then((response: Response) => {
         if (response.ok) {
-          console.log('[Shadow Auth] Migration initiated for user:', supabaseUser.id);
+          console.log('[Shadow Auth] ✅ Migration initiated for user:', supabaseUser.id);
         } else {
           console.warn('[Shadow Auth] Unexpected status:', response.status);
         }
