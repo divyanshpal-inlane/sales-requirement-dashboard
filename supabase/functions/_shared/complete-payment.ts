@@ -1,14 +1,42 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
 
-// The 10-lesson Beginner course. The demo lesson doubles as this course's
-// first lesson, so demo-credit lesson skipping applies ONLY to this course.
-const BEGINNER_COURSE_ID = "e129f667-0510-4f07-9847-edb58356dc74";
-
 function getHalfPaymentLessons(totalHours: number): number[] {
   if (totalHours <= 1) return [1];
   if (totalHours === 2) return [1];
   const count = totalHours - 2;
   return Array.from({ length: count }, (_, i) => i + 1);
+}
+
+/**
+ * How many of an upgraded course's hours the learner's completed demos already
+ * cover. Each demo is 1 hr of car time and its price is credited against the
+ * course price on upgrade, so the hour comes off the course too — otherwise
+ * the learner pays for N hours and drives N+1. Applies to every upgrade
+ * target: Beginner, specialty and custom courses alike.
+ *
+ * Counts "upgraded" alongside "completed" — a demo payment flips
+ * completed -> upgraded when the upgrade order is created, so counting only
+ * "completed" would lose the credit for exactly the population this exists for.
+ *
+ * Clamped to leave at least one course hour, so a 2-hr specialty course after
+ * one demo schedules its 2nd hour instead of collapsing to nothing.
+ *
+ * Mirrors demoLessonOffsetFor() in src/constants/courses.ts and the copy in
+ * payment-callback/index.ts — keep the three in sync.
+ */
+async function getDemoLessonOffset(
+  supabaseClient: SupabaseClient,
+  learnerId: string,
+  totalHours: number,
+): Promise<number> {
+  const { data: demoPayments } = await supabaseClient
+    .from("payment")
+    .select("id")
+    .eq("learner_id", learnerId)
+    .eq("payment_type", "demo")
+    .in("status", ["completed", "upgraded"]);
+
+  return Math.min(demoPayments?.length ?? 0, Math.max(0, totalHours - 1));
 }
 
 export interface CompletePaymentResult {
@@ -104,26 +132,15 @@ export async function completePayment(
         totalCourseLessons;
     }
 
-    // Demo-as-lesson-1 skipping applies ONLY to the Beginner course, where
-    // the demo doubles as lesson 1. Include "upgraded" demos: the demo
-    // payment is flipped completed -> upgraded when the learner upgrades to
-    // a course, so counting only "completed" loses the demo credit and
-    // unlocks one lesson too many (must stay in sync with the same count in
-    // CreateSchedule).
-    let demoSkip = 0;
-    if (enrollment.course_id === BEGINNER_COURSE_ID) {
-      const { data: completedDemoPayments } = await supabaseClient
-        .from("payment")
-        .select("id")
-        .eq("learner_id", payment.learner_id)
-        .eq("payment_type", "demo")
-        .in("status", ["completed", "upgraded"]);
-      demoSkip = Math.min(
-        completedDemoPayments?.length ?? 0,
-        totalCourseLessons,
-      );
-    }
-    const remainingLessons = Math.max(0, totalCourseLessons - demoSkip);
+    // Demo hours already driven stand in for the course's first lessons, so
+    // unlock only what's left (e.g. 2..10 on a 10-lesson course after 1 demo).
+    // Must stay in sync with the same offset in CreateSchedule.
+    const demoSkip = await getDemoLessonOffset(
+      supabaseClient,
+      payment.learner_id,
+      totalCourseLessons,
+    );
+    const remainingLessons = Math.max(1, totalCourseLessons - demoSkip);
     const fullUnlock = Array.from(
       { length: remainingLessons },
       (_, i) => i + 1 + demoSkip,
@@ -343,7 +360,20 @@ export async function completePayment(
     if (!enrollment) throw new Error("Custom enrollment not found");
 
     const totalHours = enrollment.progress?.total_hours || 10;
-    const lessonsToUnlock = Math.min(Math.ceil(totalHours / 1), 10);
+    const purchasedLessons = Math.min(Math.ceil(totalHours / 1), 10);
+
+    // A custom course is an upgrade target like any other: the demo's price is
+    // credited against it on the payment page, so the demo hour comes off the
+    // hours delivered. progress.total_hours stays at the PURCHASED figure (it
+    // backs the module list and price validation) — only the schedulable count
+    // shrinks. Virtual lessons carry no real lesson numbers, so the hours are
+    // renumbered 1..N rather than offset like a real course's 2..10.
+    const customDemoSkip = await getDemoLessonOffset(
+      supabaseClient,
+      payment.learner_id,
+      purchasedLessons,
+    );
+    const lessonsToUnlock = Math.max(1, purchasedLessons - customDemoSkip);
     let unlockedLessons = enrollment.unlocked_lessons || [];
     let newPaymentStatus = enrollment.payment_status;
 
@@ -354,7 +384,10 @@ export async function completePayment(
       );
       newPaymentStatus = "full_paid";
     } else if (installmentType === "first_half") {
-      unlockedLessons = getHalfPaymentLessons(totalHours);
+      // Half of the hours actually being delivered, not of the purchased
+      // total — otherwise a demo-credited course unlocks an hour it no
+      // longer has.
+      unlockedLessons = getHalfPaymentLessons(lessonsToUnlock);
       newPaymentStatus = "half_paid";
     } else if (
       installmentType === "second_half" &&
@@ -390,9 +423,10 @@ export async function completePayment(
     // demo's stale ["virtual-lesson-1"] request in place and every custom
     // course looked like a single 1-hour lesson on the admin side.
     //
-    // Always list ALL lessons regardless of installment state: unlike the
-    // learner-facing unlocked_lessons, the admin schedules the whole custom
-    // course up front even when only the first installment is paid.
+    // Always list ALL deliverable lessons regardless of installment state:
+    // unlike the learner-facing unlocked_lessons, the admin schedules the whole
+    // custom course up front even when only the first installment is paid.
+    // "Deliverable" is purchased hours minus demo hours already driven.
     const customLessonIds = Array.from(
       { length: lessonsToUnlock },
       (_, i) => `virtual-lesson-${i + 1}`,

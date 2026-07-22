@@ -9,9 +9,29 @@ import { TRAFFIC_PARKING_LESSON_CONTENT } from "@/constants/content/traffic-park
 import { TRAFFIC_PARKING_FLYOVER_LESSON_CONTENT } from "@/constants/content/traffic-parking-flyover";
 import { LESSON_CONTENT, LessonContent } from "@/constants/Lesson";
 
-// The 10-lesson Beginner course. The demo lesson doubles as this course's
-// first lesson, so demo-credit lesson offsets apply ONLY to this course.
+// The 10-lesson Beginner course.
 export const BEGINNER_COURSE_ID = "e129f667-0510-4f07-9847-edb58356dc74";
+
+/**
+ * How many of an upgraded course's hours the learner's completed demos already
+ * cover. Each demo is 1 hr of car time, and its price is credited against the
+ * course price on upgrade — so the hour has to come off the course too, or the
+ * learner pays for N hours and receives N+1. Applies to every upgrade target
+ * (Beginner, specialty and custom courses alike).
+ *
+ * Clamped to leave at least one course hour: a 2-hr specialty course after one
+ * demo schedules its 2nd hour rather than collapsing to nothing, and a learner
+ * with several demos can never zero out a short course.
+ *
+ * Mirrored server-side in supabase/functions/_shared/complete-payment.ts and
+ * payment-callback/index.ts — keep the three in sync.
+ */
+export function demoLessonOffsetFor(
+  totalHours: number,
+  demoCount: number,
+): number {
+  return Math.min(Math.max(0, demoCount), Math.max(0, totalHours - 1));
+}
 
 const COURSES = [
   "e129f667-0510-4f07-9847-edb58356dc74",

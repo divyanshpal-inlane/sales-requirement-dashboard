@@ -4,12 +4,14 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import PreferenceSelector from "@/components/lesson/PreferenceSelector";
 import { Button } from "@/components/ui/button";
+import { demoLessonOffsetFor } from "@/constants/courses";
 import {
   useLearner,
   useLearnerEnrollment,
   useLearnerEnrollmentCourse,
   useLessons,
 } from "@/queries/learner";
+import { useCompletedDemoCount } from "@/queries/payment";
 
 function Preferences() {
   const [searchParams] = useSearchParams();
@@ -35,6 +37,8 @@ function Preferences() {
   const { data: lessons, isLoading: lessonsLoading } = useLessons({
     courseId: courseId,
   });
+  const { data: completedDemoCount = 0, isLoading: demoCountLoading } =
+    useCompletedDemoCount(learner?.id);
 
   // Determine lessons to schedule
   // For demo/custom courses without course_id, create virtual lesson IDs
@@ -52,8 +56,14 @@ function Preferences() {
       // which would send the admin a half-length request — and lesson_ids is
       // the ONLY thing telling the admin scheduler how many hours a custom
       // course needs (there is no course_id to look lessons up by).
+      //
+      // Minus any demo hours already driven: the demo's price was credited
+      // against this course, so its hour comes off the schedule too (same rule
+      // as complete-payment.ts and the admin CreateSchedule offset).
+      const customHours =
+        totalHours - demoLessonOffsetFor(totalHours, completedDemoCount);
       lessonsToSchedule = Array.from(
-        { length: totalHours },
+        { length: customHours },
         (_, i) => `virtual-lesson-${i + 1}`,
       );
     } else if (unlockedLessons.length > 0) {
@@ -84,7 +94,12 @@ function Preferences() {
           : limitedLessons.map((l) => l.id);
   }
 
-  if (enrolledCourseLoading || lessonsLoading || enrollmentLoading) {
+  if (
+    enrolledCourseLoading ||
+    lessonsLoading ||
+    enrollmentLoading ||
+    demoCountLoading
+  ) {
     return <div>Loading...</div>;
   }
 
