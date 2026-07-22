@@ -9,10 +9,6 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-// The 10-lesson Beginner course. The demo lesson doubles as this course's
-// first lesson, so demo-credit lesson skipping applies ONLY to this course.
-const BEGINNER_COURSE_ID = "e129f667-0510-4f07-9847-edb58356dc74";
-
 /**
  * Calculate how many lessons to unlock for half (first installment) payment.
  * 10hr→8, 8hr→6, 6hr→4, 4hr→2, 2hr→1. Demo (1hr) = full payment only.
@@ -290,24 +286,24 @@ serve(async (req) => {
               totalCourseLessons;
           }
 
-          // Demo-as-lesson-1 skipping applies ONLY to the Beginner course,
-          // where the demo doubles as lesson 1. Include "upgraded" demos so
-          // the credit survives the completed -> upgraded status flip (same
-          // count as _shared/complete-payment.ts and CreateSchedule).
-          let demoSkip = 0;
-          if (enrollment.course_id === BEGINNER_COURSE_ID) {
-            const { data: completedDemoPayments } = await supabaseClient
-              .from("payment")
-              .select("id")
-              .eq("learner_id", payment.learner_id)
-              .eq("payment_type", "demo")
-              .in("status", ["completed", "upgraded"]);
-            demoSkip = Math.min(
-              completedDemoPayments?.length ?? 0,
-              totalCourseLessons,
-            );
-          }
-          const remainingLessons = Math.max(0, totalCourseLessons - demoSkip);
+          // Demo hours already driven stand in for the course's first lessons
+          // on every upgrade target, because the demo's price is credited
+          // against the course price — otherwise the learner pays for N hours
+          // and drives N+1. Include "upgraded" demos so the credit survives
+          // the completed -> upgraded status flip, and clamp so at least one
+          // course hour always remains (same rule as
+          // _shared/complete-payment.ts and CreateSchedule).
+          const { data: completedDemoPayments } = await supabaseClient
+            .from("payment")
+            .select("id")
+            .eq("learner_id", payment.learner_id)
+            .eq("payment_type", "demo")
+            .in("status", ["completed", "upgraded"]);
+          const demoSkip = Math.min(
+            completedDemoPayments?.length ?? 0,
+            Math.max(0, totalCourseLessons - 1),
+          );
+          const remainingLessons = Math.max(1, totalCourseLessons - demoSkip);
           const fullUnlock = Array.from(
             { length: remainingLessons },
             (_, i) => i + 1 + demoSkip,

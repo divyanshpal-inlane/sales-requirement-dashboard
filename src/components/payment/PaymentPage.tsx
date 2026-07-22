@@ -386,13 +386,19 @@ function PaymentPage() {
           }
           setIsPrefilled(!!courseId || isCustom);
 
-          // Count completed demo payments for upgrade credit pricing
+          // Count completed demo payments for upgrade credit pricing.
+          // "upgraded" counts too: the demo payment flips completed ->
+          // upgraded the moment an upgrade order is created, BEFORE it is
+          // paid. Counting only "completed" meant an abandoned upgrade lost
+          // the credit on the next visit — and the scheduling side deducts
+          // the demo hour off either status, so the learner would have paid
+          // full price for one hour less.
           const { data: demoPayments, error: demoError } = await supabase
             .from("payment")
             .select("id, status, amount")
             .eq("learner_id", learner.id)
             .eq("payment_type", "demo")
-            .eq("status", "completed")
+            .in("status", ["completed", "upgraded"])
             .order("created_at", { ascending: false });
 
           if (!demoError && demoPayments && demoPayments.length > 0) {

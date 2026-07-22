@@ -76,6 +76,34 @@ function assertAmountMatchesEnrollment(
   }
 }
 
+/**
+ * The full price this enrollment is being sold at, with any demo credit already
+ * applied by the payment page. Persisting it on the enrollment is what makes
+ * that price survive an abandoned payment: the payment page prefills from
+ * enrollment.amount, and expectedAmountFor() only validates once it is set.
+ * Without it a demo learner who dropped off mid-upgrade came back to the list
+ * price (course) or to ₹0 (custom, which has no course row to fall back on).
+ */
+function resolveEnrollmentTotal(
+  totalAmount?: number,
+  installment1Amount?: number,
+  installment2Amount?: number,
+  amount?: number,
+): number | null {
+  const fromTotal = Math.round(Number(totalAmount) || 0);
+  if (fromTotal > 0) return fromTotal;
+
+  // A second_half payment carries only the remaining half in `amount`, so the
+  // installments are the reliable source when totalAmount wasn't sent.
+  const fromInstallments =
+    Math.round(Number(installment1Amount) || 0) +
+    Math.round(Number(installment2Amount) || 0);
+  if (fromInstallments > 0) return fromInstallments;
+
+  const fromAmount = Math.round(Number(amount) || 0);
+  return fromAmount > 0 ? fromAmount : null;
+}
+
 interface PaymentDetails {
   amount: number;
   email: string;
@@ -85,6 +113,7 @@ interface PaymentDetails {
   name: string;
   learnerId?: string;
   installmentType?: "full" | "first_half" | "second_half";
+  totalAmount?: number;
   installment1Amount?: number;
   installment2Amount?: number;
   selectedModules?: string[];
@@ -122,6 +151,7 @@ serve(async (req) => {
       name,
       learnerId: providedLearnerId,
       installmentType,
+      totalAmount,
       installment1Amount,
       installment2Amount,
       selectedModules,
@@ -216,6 +246,16 @@ serve(async (req) => {
 
     if (dbError) throw dbError;
 
+    // Price this enrollment is sold at (demo credit already applied
+    // client-side). Stored on the enrollment so an abandoned payment
+    // doesn't silently revert the learner to list price on their next visit.
+    const enrollmentTotal = resolveEnrollmentTotal(
+      totalAmount,
+      installment1Amount,
+      installment2Amount,
+      amount,
+    );
+
     // Handle demo upgrade
     if (isDemoUpgrade && demoPaymentId) {
       await supabaseClient
@@ -273,6 +313,9 @@ serve(async (req) => {
               installment1Amount || existingEnrollment.installment1_amount,
             installment2_amount:
               installment2Amount || existingEnrollment.installment2_amount,
+            // Backfill only: an admin-negotiated price on this enrollment is
+            // authoritative and must not be overwritten by the client.
+            amount: existingEnrollment.amount || enrollmentTotal,
           })
           .eq("id", existingEnrollment.id);
       } else {
@@ -298,6 +341,7 @@ serve(async (req) => {
             installment_mode: installmentType,
             installment1_amount: installment1Amount,
             installment2_amount: installment2Amount,
+            amount: enrollmentTotal,
             unlocked_lessons:
               installmentType === "first_half"
                 ? getHalfPaymentLessons(courseHours)
@@ -499,6 +543,9 @@ serve(async (req) => {
               installment2Amount ||
               existingPendingCustom.installment2_amount ||
               null,
+            // Backfill only — an admin-built custom course carries the price
+            // ops negotiated, and that wins over anything the client sends.
+            amount: existingPendingCustom.amount || enrollmentTotal,
             unlocked_lessons:
               installmentType === "first_half"
                 ? getHalfPaymentLessons(mergedHours || 10)
@@ -524,6 +571,7 @@ serve(async (req) => {
             installment_mode: installmentType || "full",
             installment1_amount: installment1Amount,
             installment2_amount: installment2Amount,
+            amount: enrollmentTotal,
             unlocked_lessons:
               installmentType === "first_half"
                 ? getHalfPaymentLessons(mergedHours || 10)
