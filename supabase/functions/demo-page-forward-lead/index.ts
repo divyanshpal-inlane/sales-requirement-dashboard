@@ -22,10 +22,59 @@ interface FormData {
   area: string;
   custom_area: string;
   has_license: boolean | null;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+  gclid?: string;
+}
+
+const ATTRIBUTION_FIELDS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "gclid",
+] as const;
+
+const PAID_MEDIUMS = ["cpc", "ppc", "paid", "paidsearch", "paid_search"];
+
+function pickAttribution(
+  data: Record<string, unknown> | null,
+): Record<string, string> {
+  const attribution: Record<string, string> = {};
+  for (const field of ATTRIBUTION_FIELDS) {
+    const value = data?.[field];
+    if (typeof value === "string" && value.trim()) {
+      attribution[field] = value.trim();
+    }
+  }
+  return attribution;
+}
+
+// The real marketing source must win over generic labels like
+// "Lane Demo Booking", otherwise Cratio falls back to its own default (SEO).
+function deriveLeadSource(
+  attribution: Record<string, string>,
+  fallback: string,
+): string {
+  if (
+    attribution.gclid ||
+    PAID_MEDIUMS.includes((attribution.utm_medium || "").toLowerCase())
+  ) {
+    return "Paid Search";
+  }
+  if (attribution.utm_source) {
+    return attribution.utm_source;
+  }
+  return fallback;
 }
 
 async function sendLeadToCRM(leadData: FormData) {
   try {
+    const attribution = pickAttribution(leadData as Record<string, unknown>);
     const data = await fetch(
       "https://apps.cratiocrm.com/Customize/Webhooks/webhook.php?id=540177",
       {
@@ -35,9 +84,10 @@ async function sendLeadToCRM(leadData: FormData) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          leadSource: "Lane Demo Booking",
           leadDate: new Date().toISOString(),
           ...leadData,
+          ...attribution,
+          leadSource: deriveLeadSource(attribution, "Lane Demo Booking"),
           leadStage: "New",
           amount: leadData.amount || 0,
           phone: leadData.phone.replace(/\D/g, ""), // Ensure phone is stored as digits only
@@ -86,6 +136,7 @@ async function uploadPaymentAttemptedLead(leadData: Record<string, any>) {
       leadStage: "New",
       ...data,
     };
+    const attribution = pickAttribution(data);
     try {
       const data2 = await fetch(
         "https://apps.cratiocrm.com/Customize/Webhooks/webhook.php?id=1838",
@@ -96,9 +147,9 @@ async function uploadPaymentAttemptedLead(leadData: Record<string, any>) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            leadSource: "Lane Demo Booking",
             leadDate: new Date().toISOString(),
             ...data,
+            leadSource: deriveLeadSource(attribution, "Lane Demo Booking"),
           }),
         },
       );
@@ -114,6 +165,7 @@ async function uploadPaymentAttemptedLead(leadData: Record<string, any>) {
 
 async function uploadGenericLead(_leadSource: string, _leadData: FormData) {
   try {
+    const attribution = pickAttribution(_leadData as Record<string, unknown>);
     const data = await fetch(
       "https://apps.cratiocrm.com/Customize/Webhooks/webhook.php?id=540177",
       {
@@ -123,9 +175,10 @@ async function uploadGenericLead(_leadSource: string, _leadData: FormData) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          leadSource: _leadSource,
           leadDate: new Date().toISOString(),
           ..._leadData,
+          ...attribution,
+          leadSource: deriveLeadSource(attribution, _leadSource),
           leadStage: "New",
           phone: _leadData.phone.replace(/\D/g, ""), // Ensure phone is stored as digits only
           has_license: _leadData.has_license ? "Yes" : "No",
