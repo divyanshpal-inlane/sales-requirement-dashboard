@@ -59,6 +59,18 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Timing helper for debugging latency
+  const callbackStartTime = performance.now();
+  const timings: Record<string, number> = {};
+  
+  const recordTiming = (label: string) => {
+    const elapsed = performance.now() - callbackStartTime;
+    timings[label] = elapsed;
+    console.log(`[Payment Callback] ${label}: ${elapsed.toFixed(0)}ms`);
+  };
+
+  recordTiming("callback-received");
+
   const supabaseClient = createClient(
     Deno.env.get("MY_SUPABASE_URL") ?? "",
     Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -127,10 +139,11 @@ serve(async (req) => {
     delete dataForHash.isCallFromPaymentOptionsPage;
     delete dataForHash.paymentDateTime;
 
-    // Verify secure hash
-    const calculatedHash = await generateSecureHash(dataForHash, secretKey);
+     // Verify secure hash
+     const calculatedHash = await generateSecureHash(dataForHash, secretKey);
+     recordTiming("hash-verified");
 
-    console.log("Hash verification:", {
+     console.log("Hash verification:", {
       received: receivedHash,
       calculated: calculatedHash,
       match: calculatedHash === receivedHash,
@@ -185,19 +198,20 @@ serve(async (req) => {
       gatewayReference,
     });
 
-    // First verify the payment exists
-    const { data: existingPayment, error: fetchError } = await supabaseClient
-      .from("payment")
-      .select("id, status")
-      .eq("id", paymentId)
-      .single();
+     // First verify the payment exists
+     const { data: existingPayment, error: fetchError } = await supabaseClient
+       .from("payment")
+       .select("id, status")
+       .eq("id", paymentId)
+       .single();
+     recordTiming("payment-fetched");
 
-    if (fetchError || !existingPayment) {
-      console.error("Payment not found:", { paymentId, fetchError });
-      throw new Error(`Payment not found: ${paymentId}`);
-    }
+     if (fetchError || !existingPayment) {
+       console.error("Payment not found:", { paymentId, fetchError });
+       throw new Error(`Payment not found: ${paymentId}`);
+     }
 
-    console.log("Found existing payment:", {
+     console.log("Found existing payment:", {
       paymentId,
       currentStatus: existingPayment.status,
       newStatus: status,
@@ -214,12 +228,13 @@ serve(async (req) => {
       .select("id, status")
       .single();
 
-    if (updateError) {
-      console.error("Error updating payment:", updateError);
-      throw updateError;
-    }
+     if (updateError) {
+       console.error("Error updating payment:", updateError);
+       throw updateError;
+     }
+     recordTiming("payment-updated");
 
-    console.log("Payment updated successfully:", {
+     console.log("Payment updated successfully:", {
       paymentId,
       updatedStatus: updatedPayment?.status,
     });
@@ -241,12 +256,13 @@ serve(async (req) => {
       .eq("id", paymentId)
       .single();
 
-    if (paymentError) {
-      console.error("Error fetching payment:", paymentError);
-      throw paymentError;
-    }
+     if (paymentError) {
+       console.error("Error fetching payment:", paymentError);
+       throw paymentError;
+     }
+     recordTiming("payment-details-fetched");
 
-    // Use addlParam1 for installmentType if available, otherwise use from payment record
+     // Use addlParam1 for installmentType if available, otherwise use from payment record
     const installmentType = addlParam1 || payment.installment_type || "full";
     // Use addlParam2 for paymentType if available, otherwise use from payment record
     const paymentType = addlParam2 || payment.payment_type || "course";
@@ -345,11 +361,12 @@ serve(async (req) => {
             })
             .eq("id", enrollment.id);
 
-          if (enrollmentError) {
-            console.error("Error updating enrollment:", enrollmentError);
-            throw enrollmentError;
-          }
-        } else if (paymentType === "reschedule") {
+           if (enrollmentError) {
+             console.error("Error updating enrollment:", enrollmentError);
+             throw enrollmentError;
+           }
+           recordTiming("enrollment-updated");
+         } else if (paymentType === "reschedule") {
           const { error: scheduleError } = await supabaseClient
             .from("Schedule")
             .update({
@@ -678,22 +695,22 @@ serve(async (req) => {
           }
         }
 
-        // Send thank you message
-        const { error: messageError } = await supabaseClient.functions.invoke(
-          "send-message",
-          {
-            body: {
-              message_type: "WEBAPP_THANK_YOU_FOR_PAYMENT_GENERIC",
-              learner_id: payment.learner_id,
-              payment_amount: payment.amount,
-            },
-          },
-        );
-
-        if (messageError) {
-          console.error("Error sending thank you message:", messageError);
-        }
-      } catch (error) {
+         // Send thank you message (async, non-blocking)
+         recordTiming("ready-to-send-message");
+         // Fire and forget - don't await message sending
+         supabaseClient.functions.invoke("send-message", {
+           body: {
+             message_type: "WEBAPP_THANK_YOU_FOR_PAYMENT_GENERIC",
+             learner_id: payment.learner_id,
+             payment_amount: payment.amount,
+           },
+         }).catch(error => {
+           // Log error but don't block payment completion
+           console.error("Background: Error sending thank you message:", error);
+         });
+         // Continue immediately without waiting for message response
+         recordTiming("callback-complete");
+       } catch (error) {
         console.error("Error updating related records:", error);
         // Don't throw here, we still want to redirect the user
       }
@@ -708,21 +725,26 @@ serve(async (req) => {
           respDescription || "Payment failed",
         )}`;
 
-    // Return HTML that redirects the browser
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta http-equiv="refresh" content="0;url=${redirectUrl}">
-          <script>window.location.href = "${redirectUrl}";</script>
-        </head>
-        <body>
-          <p>Redirecting... If not redirected, <a href="${redirectUrl}">click here</a>.</p>
-        </body>
-      </html>
-    `;
+     // Log total duration before returning
+     console.log("[Payment Callback] Total timings:", timings);
+     console.log("[Payment Callback] Total duration:", 
+       (performance.now() - callbackStartTime).toFixed(0) + "ms");
 
-    return new Response(html, {
+     // Return HTML that redirects the browser
+     const html = `
+       <!DOCTYPE html>
+       <html>
+         <head>
+           <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+           <script>window.location.href = "${redirectUrl}";</script>
+         </head>
+         <body>
+           <p>Redirecting... If not redirected, <a href="${redirectUrl}">click here</a>.</p>
+         </body>
+       </html>
+     `;
+
+     return new Response(html, {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "text/html" },
     });
