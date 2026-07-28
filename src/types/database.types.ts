@@ -550,6 +550,7 @@ export type Database = {
           phone: string | null;
           radius: number | null;
           signed_up: string | null;
+          status: string;
           unavailability: Json | null;
         };
         Insert: {
@@ -575,6 +576,7 @@ export type Database = {
           phone?: string | null;
           radius?: number | null;
           signed_up?: string | null;
+          status?: string;
           unavailability?: Json | null;
         };
         Update: {
@@ -600,9 +602,45 @@ export type Database = {
           phone?: string | null;
           radius?: number | null;
           signed_up?: string | null;
+          status?: string;
           unavailability?: Json | null;
         };
         Relationships: [];
+      };
+      instructor_status_log: {
+        Row: {
+          id: string;
+          instructor_id: string;
+          old_status: string | null;
+          new_status: string;
+          changed_by: string | null;
+          changed_at: string;
+        };
+        Insert: {
+          id?: string;
+          instructor_id: string;
+          old_status?: string | null;
+          new_status: string;
+          changed_by?: string | null;
+          changed_at?: string;
+        };
+        Update: {
+          id?: string;
+          instructor_id?: string;
+          old_status?: string | null;
+          new_status?: string;
+          changed_by?: string | null;
+          changed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "instructor_status_log_instructor_id_fkey";
+            columns: ["instructor_id"];
+            isOneToOne: false;
+            referencedRelation: "Instructor";
+            referencedColumns: ["id_instructor"];
+          },
+        ];
       };
       "Instructor Unavailability": {
         Row: {

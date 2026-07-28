@@ -45,7 +45,6 @@ import {
   Phone,
   Plus,
   PlusCircle,
-  Power,
   Search,
   Trash2,
   User,
@@ -101,6 +100,13 @@ import { useAdminImportedCalendar } from "@/hooks/useAdminImportedCalendar";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import { checkInstructorAvailability } from "@/queries/instructor";
+import {
+  INSTRUCTOR_STATUSES,
+  InstructorStatus,
+  instructorStatusMeta,
+  instructorStatusToEnabled,
+  resolveInstructorStatus,
+} from "@/constants/instructorStatus";
 import { SlotConfig } from "@/types/schedule";
 
 import { Schedule } from "./schedules";
@@ -139,6 +145,7 @@ interface InstructorFromDB {
   car_fuel_type: "petrol" | "diesel" | "ev" | "cng" | "lpg" | null;
   unavailability: Unavailability[];
   enabled?: boolean | null;
+  status?: string | null;
 }
 
 interface InstructorData {
@@ -164,6 +171,158 @@ interface ServiceableArea {
   id: string;
   name: string;
   postal_code?: string;
+}
+
+// Three-way status setter (Active / On Break / Inactive) shared by the list
+// cards and the instructor profile header. Updates Instructor.status, keeps
+// the `enabled` booking gate in sync (only Inactive is removed from
+// scheduling pickers — On Break stays bookable), and writes an audit row.
+// Switching to Inactive asks for confirmation since it has downstream
+// consequences the other statuses don't.
+function InstructorStatusControl({
+  instructorId,
+  status,
+  size = "default",
+}: {
+  instructorId: string;
+  status: InstructorStatus;
+  size?: "default" | "compact";
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: currentAdmin } = useCurrentAdmin();
+  const [pendingInactive, setPendingInactive] = useState(false);
+
+  const statusMutation = useMutation({
+    mutationFn: async (newStatus: InstructorStatus) => {
+      const { error } = await supabase
+        .from("Instructor")
+        .update({
+          status: newStatus,
+          enabled: instructorStatusToEnabled(newStatus),
+        } as any)
+        .eq("id_instructor", instructorId);
+      if (error) throw new Error(error.message);
+
+      const changedBy = currentAdmin
+        ? `${currentAdmin.name} (${currentAdmin.phone})`
+        : "unknown";
+      const { error: logError } = await supabase
+        .from("instructor_status_log")
+        .insert({
+          instructor_id: instructorId,
+          old_status: status,
+          new_status: newStatus,
+          changed_by: changedBy,
+        } as any);
+      // The status change itself succeeded — don't roll the UI back over a
+      // failed audit write.
+      if (logError) console.error("Failed to log status change:", logError);
+
+      return newStatus;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ["instructors"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instructors"] });
+      queryClient.invalidateQueries({
+        queryKey: ["instructors-for-migration"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["instructor-full"] });
+      toast({
+        title: `Marked ${instructorStatusMeta(newStatus).label}`,
+        description:
+          newStatus === "inactive"
+            ? "Instructor is hidden from scheduling lists. Existing schedules are unaffected."
+            : newStatus === "on_break"
+              ? "Instructor is tagged as temporarily away but remains bookable."
+              : "Instructor is available and appears in scheduling lists.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSelect = (value: string) => {
+    const next = value as InstructorStatus;
+    if (next === status) return;
+    if (next === "inactive") {
+      setPendingInactive(true);
+      return;
+    }
+    statusMutation.mutate(next);
+  };
+
+  const meta = instructorStatusMeta(status);
+
+  return (
+    <>
+      <Select
+        value={status}
+        onValueChange={handleSelect}
+        disabled={statusMutation.isPending}
+      >
+        <SelectTrigger
+          className={cn(
+            size === "compact" ? "h-8 text-xs" : "h-9 text-sm",
+            "w-[130px]",
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <span className={cn("h-2 w-2 rounded-full", meta.dotClass)} />
+            {meta.label}
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {INSTRUCTOR_STATUSES.map((s) => (
+            <SelectItem key={s.value} value={s.value}>
+              <span className="flex items-center gap-2">
+                <span className={cn("h-2 w-2 rounded-full", s.dotClass)} />
+                {s.label}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {pendingInactive && (
+        <Dialog open={true} onOpenChange={() => setPendingInactive(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Mark Instructor Inactive?</DialogTitle>
+              <DialogDescription>
+                Inactive instructors are removed from the booking pool and
+                hidden from scheduling lists. Existing schedules are not
+                affected. If the instructor is only temporarily away, use "On
+                Break" instead.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setPendingInactive(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setPendingInactive(false);
+                  statusMutation.mutate("inactive");
+                }}
+              >
+                Mark Inactive
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
 }
 
 const initialInstructorData: InstructorData = {
@@ -596,45 +755,19 @@ export default function InstructorsManagement() {
     },
   });
 
-  // Toggle instructor active/inactive status. Inactive instructors are hidden
-  // from learner-scheduling pickers (CreateSchedule, schedule, schedules,
-  // LearnerMigration). Existing schedules keep showing the assigned name.
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({
-      instructorId,
-      nextEnabled,
-    }: {
-      instructorId: string;
-      nextEnabled: boolean;
-    }) => {
-      const { error } = await supabase
-        .from("Instructor")
-        .update({ enabled: nextEnabled } as any)
-        .eq("id_instructor", instructorId);
-      if (error) throw new Error(error.message);
-      return { instructorId, nextEnabled };
-    },
-    onSuccess: ({ nextEnabled }) => {
-      queryClient.invalidateQueries({ queryKey: ["instructors"] });
-      queryClient.invalidateQueries({ queryKey: ["all-instructors"] });
-      queryClient.invalidateQueries({
-        queryKey: ["instructors-for-migration"],
-      });
-      toast({
-        title: nextEnabled ? "Instructor Activated" : "Instructor Deactivated",
-        description: nextEnabled
-          ? "Instructor will now appear in scheduling lists."
-          : "Instructor is hidden from scheduling lists. Existing schedules are unaffected.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Multi-select status filter (Active / On Break / Inactive). Empty
+  // selection = no filter = full list. Selections combine with OR logic.
+  // State is per-visit: it survives interactions on this tab but resets on
+  // navigation away, per the PRD.
+  const [statusFilter, setStatusFilter] = useState<InstructorStatus[]>([]);
+
+  const toggleStatusFilter = (status: InstructorStatus) => {
+    setStatusFilter((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status],
+    );
+  };
 
   // Add tentative schedule info
   // Fetch all servicable areas for suggestions
@@ -789,7 +922,7 @@ export default function InstructorsManagement() {
   // Memoized to avoid re-rendering full calender when filling calender events input fields
   const memoizedInstructors = useMemo(() => instructors, [instructors]);
 
-  const filteredInstructors = useMemo(() => {
+  const searchedInstructors = useMemo(() => {
     if (!memoizedInstructors) return [];
 
     const query = searchTerm.toLowerCase();
@@ -807,6 +940,27 @@ export default function InstructorsManagement() {
       return nameMatch || phoneMatch || carMatch || areaMatch;
     });
   }, [searchTerm, memoizedInstructors]);
+
+  // Per-status counts shown beside the filter chips, computed on the
+  // search-filtered list so they always describe what's on screen.
+  const statusCounts = useMemo(() => {
+    const counts: Record<InstructorStatus, number> = {
+      active: 0,
+      on_break: 0,
+      inactive: 0,
+    };
+    for (const instructor of searchedInstructors) {
+      counts[resolveInstructorStatus(instructor)] += 1;
+    }
+    return counts;
+  }, [searchedInstructors]);
+
+  const filteredInstructors = useMemo(() => {
+    if (statusFilter.length === 0) return searchedInstructors;
+    return searchedInstructors.filter((instructor) =>
+      statusFilter.includes(resolveInstructorStatus(instructor)),
+    );
+  }, [searchedInstructors, statusFilter]);
 
   // Fixes mutation refresh lag
   // Define a stable function to update the schedule cache
@@ -1125,7 +1279,7 @@ export default function InstructorsManagement() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -1135,6 +1289,52 @@ export default function InstructorsManagement() {
             className="pl-10"
           />
         </div>
+      </div>
+
+      {/* Status Filter — multi-select chips with OR logic; none selected
+          shows everyone. Counts reflect the current search results. */}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground">
+          Status:
+        </span>
+        {INSTRUCTOR_STATUSES.map((s) => {
+          const selected = statusFilter.includes(s.value);
+          return (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => toggleStatusFilter(s.value)}
+              className={cn(
+                "flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors",
+                selected
+                  ? cn(s.badgeClass, "border-transparent font-semibold")
+                  : "border-input bg-white text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {selected && <Check className="h-3.5 w-3.5" />}
+              <span className={cn("h-2 w-2 rounded-full", s.dotClass)} />
+              {s.label}
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-xs font-semibold",
+                  selected ? "bg-white/60" : "bg-muted",
+                )}
+              >
+                {statusCounts[s.value]}
+              </span>
+            </button>
+          );
+        })}
+        {statusFilter.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter([])}
+            className="flex items-center gap-1 text-sm text-muted-foreground underline-offset-2 hover:underline"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear filter
+          </button>
+        )}
       </div>
       {isLoading ? (
         <div className="flex h-64 items-center justify-center">
@@ -1162,12 +1362,14 @@ export default function InstructorsManagement() {
                   <span
                     className={cn(
                       "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
-                      instructor.enabled === false
-                        ? "bg-red-100 text-red-700"
-                        : "bg-green-100 text-green-700",
+                      instructorStatusMeta(resolveInstructorStatus(instructor))
+                        .badgeClass,
                     )}
                   >
-                    {instructor.enabled === false ? "Inactive" : "Active"}
+                    {
+                      instructorStatusMeta(resolveInstructorStatus(instructor))
+                        .label
+                    }
                   </span>
                 </div>
               </CardHeader>
@@ -1261,31 +1463,14 @@ export default function InstructorsManagement() {
                 >
                   Edit Details
                 </Button>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full",
-                    instructor.enabled === false
-                      ? "border-green-500 text-green-700 hover:bg-green-50"
-                      : "border-amber-500 text-amber-700 hover:bg-amber-50",
-                  )}
-                  disabled={
-                    toggleActiveMutation.isPending &&
-                    toggleActiveMutation.variables?.instructorId ===
-                      instructor.id_instructor
-                  }
-                  onClick={() =>
-                    toggleActiveMutation.mutate({
-                      instructorId: instructor.id_instructor,
-                      nextEnabled: instructor.enabled === false,
-                    })
-                  }
-                >
-                  <Power className="mr-2 h-4 w-4" />
-                  {instructor.enabled === false
-                    ? "Mark Active"
-                    : "Mark Inactive"}
-                </Button>
+                <div className="flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <InstructorStatusControl
+                    instructorId={instructor.id_instructor}
+                    status={resolveInstructorStatus(instructor)}
+                    size="compact"
+                  />
+                </div>
                 <Button
                   variant="destructive"
                   className="w-full"
@@ -5772,6 +5957,21 @@ export const InstructorSchedulePage = () => {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
+
+          {/* Instructor identity + three-way status setter (Active / On
+              Break / Inactive) — prominent per PRD, not buried in a sub-tab */}
+          <div className="flex items-center gap-2">
+            <span className="max-w-[180px] truncate text-sm font-bold text-slate-800">
+              {instructor?.name}
+            </span>
+            {instructor && (
+              <InstructorStatusControl
+                instructorId={instructor.id_instructor}
+                status={resolveInstructorStatus(instructor)}
+                size="compact"
+              />
+            )}
+          </div>
 
           <div className="flex items-center gap-0.5 rounded-lg bg-slate-100 p-1">
             {/* Week Back */}
