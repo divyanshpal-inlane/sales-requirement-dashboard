@@ -94,12 +94,12 @@ export const TEMPLATES = {
       "Hey {{1}},  Thank you for sharing your availability for the on road practice lessons, our team is brewing the best lesson plan and we will get back to you super soon ⏰⌛  In the meantime, please do go through a few cool learning modules we have prepared for you 🕹️🎮  Happy Gaming,  Lane Team 👾🃏",
   },
   REMINDER_CUSTOMER_FOR_CLASS: {
-    name: "webapp_reminder_customer_for_class_tomorrow",
-    id: "587649420697566",
+    name: "webapp_reminder_customer_for_class_tomorrow_v2",
+    id: "1712398869960753",
     language: "en",
     content:
-      "Hey {{1}},\n\nWe hope you are having the best day. Your have a lesson tomorrow 📔🚗. Do check the details below:\n\n*Date:* {{2}}\n*Time:* {{3}}\n*Driving Buddy:* {{4}}\n*Contact Details:* {{5}}\n\nCheck the *Lane App* for more details 🥳\n\nThank you,\nLane Team 🚗🚗",
-  },
+      "Hey {{1}},\n\nWe hope you are having the best day. Your have a lesson tomorrow 📔🚗. Do check the details below:\n\n*Date:* {{2}}\n*Time:* {{3}}\n*Driving Buddy:* {{4}}\n\nTo contact your Driving buddy, please use the Lane App\n\nIncase of any queries please feel free to reach out to us via mail at support@inlane.in or via call at 07316914676 (please ensure there is 0 before 731)\n\nCheck the *Lane App* for more details 🥳\n\nThank you,\nLane Team 🚗🚗",
+},
   INSTRUCTOR_DAILY_SCHEDULE: {
     name: "instructor_daily_schedule",
     language: "en",
@@ -791,7 +791,7 @@ class HeltarMessageService {
             learner_name,
             start_time,
             instructor_name,
-            instructor_phone,
+            // instructor_phone,
             date,
           } = data;
           return this.sendTemplate(
@@ -802,7 +802,7 @@ class HeltarMessageService {
               date || "tomorrow",
               start_time,
               instructor_name,
-              instructor_phone,
+              // instructor_phone,
             ],
             `class-reminder-final-${learner_phone}-${Date.now()}`,
           );

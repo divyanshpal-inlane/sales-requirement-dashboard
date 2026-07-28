@@ -638,7 +638,7 @@ function LearnerTab({
             date: displayDate,
             pickup_location: schedule.Learner.pick_up_location,
             instructor_name: schedule.Instructor.name,
-            instructor_phone: schedule.Instructor.phone,
+            // instructor_phone: schedule.Instructor.phone,
             course_name: schedule.Courses?.name || "Demo Class",
           },
         });
@@ -1063,7 +1063,7 @@ function InstructorTab({
               lat && lng ? `http://maps.google.com/maps?q=${lat},${lng}` : "NA";
 
             schedulePacket[`field${i + 1}`] =
-              `${date} | ${startTime}-${endTime} | ${learnerName} ${learnerPhone} (${lessonDesc}) | ${mapLink}`;
+              `${date} | ${startTime}-${endTime} | ${learnerName} (${lessonDesc}) | ${mapLink}`;
           } else {
             schedulePacket[`field${i + 1}`] = " ";
           }
