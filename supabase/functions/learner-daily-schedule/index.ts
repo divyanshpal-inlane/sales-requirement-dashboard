@@ -184,10 +184,7 @@ Deno.serve(async (req) => {
                     type: "text",
                     text: schedules[0].Instructor.name, // Parameter 4: Driving buddy's name
                   },
-                  {
-                    type: "text",
-                    text: schedules[0].Instructor.phone, // Parameter 5: Driving buddy's contact details
-                  },
+                 
                 ],
               },
             ],
