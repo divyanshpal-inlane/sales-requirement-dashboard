@@ -1,7 +1,7 @@
 import { getCalApi } from "@calcom/embed-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,15 +12,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { supabase } from "@/lib/supabaseClient";
 import { useLearner } from "@/queries/learner";
 import { useLearnerUpdate } from "@/queries/learner";
+import { useMyLLApplication } from "@/queries/llCustomer";
 
 import LLFillForm from "./LLFillForm";
 
 export default function LLAppointmentBooking() {
   const learner = useLearner();
   const { mutate: updateLearner } = useLearnerUpdate();
+  const { data: myApplication } = useMyLLApplication(learner.data?.id);
+  const docsRejected = myApplication?.application?.status === "docs_rejected";
 
   const [showFillFormBanner, setShowFillFormBanner] = useState<boolean>(false);
   const [showLLConfirmDialog, setShowLLConfirmDialog] =
@@ -43,11 +45,6 @@ export default function LLAppointmentBooking() {
     setShowLLConfirmDialog(false);
   };
 
-  if (!learner) {
-    // This assumes useLearner() returns undefined or null while loading.
-    return <div>Loading data...</div>;
-  }
-
   useEffect(() => {
     (async function () {
       const cal = await getCalApi({ namespace: "30min" });
@@ -67,6 +64,11 @@ export default function LLAppointmentBooking() {
     })();
   }, [updateLearner, learner]);
 
+  if (!learner) {
+    // This assumes useLearner() returns undefined or null while loading.
+    return <div>Loading data...</div>;
+  }
+
   // For logging only
   // useEffect(() => {
   //   // This will only run when the `learner` object changes
@@ -77,14 +79,26 @@ export default function LLAppointmentBooking() {
   return (
     <div className="flex w-full grow flex-col">
       {showFillFormBanner ? (
-        <LLFillForm
-          learnerName={learner.data.name}
-          learnerPhone={learner.data.phone}
-          learnerEmail={learner.data.email}
-        />
+        <LLFillForm onExit={() => setShowFillFormBanner(false)} />
       ) : (
         // The colon is followed by a valid JSX expression
         <>
+          {docsRejected && (
+            <Alert variant="destructive" className="mx-auto mt-4 max-w-2xl">
+              <AlertTitle>Your documents need attention</AlertTitle>
+              <AlertDescription>
+                {myApplication?.application?.rejection_reason ||
+                  "The RTO team rejected one or more of your documents."}{" "}
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-sm underline"
+                  onClick={handleFillForm}
+                >
+                  Fix &amp; resubmit
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           <Card className="mx-auto mt-4 max-w-2xl">
             <CardHeader className="rounded-t-xl bg-primary text-white">
               <CardTitle className="text-2xl font-bold">
@@ -93,11 +107,11 @@ export default function LLAppointmentBooking() {
             </CardHeader>
             <CardContent className="space-y-6 p-6">
               <p className="text-lg font-semibold">
-                Before booking your appointment, please fill out the Google
-                form:
+                Before booking your appointment, please fill out the LL
+                application form:
               </p>
               <Button className="w-full py-3 text-lg" onClick={handleFillForm}>
-                Fill google form
+                Fill LL Application Form
               </Button>
               <p className="text-base">
                 After submitting the form, you can book your appointment for OTP
@@ -109,7 +123,7 @@ export default function LLAppointmentBooking() {
                 data-cal-namespace="30min"
                 data-cal-link="inlane.in/30min"
                 data-cal-config='{"layout":"month_view","theme":"light"}'
-                disabled={!learner.data.is_LL_form_filled}
+                disabled={!learner.data?.is_LL_form_filled}
               >
                 Book Appointment
               </Button>
@@ -129,11 +143,11 @@ export default function LLAppointmentBooking() {
           >
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Confirm Learner's License</DialogTitle>
+                <DialogTitle>Confirm Learner&apos;s License</DialogTitle>
                 <DialogDescription>
-                  Are you sure you already have a valid Learner's License (LL)?
-                  By confirming, you will skip the LL application process and
-                  proceed directly to scheduling your driving lessons.
+                  Are you sure you already have a valid Learner&apos;s License
+                  (LL)? By confirming, you will skip the LL application process
+                  and proceed directly to scheduling your driving lessons.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2 sm:gap-0">

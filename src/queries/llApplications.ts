@@ -15,14 +15,22 @@ export interface LLApplication {
   ll_type: "with_classes" | "direct_dl" | null;
   application_number: string | null;
   application_date: string | null;
+  date_of_birth: string | null;
   batch_code: string | null;
   ll_number: string | null;
-  ll_test_date: string | null;
+  scrutiny_approved_date: string | null;
+  /** Generated column: scrutiny_approved_date + 7 days. Never write it. */
+  scrutiny_expiry_date: string | null;
   ll_matures_at: string | null;
+  dl_application_number: string | null;
+  dl_application_date: string | null;
   dl_test_date: string | null;
   dl_test_rto: string | null;
   dl_number: string | null;
   rejection_reason: string | null;
+  /** Answers from the in-app LL application form. */
+  form_data: Record<string, string> | null;
+  form_submitted_at: string | null;
   escalated: boolean;
   escalation_reason: string | null;
   created_at: string;
@@ -194,12 +202,15 @@ export function useUpdateLLStatus() {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  application_number: "Application Number",
-  application_date: "Application Date",
+  application_number: "LL Application Number",
+  application_date: "LL Application Date",
+  date_of_birth: "Date of Birth",
   batch_code: "Batch",
   ll_number: "LL Number",
-  ll_test_date: "LL Test Date",
+  scrutiny_approved_date: "Scrutiny Approved Date",
   ll_matures_at: "LL Matures On",
+  dl_application_number: "DL Test Application Number",
+  dl_application_date: "DL Test Application Date",
   dl_test_date: "DL Test Date",
   dl_test_rto: "DL Test RTO",
   dl_number: "DL Number",
@@ -209,6 +220,91 @@ const FIELD_LABELS: Record<string, string> = {
   escalated: "Escalated",
   escalation_reason: "Escalation Reason",
 };
+
+// ── Uploaded documents (in-app LL application form) ──────────────────────
+
+export interface LLDocument {
+  id: string;
+  application_id: string;
+  learner_id: string | null;
+  doc_type: string;
+  doc_subtype: string | null;
+  storage_path: string;
+  file_name: string | null;
+  mime_type: string | null;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export function llDocumentUrl(doc: LLDocument): string {
+  return supabase.storage.from("ll-documents").getPublicUrl(doc.storage_path)
+    .data.publicUrl;
+}
+
+export function useLLDocuments(applicationId: string | null) {
+  return useQuery({
+    queryKey: ["ll-documents", applicationId],
+    queryFn: async (): Promise<LLDocument[]> => {
+      const { data, error } = await sb
+        .from("ll_documents")
+        .select("*")
+        .eq("application_id", applicationId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as LLDocument[];
+    },
+    enabled: !!applicationId,
+  });
+}
+
+/** RTO team verdict on a single uploaded document. */
+export function useReviewLLDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      doc,
+      status,
+      rejectionReason,
+      actorName,
+      docLabel,
+    }: {
+      doc: LLDocument;
+      status: "approved" | "rejected";
+      rejectionReason?: string;
+      actorName?: string | null;
+      docLabel: string;
+    }) => {
+      const { error } = await sb
+        .from("ll_documents")
+        .update({
+          status,
+          rejection_reason:
+            status === "rejected" ? (rejectionReason ?? null) : null,
+          reviewed_by: actorName ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", doc.id);
+      if (error) throw error;
+      await appendEvent({
+        application_id: doc.application_id,
+        learner_id: doc.learner_id,
+        event_type: "note",
+        actor_name: actorName,
+        note:
+          status === "approved"
+            ? `Document approved: ${docLabel}`
+            : `Document rejected: ${docLabel}${rejectionReason ? ` — ${rejectionReason}` : ""}`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ll-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
+    },
+  });
+}
 
 export function useUpdateLLFields() {
   const queryClient = useQueryClient();
@@ -226,12 +322,15 @@ export function useUpdateLLFields() {
         .filter(
           ([k, v]) =>
             JSON.stringify(v) !==
-            JSON.stringify((application as unknown as Record<string, unknown>)[k]),
+            JSON.stringify(
+              (application as unknown as Record<string, unknown>)[k],
+            ),
         )
         .map(([field, value]) => ({
           field,
           label: FIELD_LABELS[field] ?? field,
-          old: (application as unknown as Record<string, unknown>)[field] ?? null,
+          old:
+            (application as unknown as Record<string, unknown>)[field] ?? null,
           new: value ?? null,
         }));
       if (changes.length === 0) return;

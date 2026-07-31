@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import LLDocumentsReview from "@/components/admin/LLDocumentsReview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,9 +41,9 @@ import {
   LL_PHASES,
   LL_SERVICES,
   LL_STAGE_MAP,
+  LLPhaseKey,
   llStageLabel,
   llStagePhase,
-  LLPhaseKey,
 } from "@/constants/llPipeline";
 import {
   LLApplication,
@@ -67,6 +68,12 @@ export default function LLPipeline() {
   const [queue, setQueue] = useState<QueueKey>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Date filter (feedback item 8): view entries created/updated in a range.
+  const [dateField, setDateField] = useState<"created_at" | "updated_at">(
+    "updated_at",
+  );
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const updateStatus = useUpdateLLStatus();
   const updateFields = useUpdateLLFields();
@@ -77,6 +84,12 @@ export default function LLPipeline() {
       list = list.filter((a) => a.escalated || isLLFailureStatus(a.status));
     } else if (queue !== "all") {
       list = list.filter((a) => llStagePhase(a.status) === queue);
+    }
+    if (dateFrom) {
+      list = list.filter((a) => a[dateField].slice(0, 10) >= dateFrom);
+    }
+    if (dateTo) {
+      list = list.filter((a) => a[dateField].slice(0, 10) <= dateTo);
     }
     const term = searchTerm.trim().toLowerCase();
     if (term) {
@@ -89,10 +102,10 @@ export default function LLPipeline() {
       );
     }
     return list;
-  }, [applications, queue, searchTerm]);
+  }, [applications, queue, searchTerm, dateField, dateFrom, dateTo]);
 
   const selected = filtered.find((a) => a.id === selectedId)
-    ? (applications ?? []).find((a) => a.id === selectedId) ?? null
+    ? ((applications ?? []).find((a) => a.id === selectedId) ?? null)
     : null;
 
   const queueCounts = useMemo(() => {
@@ -100,7 +113,8 @@ export default function LLPipeline() {
     for (const p of LL_PHASES) counts[p.key] = 0;
     counts.escalations = 0;
     for (const a of applications ?? []) {
-      counts[llStagePhase(a.status)] = (counts[llStagePhase(a.status)] ?? 0) + 1;
+      counts[llStagePhase(a.status)] =
+        (counts[llStagePhase(a.status)] ?? 0) + 1;
       if (a.escalated || isLLFailureStatus(a.status)) counts.escalations += 1;
     }
     return counts;
@@ -134,13 +148,11 @@ export default function LLPipeline() {
 
       {/* Queue tabs */}
       <div className="flex flex-wrap gap-1 border-b bg-white px-4 py-2">
-        {(
-          [
-            { key: "all" as QueueKey, label: "All" },
-            ...LL_PHASES.map((p) => ({ key: p.key as QueueKey, label: p.label })),
-            { key: "escalations" as QueueKey, label: "⚠ Escalations" },
-          ]
-        ).map((t) => (
+        {[
+          { key: "all" as QueueKey, label: "All" },
+          ...LL_PHASES.map((p) => ({ key: p.key as QueueKey, label: p.label })),
+          { key: "escalations" as QueueKey, label: "⚠ Escalations" },
+        ].map((t) => (
           <button
             key={t.key}
             onClick={() => setQueue(t.key)}
@@ -155,6 +167,48 @@ export default function LLPipeline() {
             {t.label} {queueCounts[t.key] ?? 0}
           </button>
         ))}
+        <div className="ml-auto flex items-center gap-1">
+          <Select
+            value={dateField}
+            onValueChange={(v) =>
+              setDateField(v as "created_at" | "updated_at")
+            }
+          >
+            <SelectTrigger className="h-7 w-28 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="updated_at">Updated</SelectItem>
+              <SelectItem value="created_at">Created</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            className="h-7 w-32 text-xs"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+          <span className="text-xs text-gray-400">–</span>
+          <Input
+            type="date"
+            className="h-7 w-32 text-xs"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+          {(dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-2 p-4 md:grid-cols-3">
@@ -188,7 +242,9 @@ export default function LLPipeline() {
                     key={a.id}
                     onClick={() => setSelectedId(a.id)}
                     className={`mb-2 block w-full rounded-md border p-2 text-left transition hover:bg-gray-50 ${
-                      selectedId === a.id ? "border-indigo-500 bg-indigo-50" : ""
+                      selectedId === a.id
+                        ? "border-indigo-500 bg-indigo-50"
+                        : ""
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -218,7 +274,13 @@ export default function LLPipeline() {
               actorName={actorName}
               onTransition={(toStatus, note, extraFields) =>
                 updateStatus.mutate(
-                  { application: selected, toStatus, note, actorName, extraFields },
+                  {
+                    application: selected,
+                    toStatus,
+                    note,
+                    actorName,
+                    extraFields,
+                  },
                   {
                     onSuccess: () =>
                       toast({
@@ -253,8 +315,8 @@ export default function LLPipeline() {
           ) : (
             <Card className="h-full border-dashed">
               <CardContent className="flex h-full items-center justify-center py-20 text-gray-400">
-                Select an application to see its journey, update its status,
-                and enter RTO details.
+                Select an application to see its journey, update its status, and
+                enter RTO details.
               </CardContent>
             </Card>
           )}
@@ -314,7 +376,7 @@ function ApplicationDetail({
 
   const services: string[] = Array.isArray(draft.services)
     ? (draft.services as string[])
-    : application.services ?? [];
+    : (application.services ?? []);
 
   const advanceTargets = stage?.next ?? [];
 
@@ -350,7 +412,10 @@ function ApplicationDetail({
                   size="sm"
                   disabled={isBusy}
                   onClick={() => {
-                    onTransition(failure.recoverTo, note || "Recovered from failure");
+                    onTransition(
+                      failure.recoverTo,
+                      note || "Recovered from failure",
+                    );
                     setNote("");
                   }}
                 >
@@ -419,10 +484,14 @@ function ApplicationDetail({
             </div>
             {application.escalated && (
               <p className="mt-2 text-xs text-amber-700">
-                Escalated: {application.escalation_reason || "no reason recorded"}
+                Escalated:{" "}
+                {application.escalation_reason || "no reason recorded"}
               </p>
             )}
           </div>
+
+          {/* Customer's form submission + uploaded documents */}
+          <LLDocumentsReview application={application} actorName={actorName} />
 
           {/* Ops data entry */}
           <div className="rounded-md border p-3">
@@ -430,14 +499,24 @@ function ApplicationDetail({
               RTO details
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              <Field label="Application No.">
+              <Field label="LL Application Number">
                 <Input
                   className="h-8 text-sm"
                   value={value("application_number")}
-                  onChange={(e) => setValue("application_number", e.target.value)}
+                  onChange={(e) =>
+                    setValue("application_number", e.target.value)
+                  }
                 />
               </Field>
-              <Field label="Application Date">
+              <Field label="Date of Birth">
+                <Input
+                  type="date"
+                  className="h-8 text-sm"
+                  value={value("date_of_birth")}
+                  onChange={(e) => setValue("date_of_birth", e.target.value)}
+                />
+              </Field>
+              <Field label="LL Application Date">
                 <Input
                   type="date"
                   className="h-8 text-sm"
@@ -462,12 +541,29 @@ function ApplicationDetail({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="LL Test Date">
+              <Field label="Scrutiny Approved Date">
                 <Input
                   type="date"
                   className="h-8 text-sm"
-                  value={value("ll_test_date")}
-                  onChange={(e) => setValue("ll_test_date", e.target.value)}
+                  value={value("scrutiny_approved_date")}
+                  onChange={(e) =>
+                    setValue("scrutiny_approved_date", e.target.value)
+                  }
+                />
+              </Field>
+              <Field label="Scrutiny Expiry Date (auto: +7 days)">
+                <Input
+                  className="h-8 bg-gray-50 text-sm"
+                  readOnly
+                  tabIndex={-1}
+                  value={
+                    value("scrutiny_approved_date")
+                      ? format(
+                          addDays(new Date(value("scrutiny_approved_date")), 7),
+                          "dd-MM-yyyy",
+                        )
+                      : "—"
+                  }
                 />
               </Field>
               <Field label="LL Number">
@@ -483,6 +579,25 @@ function ApplicationDetail({
                   className="h-8 text-sm"
                   value={value("ll_matures_at")}
                   onChange={(e) => setValue("ll_matures_at", e.target.value)}
+                />
+              </Field>
+              <Field label="DL Test Application Number">
+                <Input
+                  className="h-8 text-sm"
+                  value={value("dl_application_number")}
+                  onChange={(e) =>
+                    setValue("dl_application_number", e.target.value)
+                  }
+                />
+              </Field>
+              <Field label="DL Test Application Date">
+                <Input
+                  type="date"
+                  className="h-8 text-sm"
+                  value={value("dl_application_date")}
+                  onChange={(e) =>
+                    setValue("dl_application_date", e.target.value)
+                  }
                 />
               </Field>
               <Field label="DL Test Date">
@@ -507,7 +622,10 @@ function ApplicationDetail({
                   onChange={(e) => setValue("dl_number", e.target.value)}
                 />
               </Field>
-              <Field label="Rejection Reason" className="col-span-2 md:col-span-3">
+              <Field
+                label="Rejection Reason"
+                className="col-span-2 md:col-span-3"
+              >
                 <Input
                   className="h-8 text-sm"
                   placeholder="Latest scrutiny / approval rejection reason"
@@ -600,7 +718,7 @@ function ApplicationDetail({
                                     `${c.label}: ${c.old ?? "—"} → ${
                                       Array.isArray(c.new)
                                         ? c.new.join(", ")
-                                        : c.new ?? "—"
+                                        : (c.new ?? "—")
                                     }`,
                                 )
                                 .join("; ")}
@@ -650,7 +768,9 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
-  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(
+    null,
+  );
   const [services, setServices] = useState<string[]>(["ll"]);
   const { data: results } = useLLLearnerSearch(term);
   const createMutation = useCreateLLApplication();
@@ -670,7 +790,9 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
         onError: (e: Error) =>
           toast({
             title: "Error",
-            description: e.message.includes("idx_ll_applications_learner_active")
+            description: e.message.includes(
+              "idx_ll_applications_learner_active",
+            )
               ? "This learner already has an active LL application."
               : e.message,
             variant: "destructive",
@@ -705,17 +827,21 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
             {term.trim().length >= 3 && (
               <div className="max-h-40 overflow-y-auto rounded-md border">
                 {(results ?? []).map(
-                  (l: { id: string; name: string | null; phone: string | null }) => (
-                  <button
-                    key={l.id}
-                    onClick={() => setSelectedLearnerId(l.id)}
-                    className={`block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                      selectedLearnerId === l.id ? "bg-indigo-50" : ""
-                    }`}
-                  >
-                    <span className="font-medium">{l.name}</span>{" "}
-                    <span className="text-gray-500">{l.phone}</span>
-                  </button>
+                  (l: {
+                    id: string;
+                    name: string | null;
+                    phone: string | null;
+                  }) => (
+                    <button
+                      key={l.id}
+                      onClick={() => setSelectedLearnerId(l.id)}
+                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                        selectedLearnerId === l.id ? "bg-indigo-50" : ""
+                      }`}
+                    >
+                      <span className="font-medium">{l.name}</span>{" "}
+                      <span className="text-gray-500">{l.phone}</span>
+                    </button>
                   ),
                 )}
                 {(results ?? []).length === 0 && (
