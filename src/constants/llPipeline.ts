@@ -149,7 +149,7 @@ export const LL_STAGES: LLStage[] = [
     label: "LL Test Enabled",
     phase: "ll_test",
     next: ["ll_test_passed"],
-    fields: ["ll_test_date"],
+    fields: ["scrutiny_approved_date", "scrutiny_expiry_date"],
     failure: {
       key: "ll_test_failed",
       label: "LL Test Failed",
@@ -221,7 +221,12 @@ export const LL_STAGES: LLStage[] = [
     label: "DL Test Date & RTO Selected",
     phase: "dl_test",
     next: ["dl_results_pending"],
-    fields: ["dl_test_date", "dl_test_rto"],
+    fields: [
+      "dl_application_number",
+      "dl_application_date",
+      "dl_test_date",
+      "dl_test_rto",
+    ],
     failure: {
       key: "dl_test_missed",
       label: "DL Test Not Attended",
@@ -278,7 +283,11 @@ export const LL_FAILURE_STAGES: Record<
 > = Object.fromEntries(
   LL_STAGES.filter((s) => s.failure).map((s) => [
     s.failure!.key,
-    { label: s.failure!.label, recoverTo: s.failure!.recoverTo, phase: s.phase },
+    {
+      label: s.failure!.label,
+      recoverTo: s.failure!.recoverTo,
+      phase: s.phase,
+    },
   ]),
 );
 
@@ -294,7 +303,9 @@ export function llStageLabel(status: string): string {
 
 export function llStagePhase(status: string): LLPhaseKey {
   return (
-    LL_STAGE_MAP[status]?.phase ?? LL_FAILURE_STAGES[status]?.phase ?? "documents"
+    LL_STAGE_MAP[status]?.phase ??
+    LL_FAILURE_STAGES[status]?.phase ??
+    "documents"
   );
 }
 
@@ -313,7 +324,157 @@ export const LL_SERVICES: { key: string; label: string }[] = [
   { key: "backlog", label: "Backlog" },
   { key: "duplicate_dl", label: "Duplicate DL" },
   { key: "idp", label: "IDP" },
-  { key: "dl_address_change_other_state", label: "DL address change (other state → KA)" },
+  {
+    key: "dl_address_change_other_state",
+    label: "DL address change (other state → KA)",
+  },
 ];
 
 export const LL_BATCHES = ["LN001-007", "LN008-011", "LN012-015", "LN016-019"];
+
+// ── In-app LL application form (replaces the Google Form) ────────────────
+// Documents the customer must upload, from the "DL Docs? Sorted in Seconds!"
+// checklist shown in the app (public/assets/documents_list.jpg).
+
+export interface LLDocTypeDef {
+  key: string;
+  label: string;
+  required: boolean;
+  /** Accepted proof kinds the customer picks from (empty = no picker). */
+  subtypes: { key: string; label: string }[];
+  hint?: string;
+}
+
+export const LL_DOC_TYPES: LLDocTypeDef[] = [
+  {
+    key: "photo",
+    label: "Passport-size Photo",
+    required: true,
+    subtypes: [],
+    hint: "Clear, recent photo with a plain background",
+  },
+  {
+    key: "signature",
+    label: "Signature",
+    required: true,
+    subtypes: [],
+    hint: "Sign on plain white paper and photograph/scan it",
+  },
+  {
+    key: "age_proof",
+    label: "Age Proof",
+    required: true,
+    subtypes: [
+      { key: "voter_id", label: "Voter ID" },
+      { key: "passport", label: "Passport" },
+      { key: "birth_certificate", label: "Birth Certificate" },
+      { key: "tenth_marksheet", label: "10th Marksheet" },
+      { key: "lic_policy", label: "LIC Insurance Policy" },
+    ],
+  },
+  {
+    key: "address_proof",
+    label: "Address Proof (current address)",
+    required: true,
+    subtypes: [
+      { key: "aadhaar", label: "Aadhaar" },
+      { key: "passport", label: "Passport" },
+      { key: "voter_id", label: "Voter ID" },
+      { key: "bank_passbook", label: "Bank Passbook" },
+      { key: "ration_card", label: "Ration Card" },
+      {
+        key: "rental_agreement",
+        label: "Rental Agreement + Electricity/Gas Bill",
+      },
+      {
+        key: "self_affidavit",
+        label: "Notarized Self-Affidavit + supporting proof",
+      },
+    ],
+  },
+  {
+    key: "id_proof",
+    label: "ID Proof",
+    required: true,
+    subtypes: [
+      { key: "aadhaar", label: "Aadhaar" },
+      { key: "pan", label: "PAN" },
+      { key: "passport", label: "Passport" },
+    ],
+  },
+];
+
+export const LL_DOC_TYPE_MAP: Record<string, LLDocTypeDef> = Object.fromEntries(
+  LL_DOC_TYPES.map((d) => [d.key, d]),
+);
+
+/** Personal-detail questions on the LL application form (stored in form_data). */
+export const LL_FORM_FIELDS: {
+  key: string;
+  label: string;
+  type: "text" | "date" | "select";
+  required: boolean;
+  options?: string[];
+}[] = [
+  {
+    key: "full_name",
+    label: "Full Name (as on documents)",
+    type: "text",
+    required: true,
+  },
+  { key: "email", label: "Email", type: "text", required: true },
+  { key: "phone", label: "Phone", type: "text", required: true },
+  {
+    key: "date_of_birth",
+    label: "Date of Birth",
+    type: "date",
+    required: true,
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    type: "select",
+    required: true,
+    options: ["Male", "Female", "Other"],
+  },
+  {
+    key: "blood_group",
+    label: "Blood Group",
+    type: "select",
+    required: false,
+    options: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"],
+  },
+  {
+    key: "father_or_spouse_name",
+    label: "Father's / Spouse's Name",
+    type: "text",
+    required: true,
+  },
+  {
+    key: "place_of_birth",
+    label: "Place of Birth",
+    type: "text",
+    required: true,
+  },
+  {
+    key: "educational_qualification",
+    label: "Educational Qualification",
+    type: "select",
+    required: false,
+    options: [
+      "Below 10th",
+      "10th Pass",
+      "12th Pass",
+      "Graduate",
+      "Post-Graduate",
+      "Other",
+    ],
+  },
+  {
+    key: "address",
+    label: "Current Full Address",
+    type: "text",
+    required: true,
+  },
+  { key: "pincode", label: "Pincode", type: "text", required: true },
+];
