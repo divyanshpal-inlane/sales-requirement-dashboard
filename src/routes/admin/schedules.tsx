@@ -176,11 +176,6 @@ export default function AdminSchedules() {
       const isVirtualLessons =
         schedules.length > 0 &&
         schedules[0]?.lessonId?.startsWith?.("virtual-lesson-");
-      console.log("=== CREATE SCHEDULE MUTATION ===");
-      console.log("learnerId:", learnerId);
-      console.log("schedules:", schedules);
-      console.log("courseId:", courseId);
-      console.log("schedules.length:", schedules.length);
 
       if (schedules.length === 0) {
         console.warn("WARNING: No schedules to create/update!");
