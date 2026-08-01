@@ -717,7 +717,6 @@ function LearnerTab({
     const lessonId =
       scheduleData.Lesson?.number || scheduleData.Lesson?.description || "N/A";
     const learnerName = scheduleData.Learner?.name || "Unknown Learner";
-
     if (!instructorEmail || !learnerEmail) {
       toast({
         title: "Email Failed",
@@ -1063,7 +1062,7 @@ function InstructorTab({
               lat && lng ? `http://maps.google.com/maps?q=${lat},${lng}` : "NA";
 
             schedulePacket[`field${i + 1}`] =
-              `${date} | ${startTime}-${endTime} | ${learnerName} (${lessonDesc}) | ${mapLink}`;
+              `${date} | ${startTime}-${endTime} | ${learnerName} ${learnerPhone} (${lessonDesc}) | ${mapLink}`;
           } else {
             schedulePacket[`field${i + 1}`] = " ";
           }
