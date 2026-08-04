@@ -100,6 +100,34 @@ serve(async (req) => {
     const adminId = admin.id;
     console.log("[delete-admin-user] Found admin with ID:", adminId);
 
+    // Safety check: Block deletion if admin has associated users
+    const { count: userCount, error: userCountError } = await supabase
+      .from("User")
+      .select("*", { count: "exact", head: true })
+      .eq("admin_id", adminId);
+
+    if (userCountError) {
+      console.error("[delete-admin-user] Error checking associated users:", userCountError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to check associated users" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (userCount && userCount > 0) {
+      console.warn(`[delete-admin-user] Cannot delete admin ${adminId} — has ${userCount} associated user(s)`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `This admin has ${userCount} associated user${userCount > 1 ? "s" : ""}. Please reassign or delete their users before removing this admin.`,
+          userCount,
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("[delete-admin-user] ✓ No associated users found, proceeding with deletion");
+
     // Step 1: Find the actual auth user by phone
     // Build phone search variants
     const basePhone = phone.replace(/^\+91/, "").replace(/^91/, ""); // 10-digit number
