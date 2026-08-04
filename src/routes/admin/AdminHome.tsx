@@ -209,6 +209,13 @@ const featureConfig: Record<
     link: "",
     color: "text-gray-500",
   },
+  view_unmasked_car_numbers: {
+    title: "View Unmasked Car Numbers",
+    description: "View unmasked vehicle registration numbers for instructors",
+    icon: Car,
+    link: "",
+    color: "text-gray-500",
+  },
   admin_management: {
     title: "User Management",
     description: "Create and manage admin team members and their permissions",
@@ -449,7 +456,7 @@ export default function AdminHome() {
   console.log("[AdminHome] User permissions to check:", userPermissions);
   
    const allowedFeatures = userPermissions
-     .filter((perm) => perm !== "admin_management" && perm !== "view_unmasked_phone_numbers") // Filter out admin_management and view_unmasked_phone_numbers
+     .filter((perm) => perm !== "admin_management" && perm !== "view_unmasked_phone_numbers" && perm !== "view_unmasked_car_numbers") // Filter out admin_management, view_unmasked_phone_numbers and view_unmasked_car_numbers
      .map((perm) => {
       const feature = featureConfig[perm];
       console.log(`[AdminHome] Permission "${perm}": feature found=${!!feature}`);

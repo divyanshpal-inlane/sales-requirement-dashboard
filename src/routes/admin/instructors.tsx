@@ -1,7 +1,7 @@
 import { describe } from "node:test";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { maskPhoneNumber } from "@/utils/phoneMasking";
+import { maskCarNumber, maskPhoneNumber } from "@/utils/phoneMasking";
 import { useCurrentAdmin } from "@/queries/adminPermissions";
 import { useCurrentUser } from "@/queries/userManagement";
 import { usePhoneVisibility } from "@/context/phone-visibility-context";
@@ -649,6 +649,11 @@ export default function InstructorsManagement() {
     currentAdmin?.is_super_admin ||
     currentAdmin?.permissions?.includes("view_unmasked_phone_numbers") ||
     currentUser?.permissions?.includes("view_unmasked_phone_numbers") ||
+    false;
+  const canViewUnmaskedCarNumbers =
+    currentAdmin?.is_super_admin ||
+    currentAdmin?.permissions?.includes("view_unmasked_car_numbers") ||
+    currentUser?.permissions?.includes("view_unmasked_car_numbers") ||
     false;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
@@ -1410,7 +1415,11 @@ export default function InstructorsManagement() {
                     <p>
                       {instructor.car_make || "N/A"} -{" "}
                       {instructor.car_mode || "N/A"} (
-                      {instructor.car_number || "N/A"})
+                      {instructor.car_number
+                        ? canViewUnmaskedCarNumbers
+                          ? instructor.car_number
+                          : maskCarNumber(instructor.car_number)
+                        : "N/A"})
                     </p>
                   </div>
                   <div>
