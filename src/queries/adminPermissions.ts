@@ -133,6 +133,12 @@ export const ADMIN_PERMISSIONS = {
       description: "View and edit unmasked phone numbers for instructors and learners",
       route: null,
     },
+    view_unmasked_car_numbers: {
+      key: "view_unmasked_car_numbers",
+      label: "View Unmasked Car Numbers",
+      description: "View unmasked vehicle registration numbers for instructors",
+      route: null,
+    },
     admin_management: {
       key: "admin_management",
       label: "User Management",

@@ -3,6 +3,7 @@ import { useCurrentAdmin } from "@/queries/adminPermissions";
 
 interface PhoneVisibilityContextType {
   canViewUnmaskedPhoneNumbers: boolean;
+  canViewUnmaskedCarNumbers: boolean;
   isLoading: boolean;
 }
 
@@ -22,8 +23,14 @@ export function PhoneVisibilityProvider({
     currentAdmin?.permissions?.includes("view_unmasked_phone_numbers") ||
     false;
 
+  const canViewUnmaskedCarNumbers =
+    currentAdmin?.is_super_admin ||
+    currentAdmin?.permissions?.includes("view_unmasked_car_numbers") ||
+    false;
+
   const value: PhoneVisibilityContextType = {
     canViewUnmaskedPhoneNumbers,
+    canViewUnmaskedCarNumbers,
     isLoading,
   };
 

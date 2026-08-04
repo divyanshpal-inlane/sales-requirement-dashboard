@@ -5,7 +5,9 @@ import { Bot, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useUser } from "@/context/auth-context";
+import { usePhoneVisibility } from "@/context/phone-visibility-context";
 import { supabase } from "@/lib/supabaseClient";
+import { maskCarNumber } from "@/utils/phoneMasking";
 import {
   useLearner,
   useLearnerEnrollment,
@@ -23,6 +25,7 @@ function useLearnerContext() {
   const { data: learner } = useLearner();
   const { data: enrollment } = useLearnerEnrollment({ learnerId: learner?.id });
   const { data: upcomingData } = useUpcomingLesson();
+  const { canViewUnmaskedCarNumbers } = usePhoneVisibility();
 
   const { data: schedulesWithInstructor } = useQuery({
     queryKey: ["chatbot-schedules", learner?.id, enrollment?.course_id],
@@ -89,7 +92,7 @@ function useLearnerContext() {
         status: upcoming.status,
         instructorName: upcomingInstructor?.name ?? null,
         instructorCar: upcomingInstructor?.car_make
-          ? `${upcomingInstructor.car_make} (${upcomingInstructor.car_number})`
+          ? `${upcomingInstructor.car_make} (${canViewUnmaskedCarNumbers ? upcomingInstructor.car_number : maskCarNumber(upcomingInstructor.car_number)})`
           : null,
       };
     }
@@ -108,7 +111,7 @@ function useLearnerContext() {
         instructorName: s.Instructor?.name ?? null,
         instructorPhone: s.Instructor?.phone ?? null,
         instructorCar: s.Instructor?.car_make
-          ? `${s.Instructor.car_make} (${s.Instructor.car_number})`
+          ? `${s.Instructor.car_make} (${canViewUnmaskedCarNumbers ? s.Instructor.car_number : maskCarNumber(s.Instructor.car_number)})`
           : null,
       }));
     }
@@ -136,6 +139,7 @@ function useLearnerContext() {
     schedulesWithInstructor,
     payments,
     rescheduleRequests,
+    canViewUnmaskedCarNumbers,
   ]);
 
   return { context, name: learner?.name };

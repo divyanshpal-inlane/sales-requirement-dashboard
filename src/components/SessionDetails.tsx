@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMaskedCall } from "@/hooks/useMaskedCall";
 import { usePhoneVisibility } from "@/context/phone-visibility-context";
 import { useLearner } from "@/queries/learner";
-import { maskPhoneNumber } from "@/utils/phoneMasking";
+import { maskCarNumber, maskPhoneNumber } from "@/utils/phoneMasking";
 import { Database } from "@/types/database.types";
 
 type ScheduleType = "course" | "demo" | "topup";
@@ -54,7 +54,7 @@ export function SessionDetails({
 }: SessionDetailsProps) {
   const { data } = useLearner();
   const { initiateCall, isCallLoading } = useMaskedCall();
-  const { canViewUnmaskedPhoneNumbers } = usePhoneVisibility();
+  const { canViewUnmaskedPhoneNumbers, canViewUnmaskedCarNumbers } = usePhoneVisibility();
   const pickupLocation = data?.pick_up_location;
   const lat = data?.address_lat;
   const lng = data?.address_lng;
@@ -127,7 +127,13 @@ export function SessionDetails({
           </div>
           <div className="flex flex-col gap-0">
             <p className="text-sm font-light">Car Number</p>
-            <p className="text-sm font-medium">{instructor.car_number}</p>
+            <p className="text-sm font-medium">
+              {instructor.car_number
+                ? canViewUnmaskedCarNumbers
+                  ? instructor.car_number
+                  : maskCarNumber(instructor.car_number)
+                : "N/A"}
+            </p>
           </div>
 
           <div className="col-span-2 flex flex-col gap-0">
