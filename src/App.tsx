@@ -15,6 +15,7 @@ import EarningsComparison from "@/app/instructor/earnings/EarningsComparison";
 import EarningsHome from "@/app/instructor/earnings/EarningsHome";
 import LeaveHome from "@/app/instructor/leave/LeaveHome";
 import ReportNoShow from "@/app/instructor/no-show/ReportNoShow";
+import SafetyHome from "@/app/instructor/safety/SafetyHome";
 import SupportHome from "@/app/instructor/support/SupportHome";
 import MoreWaysToEarn from "@/app/instructor/earnings/MoreWaysToEarn";
 import InstructorProfile from "@/app/instructor/InstructorProfile";
@@ -56,12 +57,14 @@ import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
 import LLCustomerMigration from "@/routes/admin/LLCustomerMigration";
+import LLPipeline from "@/routes/admin/LLPipeline";
 import LessonsDashboard from "@/routes/admin/LessonsDashboard";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminSettings from "@/routes/admin/Settings";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
+import Fees from "@/routes/fees";
 import Home from "@/routes/home";
 import InstructorAuth from "@/routes/InstructorAuth";
 import LoadingAndRedirect from "@/routes/LoadingandRedirect";
@@ -77,8 +80,10 @@ import StartLesson from "@/routes/startLesson";
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import CarCommerceLeads from "./routes/admin/CarCommerceLeads";
 import FeedbackManagement from "./routes/admin/FeedbackManagement";
+import InstructorPerformance from "./routes/admin/InstructorPerformance";
 import LeaveManagement from "./routes/admin/LeaveManagement";
 import NoShowManagement from "./routes/admin/NoShowManagement";
+import SafetyMonitoring from "./routes/admin/SafetyMonitoring";
 import SupportTickets from "./routes/admin/SupportTickets";
 import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import NotificationManagement from "./routes/admin/NotificationManagement";
@@ -150,6 +155,7 @@ export default function App() {
                 }
               />
               <Route path="help" element={<HelpSupport />} />
+              <Route path="fees" element={<Fees />} />
               <Route path="profile" element={<Profile2 />} />
             </Route>
             <Route path="/signature" element={<Lesson10 />} />
@@ -274,6 +280,14 @@ export default function App() {
               }
             />
             <Route
+              path="/instructor/safety"
+              element={
+                <ProtectedInstructorRoute>
+                  <SafetyHome />
+                </ProtectedInstructorRoute>
+              }
+            />
+            <Route
               path="/otp/start/:learnerId/:scheduleId"
               element={
                 <ProtectedInstructorRoute>
@@ -322,6 +336,7 @@ export default function App() {
               />
 
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
+              <Route path="ll-pipeline" element={<LLPipeline />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
               <Route path="learner-details" element={<LearnerDetails />} />
               <Route
@@ -370,6 +385,11 @@ export default function App() {
               <Route path="leave-management" element={<LeaveManagement />} />
               <Route path="no-shows" element={<NoShowManagement />} />
               <Route path="support-tickets" element={<SupportTickets />} />
+              <Route path="safety-monitoring" element={<SafetyMonitoring />} />
+              <Route
+                path="instructor-performance"
+                element={<InstructorPerformance />}
+              />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />

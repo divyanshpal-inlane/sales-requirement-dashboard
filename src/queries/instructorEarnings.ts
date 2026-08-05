@@ -202,6 +202,7 @@ export interface InstructorEarningsData {
   nextPayoutDate: string;
   payoutDay: string;
   bonusMtd: number;
+  referralMtd: number;
   hasLastMonthData: boolean;
   classesThisMonth: number;
   assignedThisMonth: number;
@@ -312,6 +313,9 @@ export function useInstructorEarnings(phone: string | undefined) {
         payoutDay: config.payout_day,
         bonusMtd: sumAdjustments(adjustments, periods.thisMonth, [
           "bonus",
+          "referral",
+        ]),
+        referralMtd: sumAdjustments(adjustments, periods.thisMonth, [
           "referral",
         ]),
         hasLastMonthData: totals.lastMonth.classes > 0,

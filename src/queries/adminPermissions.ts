@@ -28,6 +28,13 @@ export const ADMIN_PERMISSIONS = {
     description: "Process and update learner's license applications",
     route: "/admin/learner-ll-details",
   },
+  ll_pipeline: {
+    key: "ll_pipeline",
+    label: "LL → DL Pipeline",
+    description:
+      "End-to-end RTO application tracking: docs, call, scrutiny, LL/DL tests, delivery",
+    route: "/admin/ll-pipeline",
+  },
   post_ll_applications: {
     key: "post_ll_applications",
     label: "Post-LL Applications",
@@ -161,6 +168,27 @@ export const ADMIN_PERMISSIONS = {
       label: "LL Customer Migration",
       description: "Bulk-import existing Learner's License customers from CSV",
       route: "/admin/ll-customer-migration",
+    },
+    compliance_forms: {
+      key: "compliance_forms",
+      label: "Compliance Forms",
+      description:
+        "Generate RTO Form 14, Form 15 & Certificate for any customer",
+      route: "/admin/compliance-forms",
+    },
+    safety_monitoring: {
+      key: "safety_monitoring",
+      label: "Safety Monitoring",
+      description:
+        "Accidents, breakdowns, misconduct reports and SOS alerts",
+      route: "/admin/safety-monitoring",
+    },
+    instructor_performance: {
+      key: "instructor_performance",
+      label: "Instructor Performance",
+      description:
+        "Attendance, punctuality, ratings, complaints and completion rates",
+      route: "/admin/instructor-performance",
     },
   } as const;
 
