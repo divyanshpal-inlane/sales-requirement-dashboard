@@ -80,6 +80,7 @@ import StartLesson from "@/routes/startLesson";
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import CarCommerceLeads from "./routes/admin/CarCommerceLeads";
 import FeedbackManagement from "./routes/admin/FeedbackManagement";
+import ControlTower from "./routes/admin/ControlTower";
 import InstructorPerformance from "./routes/admin/InstructorPerformance";
 import LeaveManagement from "./routes/admin/LeaveManagement";
 import NoShowManagement from "./routes/admin/NoShowManagement";
@@ -390,6 +391,7 @@ export default function App() {
                 path="instructor-performance"
                 element={<InstructorPerformance />}
               />
+              <Route path="control-tower" element={<ControlTower />} />
             </Route>
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/payment/callback" element={<PaymentCallback />} />
