@@ -137,6 +137,7 @@ export default function AdminSchedules() {
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
     useState(false);
+    
   const [selectedRequest, setSelectedRequest] = useState<
     SchedulingRequests[number] | null
   >(null);
@@ -1802,6 +1803,16 @@ export const LearnerSchedulesManager = ({
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
     useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  // NEW - Pause Lesson Dialog State
+const [isPauseDialogOpen, setIsPauseDialogOpen] = useState(false);
+
+const [pauseReason, setPauseReason] =
+  useState<"payment" | "other">("payment");
+
+const [pauseNotes, setPauseNotes] = useState("");
+const [pauseType, setPauseType] =
+  useState<"single" | "all">("single");
+
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [instructorChangeFromLesson, setInstructorChangeFromLesson] = useState<
     number | null
@@ -2085,20 +2096,37 @@ export const LearnerSchedulesManager = ({
     }
   };
 
-  const onUpdateStatus = async (
-    scheduleId: string | number,
-    newStatus: string,
-  ) => {
+const onUpdateStatus = async (
+  scheduleId: string | number,
+  newStatus: string,
+  pauseReason?: "payment" | "other",
+  pauseNotes?: string,
+) => {
     try {
       setIsProcessing(true);
       // Convert to number if it's a string, as the database expects an integer ID
       const numericId =
         typeof scheduleId === "string" ? Number(scheduleId) : scheduleId;
 
-      const { error } = await supabase
-        .from("Schedule")
-        .update({ status: newStatus })
-        .eq("id", numericId);
+     const updates: any = {
+  status: newStatus,
+};
+
+if (newStatus === "paused") {
+  updates.pause_reason = pauseReason;
+  updates.pause_notes =
+    pauseReason === "other" ? pauseNotes : null;
+}
+
+if (newStatus === "booked") {
+  updates.pause_reason = null;
+  updates.pause_notes = null;
+}
+
+const { error } = await supabase
+  .from("Schedule")
+  .update(updates)
+  .eq("id", numericId);
 
       if (error) throw error;
       await syncData();
@@ -2118,8 +2146,11 @@ export const LearnerSchedulesManager = ({
   };
 
   // Pause or resume ALL upcoming (booked) lessons for this learner
-  const onPauseResumeAll = async (action: "pause" | "resume") => {
-    if (!learner?.schedules) return;
+const onPauseResumeAll = async (
+  action: "pause" | "resume",
+  pauseReason?: "payment" | "other",
+  pauseNotes?: string,
+) => {    if (!learner?.schedules) return;
     try {
       setIsProcessing(true);
       const today = format(new Date(), "yyyy-MM-dd");
@@ -2140,10 +2171,25 @@ export const LearnerSchedulesManager = ({
         return;
       }
 
-      const { error } = await supabase
-        .from("Schedule")
-        .update({ status: newStatus })
-        .in("id", scheduleIds);
+      const updates: any = {
+  status: newStatus,
+};
+
+if (newStatus === "paused") {
+  updates.pause_reason = pauseReason;
+  updates.pause_notes =
+    pauseReason === "other" ? pauseNotes : null;
+}
+
+if (newStatus === "booked") {
+  updates.pause_reason = null;
+  updates.pause_notes = null;
+}
+
+const { error } = await supabase
+  .from("Schedule")
+  .update(updates)
+  .in("id", scheduleIds);
 
       if (error) throw error;
       await syncData();
@@ -2784,14 +2830,18 @@ export const LearnerSchedulesManager = ({
                   s.date >= format(new Date(), "yyyy-MM-dd"),
               ) && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                  disabled={isProcessing}
-                  onClick={() => onPauseResumeAll("pause")}
-                >
-                  Pause Class
-                </Button>
+  variant="outline"
+  size="sm"
+  className="border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
+  onClick={() => {
+    setPauseType("all");
+    setPauseReason("payment");
+    setPauseNotes("");
+    setIsPauseDialogOpen(true);
+  }}
+>
+  Pause Class
+</Button>
               )}
               {learner?.schedules?.some(
                 (s: any) =>
@@ -2994,22 +3044,26 @@ export const LearnerSchedulesManager = ({
                             >
                               Reschedule
                             </DropdownMenuItem>
-                            {schedule.status !== "completed" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  onUpdateStatus(
-                                    schedule.id,
-                                    schedule.status === "paused"
-                                      ? "booked"
-                                      : "paused",
-                                  )
-                                }
-                              >
-                                {schedule.status === "paused"
-                                  ? "Resume Lesson"
-                                  : "Pause Lesson"}
-                              </DropdownMenuItem>
-                            )}
+                            {schedule.status !== "completed" &&
+  (schedule.status === "paused" ? (
+    <DropdownMenuItem
+      onClick={() => onUpdateStatus(schedule.id, "booked")}
+    >
+      Resume Lesson
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem
+      onClick={() => {
+        setSelectedSchedule(schedule);
+        setPauseReason("payment");
+        setPauseType("single");
+        setPauseNotes("");
+        setIsPauseDialogOpen(true);
+      }}
+    >
+      Pause Lesson
+    </DropdownMenuItem>
+  ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -3293,7 +3347,113 @@ export const LearnerSchedulesManager = ({
           </div>
         </DialogContent>
       </Dialog>
+      {/* Pause Lesson Dialog */}
+<Dialog
+  open={isPauseDialogOpen}
+  onOpenChange={setIsPauseDialogOpen}
+>
+  <DialogContent className="sm:max-w-md [&>button]:border 
+  [&>button]:border-green-500 [&>button]:rounded-md [&>button]:hover:bg-green-50">
+    <DialogHeader>
+      <DialogTitle>Pause Lesson</DialogTitle>
+      <DialogDescription>
+        Select a reason for pausing this lesson.
+      </DialogDescription>
+    </DialogHeader>
 
+   <div className="space-y-4">
+
+  <div className="space-y-3">
+
+    <label className="flex items-center gap-2 text-sm font-medium">
+      <input
+        type="radio"
+        name="pauseReason"
+        value="payment"
+        checked={pauseReason === "payment"}
+        onChange={() => {
+          setPauseReason("payment");
+          setPauseNotes("");
+        }}
+      />
+      Due to Payment
+    </label>
+
+
+    <label className="flex items-center gap-2 text-sm font-medium">
+      <input
+        type="radio"
+        name="pauseReason"
+        value="other"
+        checked={pauseReason === "other"}
+        onChange={() => setPauseReason("other")}
+      />
+      Other Reason
+    </label>
+
+  </div>
+
+
+  {pauseReason === "other" && (
+    <div className="space-y-2">
+
+      <label className="text-sm font-medium text-gray-700">
+        Reason
+      </label>
+
+      <textarea
+        value={pauseNotes}
+        onChange={(e) => setPauseNotes(e.target.value)}
+        placeholder="Enter reason for pausing lesson"
+        className="min-h-[90px] w-full rounded-md border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+      />
+
+    </div>
+  )}
+
+
+  <div className="flex justify-end gap-2 pt-3">
+
+    <Button
+      variant="outline"
+      onClick={() => setIsPauseDialogOpen(false)}
+    >
+      Cancel
+    </Button>
+
+<Button
+  disabled={
+    pauseReason === "other" &&
+    pauseNotes.trim() === ""
+  }
+  onClick={() => {
+    if (pauseType === "single") {
+      if (!selectedSchedule) return;
+
+      onUpdateStatus(
+        selectedSchedule.id,
+        "paused",
+        pauseReason,
+        pauseNotes
+      );
+    } else {
+      onPauseResumeAll(
+        "pause",
+        pauseReason,
+        pauseNotes
+      );
+    }
+
+    setIsPauseDialogOpen(false);
+  }}
+>
+  Pause
+</Button>
+  </div>
+
+</div>
+  </DialogContent>
+</Dialog>
       {/* Topup Dialog */}
       <Dialog
         open={isTopupDialogOpen}
