@@ -75,6 +75,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Guard: if Supabase fires SIGNED_OUT while a Go auth user is logged in
+      // (e.g. because refreshSession failed with an invalid token during Go login),
+      // do NOT clear the user state.  We can detect this by checking whether
+      // go_access_token is still in localStorage:
+      //   - During Go login: go_access_token is set BEFORE refreshSession runs,
+      //     so it is present here → suppress the spurious SIGNED_OUT.
+      //   - During real logout: logout() removes go_access_token BEFORE calling
+      //     supabase.auth.signOut(), so it is gone here → SIGNED_OUT proceeds normally.
+      if (_event === 'SIGNED_OUT' && !session && localStorage.getItem("go_access_token")) {
+        console.log("[AUTH] SIGNED_OUT suppressed — Go auth session in progress.");
+        setLoading(false);
+        return;
+      }
+
       setUser(session?.user ?? null);
       setLoading(false);
       // Shadow auth only applies to pilot users in the Go migration list
@@ -144,14 +158,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("go_refresh_token", goResponse.refreshToken);
 
       // ── Establish Supabase session ────────────────────────────────────────
-      // The Go service may return a refreshToken that is a valid Supabase
-      // refresh token (obtained during shadow-auth migration).  If so,
-      // refreshSession() is the most reliable path because it avoids the
-      // "User from sub claim does not exist" error that occurs when the Go
-      // service's supabaseAccessToken carries its own internal UUID instead of
-      // the user's real Supabase UUID.
+      // Strategy:
+      //   Step 1 — refreshSession: works if Go passes back a valid Supabase
+      //            refresh token (e.g. after shadow-auth migration).
+      //   Step 2 — Direct injection: if refreshSession fails it means Go's
+      //            tokens are not recognised by Supabase.  We SKIP setSession
+      //            entirely because calling it when the JWT sub does not exist
+      //            in auth.users triggers an internal _removeSession() that
+      //            (a) clears localStorage and (b) fires onAuthStateChange
+      //            SIGNED_OUT — both of which wipe the tokens we are about to
+      //            store.  Instead we inject the supabaseAccessToken straight
+      //            into Supabase's storage and set user state from Go response.
 
-      // Step 1: try with the refresh token alone (preferred)
+      // Step 1: try refreshSession (uses only the refresh token, no sub validation)
       const { data: refreshData, error: refreshError } =
         await supabase.auth.refreshSession({ refresh_token: goResponse.refreshToken });
 
@@ -163,32 +182,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.warn("[AUTH] refreshSession failed:", refreshError?.message, "— trying setSession.");
-
-      // Step 2: try setSession with the full supabaseAccessToken
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.setSession({
-          access_token: goResponse.supabaseAccessToken,
-          refresh_token: goResponse.refreshToken,
-        });
-
-      if (!sessionError && sessionData?.session) {
-        console.log("[AUTH] ✅ Supabase session established via setSession.");
-        if (sessionData.user && sessionData.session) {
-          triggerShadowAuth(sessionData.user, sessionData.session);
-        }
-        return;
-      }
-
       console.warn(
-        "[AUTH] setSession failed:",
-        sessionError?.message,
-        "— setting user state from Go response directly.",
+        "[AUTH] refreshSession failed:",
+        refreshError?.message,
+        "— injecting Go tokens directly (skipping setSession to avoid SIGNED_OUT race).",
       );
 
-      // Step 3: Neither Supabase method worked (the Go service JWT sub does not
-      // exist in Supabase auth.users yet).  Construct a minimal Supabase-shaped
-      // User object from the verified Go response so the app remains functional.
+      // Step 2: inject directly — do NOT call setSession here.
+      // Construct a minimal Supabase-shaped User from the Go response.
       const goUser = {
         id: goResponse.user.id,
         phone: goResponse.user.phone,
