@@ -901,6 +901,9 @@ export default function InstructorsManagement() {
           schedules:Schedule (
             id,
             date,
+            status,
+            pause_reason,
+            pause_notes,
             start_time,
             end_time,
             course_id,
@@ -5742,7 +5745,7 @@ export const InstructorSchedulePage = () => {
     MINT: "#00FF91",
     ORANGE: "#FFC229",
     CYAN: "#6BECFF",
-    BLOCK: "#475568",
+    BLOCK: "#030508",
   };
 
   // Tentative > status > default. Status compared lowercase since it's a
@@ -5758,11 +5761,19 @@ export const InstructorSchedulePage = () => {
     }
     const status = schedule.status?.toLowerCase();
     if (status === "paused") {
-      return {
-        block: "border-slate-700 bg-slate-500 text-white",
-        card: "border-slate-200 bg-slate-50",
-      };
-    }
+
+  if (schedule.pause_reason?.toLowerCase() === "payment") {
+    return {
+      block: "border-red-700 bg-red-500 text-white",
+      card: "border-red-200 bg-red-50",
+    };
+  }
+
+  return {
+    block: "border-slate-700 bg-slate-500 text-white",
+    card: "border-slate-200 bg-slate-50",
+  };
+}
     if (status === "ongoing") {
       return {
         block: "border-blue-700 bg-blue-500 text-white",
@@ -6063,6 +6074,10 @@ export const InstructorSchedulePage = () => {
               <span className="h-2 w-2 rounded-sm bg-slate-500" />
               Paused
             </span>
+            <span className="flex items-center gap-1">
+  <span className="h-2 w-2 rounded-sm bg-red-500" />
+  Payment Due
+</span>
           </div>
 
           <div className="relative w-full max-w-xs">
@@ -6317,7 +6332,20 @@ export const InstructorSchedulePage = () => {
                                 : "N/A"}
                             </span>
                           </div>
+                      
+                          {schedule.status?.toLowerCase() === "paused" && (
+  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-100/40 p-2.5 text-[11px] text-slate-600">
+    <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+      Pause Notes
+    </p>
 
+    <span className="block italic leading-relaxed">
+      {schedule.pause_reason?.toLowerCase() === "payment"
+        ? "Due to payment"
+        : schedule.pause_notes || "N/A"}
+    </span>
+  </div>
+)}
                           {/* 6. LEAD NAME */}
                           <div className="flex items-center gap-2 pt-1">
                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
