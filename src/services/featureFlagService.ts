@@ -5,6 +5,8 @@
 
 interface FeatureFlags {
   shadow_auth_enabled?: boolean;
+  /** When true, login goes through the Go backend instead of Supabase directly. */
+  go_auth_enabled?: boolean;
   [key: string]: any;
 }
 
@@ -20,9 +22,10 @@ let flagCache: CachedFlags | null = null;
 const DEFAULT_TTL = 3600000;
 
 // Feature Flag API endpoint
-// Uses backend base URL from environment, defaults to localhost for development
+// In dev the Vite proxy rewrites /go-api/* → http://localhost:8080/v1/*
+// In production set VITE_BACKEND_API to the real Go service base URL (e.g. https://api.inlane.in/v1)
 const BACKEND_API =
-  import.meta.env.VITE_BACKEND_API || 'http://localhost:3000';
+  import.meta.env.VITE_BACKEND_API || '/go-api';
 
 const FEATURE_FLAG_API = `${BACKEND_API}/internal/feature-flags`;
 
