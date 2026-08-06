@@ -190,6 +190,13 @@ export const ADMIN_PERMISSIONS = {
         "Attendance, punctuality, ratings, complaints and completion rates",
       route: "/admin/instructor-performance",
     },
+    ops_control_tower: {
+      key: "ops_control_tower",
+      label: "Operations Control Tower",
+      description:
+        "Live KPIs, today's operations and exception dashboard in one place",
+      route: "/admin/control-tower",
+    },
   } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;

@@ -19,6 +19,7 @@ import {
   LogOut,
   MessageSquare,
   PhoneCall,
+  Radar,
   Settings,
   ShieldCheck,
   Siren,
@@ -267,6 +268,14 @@ const featureConfig: Record<
     icon: Gauge,
     link: "/admin/instructor-performance",
     color: "text-emerald-600",
+  },
+  ops_control_tower: {
+    title: "Operations Control Tower",
+    description:
+      "Live KPIs, today's operations and exception dashboard in one place",
+    icon: Radar,
+    link: "/admin/control-tower",
+    color: "text-blue-600",
   },
   compliance_forms: {
     title: "Compliance Forms",
