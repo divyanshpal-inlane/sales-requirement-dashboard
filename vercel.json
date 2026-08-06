@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/go-api/:path*",
+      "destination": "https://54yexougxi.execute-api.ap-south-1.amazonaws.com/prod/v1/:path*"
+    },
+    {
       "source": "/games/d1p2nu8lfeelfo/:path*",
       "destination": "https://staging.d1p2nu8lfeelfo.amplifyapp.com/:path*"
     },
