@@ -12,8 +12,7 @@
  * per-user gate on top of the global flag.
  */
 export const GO_AUTH_USERS: ReadonlySet<string> = new Set([
-  // Add 10-digit phone numbers here, e.g.:
-    "7006342430",
+  "7006342430",
 ]);
 
 /**
