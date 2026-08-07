@@ -198,9 +198,15 @@ export function useCurrentAdmin() {
   return useQuery({
     queryKey: ["currentAdmin"],
     queryFn: async () => {
+      // Use getSession() (local localStorage read) instead of getUser() (server
+      // validation call).  getUser() fails for Go-authenticated users because the
+      // JWT sub claim is the Go service's internal UUID which does not exist in
+      // Supabase's auth.users table.  getSession() returns the injected session
+      // that contains the correct phone without making a network request.
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
 
       if (!user?.phone) {
         console.log("[useCurrentAdmin] No phone on auth user");
@@ -347,7 +353,6 @@ export function useAllAdmins() {
 // Create new admin (super admin only)
 export function useCreateAdmin() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({
       phone,

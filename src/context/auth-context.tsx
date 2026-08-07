@@ -22,8 +22,9 @@ interface GoLoginResponse {
   accessToken: string;
   refreshToken: string;
   supabaseAccessToken: string;
+  supabaseUserId: string; // Supabase auth.users UUID (must match JWT sub claim)
   user: {
-    id: string;
+    id: string;           // RDS/Go-service internal user UUID
     phone: string;
     role: string;
     status: string;
@@ -190,8 +191,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Step 2: inject directly — do NOT call setSession here.
       // Construct a minimal Supabase-shaped User from the Go response.
+      // Use supabaseUserId (not user.id which is the RDS UUID) as the Supabase user ID.
       const goUser = {
-        id: goResponse.user.id,
+        id: goResponse.supabaseUserId,  // Supabase auth.users UUID (must match JWT sub claim)
         phone: goResponse.user.phone,
         aud: "authenticated",
         role: "authenticated",
