@@ -44,6 +44,11 @@ interface AuthContextType {
     otp: string,
     newPassword: string | null,
   ) => Promise<void>;
+  changePassword: (
+    oldPassword: string,
+    newPassword: string,
+    confirmNewPassword: string,
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -580,6 +585,129 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return;
   };
 
+  const changePassword = async (
+    oldPassword: string,
+    newPassword: string,
+    confirmNewPassword: string,
+  ) => {
+    // Client-side validation
+    if (!oldPassword) {
+      throw new Error("Please enter your current password");
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("New password must be at least 6 characters long");
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      throw new Error("New password and confirmation password must match.");
+    }
+
+    if (oldPassword === newPassword) {
+      throw new Error("New password must be different from old password");
+    }
+
+    if (!user?.phone) {
+      throw new Error("User not found. Please log in again.");
+    }
+
+    // Normalize phone to last 10 digits
+    const last10 = user.phone.replace(/\D/g, "").slice(-10);
+
+    // ── Go-service change password (feature-flagged + per-user pilot list) ───────
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
+
+    if (goAuthEnabled && isGoAuthUser(last10)) {
+      console.log("[AUTH] Changing password via Go service for pilot user:", last10);
+
+      const goAccessToken = localStorage.getItem("go_access_token");
+      if (!goAccessToken) {
+        throw new Error("Authentication required. Please log in again.");
+      }
+
+      const res = await fetch(`${BACKEND_API}/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${goAccessToken}`,
+        },
+        body: JSON.stringify({
+          oldPassword,
+          newPassword,
+          confirmNewPassword,
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+
+        // Handle specific error codes from Go service
+        if (errBody.code === "password_do_not_match") {
+          throw new Error("New password and confirmation password must match.");
+        }
+        if (errBody.code === "weak_password") {
+          throw new Error("Password must be at least 6 characters.");
+        }
+        if (errBody.code === "invalid_credentials") {
+          throw new Error("Current password is incorrect.");
+        }
+        if (errBody.code === "unauthorized" || res.status === 401) {
+          throw new Error("Authentication required. Please log in again.");
+        }
+
+        throw new Error(errBody.message || "Failed to change password. Please try again.");
+      }
+
+      console.log("[AUTH] ✅ Password changed successfully via Go service.");
+      return;
+    }
+
+    // ── Fallback: Supabase-based password change ───────────────────────────────
+    console.log("[AUTH] Changing password via Supabase for user:", last10);
+
+    if (!user?.id) {
+      throw new Error("User not found. Please log in again.");
+    }
+
+    // First, verify the old password by attempting to sign in
+    const phoneFormats = [
+      `+91${last10}`,
+      last10,
+      user.phone,
+    ];
+
+    let isPasswordValid = false;
+
+    for (const phoneFormat of phoneFormats) {
+      const { error } = await supabase.auth.signInWithPassword({
+        phone: phoneFormat,
+        password: oldPassword,
+      });
+
+      if (!error) {
+        isPasswordValid = true;
+        break;
+      }
+    }
+
+    if (!isPasswordValid) {
+      throw new Error("Current password is incorrect.");
+    }
+
+    // If password is verified, update to new password
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.id,
+      { password: newPassword },
+    );
+
+    if (updateError) {
+      throw new Error("Failed to update password: " + updateError.message);
+    }
+
+    console.log("[AUTH] ✅ Password changed successfully via Supabase.");
+    return;
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -593,6 +721,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         requestPasswordReset: requestPasswordResetAlternative, // Use the alternative implementation
         verifyOtpAndResetPassword,
+        changePassword,
       }}
     >
       {children}

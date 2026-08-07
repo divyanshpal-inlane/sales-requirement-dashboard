@@ -35,7 +35,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/auth-context";
-import { supabaseAdmin } from "@/context/auth-context";
 
 export function NavUser({
   user,
@@ -46,7 +45,7 @@ export function NavUser({
     avatar: string;
   };
 }) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, changePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -64,46 +63,14 @@ export function NavUser({
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    // Validation
-    if (!passwordForm.oldPassword) {
-      setErrorMessage("Please enter your current password");
-      return;
-    }
-
-    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
-      setErrorMessage("New password must be at least 6 characters long");
-      return;
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setErrorMessage("Passwords do not match");
-      return;
-    }
-
-    if (passwordForm.oldPassword === passwordForm.newPassword) {
-      setErrorMessage("New password must be different from old password");
-      return;
-    }
-
     setIsChangingPassword(true);
 
     try {
-      // Update password using Supabase admin API
-      if (!authUser?.id) {
-        throw new Error("User not found");
-      }
-
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(
-        authUser.id,
-        {
-          password: passwordForm.newPassword,
-        },
+      await changePassword(
+        passwordForm.oldPassword,
+        passwordForm.newPassword,
+        passwordForm.confirmPassword,
       );
-
-      if (error) {
-        throw new Error(error.message);
-      }
 
       setSuccessMessage("Password changed successfully!");
       setPasswordForm({
