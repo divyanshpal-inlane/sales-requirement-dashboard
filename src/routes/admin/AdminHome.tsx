@@ -49,7 +49,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/auth-context";
-import { supabaseAdmin, supabase } from "@/context/auth-context";
 import {
   ADMIN_PERMISSIONS,
   PermissionKey,
@@ -266,7 +265,7 @@ const featureConfig: Record<
 export default function AdminHome() {
   const { data: currentAdmin, isLoading: adminLoading } = useCurrentAdmin();
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
-  const { logout, user } = useAuth();
+  const { logout, user, changePassword } = useAuth();
   const navigate = useNavigate();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -285,72 +284,14 @@ export default function AdminHome() {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    // Validation
-    if (!passwordForm.oldPassword) {
-      setErrorMessage("Please enter your current password");
-      return;
-    }
-
-    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
-      setErrorMessage("New password must be at least 6 characters long");
-      return;
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setErrorMessage("Passwords do not match");
-      return;
-    }
-
-    if (passwordForm.oldPassword === passwordForm.newPassword) {
-      setErrorMessage("New password must be different from old password");
-      return;
-    }
-
     setIsChangingPassword(true);
 
     try {
-      if (!user?.id || !user?.phone) {
-        throw new Error("User not found");
-      }
-
-      // First, verify the old password by attempting to sign in
-      const normalizedPhone = user.phone.replace(/\D/g, "");
-      const phoneFormats = [
-        `+91${normalizedPhone.slice(-10)}`,
-        normalizedPhone.slice(-10),
-        user.phone,
-      ];
-
-      let isPasswordValid = false;
-
-      for (const phoneFormat of phoneFormats) {
-        const { error } = await supabase.auth.signInWithPassword({
-          phone: phoneFormat,
-          password: passwordForm.oldPassword,
-        });
-
-        if (!error) {
-          isPasswordValid = true;
-          break;
-        }
-      }
-
-      if (!isPasswordValid) {
-        throw new Error("Current password is incorrect");
-      }
-
-      // If password is verified, update to new password
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        {
-          password: passwordForm.newPassword,
-        },
+      await changePassword(
+        passwordForm.oldPassword,
+        passwordForm.newPassword,
+        passwordForm.confirmPassword,
       );
-
-      if (updateError) {
-        throw new Error(updateError.message);
-      }
 
       setSuccessMessage("Password changed successfully!");
       setPasswordForm({
