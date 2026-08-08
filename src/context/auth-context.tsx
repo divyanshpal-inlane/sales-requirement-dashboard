@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userRole = goResponse.user?.role;
       const isValidRole =
         userRole === role ||
-        (role === "admin" && (userRole === "admin" || userRole === "user"));
+        (role === "admin" && (userRole === "admin" || userRole === "user" || userRole === "super_admin"));
 
       if (!isValidRole) {
         console.error("[AUTH] Role mismatch:", { expected: role, actual: userRole });
@@ -804,8 +804,9 @@ export function ProtectedAdminRoute({
     return <Navigate to="/login" />;
   }
 
-  // Allow both "admin" (super admin and admin) and "user" (team members created by admin) roles
-  if (user.user_metadata.user_role !== "admin" && user.user_metadata.user_role !== "user") {
+  // Allow "admin", "super_admin", and "user" (team members created by admin) roles
+  const userRole = user.user_metadata.user_role;
+  if (userRole !== "admin" && userRole !== "user" && userRole !== "super_admin") {
     return <Navigate to="/login" />;
   }
 
