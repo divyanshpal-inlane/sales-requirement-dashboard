@@ -9,10 +9,6 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-// The 10-lesson Beginner course. The demo lesson doubles as this course's
-// first lesson, so demo-credit lesson skipping applies ONLY to this course.
-const BEGINNER_COURSE_ID = "e129f667-0510-4f07-9847-edb58356dc74";
-
 /**
  * Calculate how many lessons to unlock for half (first installment) payment.
  * 10hr→8, 8hr→6, 6hr→4, 4hr→2, 2hr→1. Demo (1hr) = full payment only.
@@ -62,6 +58,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Timing helper for debugging latency
+  const callbackStartTime = performance.now();
+  const timings: Record<string, number> = {};
+  
+  const recordTiming = (label: string) => {
+    const elapsed = performance.now() - callbackStartTime;
+    timings[label] = elapsed;
+    console.log(`[Payment Callback] ${label}: ${elapsed.toFixed(0)}ms`);
+  };
+
+  recordTiming("callback-received");
 
   const supabaseClient = createClient(
     Deno.env.get("MY_SUPABASE_URL") ?? "",
@@ -131,10 +139,11 @@ serve(async (req) => {
     delete dataForHash.isCallFromPaymentOptionsPage;
     delete dataForHash.paymentDateTime;
 
-    // Verify secure hash
-    const calculatedHash = await generateSecureHash(dataForHash, secretKey);
+     // Verify secure hash
+     const calculatedHash = await generateSecureHash(dataForHash, secretKey);
+     recordTiming("hash-verified");
 
-    console.log("Hash verification:", {
+     console.log("Hash verification:", {
       received: receivedHash,
       calculated: calculatedHash,
       match: calculatedHash === receivedHash,
@@ -189,19 +198,20 @@ serve(async (req) => {
       gatewayReference,
     });
 
-    // First verify the payment exists
-    const { data: existingPayment, error: fetchError } = await supabaseClient
-      .from("payment")
-      .select("id, status")
-      .eq("id", paymentId)
-      .single();
+     // First verify the payment exists
+     const { data: existingPayment, error: fetchError } = await supabaseClient
+       .from("payment")
+       .select("id, status")
+       .eq("id", paymentId)
+       .single();
+     recordTiming("payment-fetched");
 
-    if (fetchError || !existingPayment) {
-      console.error("Payment not found:", { paymentId, fetchError });
-      throw new Error(`Payment not found: ${paymentId}`);
-    }
+     if (fetchError || !existingPayment) {
+       console.error("Payment not found:", { paymentId, fetchError });
+       throw new Error(`Payment not found: ${paymentId}`);
+     }
 
-    console.log("Found existing payment:", {
+     console.log("Found existing payment:", {
       paymentId,
       currentStatus: existingPayment.status,
       newStatus: status,
@@ -218,12 +228,13 @@ serve(async (req) => {
       .select("id, status")
       .single();
 
-    if (updateError) {
-      console.error("Error updating payment:", updateError);
-      throw updateError;
-    }
+     if (updateError) {
+       console.error("Error updating payment:", updateError);
+       throw updateError;
+     }
+     recordTiming("payment-updated");
 
-    console.log("Payment updated successfully:", {
+     console.log("Payment updated successfully:", {
       paymentId,
       updatedStatus: updatedPayment?.status,
     });
@@ -245,12 +256,13 @@ serve(async (req) => {
       .eq("id", paymentId)
       .single();
 
-    if (paymentError) {
-      console.error("Error fetching payment:", paymentError);
-      throw paymentError;
-    }
+     if (paymentError) {
+       console.error("Error fetching payment:", paymentError);
+       throw paymentError;
+     }
+     recordTiming("payment-details-fetched");
 
-    // Use addlParam1 for installmentType if available, otherwise use from payment record
+     // Use addlParam1 for installmentType if available, otherwise use from payment record
     const installmentType = addlParam1 || payment.installment_type || "full";
     // Use addlParam2 for paymentType if available, otherwise use from payment record
     const paymentType = addlParam2 || payment.payment_type || "course";
@@ -290,24 +302,24 @@ serve(async (req) => {
               totalCourseLessons;
           }
 
-          // Demo-as-lesson-1 skipping applies ONLY to the Beginner course,
-          // where the demo doubles as lesson 1. Include "upgraded" demos so
-          // the credit survives the completed -> upgraded status flip (same
-          // count as _shared/complete-payment.ts and CreateSchedule).
-          let demoSkip = 0;
-          if (enrollment.course_id === BEGINNER_COURSE_ID) {
-            const { data: completedDemoPayments } = await supabaseClient
-              .from("payment")
-              .select("id")
-              .eq("learner_id", payment.learner_id)
-              .eq("payment_type", "demo")
-              .in("status", ["completed", "upgraded"]);
-            demoSkip = Math.min(
-              completedDemoPayments?.length ?? 0,
-              totalCourseLessons,
-            );
-          }
-          const remainingLessons = Math.max(0, totalCourseLessons - demoSkip);
+          // Demo hours already driven stand in for the course's first lessons
+          // on every upgrade target, because the demo's price is credited
+          // against the course price — otherwise the learner pays for N hours
+          // and drives N+1. Include "upgraded" demos so the credit survives
+          // the completed -> upgraded status flip, and clamp so at least one
+          // course hour always remains (same rule as
+          // _shared/complete-payment.ts and CreateSchedule).
+          const { data: completedDemoPayments } = await supabaseClient
+            .from("payment")
+            .select("id")
+            .eq("learner_id", payment.learner_id)
+            .eq("payment_type", "demo")
+            .in("status", ["completed", "upgraded"]);
+          const demoSkip = Math.min(
+            completedDemoPayments?.length ?? 0,
+            Math.max(0, totalCourseLessons - 1),
+          );
+          const remainingLessons = Math.max(1, totalCourseLessons - demoSkip);
           const fullUnlock = Array.from(
             { length: remainingLessons },
             (_, i) => i + 1 + demoSkip,
@@ -349,11 +361,12 @@ serve(async (req) => {
             })
             .eq("id", enrollment.id);
 
-          if (enrollmentError) {
-            console.error("Error updating enrollment:", enrollmentError);
-            throw enrollmentError;
-          }
-        } else if (paymentType === "reschedule") {
+           if (enrollmentError) {
+             console.error("Error updating enrollment:", enrollmentError);
+             throw enrollmentError;
+           }
+           recordTiming("enrollment-updated");
+         } else if (paymentType === "reschedule") {
           const { error: scheduleError } = await supabaseClient
             .from("Schedule")
             .update({
@@ -638,24 +651,66 @@ serve(async (req) => {
             .eq("id", enrollment.id);
 
           if (enrollmentError) throw enrollmentError;
-        }
 
-        // Send thank you message
-        const { error: messageError } = await supabaseClient.functions.invoke(
-          "send-message",
-          {
-            body: {
-              message_type: "WEBAPP_THANK_YOU_FOR_PAYMENT_GENERIC",
+          // The admin scheduler has no Courses/Lesson rows to fall back on for
+          // a custom course (course_id is NULL), so reschedule_requests
+          // .lesson_ids is the ONLY signal for how many hours to schedule —
+          // see CreateSchedule's isVirtualLessons branch. Without this, a
+          // demo->custom upgrade left the demo's stale ["virtual-lesson-1"]
+          // request in place and every custom course looked like a single
+          // 1-hour lesson on the admin side.
+          //
+          // Always list ALL lessons regardless of installment state: unlike
+          // the learner-facing unlocked_lessons, the admin schedules the whole
+          // custom course up front even when only the first installment is
+          // paid.
+          const customLessonIds = Array.from(
+            { length: lessonsToUnlock },
+            (_, i) => `virtual-lesson-${i + 1}`,
+          );
+          // Update rather than skip when a pending request already exists —
+          // the stale 1-lesson demo request IS the bug, so a !existingReq
+          // guard (as used by the demo/topup branches) would preserve it.
+          const { data: existingCustomReq } = await supabaseClient
+            .from("reschedule_requests")
+            .select("id")
+            .eq("learner_id", payment.learner_id)
+            .eq("type", "new")
+            .eq("status", "pending")
+            .maybeSingle();
+
+          if (existingCustomReq) {
+            await supabaseClient
+              .from("reschedule_requests")
+              .update({ lesson_ids: customLessonIds })
+              .eq("id", existingCustomReq.id);
+          } else {
+            await supabaseClient.from("reschedule_requests").insert({
               learner_id: payment.learner_id,
-              payment_amount: payment.amount,
-            },
-          },
-        );
-
-        if (messageError) {
-          console.error("Error sending thank you message:", messageError);
+              lesson_ids: customLessonIds,
+              amount: 0,
+              status: "pending",
+              type: "new",
+            });
+          }
         }
-      } catch (error) {
+
+         // Send thank you message (async, non-blocking)
+         recordTiming("ready-to-send-message");
+         // Fire and forget - don't await message sending
+         supabaseClient.functions.invoke("send-message", {
+           body: {
+             message_type: "WEBAPP_THANK_YOU_FOR_PAYMENT_GENERIC",
+             learner_id: payment.learner_id,
+             payment_amount: payment.amount,
+           },
+         }).catch(error => {
+           // Log error but don't block payment completion
+           console.error("Background: Error sending thank you message:", error);
+         });
+         // Continue immediately without waiting for message response
+         recordTiming("callback-complete");
+       } catch (error) {
         console.error("Error updating related records:", error);
         // Don't throw here, we still want to redirect the user
       }
@@ -670,21 +725,26 @@ serve(async (req) => {
           respDescription || "Payment failed",
         )}`;
 
-    // Return HTML that redirects the browser
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta http-equiv="refresh" content="0;url=${redirectUrl}">
-          <script>window.location.href = "${redirectUrl}";</script>
-        </head>
-        <body>
-          <p>Redirecting... If not redirected, <a href="${redirectUrl}">click here</a>.</p>
-        </body>
-      </html>
-    `;
+     // Log total duration before returning
+     console.log("[Payment Callback] Total timings:", timings);
+     console.log("[Payment Callback] Total duration:", 
+       (performance.now() - callbackStartTime).toFixed(0) + "ms");
 
-    return new Response(html, {
+     // Return HTML that redirects the browser
+     const html = `
+       <!DOCTYPE html>
+       <html>
+         <head>
+           <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+           <script>window.location.href = "${redirectUrl}";</script>
+         </head>
+         <body>
+           <p>Redirecting... If not redirected, <a href="${redirectUrl}">click here</a>.</p>
+         </body>
+       </html>
+     `;
+
+     return new Response(html, {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "text/html" },
     });

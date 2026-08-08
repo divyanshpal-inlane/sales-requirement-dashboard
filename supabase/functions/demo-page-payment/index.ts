@@ -82,6 +82,14 @@ serve(async (req) => {
           amount: customerData.amount,
           hasDrivingLicense: customerData.hasDrivingLicense,
           area: customerData.area,
+          // Marketing attribution captured by the landing page; forwarded to
+          // Cratio by demo-page-forward-lead when the payment lead is created.
+          utm_source: customerData.utm_source || null,
+          utm_medium: customerData.utm_medium || null,
+          utm_campaign: customerData.utm_campaign || null,
+          utm_term: customerData.utm_term || null,
+          utm_content: customerData.utm_content || null,
+          gclid: customerData.gclid || null,
         },
       ])
       .select("*")

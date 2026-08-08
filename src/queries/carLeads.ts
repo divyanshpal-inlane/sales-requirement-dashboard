@@ -20,12 +20,69 @@ export interface CarLead {
   carIntentCondition: string | null;
   carIntentTimeframe: string | null;
   carIntentUpdatedAt: string | null;
+  // Course-timeline dates, computed chronologically from the learner's
+  // Schedule rows (see attachClassDates). null when the learner has no classes.
+  firstClassDate: string | null; // 1st class
+  midClassDate: string | null; // 50% completion point (rounds up for odd totals)
+  lastClassDate: string | null; // 10th / last class
 }
 
 const isLead = (r: CarLead) =>
   r.drivingMotivation === CAR_MOTIVATION ||
   r.carIntentPlanning === "Yes" ||
   !!(r.carPurchaseTimeline && r.carPurchaseTimeline.trim() !== "");
+
+// Schedule rows in these states are not counted as real classes.
+const DEAD_SCHEDULE_STATUSES = new Set([
+  "cancelled",
+  "rejected",
+  "paused",
+  "pending_payment",
+]);
+
+// The 50% class. Rounds UP when the total is odd: 7 classes -> 3.5 -> 4th class.
+function midClassIndex(total: number): number {
+  return Math.ceil(total / 2) - 1;
+}
+
+// Mutates each lead, attaching firstClassDate / midClassDate / lastClassDate
+// from its Schedule rows (chronological order, dead statuses excluded).
+async function attachClassDates(leads: CarLead[]): Promise<void> {
+  const ids = leads.map((l) => l.id);
+  if (ids.length === 0) return;
+
+  const datesByLearner = new Map<string, string[]>();
+  // Chunk the .in() filter to stay well under PostgREST URL limits.
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    const { data, error } = await supabase
+      .from("Schedule")
+      .select("learner_id, date, start_time, status")
+      .in("learner_id", chunk)
+      .order("date", { ascending: true })
+      .order("start_time", { ascending: true });
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const status = String(row.status ?? "").toLowerCase();
+      if (DEAD_SCHEDULE_STATUSES.has(status)) continue;
+      const date = row.date as string | null;
+      if (!date) continue;
+      const lid = String(row.learner_id);
+      const arr = datesByLearner.get(lid) ?? [];
+      arr.push(date); // already in (date, start_time) order from the query
+      datesByLearner.set(lid, arr);
+    }
+  }
+
+  for (const lead of leads) {
+    const dates = datesByLearner.get(lead.id) ?? [];
+    const total = dates.length;
+    if (total === 0) continue;
+    lead.firstClassDate = dates[0];
+    lead.midClassDate = dates[midClassIndex(total)];
+    lead.lastClassDate = dates[total - 1];
+  }
+}
 
 // All learners who have shown car-buying intent — at onboarding
 // (driving_motivation / car_purchase_timeline) OR via instructor feedback
@@ -44,7 +101,7 @@ export function useCarLeads() {
           `driving_motivation.eq.${CAR_MOTIVATION},car_intent_planning.eq.Yes,car_purchase_timeline.neq.`,
         );
       if (error) throw error;
-      return ((data ?? []) as Array<Record<string, unknown>>)
+      const leads = ((data ?? []) as Array<Record<string, unknown>>)
         .map((r) => ({
           id: String(r.id),
           name: (r.name as string) ?? null,
@@ -58,8 +115,15 @@ export function useCarLeads() {
           carIntentCondition: (r.car_intent_condition as string) ?? null,
           carIntentTimeframe: (r.car_intent_timeframe as string) ?? null,
           carIntentUpdatedAt: (r.car_intent_updated_at as string) ?? null,
+          firstClassDate: null,
+          midClassDate: null,
+          lastClassDate: null,
         }))
         .filter(isLead);
+
+      // Enrich the (already-narrowed) leads with their 1st / 50% / last class dates.
+      await attachClassDates(leads);
+      return leads;
     },
   });
 }
@@ -77,6 +141,9 @@ export function carLeadsToCSV(rows: CarLead[]): string {
     "Condition",
     "Buy Timeframe",
     "Intent Updated",
+    "1st Class Date",
+    "50% Class Date",
+    "Last Class Date",
   ];
   const escape = (val: string | null | undefined) => {
     if (val == null) return "";
@@ -100,6 +167,9 @@ export function carLeadsToCSV(rows: CarLead[]): string {
         r.carIntentUpdatedAt
           ? format(new Date(r.carIntentUpdatedAt), "yyyy-MM-dd")
           : "",
+        r.firstClassDate ?? "",
+        r.midClassDate ?? "",
+        r.lastClassDate ?? "",
       ]
         .map(escape)
         .join(","),

@@ -52,7 +52,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/auth-context";
-import { supabaseAdmin, supabase } from "@/context/auth-context";
 import {
   ADMIN_PERMISSIONS,
   PermissionKey,
@@ -212,6 +211,13 @@ const featureConfig: Record<
     link: "",
     color: "text-gray-500",
   },
+  view_unmasked_car_numbers: {
+    title: "View Unmasked Car Numbers",
+    description: "View unmasked vehicle registration numbers for instructors",
+    icon: Car,
+    link: "",
+    color: "text-gray-500",
+  },
   admin_management: {
     title: "User Management",
     description: "Create and manage admin team members and their permissions",
@@ -293,7 +299,7 @@ const featureConfig: Record<
 export default function AdminHome() {
   const { data: currentAdmin, isLoading: adminLoading } = useCurrentAdmin();
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
-  const { logout, user } = useAuth();
+  const { logout, user, changePassword } = useAuth();
   const navigate = useNavigate();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -312,72 +318,14 @@ export default function AdminHome() {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    // Validation
-    if (!passwordForm.oldPassword) {
-      setErrorMessage("Please enter your current password");
-      return;
-    }
-
-    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
-      setErrorMessage("New password must be at least 6 characters long");
-      return;
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setErrorMessage("Passwords do not match");
-      return;
-    }
-
-    if (passwordForm.oldPassword === passwordForm.newPassword) {
-      setErrorMessage("New password must be different from old password");
-      return;
-    }
-
     setIsChangingPassword(true);
 
     try {
-      if (!user?.id || !user?.phone) {
-        throw new Error("User not found");
-      }
-
-      // First, verify the old password by attempting to sign in
-      const normalizedPhone = user.phone.replace(/\D/g, "");
-      const phoneFormats = [
-        `+91${normalizedPhone.slice(-10)}`,
-        normalizedPhone.slice(-10),
-        user.phone,
-      ];
-
-      let isPasswordValid = false;
-
-      for (const phoneFormat of phoneFormats) {
-        const { error } = await supabase.auth.signInWithPassword({
-          phone: phoneFormat,
-          password: passwordForm.oldPassword,
-        });
-
-        if (!error) {
-          isPasswordValid = true;
-          break;
-        }
-      }
-
-      if (!isPasswordValid) {
-        throw new Error("Current password is incorrect");
-      }
-
-      // If password is verified, update to new password
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        {
-          password: passwordForm.newPassword,
-        },
+      await changePassword(
+        passwordForm.oldPassword,
+        passwordForm.newPassword,
+        passwordForm.confirmPassword,
       );
-
-      if (updateError) {
-        throw new Error(updateError.message);
-      }
 
       setSuccessMessage("Password changed successfully!");
       setPasswordForm({
@@ -483,7 +431,7 @@ export default function AdminHome() {
   console.log("[AdminHome] User permissions to check:", userPermissions);
   
    const allowedFeatures = userPermissions
-     .filter((perm) => perm !== "admin_management" && perm !== "view_unmasked_phone_numbers") // Filter out admin_management and view_unmasked_phone_numbers
+     .filter((perm) => perm !== "admin_management" && perm !== "view_unmasked_phone_numbers" && perm !== "view_unmasked_car_numbers") // Filter out admin_management, view_unmasked_phone_numbers and view_unmasked_car_numbers
      .map((perm) => {
       const feature = featureConfig[perm];
       console.log(`[AdminHome] Permission "${perm}": feature found=${!!feature}`);

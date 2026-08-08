@@ -31,9 +31,9 @@ serve(async (req) => {
 
     // Normalize phone number to consistent format: +919876543210
     const phoneDigits = phone.replace(/\D/g, "");
-    const normalizedPhone = phoneDigits.endsWith("91") 
-      ? `+${phoneDigits}` 
-      : `+91${phoneDigits.replace(/^91/, "")}`;
+    const normalizedPhone = phoneDigits.startsWith("91") && phoneDigits.length > 10
+      ? `+${phoneDigits}`
+      : `+91${phoneDigits}`;
     phone = normalizedPhone;
     console.log("[delete-admin-user] Normalized phone:", phone);
 
@@ -100,44 +100,110 @@ serve(async (req) => {
     const adminId = admin.id;
     console.log("[delete-admin-user] Found admin with ID:", adminId);
 
-    // Step 1: Find the actual auth user by phone (admin ID != auth user ID)
-    console.log("[delete-admin-user] Searching for auth user by phone:", phone);
-    
-    // Try to find auth user by phone - search all variations
-    let authUser = null;
-    const phoneSearchVariants = [
-      phone,
-      phone.replace(/^\+91/, ""),
-      phone.replace(/^\+/, ""),
-      phone.replace(/\D/g, ""),
-    ];
+    // Safety check: Block deletion if admin has associated users
+    const { count: userCount, error: userCountError } = await supabase
+      .from("User")
+      .select("*", { count: "exact", head: true })
+      .eq("admin_id", adminId);
 
-    for (const variant of phoneSearchVariants) {
-      try {
-        const { data: users } = await supabase.auth.admin.listUsers();
-        authUser = users?.users?.find((u) => u.phone === variant);
-        if (authUser) {
-          console.log("[delete-admin-user] Found auth user with phone variant:", variant);
-          break;
-        }
-      } catch (e) {
-        console.log("[delete-admin-user] Error searching with variant:", variant, e);
+    if (userCountError) {
+      console.error("[delete-admin-user] Error checking associated users:", userCountError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to check associated users" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (userCount && userCount > 0) {
+      console.warn(`[delete-admin-user] Cannot delete admin ${adminId} — has ${userCount} associated user(s)`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `This admin has ${userCount} associated user${userCount > 1 ? "s" : ""}. Please reassign or delete their users before removing this admin.`,
+          userCount,
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("[delete-admin-user] ✓ No associated users found, proceeding with deletion");
+
+    // Step 1: Find the actual auth user by phone
+    // Build phone search variants
+    const basePhone = phone.replace(/^\+91/, "").replace(/^91/, ""); // 10-digit number
+    const phoneSearchVariants = [
+      phone,           // +917006342430
+      basePhone,       // 7006342430
+      `91${basePhone}`, // 917006342430
+    ];
+    console.log("[delete-admin-user] Searching for auth user with variants:", phoneSearchVariants);
+
+    // Fetch ALL auth users in one call (perPage: 1000) to avoid pagination issues
+    let authUser = null;
+    let page = 1;
+    const perPage = 1000;
+
+    while (!authUser) {
+      const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (listError) {
+        console.error("[delete-admin-user] Error listing users:", listError);
+        break;
       }
+
+      const users = usersData?.users ?? [];
+      console.log(`[delete-admin-user] Page ${page}: fetched ${users.length} auth users`);
+
+      authUser = users.find((u) =>
+        phoneSearchVariants.some((variant) => u.phone === variant)
+      ) ?? null;
+
+      // If we got fewer users than perPage, we've reached the last page
+      if (users.length < perPage) break;
+      page++;
     }
 
     if (!authUser) {
-      console.error("[delete-admin-user] Auth user not found by phone");
+      console.error("[delete-admin-user] Auth user not found for phone variants:", phoneSearchVariants);
+      // Still delete the Admin DB record even if auth user not found
+      // (auth user may have already been deleted or may not exist)
+      console.warn("[delete-admin-user] Proceeding to delete Admin record only (no auth user found)");
+      
+      const { error: deleteError } = await supabase
+        .from("Admin")
+        .delete()
+        .eq("id", adminId);
+
+      if (deleteError) {
+        console.error("[delete-admin-user] Error deleting admin record:", deleteError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Failed to delete admin record from database",
+            details: deleteError.message 
+          }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Auth user not found" 
+        JSON.stringify({
+          success: true,
+          message: "Admin database record deleted (no matching auth user found)",
+          adminId,
         }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
       );
     }
 
     const authUserId = authUser.id;
-    console.log("[delete-admin-user] Found auth user with ID:", authUserId);
+    console.log("[delete-admin-user] Found auth user with ID:", authUserId, "phone:", authUser.phone);
 
     // Step 2: Delete auth user FIRST (before deleting database record)
     console.log("[delete-admin-user] Attempting to delete auth user:", authUserId);
@@ -157,7 +223,7 @@ serve(async (req) => {
 
     console.log("[delete-admin-user] ✓ Auth user deleted successfully");
 
-    // Step 2: Delete from Admin table (permissions will cascade due to ON DELETE CASCADE)
+    // Step 3: Delete from Admin table (permissions will cascade due to ON DELETE CASCADE)
     console.log("[delete-admin-user] Attempting to delete Admin record:", adminId);
     const { error: deleteError } = await supabase
       .from("Admin")

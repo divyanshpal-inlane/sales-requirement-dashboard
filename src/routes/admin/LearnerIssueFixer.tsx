@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,6 @@ import {
   useUpdatePaymentAdmin,
 } from "@/queries/learner";
 import { useCurrentUser } from "@/queries/userManagement";
-import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/types/database.types";
 import { googleMapsLoader } from "@/utils/googleMaps";
 
@@ -252,6 +252,39 @@ export default function LearnerIssueFixer() {
   const { data: schedules } = useLearnerSchedulesAdmin({
     learnerId: selectedLearnerId ?? undefined,
   });
+
+  // Real-time subscription: Auto-refresh when payments complete
+  useEffect(() => {
+    const channel = supabase
+      .channel('learners-payment-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'payment',
+          filter: 'status=eq.completed'
+        },
+        () => {
+          console.log('[LearnerIssueFixer] Payment completed, refreshing data...');
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
+
+  // Auto-refresh fallback: Every 5 seconds as safety net
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   // Get selected learner data
   const selectedLearner = useMemo(() => {

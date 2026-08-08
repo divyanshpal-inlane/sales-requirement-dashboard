@@ -20,6 +20,90 @@ function getHalfPaymentLessons(totalHours: number): number[] {
   return Array.from({ length: count }, (_, i) => i + 1);
 }
 
+/**
+ * Server-side guard against a tampered client amount. Given an enrollment the
+ * admin already set up (which carries the negotiated total + installment split)
+ * and the installment type being paid, return the amount the learner is
+ * actually expected to pay — or null when we can't derive one (no stored
+ * amount, e.g. a brand-new learner-initiated purchase) and validation should be
+ * skipped. Reads the stored amount, never a hardcoded price, so a variable
+ * demo/custom price is validated correctly.
+ */
+function expectedAmountFor(
+  enrollment: {
+    amount?: number | null;
+    installment1_amount?: number | null;
+    installment2_amount?: number | null;
+  } | null,
+  installmentType?: string,
+): number | null {
+  const total = Math.round(Number(enrollment?.amount) || 0);
+  if (total <= 0) return null;
+  const inst1 =
+    Number(enrollment?.installment1_amount) > 0
+      ? Math.round(Number(enrollment?.installment1_amount))
+      : Math.round(total / 2);
+  const inst2 =
+    Number(enrollment?.installment2_amount) > 0
+      ? Math.round(Number(enrollment?.installment2_amount))
+      : total - inst1;
+  if (installmentType === "second_half") return inst2;
+  if (installmentType === "first_half") return inst1;
+  return total;
+}
+
+/**
+ * Throw if the client-supplied amount doesn't match what the enrollment says is
+ * owed (±₹1 for independent rounding). No-op when no expected amount can be
+ * derived, so learner-initiated first purchases are unaffected.
+ */
+function assertAmountMatchesEnrollment(
+  amount: number,
+  enrollment: {
+    amount?: number | null;
+    installment1_amount?: number | null;
+    installment2_amount?: number | null;
+  } | null,
+  installmentType?: string,
+): void {
+  const expected = expectedAmountFor(enrollment, installmentType);
+  if (expected !== null && Math.abs(Math.round(amount) - expected) > 1) {
+    throw new Error(
+      `Amount mismatch: this enrollment requires ₹${expected}, not ₹${Math.round(
+        amount,
+      )}.`,
+    );
+  }
+}
+
+/**
+ * The full price this enrollment is being sold at, with any demo credit already
+ * applied by the payment page. Persisting it on the enrollment is what makes
+ * that price survive an abandoned payment: the payment page prefills from
+ * enrollment.amount, and expectedAmountFor() only validates once it is set.
+ * Without it a demo learner who dropped off mid-upgrade came back to the list
+ * price (course) or to ₹0 (custom, which has no course row to fall back on).
+ */
+function resolveEnrollmentTotal(
+  totalAmount?: number,
+  installment1Amount?: number,
+  installment2Amount?: number,
+  amount?: number,
+): number | null {
+  const fromTotal = Math.round(Number(totalAmount) || 0);
+  if (fromTotal > 0) return fromTotal;
+
+  // A second_half payment carries only the remaining half in `amount`, so the
+  // installments are the reliable source when totalAmount wasn't sent.
+  const fromInstallments =
+    Math.round(Number(installment1Amount) || 0) +
+    Math.round(Number(installment2Amount) || 0);
+  if (fromInstallments > 0) return fromInstallments;
+
+  const fromAmount = Math.round(Number(amount) || 0);
+  return fromAmount > 0 ? fromAmount : null;
+}
+
 interface PaymentDetails {
   amount: number;
   email: string;
@@ -29,6 +113,7 @@ interface PaymentDetails {
   name: string;
   learnerId?: string;
   installmentType?: "full" | "first_half" | "second_half";
+  totalAmount?: number;
   installment1Amount?: number;
   installment2Amount?: number;
   selectedModules?: string[];
@@ -66,6 +151,7 @@ serve(async (req) => {
       name,
       learnerId: providedLearnerId,
       installmentType,
+      totalAmount,
       installment1Amount,
       installment2Amount,
       selectedModules,
@@ -160,6 +246,16 @@ serve(async (req) => {
 
     if (dbError) throw dbError;
 
+    // Price this enrollment is sold at (demo credit already applied
+    // client-side). Stored on the enrollment so an abandoned payment
+    // doesn't silently revert the learner to list price on their next visit.
+    const enrollmentTotal = resolveEnrollmentTotal(
+      totalAmount,
+      installment1Amount,
+      installment2Amount,
+      amount,
+    );
+
     // Handle demo upgrade
     if (isDemoUpgrade && demoPaymentId) {
       await supabaseClient
@@ -196,6 +292,13 @@ serve(async (req) => {
           );
         }
 
+        // Reject a tampered amount against what this enrollment owes.
+        assertAmountMatchesEnrollment(
+          amount,
+          existingEnrollment,
+          installmentType,
+        );
+
         await supabaseClient
           .from("enrollment")
           .update({
@@ -210,9 +313,24 @@ serve(async (req) => {
               installment1Amount || existingEnrollment.installment1_amount,
             installment2_amount:
               installment2Amount || existingEnrollment.installment2_amount,
+            // Backfill only: an admin-negotiated price on this enrollment is
+            // authoritative and must not be overwritten by the client.
+            amount: existingEnrollment.amount || enrollmentTotal,
           })
           .eq("id", existingEnrollment.id);
       } else {
+        // Unlock lessons for a first-half payment based on the course's actual
+        // duration (hours), not a fixed 10-hour assumption.
+        let courseHours = 10;
+        const { data: courseRow } = await supabaseClient
+          .from("Courses")
+          .select("duration")
+          .eq("id", courseId)
+          .maybeSingle();
+        if (courseRow?.duration && courseRow.duration > 0) {
+          courseHours = courseRow.duration;
+        }
+
         await supabaseClient.from("enrollment").insert([
           {
             learner_id: learnerId,
@@ -223,8 +341,11 @@ serve(async (req) => {
             installment_mode: installmentType,
             installment1_amount: installment1Amount,
             installment2_amount: installment2Amount,
+            amount: enrollmentTotal,
             unlocked_lessons:
-              installmentType === "first_half" ? getHalfPaymentLessons(10) : [],
+              installmentType === "first_half"
+                ? getHalfPaymentLessons(courseHours)
+                : [],
           },
         ]);
       }
@@ -362,39 +483,108 @@ serve(async (req) => {
     }
 
     // Handle custom course payment
-    if (
-      paymentType === "custom" &&
-      selectedModules &&
-      selectedModules.length > 0
-    ) {
-      const lessonsToUnlock = Math.min(Math.ceil((totalHours || 0) / 1), 10);
+    if (paymentType === "custom") {
+      // Reuse an existing pending custom enrollment (e.g. one an admin built and
+      // sent a payment link for) instead of inserting a duplicate — mirrors the
+      // demo/topup reuse pattern above and the process-payment (ICICI) flow. A
+      // locked/admin link won't resend the modules, so fall back to whatever the
+      // enrollment already recorded.
+      const { data: existingPendingCustom } = await supabaseClient
+        .from("enrollment")
+        .select(
+          "id, progress, amount, installment1_amount, installment2_amount",
+        )
+        .eq("learner_id", learnerId)
+        .is("course_id", null)
+        .neq("payment_status", "full_paid")
+        .filter("progress->>type", "eq", "custom")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const existingProgress =
+        (existingPendingCustom?.progress as {
+          selected_modules?: string[];
+          total_hours?: number;
+          module_prices?: Record<string, number>;
+        } | null) || null;
+      const mergedModules =
+        selectedModules && selectedModules.length > 0
+          ? selectedModules
+          : existingProgress?.selected_modules || [];
+      const mergedHours = totalHours || existingProgress?.total_hours || 0;
+
+      const lessonsToUnlock = Math.min(Math.ceil((mergedHours || 0) / 1), 10);
       const unlockedLessons = Array.from(
         { length: lessonsToUnlock },
         (_, i) => i + 1,
       );
 
-      await supabaseClient.from("enrollment").insert([
-        {
-          learner_id: learnerId,
-          course_id: null,
-          payment_id: paymentRecord.id,
-          status: "pending",
-          payment_status: "pending",
-          installment_mode: installmentType || "full",
-          installment1_amount: installment1Amount,
-          installment2_amount: installment2Amount,
-          unlocked_lessons:
-            installmentType === "first_half"
-              ? getHalfPaymentLessons(totalHours || 10)
-              : unlockedLessons,
-          progress: {
-            type: "custom",
-            selected_modules: selectedModules,
-            total_hours: totalHours,
-            is_demo_upgrade: isDemoUpgrade || false,
+      if (existingPendingCustom) {
+        // Reject a tampered amount against the price the admin set up.
+        assertAmountMatchesEnrollment(
+          amount,
+          existingPendingCustom,
+          installmentType,
+        );
+
+        await supabaseClient
+          .from("enrollment")
+          .update({
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: installmentType || "full",
+            installment1_amount:
+              installment1Amount ||
+              existingPendingCustom.installment1_amount ||
+              null,
+            installment2_amount:
+              installment2Amount ||
+              existingPendingCustom.installment2_amount ||
+              null,
+            // Backfill only — an admin-built custom course carries the price
+            // ops negotiated, and that wins over anything the client sends.
+            amount: existingPendingCustom.amount || enrollmentTotal,
+            unlocked_lessons:
+              installmentType === "first_half"
+                ? getHalfPaymentLessons(mergedHours || 10)
+                : unlockedLessons,
+            progress: {
+              type: "custom",
+              selected_modules: mergedModules,
+              total_hours: mergedHours,
+              module_prices: existingProgress?.module_prices || {},
+              is_demo_upgrade: isDemoUpgrade || false,
+            },
+          })
+          .eq("id", existingPendingCustom.id);
+      } else if (selectedModules && selectedModules.length > 0) {
+        // No existing enrollment — a brand-new custom flow started by the learner.
+        await supabaseClient.from("enrollment").insert([
+          {
+            learner_id: learnerId,
+            course_id: null,
+            payment_id: paymentRecord.id,
+            status: "pending",
+            payment_status: "pending",
+            installment_mode: installmentType || "full",
+            installment1_amount: installment1Amount,
+            installment2_amount: installment2Amount,
+            amount: enrollmentTotal,
+            unlocked_lessons:
+              installmentType === "first_half"
+                ? getHalfPaymentLessons(mergedHours || 10)
+                : unlockedLessons,
+            progress: {
+              type: "custom",
+              selected_modules: selectedModules,
+              total_hours: mergedHours,
+              is_demo_upgrade: isDemoUpgrade || false,
+            },
           },
-        },
-      ]);
+        ]);
+      }
     }
 
     // 4. Create Razorpay order

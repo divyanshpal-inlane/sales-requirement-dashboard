@@ -27,7 +27,7 @@ import {
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
 import MapWithRoute from "@/components/mapWithRoute";
-import { BEGINNER_COURSE_ID } from "@/constants/courses";
+import { demoLessonOffsetFor } from "@/constants/courses";
 import InstructorSelectionDialog from "@/components/scheduling/InstructorSelectionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,7 @@ import { useTentativeScheduleData } from "@/hooks/useScheduleData";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
+import { useCompletedDemoCount } from "@/queries/payment";
 import { SchedulingRequests, usePreferences } from "@/queries/preferences";
 import { Schedule } from "@/routes/admin/schedules";
 import { SlotConfig, TIME_SLOTS, TimeSlot } from "@/types/schedule";
@@ -1839,14 +1840,74 @@ function CreateSchedule({
     request.lesson_ids.length > 0 &&
     request.lesson_ids[0]?.startsWith?.("virtual-lesson-");
 
+  // The learner's latest active enrollment. Drives both the virtual-lesson
+  // hour count below and whether demo hours are credited against this request.
+  //
+  // Only the LATEST active enrollment counts: a learner who finishes a custom
+  // course and then buys a top-up still has the (active) custom enrollment on
+  // file, and its hours must not override the top-up's own correct lesson_ids.
+  const { data: latestEnrollment } = useQuery({
+    queryKey: ["latest-active-enrollment", learnerId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("enrollment")
+        .select("progress")
+        .eq("learner_id", learnerId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const progress = data?.progress as {
+        type?: string;
+        total_hours?: number;
+      } | null;
+      return {
+        type: progress?.type ?? null,
+        totalHours: Math.ceil(Number(progress?.total_hours) || 0),
+      };
+    },
+    enabled: !!learnerId,
+  });
+
   // Fetch lessons for the selected course
   const { data: allLessons } = useQuery({
-    queryKey: ["lessons", request.lesson_ids, isVirtualLessons],
+    queryKey: [
+      "lessons",
+      request.lesson_ids,
+      isVirtualLessons,
+      learnerId,
+      latestEnrollment,
+    ],
+    // Wait for the enrollment before synthesizing virtual lessons — deriving
+    // the count from a stale request while it loads would flash a wrong
+    // required-hours number at the admin.
+    enabled: !isVirtualLessons || latestEnrollment !== undefined,
     queryFn: async () => {
       // For demo/custom courses with virtual lesson IDs, create mock lesson objects
       if (isVirtualLessons) {
-        return request.lesson_ids.map((id, index) => ({
-          id,
+        // A custom course has no Courses/Lesson rows to fall back on, so the
+        // hour count would otherwise come solely from request.lesson_ids — and
+        // that list can be stale. A demo -> custom upgrade leaves the demo's
+        // 1-entry ["virtual-lesson-1"] request behind, which made every custom
+        // course look like a single 1-hour lesson here no matter how many hours
+        // were actually bought. The enrollment is the source of truth, so read
+        // the hour count from it instead.
+        //
+        // Custom courses are always scheduled in full, even when only the first
+        // installment is paid — hence total_hours rather than unlocked_lessons.
+        // This is the PURCHASED hour count; any demo credit comes off it via
+        // demoLessonOffset below, exactly as it does for a real course.
+        const customHours =
+          latestEnrollment?.type === "custom" ? latestEnrollment.totalHours : 0;
+
+        const virtualCount =
+          customHours > 0 ? customHours : request.lesson_ids.length;
+
+        return Array.from({ length: virtualCount }, (_, index) => ({
+          // Reuse the request's own ids where they exist so any downstream
+          // intersection with request.lesson_ids still matches.
+          id: request.lesson_ids[index] ?? `virtual-lesson-${index + 1}`,
           number: index + 1,
           course_id: null,
           name: `Lesson ${index + 1}`,
@@ -1903,39 +1964,8 @@ function CreateSchedule({
   // Completed demos count toward the upgraded course: each completed demo
   // (1 hr) stands in for one of the course's first lessons. So a 10-lesson
   // course after 1 completed demo is scheduled as lessons 2..10 (9 lessons),
-  // mirroring the demo credit the admin upgrade applies to the price.
-  const { data: completedDemoCount = 0 } = useQuery({
-    queryKey: ["completedDemoCount", learnerId],
-    queryFn: async () => {
-      // A demo payment flips completed -> upgraded once the learner upgrades to
-      // a course, so an upgraded learner has NO "completed" demo left. Counting
-      // only "completed" here silently drops the demo credit for exactly the
-      // upgraded population this offset exists for, inflating requiredLessonCount
-      // by one and making the required selection un-submittable.
-      const { data, error } = await supabase
-        .from("payment")
-        .select("id")
-        .eq("learner_id", learnerId)
-        .eq("payment_type", "demo")
-        .in("status", ["completed", "upgraded"]);
-      if (error) throw error;
-      return data?.length ?? 0;
-    },
-    enabled: !!learnerId,
-  });
-
-  // Number of course lessons the completed demos stand in for. Only real
-  // (non-virtual) course "new" requests are affected — never demo/topup
-  // virtual-lesson requests or reschedules. The offset applies ONLY to the
-  // Beginner course, where the demo doubles as lesson 1: subtracting demos
-  // from short specialty courses (e.g. 2-hour Flyover/Parking) collapsed
-  // requiredLessonCount to 1 hour and broke their scheduling entirely.
-  const demoLessonOffset =
-    request.type === "new" &&
-    !isVirtualLessons &&
-    allLessons?.[0]?.course_id === BEGINNER_COURSE_ID
-      ? completedDemoCount
-      : 0;
+  // mirroring the demo credit the upgrade applies to the price.
+  const { data: completedDemoCount = 0 } = useCompletedDemoCount(learnerId);
 
   // find the minimum lesson number that needs to be re-scheduled from
   // all the lessons that are requested
@@ -1945,6 +1975,21 @@ function CreateSchedule({
   // (request.lesson_ids may be inflated due to duplicate lesson records from old migrations)
   // For reschedule/lesson10 requests, lesson_ids come from actual schedules so they're correct
   const totalCourseHours = allLessons?.length ?? request.lesson_ids.length;
+
+  // Demo hours are credited against every upgrade target — Beginner, specialty
+  // and custom alike — because the demo's price is deducted from all of them.
+  // Excluded: reschedules (the hours were already paid and scheduled), and
+  // demo/topup requests, whose virtual lessons ARE the purchased hours. That
+  // last exclusion matters because a demo payment reads as "completed" while
+  // the demo itself is still being scheduled — without it a learner's own demo
+  // would cancel out the lesson they're waiting on.
+  const creditsDemoHours = isVirtualLessons
+    ? latestEnrollment?.type === "custom"
+    : true;
+  const demoLessonOffset =
+    request.type === "new" && creditsDemoHours
+      ? demoLessonOffsetFor(totalCourseHours, completedDemoCount)
+      : 0;
 
   // Required lessons to schedule
   const requiredLessonCount =

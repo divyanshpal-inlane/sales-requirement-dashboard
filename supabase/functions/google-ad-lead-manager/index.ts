@@ -4,6 +4,11 @@ console.info("server started");
 // Function to flatten the incoming data
 function parseGoogleLeadData(incomingData) {
   return {
+    // These leads come exclusively from Google Ads lead forms — without an
+    // explicit source, Cratio misattributes them to its default (SEO).
+    leadSource: "Paid Search",
+    utm_source: "google",
+    utm_medium: "cpc",
     lead_id: incomingData.lead_id,
     user_email: incomingData.user_column_data[0]?.string_value || "",
     user_phone: incomingData.user_column_data[1]?.string_value || "",

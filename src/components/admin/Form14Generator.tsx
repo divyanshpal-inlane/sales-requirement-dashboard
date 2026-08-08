@@ -1,6 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Download, FileText, Loader2 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,12 @@ import {
 } from "@/utils/generateForm14";
 import { Form5CertificateData, generateForm5PDF } from "@/utils/generateForm5";
 import { Form15Data, generateForm15PDF } from "@/utils/generateForm15";
+import {
+  fetchTrainingPeriods,
+  fetchTrainingSessions,
+  SCHOOL_NAME,
+  toForm15Sessions,
+} from "@/utils/formsBulk";
 
 interface LearnerForForm14 {
   id: string;
@@ -60,7 +67,9 @@ export default function Form14Generator({
   onClose,
 }: Form14GeneratorProps) {
   const { toast } = useToast();
-  const [generating, setGenerating] = useState<null | "14" | "15" | "5">(null);
+  const [generating, setGenerating] = useState<
+    null | "14" | "15" | "5" | "all"
+  >(null);
   const isGenerating = generating !== null;
 
   const safeName = () =>
@@ -103,48 +112,115 @@ export default function Form14Generator({
       : "",
     dlAuthority: "",
     remarks: "",
+    trainingFrom: "",
+    trainingTo: "",
   });
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // First/last class from the Schedule table — the Form-5 training period.
+  const { data: trainingPeriod } = useQuery({
+    queryKey: ["trainingPeriod", learner.id],
+    enabled: open && !!learner.id,
+    queryFn: async () => {
+      const periods = await fetchTrainingPeriods([learner.id]);
+      return periods.get(learner.id) ?? null;
+    },
+  });
+
+  // Every non-cancelled past class — the Form-15 driving-hours rows.
+  const { data: trainingSessions } = useQuery({
+    queryKey: ["trainingSessions", learner.id],
+    enabled: open && !!learner.id,
+    queryFn: async () => {
+      const sessions = await fetchTrainingSessions([learner.id]);
+      return sessions.get(learner.id) ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (!trainingPeriod) return;
+    setFormData((prev) => ({
+      ...prev,
+      trainingFrom:
+        prev.trainingFrom ||
+        (trainingPeriod.first
+          ? format(new Date(trainingPeriod.first), "dd/MM/yyyy")
+          : ""),
+      trainingTo:
+        prev.trainingTo ||
+        (trainingPeriod.last
+          ? format(new Date(trainingPeriod.last), "dd/MM/yyyy")
+          : ""),
+    }));
+  }, [trainingPeriod]);
+
+  const buildForm14Data = (): Form14Data => ({
+    enrollmentNumber: formData.enrollmentNumber,
+    name: formData.name,
+    guardianName: formData.guardianName
+      ? `${formData.guardianRelation} of ${formData.guardianName}`
+      : "",
+    permanentAddress: formData.permanentAddress,
+    temporaryAddress: formData.temporaryAddress || undefined,
+    dob: formData.dob,
+    vehicleClass: formData.vehicleClass,
+    enrollmentDate: formData.enrollmentDate,
+    llNumber: formData.llNumber,
+    llExpiry: formData.llExpiry || undefined,
+    completionDate: formData.completionDate || undefined,
+    competenceTestDate: formData.competenceTestDate || undefined,
+    dlNumber: formData.dlNumber || undefined,
+    dlIssueDate: formData.dlIssueDate || undefined,
+    dlAuthority: formData.dlAuthority || undefined,
+    remarks: formData.remarks || undefined,
+    phone: learner.phone,
+    email: learner.email || undefined,
+  });
+
+  const buildForm15Data = (): Form15Data => ({
+    schoolName: SCHOOL_NAME.toUpperCase(),
+    traineeName: formData.name,
+    enrollmentNumber: formData.enrollmentNumber,
+    enrollmentDate: formData.enrollmentDate,
+    sessions: toForm15Sessions(trainingSessions ?? []),
+  });
+
+  const buildForm5Data = (): Form5CertificateData => ({
+    certificateNo: formData.enrollmentNumber || undefined,
+    date:
+      formData.trainingTo ||
+      formData.completionDate ||
+      format(new Date(), "dd/MM/yyyy"),
+    name: formData.name,
+    // The certificate preprints "Son / Wife / Daughter of", so fill only the name.
+    guardian: formData.guardianName || undefined,
+    address: formData.permanentAddress || undefined,
+    enrolledOn: formData.enrollmentDate,
+    serialNumber: formData.enrollmentNumber || undefined,
+    vehicleClass: formData.vehicleClass,
+    periodFrom: formData.trainingFrom || formData.enrollmentDate,
+    periodTo: formData.trainingTo || formData.completionDate || undefined,
+  });
+
+  const requireName = () => {
+    if (formData.name) return true;
+    toast({
+      title: "Error",
+      description: "Learner name is required",
+      variant: "destructive",
+    });
+    return false;
+  };
+
   const handleGenerate = async () => {
-    if (!formData.name) {
-      toast({
-        title: "Error",
-        description: "Learner name is required",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!requireName()) return;
 
     setGenerating("14");
     try {
-      const data: Form14Data = {
-        enrollmentNumber: formData.enrollmentNumber,
-        name: formData.name,
-        guardianName: formData.guardianName
-          ? `${formData.guardianRelation} of ${formData.guardianName}`
-          : "",
-        permanentAddress: formData.permanentAddress,
-        temporaryAddress: formData.temporaryAddress || undefined,
-        dob: formData.dob,
-        vehicleClass: formData.vehicleClass,
-        enrollmentDate: formData.enrollmentDate,
-        llNumber: formData.llNumber,
-        llExpiry: formData.llExpiry || undefined,
-        completionDate: formData.completionDate || undefined,
-        competenceTestDate: formData.competenceTestDate || undefined,
-        dlNumber: formData.dlNumber || undefined,
-        dlIssueDate: formData.dlIssueDate || undefined,
-        dlAuthority: formData.dlAuthority || undefined,
-        remarks: formData.remarks || undefined,
-        phone: learner.phone,
-        email: learner.email || undefined,
-      };
-
-      const pdfBytes = await generateForm14PDF(data);
+      const pdfBytes = await generateForm14PDF(buildForm14Data());
       downloadPDF(pdfBytes, `Form14_${safeName()}.pdf`);
 
       toast({
@@ -168,23 +244,10 @@ export default function Form14Generator({
   };
 
   const handleGenerateForm15 = async () => {
-    if (!formData.name) {
-      toast({
-        title: "Error",
-        description: "Learner name is required",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!requireName()) return;
     setGenerating("15");
     try {
-      const data: Form15Data = {
-        schoolName: "LANE MOTOR DRIVING TRAINING SCHOOL",
-        traineeName: formData.name,
-        enrollmentNumber: formData.enrollmentNumber,
-        enrollmentDate: formData.enrollmentDate,
-      };
-      const pdfBytes = await generateForm15PDF(data);
+      const pdfBytes = await generateForm15PDF(buildForm15Data());
       downloadPDF(pdfBytes, `Form15_${safeName()}.pdf`);
       toast({
         title: "Success",
@@ -207,30 +270,10 @@ export default function Form14Generator({
   };
 
   const handleGenerateForm5 = async () => {
-    if (!formData.name) {
-      toast({
-        title: "Error",
-        description: "Learner name is required",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!requireName()) return;
     setGenerating("5");
     try {
-      const data: Form5CertificateData = {
-        certificateNo: formData.enrollmentNumber || undefined,
-        date: formData.completionDate || format(new Date(), "dd/MM/yyyy"),
-        name: formData.name,
-        // The certificate preprints "Son / Wife / Daughter of", so fill only the name.
-        guardian: formData.guardianName || undefined,
-        address: formData.permanentAddress || undefined,
-        enrolledOn: formData.enrollmentDate,
-        serialNumber: formData.enrollmentNumber || undefined,
-        vehicleClass: formData.vehicleClass,
-        periodFrom: formData.enrollmentDate,
-        periodTo: formData.completionDate || undefined,
-      };
-      const pdfBytes = await generateForm5PDF(data);
+      const pdfBytes = await generateForm5PDF(buildForm5Data());
       downloadPDF(pdfBytes, `Certificate_Form5_${safeName()}.pdf`);
       toast({
         title: "Success",
@@ -245,6 +288,36 @@ export default function Form14Generator({
           error instanceof Error
             ? error.message
             : "Failed to generate certificate",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(null);
+    }
+  };
+
+  const handleGenerateAll = async () => {
+    if (!requireName()) return;
+    setGenerating("all");
+    try {
+      const [f14, f15, f5] = await Promise.all([
+        generateForm14PDF(buildForm14Data()),
+        generateForm15PDF(buildForm15Data()),
+        generateForm5PDF(buildForm5Data()),
+      ]);
+      downloadPDF(f14, `Form14_${safeName()}.pdf`);
+      downloadPDF(f15, `Form15_${safeName()}.pdf`);
+      downloadPDF(f5, `Certificate_Form5_${safeName()}.pdf`);
+      toast({
+        title: "Success",
+        description: "Form-14, Form-15 & Certificate downloaded!",
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error generating all forms:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to generate forms",
         variant: "destructive",
       });
     } finally {
@@ -427,6 +500,27 @@ export default function Form14Generator({
             />
           </div>
 
+          {/* 9b. Training Period (first/last class — used on the Form-5 certificate) */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right text-sm font-medium">
+              Training Period
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                value={formData.trainingFrom}
+                onChange={(e) => updateField("trainingFrom", e.target.value)}
+                className="flex-1"
+                placeholder="From (first class)"
+              />
+              <Input
+                value={formData.trainingTo}
+                onChange={(e) => updateField("trainingTo", e.target.value)}
+                className="flex-1"
+                placeholder="To (last class)"
+              />
+            </div>
+          </div>
+
           {/* 10. Competence Test Date */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right text-sm font-medium">
@@ -512,6 +606,18 @@ export default function Form14Generator({
               Certificate
             </Button>
           </div>
+          <Button
+            onClick={handleGenerateAll}
+            disabled={isGenerating}
+            className="w-full bg-indigo-600 text-white hover:bg-indigo-700"
+          >
+            {generating === "all" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Download All 3
+          </Button>
           <Button
             variant="outline"
             onClick={onClose}

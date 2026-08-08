@@ -23,6 +23,33 @@ export const useLatestPayment = (learnerId?: string) => {
   });
 };
 
+/**
+ * Number of demo hours the learner has already been credited for.
+ *
+ * Counts "upgraded" alongside "completed": a demo payment flips
+ * completed -> upgraded the moment the learner starts a course upgrade, so
+ * counting only "completed" drops the credit for exactly the upgraded
+ * population these callers care about.
+ */
+export const useCompletedDemoCount = (learnerId?: string) => {
+  return useQuery({
+    queryKey: ["completedDemoCount", learnerId],
+    queryFn: async () => {
+      if (!learnerId) return 0;
+      const { data, error } = await supabase
+        .from("payment")
+        .select("id")
+        .eq("learner_id", learnerId)
+        .eq("payment_type", "demo")
+        .in("status", ["completed", "upgraded"]);
+
+      if (error) throw error;
+      return data?.length ?? 0;
+    },
+    enabled: !!learnerId,
+  });
+};
+
 export const usePaymentsByLearner = (learnerId?: string) => {
   return useQuery({
     queryKey: ["payments", learnerId],

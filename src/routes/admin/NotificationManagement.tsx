@@ -638,7 +638,7 @@ function LearnerTab({
             date: displayDate,
             pickup_location: schedule.Learner.pick_up_location,
             instructor_name: schedule.Instructor.name,
-            instructor_phone: schedule.Instructor.phone,
+            // instructor_phone: schedule.Instructor.phone,
             course_name: schedule.Courses?.name || "Demo Class",
           },
         });
@@ -717,7 +717,6 @@ function LearnerTab({
     const lessonId =
       scheduleData.Lesson?.number || scheduleData.Lesson?.description || "N/A";
     const learnerName = scheduleData.Learner?.name || "Unknown Learner";
-
     if (!instructorEmail || !learnerEmail) {
       toast({
         title: "Email Failed",

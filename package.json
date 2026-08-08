@@ -95,5 +95,13 @@
     "vite": "5.2.12"
   },
   "pre-commit": "lint",
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "neverBuiltDependencies": [
+      "@swc/core",
+      "pre-commit",
+      "spawn-sync",
+      "supabase"
+    ]
+  }
 }

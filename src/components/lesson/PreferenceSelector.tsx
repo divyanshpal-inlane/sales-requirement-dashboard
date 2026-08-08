@@ -173,19 +173,19 @@ function PreferenceSelector({
                 );
               }
 
-              // Create reschedule request for all types (including demo/custom)
-              // Virtual lessons (for demo/custom courses) start with "virtual-"
-              // Filter them out since they're not valid UUIDs, use empty array for demo/custom
-              const realLessonIds = lessons.filter(
-                (id) => !id.startsWith("virtual-"),
-              );
-
-              // Always create reschedule request - admin will handle demo/custom cases
-              // by checking the learner's enrollment type
+              // Create reschedule request for all types (including demo/custom).
+              // Virtual lesson ids ("virtual-lesson-N") are passed through
+              // as-is: since migration 20260418 widened lesson_ids to TEXT[],
+              // the column accepts them, and the admin CreateSchedule flow
+              // synthesizes N mock lessons from them — that count is the ONLY
+              // way it knows how many hours a demo/custom request needs.
+              // (The old code filtered them out as "not valid UUIDs", which
+              // sent an empty array and made every custom-course request look
+              // like a single 1-hour lesson on the admin side.)
               rescheduleRequest(
                 {
                   learnerId,
-                  lessonIds: realLessonIds, // Empty array for demo/custom is OK
+                  lessonIds: lessons,
                   type: requestType,
                 },
                 {

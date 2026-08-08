@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { BEGINNER_COURSE_ID, COURSES_DATA } from "@/constants/courses";
+import { COURSES_DATA, demoLessonOffsetFor } from "@/constants/courses";
 import { sendMultiEventCalendarInvite } from "@/lib/calendarUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { generateRandomOTP } from "@/lib/utils";
@@ -137,6 +137,7 @@ export default function AdminSchedules() {
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
     useState(false);
+    
   const [selectedRequest, setSelectedRequest] = useState<
     SchedulingRequests[number] | null
   >(null);
@@ -176,11 +177,6 @@ export default function AdminSchedules() {
       const isVirtualLessons =
         schedules.length > 0 &&
         schedules[0]?.lessonId?.startsWith?.("virtual-lesson-");
-      console.log("=== CREATE SCHEDULE MUTATION ===");
-      console.log("learnerId:", learnerId);
-      console.log("schedules:", schedules);
-      console.log("courseId:", courseId);
-      console.log("schedules.length:", schedules.length);
 
       if (schedules.length === 0) {
         console.warn("WARNING: No schedules to create/update!");
@@ -1807,6 +1803,16 @@ export const LearnerSchedulesManager = ({
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
     useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  // NEW - Pause Lesson Dialog State
+const [isPauseDialogOpen, setIsPauseDialogOpen] = useState(false);
+
+const [pauseReason, setPauseReason] =
+  useState<"payment" | "other">("payment");
+
+const [pauseNotes, setPauseNotes] = useState("");
+const [pauseType, setPauseType] =
+  useState<"single" | "all">("single");
+
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [instructorChangeFromLesson, setInstructorChangeFromLesson] = useState<
     number | null
@@ -1836,6 +1842,15 @@ export const LearnerSchedulesManager = ({
   // Count of completed demos (each = 1 hr) — deducted from the course lesson
   // count, so a 10-lesson course after 1 demo is scheduled as 9 lessons.
   const [upgradeDemoCount, setUpgradeDemoCount] = useState(0);
+  // Payment plan for the upgrade link, mirroring the new-learner course form:
+  // "full" charges the whole balance, "installment" splits it in two and sends
+  // the link for the first half only.
+  const [upgradePaymentType, setUpgradePaymentType] = useState<
+    "full" | "installment"
+  >("full");
+  // Ops-editable 1st installment. Empty string = "use the default half", so a
+  // price change re-derives it instead of stranding a stale figure.
+  const [upgradeInstallment1, setUpgradeInstallment1] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
   const completeRescheduleRequestMutation =
@@ -2081,20 +2096,37 @@ export const LearnerSchedulesManager = ({
     }
   };
 
-  const onUpdateStatus = async (
-    scheduleId: string | number,
-    newStatus: string,
-  ) => {
+const onUpdateStatus = async (
+  scheduleId: string | number,
+  newStatus: string,
+  pauseReason?: "payment" | "other",
+  pauseNotes?: string,
+) => {
     try {
       setIsProcessing(true);
       // Convert to number if it's a string, as the database expects an integer ID
       const numericId =
         typeof scheduleId === "string" ? Number(scheduleId) : scheduleId;
 
-      const { error } = await supabase
-        .from("Schedule")
-        .update({ status: newStatus })
-        .eq("id", numericId);
+     const updates: any = {
+  status: newStatus,
+};
+
+if (newStatus === "paused") {
+  updates.pause_reason = pauseReason;
+  updates.pause_notes =
+    pauseReason === "other" ? pauseNotes : null;
+}
+
+if (newStatus === "booked") {
+  updates.pause_reason = null;
+  updates.pause_notes = null;
+}
+
+const { error } = await supabase
+  .from("Schedule")
+  .update(updates)
+  .eq("id", numericId);
 
       if (error) throw error;
       await syncData();
@@ -2114,8 +2146,11 @@ export const LearnerSchedulesManager = ({
   };
 
   // Pause or resume ALL upcoming (booked) lessons for this learner
-  const onPauseResumeAll = async (action: "pause" | "resume") => {
-    if (!learner?.schedules) return;
+const onPauseResumeAll = async (
+  action: "pause" | "resume",
+  pauseReason?: "payment" | "other",
+  pauseNotes?: string,
+) => {    if (!learner?.schedules) return;
     try {
       setIsProcessing(true);
       const today = format(new Date(), "yyyy-MM-dd");
@@ -2136,10 +2171,25 @@ export const LearnerSchedulesManager = ({
         return;
       }
 
-      const { error } = await supabase
-        .from("Schedule")
-        .update({ status: newStatus })
-        .in("id", scheduleIds);
+      const updates: any = {
+  status: newStatus,
+};
+
+if (newStatus === "paused") {
+  updates.pause_reason = pauseReason;
+  updates.pause_notes =
+    pauseReason === "other" ? pauseNotes : null;
+}
+
+if (newStatus === "booked") {
+  updates.pause_reason = null;
+  updates.pause_notes = null;
+}
+
+const { error } = await supabase
+  .from("Schedule")
+  .update(updates)
+  .in("id", scheduleIds);
 
       if (error) throw error;
       await syncData();
@@ -2336,23 +2386,24 @@ export const LearnerSchedulesManager = ({
     if (!showUpgradeDialog || !learner?.id) return;
     let cancelled = false;
     (async () => {
-      const [{ data: courseRows }, { data: demoPayments }] = await Promise.all(
-        [
-          supabase
-            .from("Courses")
-            .select("id, price")
-            .in(
-              "id",
-              PREDEFINED_COURSES.map((c) => c.id),
-            ),
-          supabase
-            .from("payment")
-            .select("amount")
-            .eq("learner_id", learner.id)
-            .eq("payment_type", "demo")
-            .eq("status", "completed"),
-        ],
-      );
+      const [{ data: courseRows }, { data: demoPayments }] = await Promise.all([
+        supabase
+          .from("Courses")
+          .select("id, price")
+          .in(
+            "id",
+            PREDEFINED_COURSES.map((c) => c.id),
+          ),
+        // "upgraded" counts too — a demo flips completed -> upgraded as soon
+        // as an upgrade order is created, so an ops user reopening this
+        // dialog after an abandoned attempt must still see the credit.
+        supabase
+          .from("payment")
+          .select("amount")
+          .eq("learner_id", learner.id)
+          .eq("payment_type", "demo")
+          .in("status", ["completed", "upgraded"]),
+      ]);
       if (cancelled) return;
       const prices: Record<string, number> = {};
       (courseRows || []).forEach((c: any) => {
@@ -2380,17 +2431,54 @@ export const LearnerSchedulesManager = ({
   const upgradeCourseDuration =
     PREDEFINED_COURSES.find((c) => c.id === upgradeSelectedCourse)?.duration ??
     0;
-  // Completed demos (1 hr each) count as the course's first lessons ONLY for
-  // the Beginner course, where the demo doubles as lesson 1 (e.g. lessons
-  // 2..10 remain). For specialty courses (2-hr Flyover/Parking etc.) the demo
-  // replaces nothing — subtracting it collapsed a 2-hour course to 1 hour on
-  // the scheduling side. The ₹ demo credit still applies to every course.
-  const upgradeDemoLessonOffset =
-    upgradeSelectedCourse === BEGINNER_COURSE_ID ? upgradeDemoCount : 0;
+  // Completed demos (1 hr each) count as the course's first lessons on every
+  // upgrade target, not just Beginner: the demo's price is deducted from the
+  // course price below (upgradeFinalAmount), so its hour has to come off the
+  // course too — otherwise the learner pays for N hours and drives N+1.
+  // Clamped to leave at least one hour on short specialty courses.
+  const upgradeDemoLessonOffset = demoLessonOffsetFor(
+    upgradeCourseDuration,
+    upgradeDemoCount,
+  );
   const upgradeLessonCount = Math.max(
     1,
     upgradeCourseDuration - upgradeDemoLessonOffset,
   );
+
+  // Payment plan split. Both installments are derived from the balance AFTER
+  // the demo credit, so ops never has to do that arithmetic by hand.
+  const upgradeIsInstallment = upgradePaymentType === "installment";
+  // Empty means "not edited" — fall back to half. A typed 0 stays 0 so the
+  // submit guard below can reject it, rather than silently becoming half.
+  const upgradeInstallment1Raw =
+    upgradeInstallment1 === ""
+      ? Math.round(upgradeFinalAmount / 2)
+      : Math.round(Number(upgradeInstallment1) || 0);
+  const upgradeInstallment1Amount = upgradeIsInstallment
+    ? Math.max(0, Math.min(upgradeFinalAmount, upgradeInstallment1Raw))
+    : upgradeFinalAmount;
+  const upgradeInstallment2Amount = upgradeIsInstallment
+    ? upgradeFinalAmount - upgradeInstallment1Amount
+    : 0;
+  // What the payment link actually charges now.
+  const upgradeLinkAmount = upgradeIsInstallment
+    ? upgradeInstallment1Amount
+    : upgradeFinalAmount;
+
+  // Lessons unlocked up front. A half-paid enrollment holds back the last two
+  // hours until the balance clears (same rule as the payment backends'
+  // getHalfPaymentLessons); completePayment recomputes this on payment anyway.
+  const upgradeUnlockedLessons = (() => {
+    const count = upgradeIsInstallment
+      ? upgradeLessonCount <= 2
+        ? 1
+        : upgradeLessonCount - 2
+      : upgradeLessonCount;
+    return Array.from(
+      { length: count },
+      (_, i) => upgradeDemoLessonOffset + i + 1,
+    );
+  })();
 
   const handleUpgradeToCourse = async () => {
     if (!upgradeSelectedCourse || !learner) return;
@@ -2419,15 +2507,22 @@ export const LearnerSchedulesManager = ({
         course_id: course.id,
         status: "pending",
         payment_status: "pending",
-        installment_mode: "full",
+        // "installment" (not "first_half") matches what the new-learner course
+        // form stores; PaymentPage treats any non-"full" mode as installment.
+        installment_mode: upgradeIsInstallment ? "installment" : "full",
+        // Always the FULL balance, never the first installment — the payment
+        // page derives each installment from this and expectedAmountFor()
+        // validates against it.
         amount: upgradeFinalAmount,
-        // For the Beginner course, demo hours already delivered count as the
-        // first lessons, so unlock only the remaining ones (e.g. 2..10 after
-        // 1 demo). Other courses unlock from lesson 1.
-        unlocked_lessons: Array.from(
-          { length: upgradeLessonCount },
-          (_, i) => upgradeDemoLessonOffset + i + 1,
-        ),
+        installment1_amount: upgradeIsInstallment
+          ? upgradeInstallment1Amount
+          : null,
+        installment2_amount: upgradeIsInstallment
+          ? upgradeInstallment2Amount
+          : null,
+        // Demo hours already delivered count as the course's first lessons, so
+        // unlock only the remaining ones (e.g. 2..10 after 1 demo).
+        unlocked_lessons: upgradeUnlockedLessons,
         progress: { type: "course", total_hours: upgradeLessonCount },
       });
       if (enrollError) throw enrollError;
@@ -2451,7 +2546,9 @@ export const LearnerSchedulesManager = ({
           learner_id: learner.id,
           payment_link: paymentLink,
           course_name: course.name,
-          payment_amount: upgradeFinalAmount,
+          // Charge the first installment only when a plan was chosen — the
+          // learner is told what this link actually collects.
+          payment_amount: upgradeLinkAmount,
           duration: upgradeLessonCount,
         },
       });
@@ -2459,10 +2556,16 @@ export const LearnerSchedulesManager = ({
       setShowUpgradeDialog(false);
       setUpgradeSelectedCourse("");
       setUpgradeCustomPrice("");
+      setUpgradePaymentType("full");
+      setUpgradeInstallment1("");
       await syncData();
       toast({
         title: "Upgrade Initiated",
-        description: `${learner.name} enrolled in ${course.name} — ${upgradeLessonCount} lesson${upgradeLessonCount === 1 ? "" : "s"} at ₹${upgradeCoursePrice}. Demo credit ₹${upgradeDemoCredit} applied — payment link sent for ₹${upgradeFinalAmount}.`,
+        description: `${learner.name} enrolled in ${course.name} — ${upgradeLessonCount} lesson${upgradeLessonCount === 1 ? "" : "s"} at ₹${upgradeCoursePrice}. Demo credit ₹${upgradeDemoCredit} applied — payment link sent for ₹${upgradeLinkAmount}${
+          upgradeIsInstallment
+            ? ` (1st of 2; ₹${upgradeInstallment2Amount} due later)`
+            : ""
+        }.`,
       });
     } catch (error: any) {
       toast({
@@ -2727,14 +2830,18 @@ export const LearnerSchedulesManager = ({
                   s.date >= format(new Date(), "yyyy-MM-dd"),
               ) && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                  disabled={isProcessing}
-                  onClick={() => onPauseResumeAll("pause")}
-                >
-                  Pause Class
-                </Button>
+  variant="outline"
+  size="sm"
+  className="border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
+  onClick={() => {
+    setPauseType("all");
+    setPauseReason("payment");
+    setPauseNotes("");
+    setIsPauseDialogOpen(true);
+  }}
+>
+  Pause Class
+</Button>
               )}
               {learner?.schedules?.some(
                 (s: any) =>
@@ -2937,22 +3044,26 @@ export const LearnerSchedulesManager = ({
                             >
                               Reschedule
                             </DropdownMenuItem>
-                            {schedule.status !== "completed" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  onUpdateStatus(
-                                    schedule.id,
-                                    schedule.status === "paused"
-                                      ? "booked"
-                                      : "paused",
-                                  )
-                                }
-                              >
-                                {schedule.status === "paused"
-                                  ? "Resume Lesson"
-                                  : "Pause Lesson"}
-                              </DropdownMenuItem>
-                            )}
+                            {schedule.status !== "completed" &&
+  (schedule.status === "paused" ? (
+    <DropdownMenuItem
+      onClick={() => onUpdateStatus(schedule.id, "booked")}
+    >
+      Resume Lesson
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem
+      onClick={() => {
+        setSelectedSchedule(schedule);
+        setPauseReason("payment");
+        setPauseType("single");
+        setPauseNotes("");
+        setIsPauseDialogOpen(true);
+      }}
+    >
+      Pause Lesson
+    </DropdownMenuItem>
+  ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -3236,7 +3347,113 @@ export const LearnerSchedulesManager = ({
           </div>
         </DialogContent>
       </Dialog>
+      {/* Pause Lesson Dialog */}
+<Dialog
+  open={isPauseDialogOpen}
+  onOpenChange={setIsPauseDialogOpen}
+>
+  <DialogContent className="sm:max-w-md [&>button]:border 
+  [&>button]:border-green-500 [&>button]:rounded-md [&>button]:hover:bg-green-50">
+    <DialogHeader>
+      <DialogTitle>Pause Lesson</DialogTitle>
+      <DialogDescription>
+        Select a reason for pausing this lesson.
+      </DialogDescription>
+    </DialogHeader>
 
+   <div className="space-y-4">
+
+  <div className="space-y-3">
+
+    <label className="flex items-center gap-2 text-sm font-medium">
+      <input
+        type="radio"
+        name="pauseReason"
+        value="payment"
+        checked={pauseReason === "payment"}
+        onChange={() => {
+          setPauseReason("payment");
+          setPauseNotes("");
+        }}
+      />
+      Due to Payment
+    </label>
+
+
+    <label className="flex items-center gap-2 text-sm font-medium">
+      <input
+        type="radio"
+        name="pauseReason"
+        value="other"
+        checked={pauseReason === "other"}
+        onChange={() => setPauseReason("other")}
+      />
+      Other Reason
+    </label>
+
+  </div>
+
+
+  {pauseReason === "other" && (
+    <div className="space-y-2">
+
+      <label className="text-sm font-medium text-gray-700">
+        Reason
+      </label>
+
+      <textarea
+        value={pauseNotes}
+        onChange={(e) => setPauseNotes(e.target.value)}
+        placeholder="Enter reason for pausing lesson"
+        className="min-h-[90px] w-full rounded-md border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+      />
+
+    </div>
+  )}
+
+
+  <div className="flex justify-end gap-2 pt-3">
+
+    <Button
+      variant="outline"
+      onClick={() => setIsPauseDialogOpen(false)}
+    >
+      Cancel
+    </Button>
+
+<Button
+  disabled={
+    pauseReason === "other" &&
+    pauseNotes.trim() === ""
+  }
+  onClick={() => {
+    if (pauseType === "single") {
+      if (!selectedSchedule) return;
+
+      onUpdateStatus(
+        selectedSchedule.id,
+        "paused",
+        pauseReason,
+        pauseNotes
+      );
+    } else {
+      onPauseResumeAll(
+        "pause",
+        pauseReason,
+        pauseNotes
+      );
+    }
+
+    setIsPauseDialogOpen(false);
+  }}
+>
+  Pause
+</Button>
+  </div>
+
+</div>
+  </DialogContent>
+</Dialog>
       {/* Topup Dialog */}
       <Dialog
         open={isTopupDialogOpen}
@@ -3659,6 +3876,66 @@ export const LearnerSchedulesManager = ({
               </div>
             )}
 
+            {upgradeSelectedCourse && upgradeFinalAmount > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="upgradePaymentType"
+                    className="mb-1 block text-sm font-medium"
+                  >
+                    Payment Type
+                  </label>
+                  <Select
+                    value={upgradePaymentType}
+                    onValueChange={(value) => {
+                      setUpgradePaymentType(value as "full" | "installment");
+                      // Reset to the derived half so a stale figure from a
+                      // previous price can't carry over.
+                      setUpgradeInstallment1("");
+                    }}
+                  >
+                    <SelectTrigger id="upgradePaymentType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Full Payment</SelectItem>
+                      <SelectItem value="installment">
+                        Installment (Half now)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {upgradeIsInstallment && (
+                  <div>
+                    <label
+                      htmlFor="upgradeInstallment1"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      1st Payment (₹)
+                    </label>
+                    <Input
+                      id="upgradeInstallment1"
+                      type="number"
+                      min={1}
+                      max={upgradeFinalAmount}
+                      value={
+                        upgradeInstallment1 === ""
+                          ? String(upgradeInstallment1Amount)
+                          : upgradeInstallment1
+                      }
+                      onChange={(e) => setUpgradeInstallment1(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      2nd payment: ₹{upgradeInstallment2Amount} — collected
+                      later from the same link.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {upgradeSelectedCourse && upgradeCoursePrice > 0 && (
               <div className="space-y-1 rounded-md bg-green-50 p-3 text-sm text-green-700">
                 <div className="flex justify-between">
@@ -3673,14 +3950,24 @@ export const LearnerSchedulesManager = ({
                   <div className="flex justify-between">
                     <span>Lessons</span>
                     <span>
-                      {upgradeCourseDuration} − {upgradeDemoLessonOffset} demo
-                      = {upgradeLessonCount}
+                      {upgradeCourseDuration} − {upgradeDemoLessonOffset} demo ={" "}
+                      {upgradeLessonCount}
                     </span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-green-200 pt-1">
+                  <span>Balance</span>
+                  <span>₹{upgradeFinalAmount}</span>
+                </div>
+                {upgradeIsInstallment && (
+                  <div className="flex justify-between">
+                    <span>2nd payment (later)</span>
+                    <span>₹{upgradeInstallment2Amount}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-green-200 pt-1 font-medium">
                   <span>Payment link amount</span>
-                  <span>₹{upgradeFinalAmount}</span>
+                  <span>₹{upgradeLinkAmount}</span>
                 </div>
               </div>
             )}
@@ -3708,6 +3995,12 @@ export const LearnerSchedulesManager = ({
                   !upgradeSelectedCourse ||
                   upgradeCoursePrice <= 0 ||
                   upgradeFinalAmount <= 0 ||
+                  // A ₹0 or full-balance first installment isn't an
+                  // installment plan — it would send a link for nothing or
+                  // leave a ₹0 second payment stranded.
+                  (upgradeIsInstallment &&
+                    (upgradeInstallment1Amount <= 0 ||
+                      upgradeInstallment2Amount <= 0)) ||
                   isUpgrading
                 }
               >

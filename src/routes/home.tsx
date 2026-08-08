@@ -17,6 +17,7 @@ import {
   CheckCircle,
   Clock,
   Lock,
+  Phone,
   RefreshCw,
   Scroll,
   Star,
@@ -54,6 +55,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LESSON_CONTENT } from "@/constants/Lesson";
+import { SALES_PHONE_TEL, telHref } from "@/constants/support";
 import { supabase } from "@/lib/supabaseClient";
 // useUpdateScheduleStatus removed — lesson status changes are handled by instructor OTP flow only
 import {
@@ -106,6 +108,20 @@ export default function Home() {
   });
 
   const isDemo = enrolledCourse?.progress?.type === "demo";
+  const isCustom = enrolledCourse?.progress?.type === "custom";
+  // A custom-course payment pre-creates the pending "new" scheduling request
+  // (with no course_id, lesson_ids is the only way admin learns how many hours
+  // to book — see complete-payment's custom branch). A predefined course has no
+  // such request until the learner finishes onboarding, so the presence of one
+  // must NOT be read as "already onboarded" here: otherwise the LL flow, pickup
+  // location, start-date questions and availability screens below are all
+  // skipped and admin gets a learner it can't actually schedule.
+  const needsScheduleOnboarding =
+    isCustom &&
+    (!learner?.LL_received ||
+      !learner?.address_lat ||
+      !learner?.address_lng ||
+      !learner?.preferred_start_date);
   const { data: scheduledLessons } = useLearnerSchedule({
     learnerId: learner?.id,
     courseId: enrolledCourse?.course_id,
@@ -306,7 +322,10 @@ export default function Home() {
   };
   const isWaiveredLesson = (lessonNumber: number | null | undefined) => {
     if (!lessonNumber) return false;
+    // Only show waivered message if payment is half_paid (not full_paid or completed)
+    const isHalfPaid = enrolledCourse?.payment_status === "half_paid";
     return (
+      isHalfPaid &&
       lessonNumber > maxNumLessonsOnHalfInstallment &&
       enabledLessonForInstallmentStatus(lessonNumber)
     );
@@ -818,7 +837,11 @@ export default function Home() {
     scheduledLessons.length === 10 &&
     scheduledLessons.every((lesson) => isLessonCompleted(lesson));
 
-  if (scheduleRequests?.length > 0 && !LessonData?.upcomingLesson) {
+  if (
+    scheduleRequests?.length > 0 &&
+    !LessonData?.upcomingLesson &&
+    !needsScheduleOnboarding
+  ) {
     // lesson 1 getting scheduled
     return (
       <div className="flex min-h-screen flex-col">
@@ -1000,7 +1023,8 @@ export default function Home() {
               </p>
             )}
             {!LessonData?.upcomingLesson &&
-              !(scheduleRequests && scheduleRequests.length > 0) && (
+              (needsScheduleOnboarding ||
+                !(scheduleRequests && scheduleRequests.length > 0)) && (
                 <>
                   {learner && !learner.LL_received && !isDemo ? (
                     <LLFlow />
@@ -1013,8 +1037,6 @@ export default function Home() {
                             (l) => l.status?.toUpperCase() === "COMPLETED",
                           ).length ?? 0;
                         const demoCompleted = completedDemoCount > 0;
-                        const canBookAnotherDemo = completedDemoCount < 4;
-                        const demoCredit = completedDemoCount * 1;
                         // If demo learner hasn't captured pickup address yet,
                         // route them through the same /createSchedule/details
                         // flow as regular learners. Without this, admin can't
@@ -1053,84 +1075,16 @@ export default function Home() {
                                   <CheckCircle className="h-12 w-12 text-green-600" />
                                 </div>
                                 <h2 className="text-xl font-semibold">
-                                  {completedDemoCount === 1
-                                    ? "Demo Lesson Completed!"
-                                    : `${completedDemoCount} Demo Lessons Completed!`}
+                                  One class down. Ready for next step?
                                 </h2>
-                                <p className="text-sm text-muted-foreground">
-                                  What would you like to do next?
-                                </p>
                               </div>
 
-                              <Link
-                                to={`/payment?phone=${learner?.phone}&type=demo`}
-                                className={
-                                  canBookAnotherDemo
-                                    ? ""
-                                    : "pointer-events-none"
-                                }
-                              >
-                                <Card
-                                  className={
-                                    canBookAnotherDemo
-                                      ? "transition hover:border-primary hover:shadow-sm"
-                                      : "opacity-50"
-                                  }
-                                >
-                                  <CardContent className="flex items-center justify-between p-4">
-                                    <div className="text-left">
-                                      <div className="font-semibold">
-                                        Another Demo Lesson
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {canBookAnotherDemo
-                                          ? `₹1 · ${4 - completedDemoCount} left (max 4)`
-                                          : "You've used all 4 demo lessons"}
-                                      </div>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                                  </CardContent>
-                                </Card>
-                              </Link>
-
-                              <Link
-                                to={`/payment?phone=${learner?.phone}&type=topup&hours=1`}
-                              >
-                                <Card className="transition hover:border-primary hover:shadow-sm">
-                                  <CardContent className="flex items-center justify-between p-4">
-                                    <div className="text-left">
-                                      <div className="font-semibold">
-                                        Topup Class
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        ₹1/hr · Pick any number of hours
-                                      </div>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                                  </CardContent>
-                                </Card>
-                              </Link>
-
-                              <Link to={`/payment?phone=${learner?.phone}`}>
-                                <Card className="border-primary transition hover:shadow-sm">
-                                  <CardContent className="flex items-center justify-between p-4">
-                                    <div className="text-left">
-                                      <div className="font-semibold">
-                                        Upgrade to Full Course
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        ₹{demoCredit} credit from your{" "}
-                                        {completedDemoCount} demo
-                                        {completedDemoCount === 1
-                                          ? ""
-                                          : "s"}{" "}
-                                        applied
-                                      </div>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 text-primary" />
-                                  </CardContent>
-                                </Card>
-                              </Link>
+                              <Button asChild className="w-full gap-2">
+                                <a href={telHref(SALES_PHONE_TEL)}>
+                                  <Phone className="h-5 w-5" />
+                                  Chat with Sales
+                                </a>
+                              </Button>
                             </div>
                           );
                         }
@@ -1155,8 +1109,13 @@ export default function Home() {
                           </div>
                         );
                       })()
-                    ) : // Custom course or no course_id
-                    (enrolledCourse?.progress?.type === "custom" ||
+                    ) : // Custom course or no course_id. Only a learner who has
+                    // finished onboarding waits here — one still missing pickup
+                    // coords or availability must fall through to the
+                    // "Set your schedule" CTA below, or they'd be parked on a
+                    // dead-end screen with nothing for admin to schedule.
+                    !needsScheduleOnboarding &&
+                      (enrolledCourse?.progress?.type === "custom" ||
                         !enrolledCourse?.course_id) &&
                       learner.preferred_start_date ? (
                       <div className="flex grow flex-col items-center gap-4 p-4 pb-0 text-center">

@@ -26,51 +26,53 @@ function PaymentResult() {
   };
 
   return (
-    <div className="container mx-auto max-w-md py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {status === "completed" ? (
-              <>
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
-                Payment Successful
-              </>
-            ) : (
-              <>
-                <XCircle className="h-6 w-6 text-red-500" />
-                Payment Failed
-              </>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500">Status</p>
-              <p className="font-medium">
-                {status === "completed" ? "Completed" : "Failed"}
-              </p>
-            </div>
-            {reference && (
+    <div className="flex min-h-[100dvh] flex-col">
+      <div className="container mx-auto max-w-md flex-1 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {status === "completed" ? (
+                <>
+                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                  Payment Successful
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-6 w-6 text-red-500" />
+                  Payment Failed
+                </>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-500">Reference Number</p>
-                <p className="font-medium">{reference}</p>
+                <p className="text-sm text-gray-500">Status</p>
+                <p className="font-medium">
+                  {status === "completed" ? "Completed" : "Failed"}
+                </p>
               </div>
-            )}
-            <div className="pt-4">
-              <Button
-                onClick={handleReturnHome}
-                variant="default"
-                className="w-full"
-              >
-                {status === "completed"
-                  ? "Continue to Sign Up"
-                  : "Lets Start your driving journey"}
-              </Button>
+              {reference && (
+                <div>
+                  <p className="text-sm text-gray-500">Reference Number</p>
+                  <p className="font-medium">{reference}</p>
+                </div>
+              )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="sticky bottom-0 border-t bg-white p-4">
+        <Button
+          onClick={handleReturnHome}
+          variant="default"
+          className="mx-auto block w-full max-w-md"
+        >
+          {status === "completed"
+            ? "Continue to Sign Up"
+            : "Lets Start your driving journey"}
+        </Button>
+      </div>
     </div>
   );
 }
