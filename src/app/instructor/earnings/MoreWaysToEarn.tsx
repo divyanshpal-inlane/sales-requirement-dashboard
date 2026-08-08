@@ -45,6 +45,11 @@ export default function MoreWaysToEarn() {
           <p className="mt-1 text-3xl font-bold">
             {formatINR(earnings?.bonusMtd ?? 0)} earned from bonuses
           </p>
+          {(earnings?.referralMtd ?? 0) > 0 && (
+            <p className="mt-1 text-sm font-medium">
+              incl. {formatINR(earnings!.referralMtd)} from referrals
+            </p>
+          )}
           <p className="mt-1 text-sm opacity-90">
             Refer and earn more — see how below
           </p>

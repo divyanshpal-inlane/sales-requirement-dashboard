@@ -9,6 +9,7 @@ import {
   CreditCard,
   Eye,
   EyeOff,
+  Gauge,
   Handshake,
   LayoutGrid,
   LifeBuoy,
@@ -18,8 +19,10 @@ import {
   LogOut,
   MessageSquare,
   PhoneCall,
+  Radar,
   Settings,
   ShieldCheck,
+  Siren,
   Upload,
   UserPlus,
   Users,
@@ -96,7 +99,7 @@ const featureConfig: Record<
     color: "text-green-500",
   },
   ll_pipeline: {
-    title: "LL \u2192 DL Pipeline",
+    title: "LL → DL Pipeline",
     description:
       "Track every RTO application end-to-end: docs, call, scrutiny, tests, delivery",
     icon: ClipboardList,
@@ -256,6 +259,37 @@ const featureConfig: Record<
     icon: Upload,
     link: "/admin/ll-customer-migration",
     color: "text-violet-500",
+  },
+  safety_monitoring: {
+    title: "Safety Monitoring",
+    description: "Accidents, breakdowns, misconduct reports and SOS alerts",
+    icon: Siren,
+    link: "/admin/safety-monitoring",
+    color: "text-red-500",
+  },
+  instructor_performance: {
+    title: "Instructor Performance",
+    description:
+      "Attendance, punctuality, ratings, complaints and completion rates",
+    icon: Gauge,
+    link: "/admin/instructor-performance",
+    color: "text-emerald-600",
+  },
+  ops_control_tower: {
+    title: "Operations Control Tower",
+    description:
+      "Live KPIs, today's operations and exception dashboard in one place",
+    icon: Radar,
+    link: "/admin/control-tower",
+    color: "text-blue-600",
+  },
+  compliance_forms: {
+    title: "Compliance Forms",
+    description:
+      "Generate RTO Form 14, Form 15 & Certificate for any customer",
+    icon: ClipboardList,
+    link: "/admin/compliance-forms",
+    color: "text-indigo-500",
   },
  } as const;
 

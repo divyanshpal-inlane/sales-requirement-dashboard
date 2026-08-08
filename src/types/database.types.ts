@@ -348,6 +348,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      safety_incident: {
+        Row: {
+          id: string;
+          instructor_id: string;
+          incident_type: string;
+          schedule_id: number | null;
+          description: string | null;
+          location: string | null;
+          status: string;
+          admin_response: string | null;
+          resolved_by: string | null;
+          resolved_at: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          instructor_id: string;
+          incident_type: string;
+          schedule_id?: number | null;
+          description?: string | null;
+          location?: string | null;
+          status?: string;
+          admin_response?: string | null;
+          resolved_by?: string | null;
+          resolved_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          instructor_id?: string;
+          incident_type?: string;
+          schedule_id?: number | null;
+          description?: string | null;
+          location?: string | null;
+          status?: string;
+          admin_response?: string | null;
+          resolved_by?: string | null;
+          resolved_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
       KAM: {
         Row: {
           id: string;

@@ -33,6 +33,7 @@ import {
   Unlink,
   CalendarOff,
   LifeBuoy,
+  Siren,
   User,
   UserX,
   Wallet,
@@ -1485,6 +1486,16 @@ function Instructor() {
               >
                 <LifeBuoy className="h-3 w-3" />
                 Support
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/instructor/safety")}
+                className="flex items-center gap-1 text-xs text-red-600"
+              >
+                <Siren className="h-3 w-3" />
+                Safety
               </Button>
 
               <button
