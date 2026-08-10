@@ -29,6 +29,9 @@ const BACKEND_API =
 
 const FEATURE_FLAG_API = `${BACKEND_API}/internal/feature-flags`;
 
+// Internal API key for feature flags endpoint
+const INTERNAL_API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || 'HSuQKwbbBwIt1mCwimDVB3RUPe8BrHT6q0AOGdutKIt';
+
 /**
  * Fetch feature flags from the backend
  * This function handles the actual API call
@@ -39,13 +42,17 @@ async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
     
     const response = await fetch(FEATURE_FLAG_API, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-internal-key': INTERNAL_API_KEY,
+      },
     });
 
     if (!response.ok) {
       console.error('[Feature Flags] API returned status:', response.status);
       // Return safe defaults if API fails
-      return { shadow_auth_enabled: true };
+      // go_auth_enabled defaults to false so non-pilot users use Supabase
+      return { shadow_auth_enabled: true, go_auth_enabled: false };
     }
 
     const data = await response.json();
@@ -55,7 +62,8 @@ async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
   } catch (error) {
     console.error('[Feature Flags] Error fetching feature flags:', error);
     // Return safe defaults if network error
-    return { shadow_auth_enabled: true };
+    // go_auth_enabled defaults to false so non-pilot users use Supabase
+    return { shadow_auth_enabled: true, go_auth_enabled: false };
   }
 }
 
