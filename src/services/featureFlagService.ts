@@ -45,8 +45,7 @@ async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
     if (!response.ok) {
       console.error('[Feature Flags] API returned status:', response.status);
       // Return safe defaults if API fails
-      // go_auth_enabled defaults to false so non-pilot users use Supabase
-      return { shadow_auth_enabled: true, go_auth_enabled: false };
+      return { shadow_auth_enabled: true };
     }
 
     const data = await response.json();
@@ -56,8 +55,7 @@ async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
   } catch (error) {
     console.error('[Feature Flags] Error fetching feature flags:', error);
     // Return safe defaults if network error
-    // go_auth_enabled defaults to false so non-pilot users use Supabase
-    return { shadow_auth_enabled: true, go_auth_enabled: false };
+    return { shadow_auth_enabled: true };
   }
 }
 
