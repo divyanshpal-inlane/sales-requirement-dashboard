@@ -54,10 +54,13 @@ export default function Login() {
 
     try {
       setIsRequestingOtp(true);
+      setErrorMessage(""); // Clear previous errors
       await requestPasswordReset(phone);
       setResetRequested(true);
+      setSuccessMessage("OTP sent to your WhatsApp. Please check and enter below.");
       setTimer(30);
-    } catch (error) {
+    } catch (error: any) {
+      setErrorMessage(error?.message || "Failed to send OTP. Please try again.");
     } finally {
       setIsRequestingOtp(false);
     }
@@ -65,9 +68,13 @@ export default function Login() {
 
   const handleVerifyOtp = async () => {
     try {
+      setErrorMessage(""); // Clear previous errors
       await verifyOtpAndResetPassword(phone, otp, null);
       setOtpVerified(true);
-    } catch (error) {}
+      setSuccessMessage("OTP verified successfully. Set your new password.");
+    } catch (error: any) {
+      setErrorMessage(error?.message || "Invalid OTP. Please try again.");
+    }
   };
 
   const onSubmitHandler = async (e: React.FormEvent) => {
@@ -121,7 +128,7 @@ export default function Login() {
           }, 3000);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       setSuccessMessage("");
       setErrorMessage(error?.message || "An error occurred. Please try again.");
     }
@@ -147,7 +154,7 @@ export default function Login() {
     return <Navigate to="/instructor" />;
   }
 
-  const handleTncAgree = (event) => {
+  const handleTncAgree = (event: React.ChangeEvent<HTMLInputElement>) => {
     setAgreedTnc(event.target.checked);
   };
 

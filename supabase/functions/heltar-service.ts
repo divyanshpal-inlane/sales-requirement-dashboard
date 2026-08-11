@@ -403,14 +403,30 @@ class HeltarMessageService {
           );
         }
         case "PASSWORD_RESET_OTP": {
-          const { learner_id, otp } = data;
-          const learner = await this.getLearnerDetails(learner_id);
-          return this.sendTemplate(
-            learner.phone,
-            "PASSWORD_RESET_OTP",
-            [learner.name, otp],
-            `password-reset-otp-${learner_id}-${Date.now()}`,
-          );
+          const { learner_id, otp, user_type, user_id, user_name, user_phone } = data;
+          
+          // Support both new format (user_type, user_id, user_name, user_phone) 
+          // and legacy format (learner_id only)
+          if (user_type && user_id && user_name && user_phone) {
+            // New format: directly use provided user details
+            return this.sendTemplate(
+              user_phone,
+              "PASSWORD_RESET_OTP",
+              [user_name, otp],
+              `password-reset-otp-${user_type}-${user_id}-${Date.now()}`,
+            );
+          } else if (learner_id) {
+            // Legacy format: fetch learner details
+            const learner = await this.getLearnerDetails(learner_id);
+            return this.sendTemplate(
+              learner.phone,
+              "PASSWORD_RESET_OTP",
+              [learner.name, otp],
+              `password-reset-otp-${learner_id}-${Date.now()}`,
+            );
+          } else {
+            throw new Error("PASSWORD_RESET_OTP requires either (user_type, user_id, user_name, user_phone) or learner_id");
+          }
         }
 
         // Reuses PASSWORD_RESET_OTP template until a dedicated lesson OTP template is registered on Heltar
