@@ -38,7 +38,7 @@ interface AuthContextType {
   login: (phone: string, password: string, role: UserRole) => Promise<void>;
   signUp: (phone: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
-  requestPasswordReset: (phone: string) => Promise<void>;
+  requestPasswordReset: (phone: string, context?: "learner" | "instructor" | "admin") => Promise<void>;
   verifyOtpAndResetPassword: (
     phone: string,
     otp: string,
@@ -360,11 +360,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
 
-  const requestPasswordResetAlternative = async (phone: string) => {
+  const requestPasswordResetAlternative = async (phone: string, context?: "learner" | "instructor" | "admin") => {
     // Normalize to last 10 digits for consistency
     const last10 = phone.replace(/\D/g, "").slice(-10);
 
-    console.log(`[AUTH] Password reset requested for phone: ${phone}, normalized: ${last10}`);
+    console.log(`[AUTH] Password reset requested for phone: ${phone}, normalized: ${last10}, context: ${context || "auto-detect"}`);
+
+    // ── Admin context: Always use Go service (don't check Learner/Instructor tables) ──
+    if (context === "admin") {
+      console.log("[AUTH] Admin context - using Go service directly");
+      const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
+
+      if (goAuthEnabled) {
+        const res = await fetch(`${BACKEND_API}/auth/otp/request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: last10 }),
+        });
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.message || "Failed to send OTP. Please try again.");
+        }
+
+        console.log("[AUTH] ✅ OTP request accepted by Go service (admin flow).");
+        return;
+      } else {
+        throw new Error("Admin password reset is not available. Please contact support.");
+      }
+    }
 
     // Phone formats to try (database might store in different formats)
     const phoneFormats = [

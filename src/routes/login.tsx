@@ -55,7 +55,7 @@ export default function Login() {
     try {
       setIsRequestingOtp(true);
       setErrorMessage(""); // Clear previous errors
-      await requestPasswordReset(phone);
+      await requestPasswordReset(phone, "learner");
       setResetRequested(true);
       setSuccessMessage("OTP sent to your WhatsApp. Please check and enter below.");
       setTimer(30);
@@ -91,7 +91,7 @@ export default function Login() {
           if (!phone || phone.trim().length < 10) {
             throw new Error("Please enter a valid phone number");
           }
-          await requestPasswordReset(phone);
+          await requestPasswordReset(phone, "learner");
           setSuccessMessage(
             "OTP sent to your WhatsApp. Please check and enter below.",
           );

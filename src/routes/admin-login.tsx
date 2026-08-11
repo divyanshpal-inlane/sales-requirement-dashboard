@@ -57,7 +57,7 @@ export default function AdminLogin() {
 
     try {
       setIsRequestingOtp(true);
-      await requestPasswordReset(formData.phone);
+      await requestPasswordReset(formData.phone, "admin");
       setResetRequested(true);
       setTimer(30);
       setSuccessMessage(
