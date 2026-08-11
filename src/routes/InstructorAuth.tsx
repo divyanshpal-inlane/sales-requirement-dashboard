@@ -52,7 +52,7 @@ export default function InstructorAuth() {
 
     try {
       setIsRequestingOtp(true);
-      await requestPasswordReset(phone);
+      await requestPasswordReset(phone, "instructor");
       setResetRequested(true);
       setTimer(30);
       setSuccessMessage(
@@ -116,7 +116,7 @@ export default function InstructorAuth() {
           }, 3000);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       setSuccessMessage("");
       setErrorMessage(error?.message || "An error occurred. Please try again.");
     }
