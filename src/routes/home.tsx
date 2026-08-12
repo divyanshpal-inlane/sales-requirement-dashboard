@@ -29,6 +29,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import LLFlow from "@/components/ll_flow";
+import { PostLLHomeCard } from "@/components/ll_flow/DLJourney";
 import PaymentStatusCard from "@/components/payment/PaymentStatusCard";
 import { SessionDetails } from "@/components/SessionDetails";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -972,6 +973,10 @@ export default function Home() {
         style={{ scrollbarWidth: "none" }}
       >
         {/* Course Progress Card */}
+        {/* Post-LL journey surface: DL-test states for learners who moved on
+            to classes, or the 30-day LL-expiry warning. */}
+        {learner?.LL_received && <PostLLHomeCard />}
+
         {renderCourseProgressCard()}
 
         {allLessonsCompleted ? (

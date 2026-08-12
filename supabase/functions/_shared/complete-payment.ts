@@ -458,6 +458,53 @@ export async function completePayment(
     }
   }
 
+  // LL-first learners: open their LL->DL journey at "Payment Received" so the
+  // homepage shows the Fill-LL-Form state and the day-1/day-2 form reminders
+  // (ll-flow-reminders) anchor to the payment date. Skipped for learners who
+  // already hold an LL/DL or already have an active application.
+  if (paymentType === "course" || paymentType === "custom") {
+    try {
+      const { data: learnerFlags } = await supabaseClient
+        .from("Learner")
+        .select("has_a_DL, LL_received")
+        .eq("id", payment.learner_id)
+        .single();
+
+      if (!learnerFlags?.has_a_DL && !learnerFlags?.LL_received) {
+        const { data: activeApp } = await supabaseClient
+          .from("ll_applications")
+          .select("id")
+          .eq("learner_id", payment.learner_id)
+          .not("status", "in", "(dl_delivered,closed)")
+          .maybeSingle();
+
+        if (!activeApp) {
+          const { data: created, error: createError } = await supabaseClient
+            .from("ll_applications")
+            .insert({
+              learner_id: payment.learner_id,
+              services: ["ll"],
+              status: "payment_received",
+            })
+            .select("id")
+            .single();
+          if (createError) throw createError;
+          await supabaseClient.from("ll_pipeline_events").insert({
+            application_id: created.id,
+            learner_id: payment.learner_id,
+            event_type: "status_change",
+            to_status: "payment_received",
+            actor_name: "System",
+            note: "Journey opened automatically on course payment",
+          });
+        }
+      }
+    } catch (llErr) {
+      // Never let journey bookkeeping fail the payment completion.
+      console.error("Error opening LL application:", llErr);
+    }
+  }
+
   try {
     await supabaseClient.functions.invoke("send-message", {
       body: {

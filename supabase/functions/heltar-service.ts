@@ -204,6 +204,202 @@ export const TEMPLATES = {
     content:
       "Hey {{1}} 😊\n\nGreetings for the lovely day! Wohoooo 🥳🥳 Thank you so much for making the payment of {{2}}. We are so pumped up to be your driving buddy 🚗🚗\n\nPlease do sign up on the *Lane App* and have a fun time exploring our cool modules and get started with your learning process ☺️☺️\n\nWe are super excited for this. Ping us for any support, if needed ⭐️\n\nYour driving buddy,\nLane 🚘🛣",
   },
+  // ── RTO flow (LL journey homepage states) ──────────────────────────────
+  // NOTE: the templates without an id are NEW and must be created & approved
+  // on Heltar with exactly these names/variables before they will deliver.
+  LL_FORM_REMINDER_DAY1: {
+    name: "ll_form_reminder_day1",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nJust a nudge from your driving buddies 🚗 Your LL application is on hold until we receive your documents.\n\nPlease fill the LL form on the *Lane App* — it takes less than 5 minutes ⏱️\n\nOnce done, our RTO team will start processing right away ✅\n\nThank you,\nLane Team 😊",
+  },
+  LL_FORM_REMINDER_DAY2: {
+    name: "ll_form_reminder_day2",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nIt's been 2 days since your payment and we are still waiting for your LL documents 🤔\n\nYour application is on hold until we receive them. Please fill the LL form on the *Lane App* — less than 5 minutes, promise ⏱️✅\n\nNeed a hand? Just reply here and we'll help you out ❤️\n\nLane Team 🚗",
+  },
+  LL_FORM_HELP_OFFER: {
+    name: "ll_form_help_offer",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nNeed help filling the LL form? Our team is happy to walk you through it on a quick call 📞\n\nTap *Talk to Lane Team* on the Lane App homepage, or just reply here and we'll call you 😊\n\nLane Team 🚗",
+  },
+  APP_ADDITIONAL_DOCS: {
+    name: "app_additional_docs_asking_customer",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nWe reviewed your LL application documents and a few of them need a fix 📄\n\nPlease open the *Lane App* to see which documents need to be re-uploaded and the reason for each ✅\n\nThank you,\nLane Team 🚗",
+  },
+  APP_TIME_FROM_CUSTOMER: {
+    name: "app_time_from_customer_for_application",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nGreat news — your documents have been approved 🎉\n\nPlease book your preferred time slot for processing the LL application on the *Lane App* 📆\n\nThank you,\nLane Team 🚗",
+  },
+  APP_TIME_REMINDER_24H: {
+    name: "app_time_reminder_24h",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour slot is still open — pick a time that suits you 😊\n\nPlease book your LL application appointment on the *Lane App* so we can keep your application moving 📆✅\n\nLane Team 🚗",
+  },
+  APP_TIME_REMINDER_48H: {
+    name: "app_time_reminder_48h",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nWe noticed you haven't booked your LL application appointment yet 🤔\n\nYour slot is still open — pick a time that suits you on the *Lane App*. Our team will also reach out to help 📞\n\nLane Team 🚗",
+  },
+  APP_CALL_MISSED_BY_LANE: {
+    name: "app_call_missed_by_lane_apology",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nSorry, we could not connect for your appointment 🙏\n\nPlease pick a fresh slot on the *Lane App* — there is no extra charge, and we'll make sure it goes smoothly this time ✅\n\nLane Team 🚗",
+  },
+  APP_CALL_MISSED_TWICE: {
+    name: "app_call_missed_twice_ops_callback",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nWe missed you on the LL application call again 😔 No worries!\n\nOur team will call you shortly to help complete your application over the phone 📞\n\nLane Team 🚗",
+  },
+  LL_TEST_HELP_OFFICE_SLOT: {
+    name: "ll_test_help_office_slot",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nFacing trouble with the LL test? 🤔\n\nBook a slot at the Lane office and our team will help you complete it — tap *Book Lane Office Slot* on the Lane App 🏢✅\n\nLane Team 🚗",
+  },
+  LL_TEST_HELP_HOME_VISIT: {
+    name: "ll_test_help_home_visit",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nOur team can come to you! 🏠\n\nBook a home visit on the *Lane App* and we will help you finish the LL test at your doorstep ✅\n\nLane Team 🚗",
+  },
+  LL_SCRUTINY_EXPIRED_REAPPLY: {
+    name: "ll_scrutiny_expired_reapply",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour RTO scrutiny has expired because the LL test was not completed within 7 days 😔\n\nWe will need to reapply — a fresh government fee of Rs. {{2}} applies. Tap *Pay and Reapply* on the *Lane App* and we'll restart your application right away ✅\n\nLane Team 🚗",
+  },
+  LL_APPROVAL_REJECTED_REASON: {
+    name: "ll_approval_rejected_reason",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nThe RTO has returned your LL application.\n\n*Reason:* {{2}}\n\nPlease book a fresh appointment on the *Lane App* so our team can correct and resubmit it ✅\n\nLane Team 🚗",
+  },
+  LL_NUMBER_ISSUED: {
+    name: "ll_number_issued",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour Learner's Licence is live! 🎉🎉\n\n*LL Number:* {{2}}\n*Issue Date:* {{3}}\n*Valid Till:* {{4}}\n\nOpen the *Lane App* to download your LL and set your class preferences 🚗✅\n\nCongratulations,\nLane Team 🥳",
+  },
+  LL_EXPIRY_WARNING_30DAYS: {
+    name: "ll_expiry_warning_30days",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour Learner's Licence expires on {{2}} ⏳\n\nBook your DL test before then so you do not have to reapply — tap *Select DL Test Date* on the *Lane App* 📆✅\n\nLane Team 🚗",
+  },
+  // ── DL-test phase (RTO flow part 2) — all NEW on Heltar ────────────────
+  LL_MATURED_SELECT_DL_DATE: {
+    name: "ll_matured_select_dl_date",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nGreat news — your Learner's Licence has matured today! 🥳\n\nYou can now pick your DL test date on the *Lane App* — tap *Select DL Test Date* and we'll book the slot with the RTO 📆✅\n\nLane Team 🚗",
+  },
+  CLASSES_COMPLETED_SELECT_DL_DATE: {
+    name: "classes_completed_select_dl_date",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYou have completed your classes — amazing work! 🎉\n\nPick your preferred DL test date and RTO on the *Lane App* and we'll book the slot for you 📆✅\n\nLane Team 🚗",
+  },
+  DL_DATE_PREFERENCE_RECEIVED: {
+    name: "dl_date_preference_received",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nWe have received your preferred DL test date — {{2}} at {{3}} ✅\n\nOur team is confirming the slot with the RTO and will get back to you within 24 hours ⏰\n\nLane Team 🚗",
+  },
+  DL_SLOT_OTP_CALLBACK: {
+    name: "dl_slot_otp_callback",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nOur team will call you shortly for the Parivahan OTP needed to book your DL slot 📞\n\nPlease keep the mobile number linked to your Aadhaar handy 📱\n\nLane Team 🚗",
+  },
+  DL_TEST_CONFIRMED: {
+    name: "dl_test_confirmed",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour DL test is confirmed! 🎉\n\n*Date:* {{2}}\n*Time:* {{3}}\n*RTO:* {{4}}\n\n*What to carry:* original LL, Aadhaar, and the vehicle you will be tested on 📄🚗\n\nCheck the *Lane App* for directions and to add it to your calendar ✅\n\nLane Team 🚗",
+  },
+  DL_TEST_REMINDER_3DAYS: {
+    name: "dl_test_reminder_3days",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour DL test is coming up on {{2}} — just 3 days to go! 💪\n\nCheck the *Lane App* for the documents checklist and what happens on test day ✅\n\nYou've got this,\nLane Team 🚗",
+  },
+  DL_TEST_REMINDER_1DAY: {
+    name: "dl_test_reminder_1day",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nTomorrow is the big day — your DL test on {{2}}! 🚗\n\nKeep your original LL and Aadhaar ready, and check the *Lane App* for the full checklist ✅\n\nAll the best,\nLane Team ⭐️",
+  },
+  DL_TEST_DAY_MORNING: {
+    name: "dl_test_day_morning",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nAll the best for your DL test today! 🍀\n\nPlease reach the RTO 30 minutes early. Directions and the checklist are on the *Lane App* 📍\n\nWe are rooting for you,\nLane Team 🚗",
+  },
+  DL_RESULT_PENDING: {
+    name: "dl_result_pending",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour test is done! 🎉 The RTO usually updates results within 1–2 working days and we will notify you as soon as it is out ⏰\n\nLane Team 🚗",
+  },
+  DL_TEST_PASSED: {
+    name: "dl_test_passed",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nCongratulations on clearing your DL test! 🥳🥳\n\nYour licence is now with the RTO for final approval. We will let you know the moment your DL number is generated ✅\n\nSo proud of you,\nLane Team 🚗",
+  },
+  DL_TEST_FAILED_RETEST: {
+    name: "dl_test_failed_retest",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYou did not clear the DL test this time — it happens, and we will crack it together 💪\n\nOur team will call you to plan the retest — a retest fee of Rs. {{2}} applies. You can also pick a preferred retest date on the *Lane App* ✅\n\nLane Team 🚗",
+  },
+  DL_TEST_NO_SHOW_RESCHEDULE: {
+    name: "dl_test_no_show_reschedule",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYou missed your DL test slot 😔 No worries — pick a new date on the *Lane App* and we will rebook it with the RTO ✅\n\nNote: a fresh slot fee may apply; our team will confirm.\n\nLane Team 🚗",
+  },
+  DL_APPROVAL_PENDING: {
+    name: "dl_approval_pending",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour Driving Licence is awaiting final approval from the RTO — this usually takes a few working days ⏳\n\nWe will notify you as soon as it is approved ✅\n\nLane Team 🚗",
+  },
+  DL_NUMBER_GENERATED: {
+    name: "dl_number_generated",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour Driving Licence is approved! 🎉🎉\n\n*DL Number:* {{2}}\n*Valid Till:* {{3}}\n\nOpen the *Lane App* to download your DL. The physical card will be dispatched by the RTO soon 📦\n\nCongratulations,\nLane Team 🥳",
+  },
+  DL_CARD_DISPATCHED: {
+    name: "dl_card_dispatched",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour DL card has been dispatched and should reach you by {{2}} 📦\n\nCheck the *Lane App* for the delivery address and tracking details ✅\n\nLane Team 🚗",
+  },
+  DL_DELIVERED_FINAL: {
+    name: "dl_delivered_final",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nYour DL card has been delivered — you are all set! 🥳🚗\n\nThank you for choosing Lane for this journey. If you loved it, do rate your experience and refer a friend on the *Lane App* ❤️\n\nHave the best time behind the wheel,\nLane Team ⭐️\n*(By Your Side, Every Ride)*",
+  },
+  DL_NOT_DELIVERED_TICKET: {
+    name: "dl_not_delivered_ticket",
+    language: "en",
+    content:
+      "Hey {{1}},\n\nWe have not been able to deliver your DL card 😔\n\nOur team has raised ticket {{2}} and will call you to confirm the delivery address 📞\n\nLane Team 🚗",
+  },
   MESSAGE_FOR_CLASS_START: {
     name: "message_for_class_start",
     language: "en",
@@ -320,6 +516,19 @@ class HeltarMessageService {
 
     if (error) throw error;
     return learner;
+  }
+
+  // The learner's active LL->DL journey (RTO flow messages read reason,
+  // fee, LL number, dates… from here).
+  async getActiveLLApplication(learnerId: string) {
+    const { data, error } = await this.supabaseClient
+      .from("ll_applications")
+      .select("*")
+      .eq("learner_id", learnerId)
+      .not("status", "in", "(dl_delivered,closed)")
+      .maybeSingle();
+    if (error) throw error;
+    return data;
   }
 
   async processMessageRequest(messageType: string, data: any) {
@@ -863,6 +1072,250 @@ class HeltarMessageService {
               " ",
             ],
             `instructor-reminder-final-${instructor_phone}-${Date.now()}`,
+          );
+        }
+
+        // ── RTO flow (LL journey) messages ─────────────────────────────
+        // Simple name-only nudges share one code path; the data-carrying
+        // ones (fee, reason, LL number) read the active ll_applications row.
+        case "LL_FORM_REMINDER_DAY1":
+        case "LL_FORM_REMINDER_DAY2":
+        case "LL_FORM_HELP_OFFER":
+        case "LL_DOCS_REJECTED":
+        case "LL_DOCS_APPROVED_BOOK_SLOT":
+        case "LL_APPT_REMINDER_24H":
+        case "LL_APPT_REMINDER_48H":
+        case "LL_CALL_MISSED_BY_LANE":
+        case "LL_CALL_MISSED_TWICE":
+        case "LL_TEST_HELP_OFFICE_SLOT":
+        case "LL_TEST_HELP_HOME_VISIT": {
+          const templateByType: Record<string, keyof typeof TEMPLATES> = {
+            LL_FORM_REMINDER_DAY1: "LL_FORM_REMINDER_DAY1",
+            LL_FORM_REMINDER_DAY2: "LL_FORM_REMINDER_DAY2",
+            LL_FORM_HELP_OFFER: "LL_FORM_HELP_OFFER",
+            LL_DOCS_REJECTED: "APP_ADDITIONAL_DOCS",
+            LL_DOCS_APPROVED_BOOK_SLOT: "APP_TIME_FROM_CUSTOMER",
+            LL_APPT_REMINDER_24H: "APP_TIME_REMINDER_24H",
+            LL_APPT_REMINDER_48H: "APP_TIME_REMINDER_48H",
+            LL_CALL_MISSED_BY_LANE: "APP_CALL_MISSED_BY_LANE",
+            LL_CALL_MISSED_TWICE: "APP_CALL_MISSED_TWICE",
+            LL_TEST_HELP_OFFICE_SLOT: "LL_TEST_HELP_OFFICE_SLOT",
+            LL_TEST_HELP_HOME_VISIT: "LL_TEST_HELP_HOME_VISIT",
+          };
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            templateByType[messageType],
+            [learner.name],
+            `${messageType.toLowerCase()}-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "LL_SCRUTINY_EXPIRED_REAPPLY": {
+          const { learner_id, reapply_fee } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          const fee = reapply_fee ?? application?.reapply_fee ?? 450;
+          return this.sendTemplate(
+            learner.phone,
+            "LL_SCRUTINY_EXPIRED_REAPPLY",
+            [learner.name, `${fee}`],
+            `ll-scrutiny-expired-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "LL_APPROVAL_REJECTED": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "LL_APPROVAL_REJECTED_REASON",
+            [
+              learner.name,
+              application?.rejection_reason ||
+                "The RTO needs a correction in your application",
+            ],
+            `ll-approval-rejected-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "LL_NUMBER_ISSUED": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "LL_NUMBER_ISSUED",
+            [
+              learner.name,
+              application?.ll_number || "on the Lane App",
+              application?.ll_issue_date
+                ? formatDate(application.ll_issue_date)
+                : "on the Lane App",
+              application?.ll_expiry_date
+                ? formatDate(application.ll_expiry_date)
+                : "on the Lane App",
+            ],
+            `ll-number-issued-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "LL_EXPIRY_WARNING_30DAYS": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "LL_EXPIRY_WARNING_30DAYS",
+            [
+              learner.name,
+              application?.ll_expiry_date
+                ? formatDate(application.ll_expiry_date)
+                : "soon",
+            ],
+            `ll-expiry-warning-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        // ── DL-test phase: simple name-only messages ───────────────────
+        case "LL_MATURED_SELECT_DL_DATE":
+        case "CLASSES_COMPLETED_SELECT_DL_DATE":
+        case "DL_SLOT_OTP_CALLBACK":
+        case "DL_TEST_DAY_MORNING":
+        case "DL_RESULT_PENDING":
+        case "DL_TEST_PASSED":
+        case "DL_TEST_NO_SHOW_RESCHEDULE":
+        case "DL_APPROVAL_PENDING":
+        case "DL_DELIVERED_FINAL": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            messageType as keyof typeof TEMPLATES,
+            [learner.name],
+            `${messageType.toLowerCase()}-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        // ── DL-test phase: data-carrying messages ──────────────────────
+        case "DL_DATE_PREFERENCE_RECEIVED": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "DL_DATE_PREFERENCE_RECEIVED",
+            [
+              learner.name,
+              application?.dl_preferred_date
+                ? formatDate(application.dl_preferred_date)
+                : "your chosen date",
+              application?.dl_preferred_rto || "your chosen RTO",
+            ],
+            `dl-pref-received-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "DL_TEST_CONFIRMED": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "DL_TEST_CONFIRMED",
+            [
+              learner.name,
+              application?.dl_test_date
+                ? formatDate(application.dl_test_date)
+                : "on the Lane App",
+              application?.dl_test_time || "on the Lane App",
+              application?.dl_test_rto || "on the Lane App",
+            ],
+            `dl-test-confirmed-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "DL_TEST_REMINDER_3DAYS":
+        case "DL_TEST_REMINDER_1DAY": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            messageType as keyof typeof TEMPLATES,
+            [
+              learner.name,
+              application?.dl_test_date
+                ? formatDate(application.dl_test_date)
+                : "soon",
+            ],
+            `${messageType.toLowerCase()}-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "DL_TEST_FAILED_RETEST": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "DL_TEST_FAILED_RETEST",
+            [learner.name, `${application?.dl_retest_fee ?? 300}`],
+            `dl-test-failed-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "DL_NUMBER_GENERATED": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "DL_NUMBER_GENERATED",
+            [
+              learner.name,
+              application?.dl_number || "on the Lane App",
+              application?.dl_expiry_date
+                ? formatDate(application.dl_expiry_date)
+                : "on the Lane App",
+            ],
+            `dl-number-generated-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "DL_CARD_DISPATCHED": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "DL_CARD_DISPATCHED",
+            [
+              learner.name,
+              application?.dl_dispatch_eta
+                ? formatDate(application.dl_dispatch_eta)
+                : "soon",
+            ],
+            `dl-card-dispatched-${learner_id}-${Date.now()}`,
+          );
+        }
+
+        case "DL_NOT_DELIVERED_TICKET": {
+          const { learner_id } = data;
+          const learner = await this.getLearnerDetails(learner_id);
+          const application = await this.getActiveLLApplication(learner_id);
+          return this.sendTemplate(
+            learner.phone,
+            "DL_NOT_DELIVERED_TICKET",
+            [
+              learner.name,
+              application?.id
+                ? application.id.slice(0, 8).toUpperCase()
+                : "with our support team",
+            ],
+            `dl-not-delivered-${learner_id}-${Date.now()}`,
           );
         }
 

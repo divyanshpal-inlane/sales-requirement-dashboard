@@ -24,15 +24,34 @@ export interface LLApplication {
   ll_matures_at: string | null;
   dl_application_number: string | null;
   dl_application_date: string | null;
+  /** Customer's preferred slot (homepage picker); ops confirms into dl_test_*. */
+  dl_preferred_date: string | null;
+  dl_preferred_rto: string | null;
   dl_test_date: string | null;
+  dl_test_time: string | null;
   dl_test_rto: string | null;
+  dl_test_rto_address: string | null;
+  dl_retest_fee: number | null;
   dl_number: string | null;
+  dl_expiry_date: string | null;
+  dl_dispatch_eta: string | null;
+  dl_tracking_ref: string | null;
   rejection_reason: string | null;
   /** Answers from the in-app LL application form. */
   form_data: Record<string, string> | null;
   form_submitted_at: string | null;
   escalated: boolean;
   escalation_reason: string | null;
+  /** When the current status was entered (maintained by a DB trigger). */
+  status_changed_at: string;
+  /** Customer no-shows on the application call (2 -> Ops calls them). */
+  call_missed_count: number;
+  ll_issue_date: string | null;
+  ll_expiry_date: string | null;
+  /** Fresh govt fee quoted when scrutiny expires (falls back to default). */
+  reapply_fee: number | null;
+  /** Which scheduled nudges the ll-flow-reminders sweep already sent. */
+  reminders_sent: Record<string, string>;
   created_at: string;
   updated_at: string;
   Learner: {
@@ -157,6 +176,61 @@ export function useCreateLLApplication() {
   });
 }
 
+/**
+ * WhatsApp notification for a status transition (from the RTO-flow spec).
+ * Returns null when the state has no customer message.
+ */
+function llStatusMessageType(
+  toStatus: string,
+  callMissedCount: number,
+  llType: string | null,
+): string | null {
+  switch (toStatus) {
+    case "meet_booking_enabled":
+      return "LL_DOCS_APPROVED_BOOK_SLOT";
+    case "docs_rejected":
+      return "LL_DOCS_REJECTED";
+    case "call_missed_by_lane":
+      return "LL_CALL_MISSED_BY_LANE";
+    case "call_missed":
+      return callMissedCount >= 2 ? "LL_CALL_MISSED_TWICE" : null;
+    case "ll_approval_rejected":
+      return "LL_APPROVAL_REJECTED";
+    case "ll_issued":
+      return "LL_NUMBER_ISSUED";
+    // ── DL phase ───────────────────────────────────────────────────────
+    case "ll_matured":
+      return "LL_MATURED_SELECT_DL_DATE";
+    case "dl_date_selection":
+      // The maturing (direct-DL) track already got the ll_matured message.
+      return llType === "with_classes"
+        ? "CLASSES_COMPLETED_SELECT_DL_DATE"
+        : null;
+    case "dl_otp_required":
+      return "DL_SLOT_OTP_CALLBACK";
+    case "dl_test_scheduled":
+      return "DL_TEST_CONFIRMED";
+    case "dl_results_pending":
+      return "DL_RESULT_PENDING";
+    case "dl_test_passed":
+      return "DL_TEST_PASSED";
+    case "dl_test_failed":
+      return "DL_TEST_FAILED_RETEST";
+    case "dl_test_missed":
+      return "DL_TEST_NO_SHOW_RESCHEDULE";
+    case "dl_number_generated":
+      return "DL_NUMBER_GENERATED";
+    case "dl_delivery_pending":
+      return "DL_CARD_DISPATCHED";
+    case "dl_delivered":
+      return "DL_DELIVERED_FINAL";
+    case "dl_not_delivered":
+      return "DL_NOT_DELIVERED_TICKET";
+    default:
+      return null;
+  }
+}
+
 export function useUpdateLLStatus() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -174,6 +248,7 @@ export function useUpdateLLStatus() {
       /** Fields to persist together with the transition (e.g. ll_type, escalated). */
       extraFields?: Partial<LLApplication>;
     }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { Learner: _l, ...fields } = extraFields ?? {};
       const { error } = await sb
         .from("ll_applications")
@@ -193,6 +268,26 @@ export function useUpdateLLStatus() {
         actor_name: actorName,
         note: note ?? null,
       });
+
+      // Customer WhatsApp update for this transition — fire and forget, a
+      // messaging hiccup must not roll back the operational change.
+      const messageType = llStatusMessageType(
+        toStatus,
+        (extraFields?.call_missed_count ?? application.call_missed_count) || 0,
+        extraFields?.ll_type ?? application.ll_type,
+      );
+      if (messageType) {
+        supabase.functions
+          .invoke("send-message", {
+            body: {
+              message_type: messageType,
+              learner_id: application.learner_id,
+            },
+          })
+          .catch((e: Error) =>
+            console.error("[llApplications] send-message failed:", e),
+          );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
@@ -219,6 +314,18 @@ const FIELD_LABELS: Record<string, string> = {
   ll_type: "LL Type",
   escalated: "Escalated",
   escalation_reason: "Escalation Reason",
+  ll_issue_date: "LL Issue Date",
+  ll_expiry_date: "LL Valid Till",
+  reapply_fee: "Reapply Govt Fee (Rs.)",
+  call_missed_count: "Customer Call Misses",
+  dl_preferred_date: "Customer's Preferred DL Test Date",
+  dl_preferred_rto: "Customer's Preferred RTO",
+  dl_test_time: "DL Test Time",
+  dl_test_rto_address: "DL Test RTO Address",
+  dl_retest_fee: "DL Retest Fee (Rs.)",
+  dl_expiry_date: "DL Valid Till",
+  dl_dispatch_eta: "DL Card Expected Delivery",
+  dl_tracking_ref: "DL Card Tracking Ref",
 };
 
 // ── Uploaded documents (in-app LL application form) ──────────────────────
@@ -257,6 +364,70 @@ export function useLLDocuments(applicationId: string | null) {
       return (data ?? []) as unknown as LLDocument[];
     },
     enabled: !!applicationId,
+  });
+}
+
+/**
+ * Ops uploads the issued licence (PDF/image) so the customer's "Download
+ * LL"/"Download DL" button works. Stored as an approved ll_documents row of
+ * type "ll_card"/"dl_card"; re-uploading replaces the previous one.
+ */
+export function useUploadLLCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      application,
+      file,
+      actorName,
+      docType = "ll_card",
+    }: {
+      application: LLApplication;
+      file: File;
+      actorName?: string | null;
+      docType?: "ll_card" | "dl_card";
+    }) => {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "pdf";
+      const path = `${application.learner_id}/${docType}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("ll-documents")
+        .upload(path, file, { cacheControl: "3600", upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { error: deleteError } = await sb
+        .from("ll_documents")
+        .delete()
+        .eq("application_id", application.id)
+        .eq("doc_type", docType);
+      if (deleteError) throw deleteError;
+
+      const { error: insertError } = await sb.from("ll_documents").insert({
+        application_id: application.id,
+        learner_id: application.learner_id,
+        doc_type: docType,
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type,
+        status: "approved",
+        reviewed_by: actorName ?? null,
+        reviewed_at: new Date().toISOString(),
+      });
+      if (insertError) throw insertError;
+
+      await appendEvent({
+        application_id: application.id,
+        learner_id: application.learner_id,
+        event_type: "note",
+        actor_name: actorName,
+        note: `${docType === "dl_card" ? "DL" : "LL"} card uploaded — customer can now download it`,
+      });
+    },
+    onSuccess: (_d, { application }) => {
+      queryClient.invalidateQueries({ queryKey: ["ll-documents"] });
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", application.learner_id],
+      });
+      queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
+    },
   });
 }
 

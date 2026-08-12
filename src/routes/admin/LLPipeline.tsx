@@ -47,12 +47,15 @@ import {
 } from "@/constants/llPipeline";
 import {
   LLApplication,
+  llDocumentUrl,
   useCreateLLApplication,
   useLLApplications,
+  useLLDocuments,
   useLLLearnerSearch,
   useLLPipelineEvents,
   useUpdateLLFields,
   useUpdateLLStatus,
+  useUploadLLCard,
 } from "@/queries/llApplications";
 import { useCurrentUser } from "@/queries/userManagement";
 
@@ -445,21 +448,35 @@ function ApplicationDetail({
                   </Button>
                 ))
               )}
-              {stage?.failure && (
+              {(stage?.failures ?? []).map((f) => (
                 <Button
+                  key={f.key}
                   size="sm"
                   variant="outline"
                   className="border-red-300 text-red-600 hover:bg-red-50"
                   disabled={isBusy}
                   onClick={() => {
-                    onTransition(stage.failure!.key, note || undefined);
+                    // A customer no-show bumps the miss counter — the 2nd
+                    // miss switches the homepage + WhatsApp to "Ops will
+                    // call you" (spec: If Customer Misses the Meeting Twice).
+                    const extra: Partial<LLApplication> | undefined =
+                      f.key === "call_missed"
+                        ? {
+                            call_missed_count:
+                              (application.call_missed_count ?? 0) + 1,
+                          }
+                        : undefined;
+                    onTransition(f.key, note || undefined, extra);
                     setNote("");
                   }}
                 >
                   <XCircle className="mr-1 h-4 w-4" />
-                  {stage.failure.label}
+                  {f.label}
+                  {f.key === "call_missed" &&
+                    (application.call_missed_count ?? 0) > 0 &&
+                    ` (${application.call_missed_count} so far)`}
                 </Button>
-              )}
+              ))}
               <Button
                 size="sm"
                 variant="outline"
@@ -492,6 +509,18 @@ function ApplicationDetail({
 
           {/* Customer's form submission + uploaded documents */}
           <LLDocumentsReview application={application} actorName={actorName} />
+
+          {/* Issued licence uploads — power the customer's download buttons */}
+          <LLCardUpload
+            application={application}
+            actorName={actorName}
+            docType="ll_card"
+          />
+          <LLCardUpload
+            application={application}
+            actorName={actorName}
+            docType="dl_card"
+          />
 
           {/* Ops data entry */}
           <div className="rounded-md border p-3">
@@ -573,6 +602,31 @@ function ApplicationDetail({
                   onChange={(e) => setValue("ll_number", e.target.value)}
                 />
               </Field>
+              <Field label="LL Issue Date">
+                <Input
+                  type="date"
+                  className="h-8 text-sm"
+                  value={value("ll_issue_date")}
+                  onChange={(e) => setValue("ll_issue_date", e.target.value)}
+                />
+              </Field>
+              <Field label="LL Valid Till">
+                <Input
+                  type="date"
+                  className="h-8 text-sm"
+                  value={value("ll_expiry_date")}
+                  onChange={(e) => setValue("ll_expiry_date", e.target.value)}
+                />
+              </Field>
+              <Field label="Reapply Govt Fee (Rs.)">
+                <Input
+                  type="number"
+                  className="h-8 text-sm"
+                  placeholder="Quoted when scrutiny expires"
+                  value={value("reapply_fee")}
+                  onChange={(e) => setValue("reapply_fee", e.target.value)}
+                />
+              </Field>
               <Field label="LL Matures On">
                 <Input
                   type="date"
@@ -600,12 +654,35 @@ function ApplicationDetail({
                   }
                 />
               </Field>
+              <Field label="Customer's Preferred DL Slot">
+                <Input
+                  className="h-8 bg-gray-50 text-sm"
+                  readOnly
+                  tabIndex={-1}
+                  value={
+                    application.dl_preferred_date
+                      ? `${format(
+                          new Date(application.dl_preferred_date),
+                          "dd-MM-yyyy",
+                        )} · ${application.dl_preferred_rto ?? ""}`
+                      : "— not picked yet —"
+                  }
+                />
+              </Field>
               <Field label="DL Test Date">
                 <Input
                   type="date"
                   className="h-8 text-sm"
                   value={value("dl_test_date")}
                   onChange={(e) => setValue("dl_test_date", e.target.value)}
+                />
+              </Field>
+              <Field label="DL Test Time">
+                <Input
+                  className="h-8 text-sm"
+                  placeholder="e.g. 10:30 AM"
+                  value={value("dl_test_time")}
+                  onChange={(e) => setValue("dl_test_time", e.target.value)}
                 />
               </Field>
               <Field label="DL Test RTO">
@@ -615,11 +692,54 @@ function ApplicationDetail({
                   onChange={(e) => setValue("dl_test_rto", e.target.value)}
                 />
               </Field>
+              <Field label="DL Test RTO Address" className="col-span-2">
+                <Input
+                  className="h-8 text-sm"
+                  placeholder="Shown on the customer's Get Directions button"
+                  value={value("dl_test_rto_address")}
+                  onChange={(e) =>
+                    setValue("dl_test_rto_address", e.target.value)
+                  }
+                />
+              </Field>
+              <Field label="DL Retest Fee (Rs.)">
+                <Input
+                  type="number"
+                  className="h-8 text-sm"
+                  placeholder="Quoted if the test is failed"
+                  value={value("dl_retest_fee")}
+                  onChange={(e) => setValue("dl_retest_fee", e.target.value)}
+                />
+              </Field>
               <Field label="DL Number">
                 <Input
                   className="h-8 text-sm"
                   value={value("dl_number")}
                   onChange={(e) => setValue("dl_number", e.target.value)}
+                />
+              </Field>
+              <Field label="DL Valid Till">
+                <Input
+                  type="date"
+                  className="h-8 text-sm"
+                  value={value("dl_expiry_date")}
+                  onChange={(e) => setValue("dl_expiry_date", e.target.value)}
+                />
+              </Field>
+              <Field label="DL Card Expected Delivery">
+                <Input
+                  type="date"
+                  className="h-8 text-sm"
+                  value={value("dl_dispatch_eta")}
+                  onChange={(e) => setValue("dl_dispatch_eta", e.target.value)}
+                />
+              </Field>
+              <Field label="DL Card Tracking Ref">
+                <Input
+                  className="h-8 text-sm"
+                  placeholder="Courier / Speed Post reference"
+                  value={value("dl_tracking_ref")}
+                  onChange={(e) => setValue("dl_tracking_ref", e.target.value)}
                 />
               </Field>
               <Field
@@ -743,6 +863,82 @@ function ApplicationDetail({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/**
+ * Upload (or replace) the issued LL / DL PDF-image. The customer homepage
+ * shows the matching "Download LL"/"Download DL" button as soon as one
+ * exists.
+ */
+function LLCardUpload({
+  application,
+  actorName,
+  docType,
+}: {
+  application: LLApplication;
+  actorName: string | null;
+  docType: "ll_card" | "dl_card";
+}) {
+  const { toast } = useToast();
+  const { data: documents } = useLLDocuments(application.id);
+  const upload = useUploadLLCard();
+  const card = (documents ?? []).find((d) => d.doc_type === docType);
+  const label = docType === "dl_card" ? "DL" : "LL";
+
+  return (
+    <div className="rounded-md border p-3">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+        Issued {label} (customer download)
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {card ? (
+          <a
+            href={llDocumentUrl(card)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-primary underline"
+          >
+            {card.file_name ?? `${label} card`}
+          </a>
+        ) : (
+          <span className="text-sm text-gray-400">
+            No {label} uploaded yet — the customer&apos;s Download {label}{" "}
+            button stays hidden.
+          </span>
+        )}
+        <label className="cursor-pointer rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50">
+          {upload.isPending
+            ? "Uploading…"
+            : card
+              ? "Replace file"
+              : `Upload ${label} PDF/image`}
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            disabled={upload.isPending}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              upload.mutate(
+                { application, file, actorName, docType },
+                {
+                  onSuccess: () => toast({ title: `${label} uploaded` }),
+                  onError: (err: Error) =>
+                    toast({
+                      title: "Upload failed",
+                      description: err.message,
+                      variant: "destructive",
+                    }),
+                },
+              );
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
     </div>
   );
 }
