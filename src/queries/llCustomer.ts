@@ -13,6 +13,13 @@ const sb = supabase as any;
 /** Statuses that end a journey — anything else counts as the active one. */
 const CLOSED_STATUSES = ["dl_delivered", "closed"];
 
+/**
+ * Customer homepage still shows the "delivered, you're all set" state, so its
+ * query only hides fully closed journeys — preferring an active one if the
+ * learner has both an old delivered journey and a new application.
+ */
+const CUSTOMER_HIDDEN_STATUSES = ["closed"];
+
 export interface MyLLApplication {
   application: LLApplication | null;
   documents: LLDocument[];
@@ -23,13 +30,19 @@ export function useMyLLApplication(learnerId: string | null | undefined) {
   return useQuery({
     queryKey: ["my-ll-application", learnerId],
     queryFn: async (): Promise<MyLLApplication> => {
-      const { data: application, error } = await sb
+      const { data: rows, error } = await sb
         .from("ll_applications")
         .select("*")
         .eq("learner_id", learnerId)
-        .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
-        .maybeSingle();
+        .not("status", "in", `(${CUSTOMER_HIDDEN_STATUSES.join(",")})`)
+        .order("updated_at", { ascending: false });
       if (error) throw error;
+      const application =
+        (rows ?? []).find(
+          (r: { status: string }) => !CLOSED_STATUSES.includes(r.status),
+        ) ??
+        (rows ?? [])[0] ??
+        null;
       if (!application) return { application: null, documents: [] };
 
       const { data: documents, error: docsError } = await sb
@@ -45,6 +58,190 @@ export function useMyLLApplication(learnerId: string | null | undefined) {
       };
     },
     enabled: !!learnerId,
+  });
+}
+
+/**
+ * When the learner paid for the course — anchors the "Day N since payment"
+ * timer shown while the LL form is still unfilled. Falls back to the
+ * application's created_at when there is no payment row (ops-created).
+ */
+export function useFirstCoursePaymentDate(
+  learnerId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: ["first-course-payment", learnerId],
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await sb
+        .from("payment")
+        .select("created_at")
+        .eq("learner_id", learnerId)
+        .eq("status", "completed")
+        .in("payment_type", ["course", "custom"])
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.created_at ?? null;
+    },
+    enabled: !!learnerId,
+  });
+}
+
+/**
+ * Customer-side status transition (e.g. appointment booked via cal.com).
+ * Mirrors the admin useUpdateLLStatus but without the Ops message wiring.
+ */
+export function useCustomerLLStatusUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      applicationId,
+      learnerId,
+      fromStatus,
+      toStatus,
+      note,
+      actorName,
+    }: {
+      applicationId: string;
+      learnerId: string;
+      fromStatus: string;
+      toStatus: string;
+      note?: string;
+      actorName?: string | null;
+    }) => {
+      const { error } = await sb
+        .from("ll_applications")
+        .update({ status: toStatus, updated_at: new Date().toISOString() })
+        .eq("id", applicationId);
+      if (error) throw error;
+      await sb.from("ll_pipeline_events").insert({
+        application_id: applicationId,
+        learner_id: learnerId,
+        event_type: "status_change",
+        from_status: fromStatus,
+        to_status: toStatus,
+        actor_name: actorName ?? null,
+        note: note ?? null,
+        changes: [],
+      });
+    },
+    onSuccess: (_d, { learnerId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", learnerId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+    },
+  });
+}
+
+/**
+ * Customer picks their preferred DL test date + RTO on the homepage.
+ * Moves the application to "DL Date Preference Received"; ops then confirms
+ * the slot with the RTO (dl_test_scheduled) within 24 hours.
+ */
+export function useSelectDLTestDate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      applicationId,
+      learnerId,
+      fromStatus,
+      preferredDate,
+      preferredRto,
+      actorName,
+    }: {
+      applicationId: string;
+      learnerId: string;
+      fromStatus: string;
+      preferredDate: string;
+      preferredRto: string;
+      actorName?: string | null;
+    }) => {
+      const { error } = await sb
+        .from("ll_applications")
+        .update({
+          status: "dl_date_preference_received",
+          dl_preferred_date: preferredDate,
+          dl_preferred_rto: preferredRto,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", applicationId);
+      if (error) throw error;
+      await sb.from("ll_pipeline_events").insert({
+        application_id: applicationId,
+        learner_id: learnerId,
+        event_type: "status_change",
+        from_status: fromStatus,
+        to_status: "dl_date_preference_received",
+        actor_name: actorName ?? null,
+        note: `Customer picked ${preferredDate} at ${preferredRto}`,
+        changes: [],
+      });
+      // Confirmation WhatsApp — fire and forget.
+      supabase.functions
+        .invoke("send-message", {
+          body: {
+            message_type: "DL_DATE_PREFERENCE_RECEIVED",
+            learner_id: learnerId,
+          },
+        })
+        .catch((e: Error) =>
+          console.error("[llCustomer] send-message failed:", e),
+        );
+    },
+    onSuccess: (_d, { learnerId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", learnerId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+    },
+  });
+}
+
+/**
+ * Customer taps a help CTA (Lane office slot, home visit, expired-scrutiny
+ * reapply, DL test date…). Flags the application into the Ops follow-up
+ * queue and records the request on the timeline; Ops then calls back.
+ */
+export function useRequestLLHelp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      applicationId,
+      learnerId,
+      reason,
+      actorName,
+    }: {
+      applicationId: string;
+      learnerId: string;
+      reason: string;
+      actorName?: string | null;
+    }) => {
+      const { error } = await sb
+        .from("ll_applications")
+        .update({
+          escalated: true,
+          escalation_reason: reason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", applicationId);
+      if (error) throw error;
+      await sb.from("ll_pipeline_events").insert({
+        application_id: applicationId,
+        learner_id: learnerId,
+        event_type: "escalation",
+        actor_name: actorName ?? null,
+        note: reason,
+        changes: [],
+      });
+    },
+    onSuccess: (_d, { learnerId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", learnerId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+    },
   });
 }
 

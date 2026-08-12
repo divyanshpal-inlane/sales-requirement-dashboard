@@ -22,13 +22,19 @@ export const LL_PHASES: { key: LLPhaseKey; label: string }[] = [
   { key: "dl_test", label: "DL Test & Delivery" },
 ];
 
+export interface LLFailure {
+  key: string;
+  label: string;
+  recoverTo: string;
+}
+
 export interface LLStage {
   key: string;
   label: string;
   phase: LLPhaseKey;
   next: string[];
-  /** Red-box outcome reachable from this stage, with its recovery target. */
-  failure?: { key: string; label: string; recoverTo: string };
+  /** Red-box outcomes reachable from this stage, with their recovery targets. */
+  failures?: LLFailure[];
   /** Ops fields that become relevant at this stage (shown highlighted). */
   fields?: string[];
 }
@@ -59,11 +65,13 @@ export const LL_STAGES: LLStage[] = [
     label: "Documents Under Review",
     phase: "documents",
     next: ["meet_booking_enabled"],
-    failure: {
-      key: "docs_rejected",
-      label: "Docs Rejected / Incomplete",
-      recoverTo: "docs_submitted",
-    },
+    failures: [
+      {
+        key: "docs_rejected",
+        label: "Docs Rejected / Incomplete",
+        recoverTo: "docs_submitted",
+      },
+    ],
   },
 
   // ── Phase 2: Google Meet application call ────────────────────────────
@@ -79,12 +87,20 @@ export const LL_STAGES: LLStage[] = [
     label: "Appointment Booked",
     phase: "application_call",
     next: ["rto_application_generated"],
-    failure: {
-      key: "call_missed",
-      label: "Call Missed / No-show",
-      recoverTo: "appointment_booked",
-      // Board rule: 2 misses -> escalate.
-    },
+    failures: [
+      {
+        key: "call_missed",
+        label: "Missed by Customer",
+        recoverTo: "appointment_booked",
+        // Board rule: 2 misses -> Ops calls the customer to finish over phone.
+      },
+      {
+        key: "call_missed_by_lane",
+        label: "Missed by Lane / Technical Issue",
+        recoverTo: "appointment_booked",
+        // Customer gets an apology + free reschedule.
+      },
+    ],
   },
   {
     key: "rto_application_generated",
@@ -100,11 +116,13 @@ export const LL_STAGES: LLStage[] = [
     label: "Govt Payment Pending",
     phase: "rto_submission",
     next: ["application_ready"],
-    failure: {
-      key: "govt_payment_failed",
-      label: "Payment Failed",
-      recoverTo: "govt_payment_pending",
-    },
+    failures: [
+      {
+        key: "govt_payment_failed",
+        label: "Payment Failed",
+        recoverTo: "govt_payment_pending",
+      },
+    ],
   },
   {
     key: "application_ready",
@@ -136,11 +154,13 @@ export const LL_STAGES: LLStage[] = [
     label: "Waiting for RTO Verification",
     phase: "rto_submission",
     next: ["ll_test_enabled"],
-    failure: {
-      key: "scrutiny_rejected",
-      label: "Scrutiny Not Approved",
-      recoverTo: "submitted_at_rto",
-    },
+    failures: [
+      {
+        key: "scrutiny_rejected",
+        label: "Scrutiny Not Approved",
+        recoverTo: "submitted_at_rto",
+      },
+    ],
   },
 
   // ── Phase 4: LL test & approval ──────────────────────────────────────
@@ -150,12 +170,21 @@ export const LL_STAGES: LLStage[] = [
     phase: "ll_test",
     next: ["ll_test_passed"],
     fields: ["scrutiny_approved_date", "scrutiny_expiry_date"],
-    failure: {
-      key: "ll_test_failed",
-      label: "LL Test Failed",
-      recoverTo: "ll_test_enabled",
-      // Board rule: Ops pays retest fee + calls customer; retry after 24h.
-    },
+    failures: [
+      {
+        key: "ll_test_failed",
+        label: "LL Test Failed",
+        recoverTo: "ll_test_enabled",
+        // Board rule: Ops pays retest fee + calls customer; retry after 24h.
+      },
+      {
+        key: "scrutiny_expired",
+        label: "Scrutiny Expired (7 days)",
+        recoverTo: "meet_booking_enabled",
+        // Set automatically by ll_expire_scrutiny(); customer pays a fresh
+        // govt fee (reapply_fee) and the application call restarts.
+      },
+    ],
   },
   {
     key: "ll_test_passed",
@@ -168,18 +197,22 @@ export const LL_STAGES: LLStage[] = [
     label: "LL Approval Pending",
     phase: "ll_test",
     next: ["ll_issued"],
-    failure: {
-      key: "ll_approval_rejected",
-      label: "LL Approval Rejected",
-      recoverTo: "ll_approval_pending",
-    },
+    failures: [
+      {
+        key: "ll_approval_rejected",
+        label: "LL Approval Rejected",
+        recoverTo: "meet_booking_enabled",
+        // RTO returned the application — Ops corrects and resubmits via a
+        // fresh application call.
+      },
+    ],
   },
   {
     key: "ll_issued",
     label: "LL Issued (LL No. entered)",
     phase: "ll_test",
     next: ["ob_form_enabled", "ll_maturing"],
-    fields: ["ll_number"],
+    fields: ["ll_number", "ll_issue_date", "ll_expiry_date"],
   },
 
   // ── Phase 5: Post-LL branch ──────────────────────────────────────────
@@ -212,37 +245,58 @@ export const LL_STAGES: LLStage[] = [
     key: "dl_date_selection",
     label: "DL Date Options Enabled",
     phase: "post_ll",
-    next: ["dl_test_scheduled"],
+    next: ["dl_date_preference_received"],
   },
 
   // ── Phase 6: DL test & delivery ──────────────────────────────────────
   {
+    key: "dl_date_preference_received",
+    label: "DL Date Preference Received",
+    phase: "dl_test",
+    next: ["dl_test_scheduled", "dl_otp_required"],
+    fields: ["dl_preferred_date", "dl_preferred_rto"],
+    // Customer picked a date+RTO on the homepage; ops confirms the slot with
+    // the RTO (via dl_otp_required when a Parivahan OTP call is needed).
+  },
+  {
+    key: "dl_otp_required",
+    label: "Slot Booking — OTP Required",
+    phase: "dl_test",
+    next: ["dl_test_scheduled"],
+  },
+  {
     key: "dl_test_scheduled",
-    label: "DL Test Date & RTO Selected",
+    label: "DL Test Confirmed",
     phase: "dl_test",
     next: ["dl_results_pending"],
     fields: [
       "dl_application_number",
       "dl_application_date",
       "dl_test_date",
+      "dl_test_time",
       "dl_test_rto",
+      "dl_test_rto_address",
     ],
-    failure: {
-      key: "dl_test_missed",
-      label: "DL Test Not Attended",
-      recoverTo: "dl_test_scheduled",
-    },
+    failures: [
+      {
+        key: "dl_test_missed",
+        label: "DL Test Not Attended",
+        recoverTo: "dl_test_scheduled",
+      },
+    ],
   },
   {
     key: "dl_results_pending",
     label: "DL Test Done — Results Pending",
     phase: "dl_test",
     next: ["dl_test_passed"],
-    failure: {
-      key: "dl_test_failed",
-      label: "DL Test Failed",
-      recoverTo: "dl_test_scheduled",
-    },
+    failures: [
+      {
+        key: "dl_test_failed",
+        label: "DL Test Failed",
+        recoverTo: "dl_test_scheduled",
+      },
+    ],
   },
   {
     key: "dl_test_passed",
@@ -255,18 +309,21 @@ export const LL_STAGES: LLStage[] = [
     label: "DL Number Generated",
     phase: "dl_test",
     next: ["dl_delivery_pending"],
-    fields: ["dl_number"],
+    fields: ["dl_number", "dl_expiry_date"],
   },
   {
     key: "dl_delivery_pending",
-    label: "DL Card Delivery Pending",
+    label: "DL Card Dispatched / Delivery Pending",
     phase: "dl_test",
     next: ["dl_delivered"],
-    failure: {
-      key: "dl_not_delivered",
-      label: "DL Not Delivered (auto-ticket)",
-      recoverTo: "dl_delivery_pending",
-    },
+    fields: ["dl_dispatch_eta", "dl_tracking_ref"],
+    failures: [
+      {
+        key: "dl_not_delivered",
+        label: "DL Not Delivered (auto-ticket)",
+        recoverTo: "dl_delivery_pending",
+      },
+    ],
   },
   {
     key: "dl_delivered",
@@ -281,14 +338,12 @@ export const LL_FAILURE_STAGES: Record<
   string,
   { label: string; recoverTo: string; phase: LLPhaseKey }
 > = Object.fromEntries(
-  LL_STAGES.filter((s) => s.failure).map((s) => [
-    s.failure!.key,
-    {
-      label: s.failure!.label,
-      recoverTo: s.failure!.recoverTo,
-      phase: s.phase,
-    },
-  ]),
+  LL_STAGES.flatMap((s) =>
+    (s.failures ?? []).map((f) => [
+      f.key,
+      { label: f.label, recoverTo: f.recoverTo, phase: s.phase },
+    ]),
+  ),
 );
 
 export const LL_STAGE_MAP: Record<string, LLStage> = Object.fromEntries(
@@ -331,6 +386,92 @@ export const LL_SERVICES: { key: string; label: string }[] = [
 ];
 
 export const LL_BATCHES = ["LN001-007", "LN008-011", "LN012-015", "LN016-019"];
+
+// ── Customer-facing journey (homepage states) ────────────────────────────
+
+/** Where the customer takes the online LL test after scrutiny passes. */
+export const PARIVAHAN_LL_TEST_URL =
+  "https://sarathi.parivahan.gov.in/sarathiservice/stateSelection.do";
+
+/**
+ * Fresh government fee quoted when RTO scrutiny expires (LL test not taken
+ * within 7 days). Ops can override per application via
+ * ll_applications.reapply_fee.
+ */
+export const LL_REAPPLY_FEE_DEFAULT = 450;
+
+/** DL retest fee quoted when the DL test is failed (ops-overridable). */
+export const DL_RETEST_FEE_DEFAULT = 300;
+
+/** RTOs the customer can pick for the DL test (Bengaluru). */
+export const DL_RTO_OPTIONS = [
+  "Koramangala RTO (KA-01)",
+  "Rajajinagar RTO (KA-02)",
+  "Indiranagar RTO (KA-03)",
+  "Yeshwanthpur RTO (KA-04)",
+  "Jayanagar RTO (KA-05)",
+  "KR Puram RTO (KA-53)",
+  "Electronic City RTO (KA-51)",
+  "Marathahalli RTO (KA-03)",
+];
+
+/** What to carry to the DL test (confirmed-test card + reminder checklist). */
+export const DL_TEST_CHECKLIST = [
+  "Original Learner's Licence",
+  "Aadhaar card (original)",
+  "The vehicle you will be tested on",
+];
+
+/**
+ * DL-phase statuses that get their own customer homepage screens. These are
+ * also surfaced on the normal (classes) homepage via PostLLHomeCard, because
+ * classes-track learners have left the LL flow by then.
+ */
+export const DL_PHASE_CUSTOMER_STATUSES = [
+  "ll_matured",
+  "dl_date_selection",
+  "dl_date_preference_received",
+  "dl_otp_required",
+  "dl_test_scheduled",
+  "dl_test_missed",
+  "dl_results_pending",
+  "dl_test_failed",
+  "dl_test_passed",
+  "dl_number_generated",
+  "dl_delivery_pending",
+  "dl_not_delivered",
+  "dl_delivered",
+];
+
+/** Statuses where the homepage shows "sent for scrutiny at the RTO". */
+export const LL_IN_RTO_PROCESS_STATUSES = [
+  "rto_application_generated",
+  "govt_payment_pending",
+  "govt_payment_failed",
+  "application_ready",
+  "in_scrutiny_queue",
+  "assigned_to_runner",
+  "submitted_at_rto",
+  "waiting_rto_verification",
+];
+
+/** Statuses at/after LL approval where the homepage shows the LL card. */
+export const LL_APPROVED_STATUSES = [
+  "ll_issued",
+  "ob_form_enabled",
+  "classes_in_progress",
+  "ll_maturing",
+  "ll_matured",
+  "dl_date_selection",
+  "dl_test_scheduled",
+  "dl_test_missed",
+  "dl_results_pending",
+  "dl_test_failed",
+  "dl_test_passed",
+  "dl_number_generated",
+  "dl_delivery_pending",
+  "dl_not_delivered",
+];
 
 // ── In-app LL application form (replaces the Google Form) ────────────────
 // Documents the customer must upload, from the "DL Docs? Sorted in Seconds!"
