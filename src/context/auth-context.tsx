@@ -328,6 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Go service signup (always attempt for data sync)
+    // Note: Go service adds +91 prefix internally, so we send only last 10 digits
     const goSignupPromise = (async () => {
       try {
         console.log("[AUTH] Attempting Go service signup for:", last10);
@@ -335,7 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            phone: formattedPhone,
+            phone: last10,   // Go service expects 10-digit number; it adds +91 internally
             password,
             name: name || "",
           }),
