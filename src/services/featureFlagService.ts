@@ -29,8 +29,10 @@ const BACKEND_API =
 
 const FEATURE_FLAG_API = `${BACKEND_API}/internal/feature-flags`;
 
-// Internal API key for feature flags endpoint
-const INTERNAL_API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || 'HSuQKwbbBwIt1mCwimDVB3RUPe8BrHT6q0AOGdutKIt';
+// Internal API key for feature flags endpoint.
+// In local dev the Go service expects 'local-internal-secret-key'.
+// In production set VITE_INTERNAL_API_KEY in your environment.
+const INTERNAL_API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || 'local-internal-secret-key';
 
 /**
  * Fetch feature flags from the backend
