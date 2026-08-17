@@ -218,35 +218,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           factors: [],
         } as unknown as User;
 
-        // Only inject session if Go returned a real supabaseAccessToken.
-        // An empty string would cause "Invalid Compact JWS" on every Supabase storage/DB call.
-        if (goResponse.supabaseAccessToken) {
-          localStorage.setItem("supabase_access_token", goResponse.supabaseAccessToken);
-          try {
-            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-            const supabaseStorageKey = `sb-${projectRef}-auth-token`;
-            const injectedSession = {
-              access_token: goResponse.supabaseAccessToken,
-              token_type: "bearer",
-              expires_in: 3600,
-              expires_at: Math.floor(Date.now() / 1000) + 3600,
-              refresh_token: goResponse.refreshToken,
-              user: goUser,
-            };
-            localStorage.setItem(supabaseStorageKey, JSON.stringify(injectedSession));
-            console.log("[AUTH] ✅ Supabase session injected with Go supabaseAccessToken.");
-          } catch (storageErr) {
-            console.warn("[AUTH] Could not inject Supabase session storage:", storageErr);
-          }
-        } else {
-          // No supabaseAccessToken from Go — clear any stale/broken session.
-          // Must use signOut({scope:'local'}) to reset the client's in-memory state,
-          // not just localStorage (same-tab writes don't trigger storage events).
-          // The resulting SIGNED_OUT event is suppressed by the guard above because
-          // go_access_token is already in localStorage.
-          console.warn("[AUTH] No supabaseAccessToken in Go response — clearing stale session.");
-          localStorage.removeItem("supabase_access_token");
-          await supabase.auth.signOut({ scope: "local" });
+        localStorage.setItem("supabase_access_token", goResponse.supabaseAccessToken);
+
+        try {
+          const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+          const supabaseStorageKey = `sb-${projectRef}-auth-token`;
+          const injectedSession = {
+            access_token: goResponse.supabaseAccessToken,
+            token_type: "bearer",
+            expires_in: 3600,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            refresh_token: goResponse.refreshToken,
+            user: goUser,
+          };
+          localStorage.setItem(supabaseStorageKey, JSON.stringify(injectedSession));
+          console.log("[AUTH] Supabase session storage injected with Go supabaseAccessToken.");
+        } catch (storageErr) {
+          console.warn("[AUTH] Could not inject Supabase session storage:", storageErr);
         }
 
         setUser(goUser);
