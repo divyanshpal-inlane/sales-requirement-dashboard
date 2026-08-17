@@ -19,6 +19,7 @@ export default function Login() {
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active") || "login";
   const [phone, setPhone] = useState<string>(searchParams.get("phone") || "");
+  const [name, setName] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -84,7 +85,10 @@ export default function Login() {
       if (active === "login") {
         await login(phone, password, "learner");
       } else if (active === "signup") {
-        await signUp(phone, password, "learner");
+        if (!name || name.trim().length < 2) {
+          throw new Error("Please enter your full name");
+        }
+        await signUp(phone, password, "learner", name.trim());
       } else if (active === "forgot-password") {
         if (!resetRequested) {
           // Step 1: Request password reset OTP
@@ -200,6 +204,18 @@ export default function Login() {
                     disabled={active === "forgot-password" && resetRequested}
                   />
                 </div>
+
+                {/* Name input - shown only in signup */}
+                {active === "signup" && (
+                  <Input
+                    type="text"
+                    placeholder="Full Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    minLength={2}
+                  />
+                )}
 
                 {/* Password input - shown only in login/signup */}
                 {active !== "forgot-password" && (
