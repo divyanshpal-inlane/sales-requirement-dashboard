@@ -18,6 +18,7 @@ export default function InstructorAuth() {
     "login",
   );
   const [phone, setPhone] = useState<string>("");
+  const [name, setName] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -84,7 +85,10 @@ export default function InstructorAuth() {
       if (active === "login") {
         await login(formattedPhone, password, "instructor");
       } else if (active === "signup") {
-        await signUp(formattedPhone, password, "instructor");
+        if (!name || name.trim().length < 2) {
+          throw new Error("Please enter your full name");
+        }
+        await signUp(formattedPhone, password, "instructor", name.trim());
       } else if (active === "forgot-password") {
         if (!resetRequested) {
           if (!phone || phone.trim().length < 10) {
@@ -157,11 +161,23 @@ export default function InstructorAuth() {
                   />
                 </div>
 
+                {/* Name input - shown only in signup */}
+                {active === "signup" && (
+                  <Input
+                    type="text"
+                    placeholder="Full Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    minLength={2}
+                  />
+                )}
+
                 {active !== "forgot-password" && (
                   <div className="relative w-full">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      placeholder="Enter Password"
+                      placeholder={active === "signup" ? "Create Password" : "Enter Password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pr-10"
