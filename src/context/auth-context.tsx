@@ -57,9 +57,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// This map stores OTPs temporarily in memory
-// In production, you might want to use a more secure method with expiration
-const otpStore = new Map<string, { otp: string; timestamp: number }>();
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -460,12 +457,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // INSTRUCTOR SIGNUP: Supabase only (primary) + shadow auth sync to RDS
-    // There is no dedicated Go endpoint for instructor signup.
-    // After Supabase signup, triggerShadowAuth syncs the instructor to Go/RDS.
+    // INSTRUCTOR SIGNUP: Supabase (primary) + Go service in parallel
+    // Go service endpoint: POST /auth/signup { phone, password, name, role: "instructor" }
+    // After Supabase signup, triggerShadowAuth also syncs the instructor to Go/RDS.
     // ──────────────────────────────────────────────────────────────────────────
     if (role === "instructor") {
-      const { data, error } = await supabase.auth.signUp({
+      const supabaseSignupPromise = supabase.auth.signUp({
         phone: formattedPhone,
         password,
         options: {
@@ -476,11 +473,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
+      // Go instructor signup — POST /auth/signup
+      // Contract: { phone: "+91XXXXXXXXXX", password, name, role: "instructor" }
+      const goSignupPromise = (async () => {
+        try {
+          console.log("[AUTH] Attempting Go signup for instructor:", formattedPhone);
+          const res = await fetch(`${BACKEND_API}/auth/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: formattedPhone,
+              password,
+              name: name || "",
+              role: "instructor",
+            }),
+          });
+
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            console.warn("[AUTH] Go instructor signup failed:", errBody.message || "Unknown error");
+            return { success: false, error: errBody.message || "Unknown error", data: null };
+          }
+
+          const goResponse = await res.json();
+          console.log("[AUTH] ✅ Go instructor signup successful:", goResponse.user?.id);
+          return { success: true, error: null, data: goResponse };
+        } catch (err: any) {
+          console.warn("[AUTH] Go instructor signup error (non-fatal, continuing with Supabase):", err.message);
+          return { success: false, error: err.message, data: null };
+        }
+      })();
+
+      // Run both in parallel
+      const [supabaseResult, goResult] = await Promise.all([
+        supabaseSignupPromise,
+        goSignupPromise,
+      ]);
+
+      // Supabase must succeed (primary)
+      const { data, error } = supabaseResult;
       if (error) {
         console.error("[AUTH] Supabase instructor signup failed:", error.message);
         throw error;
       }
       console.log("[AUTH] ✅ Supabase instructor signup successful:", data.user?.id);
+
+      if (!goResult.success) {
+        console.warn("[AUTH] Go instructor signup failed (non-fatal). Instructor will use Supabase session.", goResult.error);
+      }
 
       // Create Instructor record in Supabase DB
       const { data: existingInstructor } = await supabase
@@ -500,13 +540,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Trigger shadow auth to sync instructor to Go/RDS in the background
-      // This ensures no data loss — instructor ends up in both Supabase and RDS
       if (data.user && data.session) {
         console.log("[AUTH] Triggering shadow auth to sync instructor to RDS:", data.user.id);
         triggerShadowAuth(data.user, data.session);
       }
 
-      console.log("[AUTH] ✅ Instructor signup complete (Supabase: true, RDS sync: triggered)");
+      console.log("[AUTH] ✅ Instructor signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
       return;
     }
 
@@ -524,205 +563,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const requestPasswordResetAlternative = async (phone: string, context?: "learner" | "instructor" | "admin") => {
-    // Normalize to last 10 digits for consistency
+    // Normalize to last 10 digits — Go service expects 10-digit phone
     const last10 = phone.replace(/\D/g, "").slice(-10);
+    console.log(`[AUTH] Password reset OTP requested for phone: ${last10}, context: ${context || "auto-detect"}`);
 
-    console.log(`[AUTH] Password reset requested for phone: ${phone}, normalized: ${last10}, context: ${context || "auto-detect"}`);
+    const res = await fetch(`${BACKEND_API}/auth/otp/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: last10 }),
+    });
 
-    // ── Admin context: Always use Go service (don't check Learner/Instructor tables) ──
-    if (context === "admin") {
-      console.log("[AUTH] Admin context - using Go service directly");
-      const goAuthEnabled = await isFeatureEnabled("use_go_auth");
-
-      if (goAuthEnabled) {
-        const res = await fetch(`${BACKEND_API}/auth/otp/request`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: last10 }),
-        });
-
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody.message || "Failed to send OTP. Please try again.");
-        }
-
-        console.log("[AUTH] ✅ OTP request accepted by Go service (admin flow).");
-        return;
-      } else {
-        throw new Error("Admin password reset is not available. Please contact support.");
-      }
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.message || "Failed to send OTP. Please try again.");
     }
 
-    // Phone formats to try (database might store in different formats)
-    const phoneFormats = [
-      last10,                    // "9876543210"
-      `+91${last10}`,            // "+919876543210"
-      `91${last10}`,             // "919876543210"
-      phone,                     // Original input
-    ];
-
-    // ── Step 1: Check if user is a Learner or Instructor → Use Supabase flow ───────
-    // Check if user exists in Learner table first (try multiple phone formats)
-    let learnerData = null;
-    let learnerError = null;
-    
-    // First try exact matches (use .limit(1) to handle duplicate phone numbers)
-    for (const phoneFormat of phoneFormats) {
-      console.log(`[AUTH] Trying Learner lookup with phone format: ${phoneFormat}`);
-      const { data, error } = await supabase
-        .from("Learner")
-        .select("id, name, phone")
-        .eq("phone", phoneFormat)
-        .limit(1)
-        .single();
-      
-      console.log(`[AUTH] Learner query result:`, { data, error, phoneFormat });
-      
-      if (data && !error) {
-        learnerData = data;
-        learnerError = null;
-        console.log(`[AUTH] ✅ Learner found with phone format: ${phoneFormat}`, data);
-        break;
-      }
-      // Only store error if it's not the "no rows" error
-      if (error && error.code !== 'PGRST116') {
-        learnerError = error;
-      }
-    }
-
-    // If not found with exact match, try using "ilike" pattern for partial match
-    if (!learnerData) {
-      console.log(`[AUTH] Exact match not found, trying pattern match with: %${last10}%`);
-      const { data, error } = await supabase
-        .from("Learner")
-        .select("id, name, phone")
-        .ilike("phone", `%${last10}%`)
-        .limit(1)
-        .single();
-      
-      console.log(`[AUTH] Learner ilike query result:`, { data, error });
-      
-      if (data && !error) {
-        learnerData = data;
-        learnerError = null;
-        console.log(`[AUTH] ✅ Learner found with ilike pattern:`, data);
-      }
-    }
-
-    // Check if user exists in Instructor table (try multiple phone formats)
-    let instructorData = null;
-    let instructorError = null;
-    if (!learnerData) {
-      for (const phoneFormat of phoneFormats) {
-        console.log(`[AUTH] Trying Instructor lookup with phone format: ${phoneFormat}`);
-        const { data, error } = await supabase
-          .from("Instructor")
-          .select("id_instructor, name, phone")
-          .eq("phone", phoneFormat)
-          .maybeSingle();
-        
-        console.log(`[AUTH] Instructor query result:`, { data, error, phoneFormat });
-        
-        if (data && !error) {
-          instructorData = data;
-          instructorError = null;
-          console.log(`[AUTH] ✅ Instructor found with phone format: ${phoneFormat}`, data);
-          break;
-        }
-        instructorError = error;
-      }
-      
-      // If not found with exact match, try using "ilike" pattern for partial match
-      if (!instructorData) {
-        console.log(`[AUTH] Exact match not found, trying pattern match with: %${last10}%`);
-        const { data, error } = await supabase
-          .from("Instructor")
-          .select("id_instructor, name, phone")
-          .ilike("phone", `%${last10}%`)
-          .maybeSingle();
-        
-        console.log(`[AUTH] Instructor ilike query result:`, { data, error });
-        
-        if (data && !error) {
-          instructorData = data;
-          instructorError = null;
-          console.log(`[AUTH] ✅ Instructor found with ilike pattern:`, data);
-        }
-      }
-    }
-
-    // Determine user type and data
-    let userType: "learner" | "instructor" | null = null;
-    let userId: string | null = null;
-    let userName: string | null = null;
-    let userPhone: string | null = null;
-
-    if (learnerData && !learnerError) {
-      userType = "learner";
-      userId = learnerData.id;
-      userName = learnerData.name;
-      userPhone = learnerData.phone;
-    } else if (instructorData && !instructorError) {
-      userType = "instructor";
-      userId = instructorData.id_instructor;
-      userName = instructorData.name;
-      userPhone = instructorData.phone;
-    }
-
-    // ── If Learner or Instructor found → Use Supabase OTP flow ───────────────
-    if (userType && userId) {
-      console.log(`[AUTH] User found as ${userType}, using Supabase OTP flow`);
-
-      // Generate OTP and send via Supabase edge function
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-      otpStore.set(phone, {
-        otp,
-        timestamp: Date.now() + 10 * 60 * 1000,
-      });
-
-      await supabase.functions.invoke("send-message", {
-        body: {
-          message_type: "PASSWORD_RESET_OTP",
-          user_type: userType,
-          user_id: userId,
-          user_name: userName,
-          user_phone: userPhone,
-          // Keep backward compatibility with learner_id for existing learner flow
-          ...(userType === "learner" ? { learner_id: userId } : {}),
-          otp: otp,
-        },
-      });
-
-      console.log("[AUTH] ✅ OTP sent via Supabase edge function.");
-      return;
-    }
-
-    // ── Step 2: Not Learner/Instructor → Use Go service for Admins ───────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
-
-    if (goAuthEnabled) {
-      console.log("[AUTH] User not found in Learner/Instructor, using Go service for admin:", last10);
-
-      const res = await fetch(`${BACKEND_API}/auth/otp/request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: last10 }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.message || "Failed to send OTP. Please try again.");
-      }
-
-      // The Go service always returns 200 regardless of whether the phone
-      // exists (anti-enumeration). We surface the generic message.
-      console.log("[AUTH] ✅ OTP request accepted by Go service (admin flow).");
-      return;
-    }
-
-    // If Go service is not enabled and user not found in Learner/Instructor
-    throw new Error("No account found with this phone number");
+    console.log("[AUTH] ✅ OTP request accepted by Go service.");
   };
 
   const verifyOtpAndResetPassword = async (
@@ -732,167 +588,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const last10 = phone.replace(/\D/g, "").slice(-10);
 
-    // ── Step 1: Check if OTP exists in store (Learner/Instructor flow) ──────
-    const storedOTPData = otpStore.get(phone);
+    if (!newPassword) {
+      // ── Step 1: Verify OTP → receive short-lived resetToken ──────────────
+      console.log("[AUTH] Verifying OTP via Go service for phone:", last10);
 
-    if (storedOTPData) {
-      // OTP found in store → This is a Learner or Instructor
-      console.log("[AUTH] OTP found in store, using Supabase flow for Learner/Instructor");
-
-      if (Date.now() > storedOTPData.timestamp) {
-        otpStore.delete(phone);
-        throw new Error("OTP expired. Please request a new OTP.");
-      }
-
-      if (storedOTPData.otp !== otp) {
-        throw new Error("Invalid OTP. Please try again.");
-      }
-
-      if (!newPassword) {
-        return;
-      }
-
-      try {
-        // Normalize phone number - remove any non-digit characters and ensure consistent format
-        const normalizedPhone = phone.replace(/\D/g, "");
-
-        // Try multiple phone formats to find the user
-        const phoneVariants = [
-          normalizedPhone, // e.g., "9876543210"
-          `+91${normalizedPhone}`, // e.g., "+919876543210"
-          `91${normalizedPhone}`, // e.g., "919876543210"
-          normalizedPhone.replace(/^91/, ""), // Remove 91 prefix if present
-        ];
-
-        let authUser = null;
-        let page = 1;
-        const perPage = 1000; // Increase page size to reduce pagination issues
-
-        // Paginate through all users to find the matching phone
-        while (!authUser) {
-          const { data: users, error: userError } =
-            await supabaseAdmin.auth.admin.listUsers({
-              page,
-              perPage,
-            });
-
-          if (userError) {
-            throw new Error("Failed to retrieve users: " + userError.message);
-          }
-
-          if (!users || users.users.length === 0) {
-            break; // No more users to check
-          }
-
-          // Try to find user with any of the phone variants
-          authUser = users.users.find((user) => {
-            if (!user.phone) return false;
-            const userPhoneNormalized = user.phone.replace(/\D/g, "");
-            return phoneVariants.some(
-              (variant) =>
-                variant === user.phone ||
-                variant === userPhoneNormalized ||
-                userPhoneNormalized.endsWith(normalizedPhone) ||
-                normalizedPhone.endsWith(userPhoneNormalized.replace(/^91/, "")),
-            );
-          });
-
-          if (authUser || users.users.length < perPage) {
-            break; // Found user or no more pages
-          }
-          page++;
-        }
-
-        if (!authUser) {
-          throw new Error(
-            "No account found with this phone number. Please sign up first.",
-          );
-        }
-
-        const { error: updateError } =
-          await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            password: newPassword,
-          });
-
-        if (updateError) {
-          throw new Error("Failed to update password: " + updateError.message);
-        }
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        throw new Error("Password reset failed: " + errorMsg);
-      }
-
-      otpStore.delete(phone);
-      console.log("[AUTH] ✅ Password reset successfully via Supabase (Learner/Instructor).");
-      return;
-    }
-
-    // ── Step 2: OTP not in store → Use Go service for Admins ─────────────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
-
-    if (goAuthEnabled) {
-      if (!newPassword) {
-        // ── Verify OTP → receive resetToken ─────────────────────────
-        console.log("[AUTH] Verifying OTP via Go service for admin:", last10);
-
-        const res = await fetch(`${BACKEND_API}/auth/otp/verify`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: last10, otp }),
-        });
-
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          if (res.status === 404) {
-            throw new Error("No user found with the provided phone number.");
-          }
-          throw new Error(
-            errBody.message || "The OTP is invalid, expired, or already used.",
-          );
-        }
-
-        const data = await res.json();
-        goResetTokenRef.current = data.resetToken;
-        console.log("[AUTH] ✅ OTP verified. Reset token stored.");
-        return;
-      }
-
-      // ── Reset password using the stored resetToken ─────────────────
-      console.log("[AUTH] Resetting password via Go service (admin flow).");
-
-      if (!goResetTokenRef.current) {
-        throw new Error(
-          "Reset token missing. Please verify your OTP again.",
-        );
-      }
-
-      const res = await fetch(`${BACKEND_API}/auth/reset-password`, {
+      const res = await fetch(`${BACKEND_API}/auth/otp/verify`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${goResetTokenRef.current}`,
-        },
-        body: JSON.stringify({ newPassword }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: last10, otp }),
       });
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        if (res.status === 400) {
-          throw new Error(errBody.message || "Password must be at least 6 characters.");
+        if (res.status === 404) {
+          throw new Error("No user found with the provided phone number.");
         }
-        throw new Error(
-          errBody.message || "Failed to reset password. Please try again.",
-        );
+        throw new Error(errBody.message || "The OTP is invalid, expired, or already used.");
       }
 
-      // Clear the stored reset token after successful use
-      goResetTokenRef.current = null;
-      console.log("[AUTH] ✅ Password reset successfully via Go service (admin flow).");
+      const data = await res.json();
+      goResetTokenRef.current = data.resetToken;
+      console.log("[AUTH] ✅ OTP verified. Reset token stored.");
       return;
     }
 
-    // If we reach here, OTP wasn't found and Go service is disabled
-    throw new Error("OTP expired or not requested. Please request a new OTP.");
+    // ── Step 2: Reset password using the stored resetToken ───────────────────
+    console.log("[AUTH] Resetting password via Go service for phone:", last10);
+
+    if (!goResetTokenRef.current) {
+      throw new Error("Reset token missing. Please verify your OTP again.");
+    }
+
+    const res = await fetch(`${BACKEND_API}/auth/reset-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${goResetTokenRef.current}`,
+      },
+      body: JSON.stringify({ newPassword }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      if (res.status === 400) {
+        throw new Error(errBody.message || "Password must be at least 6 characters.");
+      }
+      throw new Error(errBody.message || "Failed to reset password. Please try again.");
+    }
+
+    goResetTokenRef.current = null;
+    console.log("[AUTH] ✅ Password reset successfully via Go service.");
   };
 
   const changePassword = async (
