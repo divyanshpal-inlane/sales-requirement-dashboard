@@ -6,7 +6,7 @@
 interface FeatureFlags {
   shadow_auth_enabled?: boolean;
   /** When true, login goes through the Go backend instead of Supabase directly. */
-  use_go_auth?: boolean;
+  go_auth_enabled?: boolean;
   [key: string]: any;
 }
 
@@ -50,18 +50,20 @@ async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
 
     if (!response.ok) {
       console.error('[Feature Flags] API returned status:', response.status);
-      // Return safe defaults if API fails — use_go_auth=false means Supabase fallback
-      return { shadow_auth_enabled: false, use_go_auth: false };
+      // Return safe defaults if API fails
+      // go_auth_enabled defaults to false so non-pilot users use Supabase
+      return { shadow_auth_enabled: true, go_auth_enabled: false };
     }
 
     const data = await response.json();
     console.log('[Feature Flags] ✅ Feature flags fetched successfully');
     
-    return data || { shadow_auth_enabled: false, use_go_auth: false };
+    return data || { shadow_auth_enabled: true };
   } catch (error) {
     console.error('[Feature Flags] Error fetching feature flags:', error);
-    // Return safe defaults if network error — use_go_auth=false means Supabase fallback
-    return { shadow_auth_enabled: false, use_go_auth: false };
+    // Return safe defaults if network error
+    // go_auth_enabled defaults to false so non-pilot users use Supabase
+    return { shadow_auth_enabled: true, go_auth_enabled: false };
   }
 }
 
@@ -117,7 +119,7 @@ export async function isFeatureEnabled(
   ttl?: number
 ): Promise<boolean> {
   const flags = await getFeatureFlags(ttl);
-  const isEnabled = flags[featureName] ?? false; // Default to DISABLED if flag not found
+  const isEnabled = flags[featureName] ?? true; // Default to enabled if not specified
   
   console.log(`[Feature Flags] "${featureName}" is ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
   return isEnabled;

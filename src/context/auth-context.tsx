@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("[AUTH] Last 10 digits:", last10);
 
     // ── Go-service login (feature-flagged for all users) ────────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
     if (goAuthEnabled) {
       console.log("[AUTH] Trying Go service login for user:", last10);
@@ -496,7 +496,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ── Admin context: Always use Go service (don't check Learner/Instructor tables) ──
     if (context === "admin") {
       console.log("[AUTH] Admin context - using Go service directly");
-      const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+      const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
       if (goAuthEnabled) {
         const res = await fetch(`${BACKEND_API}/auth/otp/request`, {
@@ -663,7 +663,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // ── Step 2: Not Learner/Instructor → Use Go service for Admins ───────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
     if (goAuthEnabled) {
       console.log("[AUTH] User not found in Learner/Instructor, using Go service for admin:", last10);
@@ -792,7 +792,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // ── Step 2: OTP not in store → Use Go service for Admins ─────────────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
     if (goAuthEnabled) {
       if (!newPassword) {
@@ -889,7 +889,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const last10 = user.phone.replace(/\D/g, "").slice(-10);
 
     // ── Go-service change password (feature-flagged for all users) ───────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
     if (goAuthEnabled) {
       console.log("[AUTH] Changing password via Go service for user:", last10);
