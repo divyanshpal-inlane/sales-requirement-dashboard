@@ -18,8 +18,8 @@ interface CachedFlags {
 // Cache store
 let flagCache: CachedFlags | null = null;
 
-// Default TTL: 2 minutes (120000 ms) — short for easy flag testing
-const DEFAULT_TTL = 120000;
+// Default TTL: 1 hour (3600000 ms)
+const DEFAULT_TTL = 3600000;
 
 // Feature Flag API endpoint
 // In dev the Vite proxy rewrites /go-api/* → http://localhost:8080/v1/*
