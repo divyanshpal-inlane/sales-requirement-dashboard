@@ -1,19 +1,14 @@
-import { User, createClient } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { triggerShadowAuth } from "@/utils/shadowAuth";
 import { isFeatureEnabled } from "@/services/featureFlagService";
-// ── Single shared Supabase client ─────────────────────────────────────────
-// All modules (queries, hooks, auth) must use this SAME instance so that
-// when we inject a Go-auth session into localStorage the token is immediately
-// available to every supabase.storage / supabase.from() call in the app.
-// A second createClient() call would create an isolated object that never
-// sees the localStorage write done in the same browser tab.
-import { supabase } from "@/lib/supabaseClient";
-export { supabase };
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY!;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // In dev the Vite proxy rewrites /go-api/* → http://localhost:8080/v1/*
@@ -313,168 +308,138 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (phone: string, password: string, role: UserRole, name?: string) => {
-    // Normalize phone number
+    // Normalize phone to last 10 digits for Go service
     const inputDigits = phone.replace(/\D/g, "");
     const last10 = inputDigits.slice(-10);
-    // Supabase and Go signup both use E.164 format: +91XXXXXXXXXX
     const formattedPhone = phone.startsWith("+") ? phone : `+91${last10}`;
 
     console.log("[AUTH] Signup attempt:", { phone: formattedPhone, role, name });
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // LEARNER SIGNUP: Call Supabase + Go service in parallel
-    // Go service returns tokens immediately so learner is auto-logged in
-    // ──────────────────────────────────────────────────────────────────────────
-    if (role === "learner") {
-      const supabaseSignupPromise = supabase.auth.signUp({
-        phone: formattedPhone,
-        password,
-        options: {
-          data: {
-            user_role: "learner",
-            name: name || "",
-          },
+    // ── Call both Supabase and Go service in parallel ──────────────────────────
+    const supabaseSignupPromise = supabase.auth.signUp({
+      phone: formattedPhone,
+      password,
+      options: {
+        data: {
+          user_role: role,
+          name: name || "",
         },
-      });
+      },
+    });
 
-      // Go learner signup — POST /auth/signup
-      // Contract: { phone: "+91XXXXXXXXXX", password, name }
-      // Role is hardcoded as "learner" server-side
-      const goSignupPromise = (async () => {
-        try {
-          console.log("[AUTH] Attempting Go signup for learner:", formattedPhone);
-          const res = await fetch(`${BACKEND_API}/auth/signup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: formattedPhone,  // +919876543210 per API contract
-              password,
-              name: name || "",
-            }),
-          });
+    // Go service signup (always attempt for data sync)
+    // Note: Go service adds +91 prefix internally, so we send only last 10 digits
+    const goSignupPromise = (async () => {
+      try {
+        console.log("[AUTH] Attempting Go service signup for:", last10);
+        const res = await fetch(`${BACKEND_API}/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: last10,   // Go service expects 10-digit number; it adds +91 internally
+            password,
+            name: name || "",
+          }),
+        });
 
-          if (!res.ok) {
-            const errBody = await res.json().catch(() => ({}));
-            if (res.status === 409 && errBody.code === "phone_already_registered") {
-              console.warn("[AUTH] Go: Learner phone already registered in RDS");
-              return { success: false, error: "phone_already_registered", data: null };
-            }
-            if (res.status === 400 && errBody.code === "weak_password") {
-              console.warn("[AUTH] Go: Weak password");
-              return { success: false, error: "weak_password", data: null };
-            }
-            console.warn("[AUTH] Go learner signup failed:", errBody.message || "Unknown error");
-            return { success: false, error: errBody.message || "Unknown error", data: null };
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          // Handle specific Go service error codes
+          if (res.status === 409 && errBody.code === "phone_already_registered") {
+            console.warn("[AUTH] Go service: Phone already registered (user may exist in RDS)");
+            return { success: false, error: "phone_already_registered", data: null };
           }
-
-          const goResponse = await res.json();
-          console.log("[AUTH] ✅ Go learner signup successful:", goResponse.user?.id);
-          return { success: true, error: null, data: goResponse };
-        } catch (err: any) {
-          console.warn("[AUTH] Go signup error (non-fatal, continuing with Supabase):", err.message);
-          return { success: false, error: err.message, data: null };
+          if (res.status === 400 && errBody.code === "invalid_request") {
+            console.warn("[AUTH] Go service: Invalid request -", errBody.message);
+            return { success: false, error: "invalid_request", data: null };
+          }
+          if (res.status === 400 && errBody.code === "weak_password") {
+            console.warn("[AUTH] Go service: Weak password");
+            return { success: false, error: "weak_password", data: null };
+          }
+          console.warn("[AUTH] Go service signup failed:", errBody.message || "Unknown error");
+          return { success: false, error: errBody.message || "Unknown error", data: null };
         }
-      })();
 
-      // Run both in parallel
-      const [supabaseResult, goResult] = await Promise.all([
-        supabaseSignupPromise,
-        goSignupPromise,
-      ]);
-
-      // Supabase must succeed
-      const { data, error } = supabaseResult;
-      if (error) {
-        console.error("[AUTH] Supabase learner signup failed:", error.message);
-        throw error;
+        const goResponse = await res.json();
+        console.log("[AUTH] ✅ Go service signup successful for user:", goResponse.user?.id);
+        return { success: true, error: null, data: goResponse };
+      } catch (err: any) {
+        console.warn("[AUTH] Go service signup error (non-fatal):", err.message);
+        return { success: false, error: err.message, data: null };
       }
-      console.log("[AUTH] ✅ Supabase learner signup successful:", data.user?.id);
+    })();
 
-      // Store Go tokens → learner is auto-logged in (no separate login needed)
-      if (goResult.success && goResult.data) {
-        localStorage.setItem("go_access_token", goResult.data.accessToken);
-        localStorage.setItem("go_refresh_token", goResult.data.refreshToken);
-        console.log("[AUTH] ✅ Go tokens stored — learner auto-logged in via Go.");
-      } else {
-        console.warn("[AUTH] Go signup failed (non-fatal). Learner will use Supabase session.", goResult.error);
-      }
+    // Wait for both promises
+    const [supabaseResult, goResult] = await Promise.all([
+      supabaseSignupPromise,
+      goSignupPromise,
+    ]);
 
-      // Create Learner record in Supabase DB (if not already created by trigger)
+    // Handle Supabase result
+    const { data, error } = supabaseResult;
+    if (error) {
+      console.error("[AUTH] Supabase signup failed:", error.message);
+      throw error;
+    }
+
+    console.log("[AUTH] ✅ Supabase signup successful for user:", data.user?.id);
+
+    // Store Go tokens if Go signup succeeded
+    if (goResult.success && goResult.data) {
+      const goResponse = goResult.data;
+      localStorage.setItem("go_access_token", goResponse.accessToken);
+      localStorage.setItem("go_refresh_token", goResponse.refreshToken);
+      console.log("[AUTH] Go tokens stored after signup");
+    } else {
+      console.warn("[AUTH] Go signup did not succeed, but continuing with Supabase session. Error:", goResult.error);
+    }
+
+    // Create Learner/Instructor record in Supabase if needed
+    if (role === "learner") {
+      // Check if learner record already exists
       const { data: existingLearner } = await supabase
         .from("Learner")
         .select("id")
         .eq("phone", formattedPhone)
         .maybeSingle();
 
+      // Create learner record if it doesn't exist
       if (!existingLearner) {
-        // Use 'as any' — the typed client enforces all NOT NULL columns but
-        // these fields have DB-level defaults; the signup only sets the minimum.
-        const { error: insertError } = await (supabase as any).from("Learner").insert({
+        const { error: insertError } = await supabase.from("Learner").insert({
           phone: formattedPhone,
           name: name || null,
           onboarding_completed: false,
         });
+
         if (insertError) {
           console.warn("[AUTH] Failed to create Learner record:", insertError.message);
+          // Don't throw - user is already signed up
         }
       }
-
-      console.log("[AUTH] ✅ Learner signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
-      return;
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // INSTRUCTOR SIGNUP: Supabase only (primary) + shadow auth sync to RDS
-    // There is no dedicated Go endpoint for instructor signup.
-    // After Supabase signup, triggerShadowAuth syncs the instructor to Go/RDS.
-    // ──────────────────────────────────────────────────────────────────────────
-    if (role === "instructor") {
-      const { data, error } = await supabase.auth.signUp({
-        phone: formattedPhone,
-        password,
-        options: {
-          data: {
-            user_role: "instructor",
-            name: name || "",
-          },
-        },
-      });
-
-      if (error) {
-        console.error("[AUTH] Supabase instructor signup failed:", error.message);
-        throw error;
-      }
-      console.log("[AUTH] ✅ Supabase instructor signup successful:", data.user?.id);
-
-      // Create Instructor record in Supabase DB
+    } else if (role === "instructor") {
+      // Check if instructor record already exists
       const { data: existingInstructor } = await supabase
         .from("Instructor")
         .select("id")
         .eq("phone", formattedPhone)
         .maybeSingle();
 
+      // Create instructor record if it doesn't exist
       if (!existingInstructor) {
         const { error: insertError } = await supabase.from("Instructor").insert({
           phone: formattedPhone,
           name: name || null,
         });
+
         if (insertError) {
           console.warn("[AUTH] Failed to create Instructor record:", insertError.message);
+          // Don't throw - user is already signed up
         }
       }
-
-      // Trigger shadow auth to sync instructor to Go/RDS in the background
-      // This ensures no data loss — instructor ends up in both Supabase and RDS
-      if (data.user && data.session) {
-        console.log("[AUTH] Triggering shadow auth to sync instructor to RDS:", data.user.id);
-        triggerShadowAuth(data.user, data.session);
-      }
-
-      console.log("[AUTH] ✅ Instructor signup complete (Supabase: true, RDS sync: triggered)");
-      return;
     }
 
-    throw new Error(`Unsupported signup role: ${role}`);
+    console.log("[AUTH] ✅ Signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
   };
 
   const logout = async () => {
