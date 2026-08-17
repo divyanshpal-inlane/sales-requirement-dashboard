@@ -36,7 +36,7 @@ type UserRole = "learner" | "instructor" | "admin" | "user";
 interface AuthContextType {
   user: User | null;
   login: (phone: string, password: string, role: UserRole) => Promise<void>;
-  signUp: (phone: string, password: string, role: UserRole, name?: string) => Promise<void>;
+  signUp: (phone: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   requestPasswordReset: (phone: string, context?: "learner" | "instructor" | "admin") => Promise<void>;
   verifyOtpAndResetPassword: (
@@ -319,138 +319,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (phone: string, password: string, role: UserRole, name?: string) => {
-    // Normalize phone to last 10 digits for Go service
-    const inputDigits = phone.replace(/\D/g, "");
-    const last10 = inputDigits.slice(-10);
-    const formattedPhone = phone.startsWith("+") ? phone : `+91${last10}`;
-
-    console.log("[AUTH] Signup attempt:", { phone: formattedPhone, role, name });
-
-    // ── Call both Supabase and Go service in parallel ──────────────────────────
-    const supabaseSignupPromise = supabase.auth.signUp({
-      phone: formattedPhone,
+  const signUp = async (phone: string, password: string, role: UserRole) => {
+    const { data, error } = await supabase.auth.signUp({
+      phone,
       password,
       options: {
         data: {
           user_role: role,
-          name: name || "",
         },
       },
     });
 
-    // Go service signup (always attempt for data sync)
-    const goSignupPromise = (async () => {
-      try {
-        console.log("[AUTH] Attempting Go service signup for:", last10);
-        const res = await fetch(`${BACKEND_API}/auth/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: formattedPhone,
-            password,
-            name: name || "",
-          }),
-        });
+    if (error) throw error;
 
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          // Handle specific Go service error codes
-          if (res.status === 409 && errBody.code === "phone_already_registered") {
-            console.warn("[AUTH] Go service: Phone already registered (user may exist in RDS)");
-            return { success: false, error: "phone_already_registered", data: null };
-          }
-          if (res.status === 400 && errBody.code === "invalid_request") {
-            console.warn("[AUTH] Go service: Invalid request -", errBody.message);
-            return { success: false, error: "invalid_request", data: null };
-          }
-          if (res.status === 400 && errBody.code === "weak_password") {
-            console.warn("[AUTH] Go service: Weak password");
-            return { success: false, error: "weak_password", data: null };
-          }
-          console.warn("[AUTH] Go service signup failed:", errBody.message || "Unknown error");
-          return { success: false, error: errBody.message || "Unknown error", data: null };
-        }
+    // Check if learner record already exists
+    const { data: existingLearner } = await supabase
+      .from("Learner")
+      .select("id")
+      .eq("phone", phone)
+      .maybeSingle();
 
-        const goResponse = await res.json();
-        console.log("[AUTH] ✅ Go service signup successful for user:", goResponse.user?.id);
-        return { success: true, error: null, data: goResponse };
-      } catch (err: any) {
-        console.warn("[AUTH] Go service signup error (non-fatal):", err.message);
-        return { success: false, error: err.message, data: null };
-      }
-    })();
+    // Create learner record if it doesn't exist
+    if (!existingLearner) {
+      const { error: insertError } = await supabase.from("Learner").insert({
+        phone,
+        onboarding_completed: false,
+      });
 
-    // Wait for both promises
-    const [supabaseResult, goResult] = await Promise.all([
-      supabaseSignupPromise,
-      goSignupPromise,
-    ]);
-
-    // Handle Supabase result
-    const { data, error } = supabaseResult;
-    if (error) {
-      console.error("[AUTH] Supabase signup failed:", error.message);
-      throw error;
+      if (insertError) throw insertError;
     }
-
-    console.log("[AUTH] ✅ Supabase signup successful for user:", data.user?.id);
-
-    // Store Go tokens if Go signup succeeded
-    if (goResult.success && goResult.data) {
-      const goResponse = goResult.data;
-      localStorage.setItem("go_access_token", goResponse.accessToken);
-      localStorage.setItem("go_refresh_token", goResponse.refreshToken);
-      console.log("[AUTH] Go tokens stored after signup");
-    } else {
-      console.warn("[AUTH] Go signup did not succeed, but continuing with Supabase session. Error:", goResult.error);
-    }
-
-    // Create Learner/Instructor record in Supabase if needed
-    if (role === "learner") {
-      // Check if learner record already exists
-      const { data: existingLearner } = await supabase
-        .from("Learner")
-        .select("id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
-
-      // Create learner record if it doesn't exist
-      if (!existingLearner) {
-        const { error: insertError } = await supabase.from("Learner").insert({
-          phone: formattedPhone,
-          name: name || null,
-          onboarding_completed: false,
-        });
-
-        if (insertError) {
-          console.warn("[AUTH] Failed to create Learner record:", insertError.message);
-          // Don't throw - user is already signed up
-        }
-      }
-    } else if (role === "instructor") {
-      // Check if instructor record already exists
-      const { data: existingInstructor } = await supabase
-        .from("Instructor")
-        .select("id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
-
-      // Create instructor record if it doesn't exist
-      if (!existingInstructor) {
-        const { error: insertError } = await supabase.from("Instructor").insert({
-          phone: formattedPhone,
-          name: name || null,
-        });
-
-        if (insertError) {
-          console.warn("[AUTH] Failed to create Instructor record:", insertError.message);
-          // Don't throw - user is already signed up
-        }
-      }
-    }
-
-    console.log("[AUTH] ✅ Signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
   };
 
   const logout = async () => {
