@@ -1,19 +1,15 @@
-import { User, createClient } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { triggerShadowAuth } from "@/utils/shadowAuth";
 import { isFeatureEnabled } from "@/services/featureFlagService";
-// ── Single shared Supabase client ─────────────────────────────────────────
-// All modules (queries, hooks, auth) must use this SAME instance so that
-// when we inject a Go-auth session into localStorage the token is immediately
-// available to every supabase.storage / supabase.from() call in the app.
-// A second createClient() call would create an isolated object that never
-// sees the localStorage write done in the same browser tab.
-import { supabase } from "@/lib/supabaseClient";
-export { supabase };
+import { isGoAuthUser } from "@/constants/goAuthUsers";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY!;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // In dev the Vite proxy rewrites /go-api/* → http://localhost:8080/v1/*
@@ -40,7 +36,7 @@ type UserRole = "learner" | "instructor" | "admin" | "user";
 interface AuthContextType {
   user: User | null;
   login: (phone: string, password: string, role: UserRole) => Promise<void>;
-  signUp: (phone: string, password: string, role: UserRole, name?: string) => Promise<void>;
+  signUp: (phone: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   requestPasswordReset: (phone: string, context?: "learner" | "instructor" | "admin") => Promise<void>;
   verifyOtpAndResetPassword: (
@@ -75,8 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
-      // Trigger shadow auth for all users when Go auth is enabled
-      if (session?.user) {
+      // Shadow auth only applies to pilot users in the Go migration list
+      if (session?.user && isGoAuthUser(session.user.phone ?? "")) {
         triggerShadowAuth(session.user, session);
       }
     });
@@ -101,8 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(session?.user ?? null);
       setLoading(false);
-      // Trigger shadow auth for all users when signed in
-      if (_event === 'SIGNED_IN' && session?.user) {
+      // Shadow auth only applies to pilot users in the Go migration list
+      if (_event === 'SIGNED_IN' && session?.user && isGoAuthUser(session.user.phone ?? "")) {
         triggerShadowAuth(session.user, session);
       }
     });
@@ -125,15 +121,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const last10 = inputDigits.slice(-10);
     console.log("[AUTH] Last 10 digits:", last10);
 
-    // ── Go-service login (feature-flagged for all users) ────────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    // ── Go-service login (feature-flagged + per-user pilot list) ────────────
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
-    if (goAuthEnabled) {
-      console.log("[AUTH] Trying Go service login for user:", last10);
+    if (goAuthEnabled && isGoAuthUser(last10)) {
+      console.log("[AUTH] Using Go service login for pilot user:", last10);
 
-      let goResponse: GoLoginResponse | null = null;
-      let goLoginFailed = false;
-
+      let goResponse: GoLoginResponse;
       try {
         const res = await fetch(`${BACKEND_API}/auth/login`, {
           method: "POST",
@@ -143,147 +137,122 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
-          console.warn(
-            "[AUTH] Go login failed (status:", res.status, "):",
-            errBody.message || "Unknown error",
-            "— will fall back to Supabase.",
-          );
-          goLoginFailed = true;
-        } else {
-          goResponse = await res.json();
+          throw new Error(errBody.message || "Invalid phone number or password");
         }
+
+        goResponse = await res.json();
       } catch (err: any) {
-        console.warn("[AUTH] Go service unreachable:", err.message, "— will fall back to Supabase.");
-        goLoginFailed = true;
+        console.error("[AUTH] Go service login error:", err);
+        throw err instanceof Error ? err : new Error("Login failed. Please try again.");
       }
 
-      if (!goLoginFailed && goResponse) {
-        console.log("[AUTH] Go service response received for user:", goResponse.user?.id);
+      console.log("[AUTH] Go service response received for user:", goResponse.user?.id);
 
-        // Role check against Go user object
-        const userRole = goResponse.user?.role;
-        const isValidRole =
-          userRole === role ||
-          (role === "admin" && (userRole === "admin" || userRole === "user" || userRole === "super_admin"));
+      // Role check against Go user object
+      const userRole = goResponse.user?.role;
+      const isValidRole =
+        userRole === role ||
+        (role === "admin" && (userRole === "admin" || userRole === "user" || userRole === "super_admin"));
 
-        if (!isValidRole) {
-          console.error("[AUTH] Role mismatch:", { expected: role, actual: userRole });
-          throw new Error("Invalid role for this login");
+      if (!isValidRole) {
+        console.error("[AUTH] Role mismatch:", { expected: role, actual: userRole });
+        throw new Error("Invalid role for this login");
+      }
+
+      // Persist Go tokens for backend API calls
+      localStorage.setItem("go_access_token", goResponse.accessToken);
+      localStorage.setItem("go_refresh_token", goResponse.refreshToken);
+
+      // ── Establish Supabase session ────────────────────────────────────────
+      // Strategy:
+      //   Step 1 — refreshSession: works if Go passes back a valid Supabase
+      //            refresh token (e.g. after shadow-auth migration).
+      //   Step 2 — Direct injection: if refreshSession fails it means Go's
+      //            tokens are not recognised by Supabase.  We SKIP setSession
+      //            entirely because calling it when the JWT sub does not exist
+      //            in auth.users triggers an internal _removeSession() that
+      //            (a) clears localStorage and (b) fires onAuthStateChange
+      //            SIGNED_OUT — both of which wipe the tokens we are about to
+      //            store.  Instead we inject the supabaseAccessToken straight
+      //            into Supabase's storage and set user state from Go response.
+
+      // Step 1: try refreshSession (uses only the refresh token, no sub validation)
+      const { data: refreshData, error: refreshError } =
+        await supabase.auth.refreshSession({ refresh_token: goResponse.refreshToken });
+
+      if (!refreshError && refreshData?.session) {
+        console.log("[AUTH] ✅ Supabase session established via refreshSession.");
+        if (refreshData.user && refreshData.session) {
+          triggerShadowAuth(refreshData.user, refreshData.session);
         }
-
-        // Persist Go tokens for backend API calls
-        localStorage.setItem("go_access_token", goResponse.accessToken);
-        localStorage.setItem("go_refresh_token", goResponse.refreshToken);
-
-        // ── Establish Supabase session ──────────────────────────────────────
-        // Step 1: try refreshSession
-        const { data: refreshData, error: refreshError } =
-          await supabase.auth.refreshSession({ refresh_token: goResponse.refreshToken });
-
-        if (!refreshError && refreshData?.session) {
-          console.log("[AUTH] ✅ Supabase session established via refreshSession.");
-          if (refreshData.user && refreshData.session) {
-            triggerShadowAuth(refreshData.user, refreshData.session);
-          }
-          return;
-        }
-
-        console.warn(
-          "[AUTH] refreshSession failed:",
-          refreshError?.message,
-          "— injecting Go tokens directly.",
-        );
-
-        // Step 2: inject directly
-        const goUser = {
-          id: goResponse.supabaseUserId,
-          phone: goResponse.user.phone,
-          aud: "authenticated",
-          role: "authenticated",
-          app_metadata: {
-            provider: "go_auth",
-            providers: ["go_auth"],
-            user_role: goResponse.user.role,
-          },
-          user_metadata: {
-            user_role: goResponse.user.role,
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          email: "",
-          email_confirmed_at: undefined as unknown as string,
-          phone_confirmed_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          identities: [],
-          factors: [],
-        } as unknown as User;
-
-        // Only inject session if Go returned a real supabaseAccessToken.
-        // An empty string would cause "Invalid Compact JWS" on every Supabase storage/DB call.
-        if (goResponse.supabaseAccessToken) {
-          localStorage.setItem("supabase_access_token", goResponse.supabaseAccessToken);
-          try {
-            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-            const supabaseStorageKey = `sb-${projectRef}-auth-token`;
-            const injectedSession = {
-              access_token: goResponse.supabaseAccessToken,
-              token_type: "bearer",
-              expires_in: 3600,
-              expires_at: Math.floor(Date.now() / 1000) + 3600,
-              refresh_token: goResponse.refreshToken,
-              user: goUser,
-            };
-            localStorage.setItem(supabaseStorageKey, JSON.stringify(injectedSession));
-            console.log("[AUTH] ✅ Supabase session injected with Go supabaseAccessToken.");
-          } catch (storageErr) {
-            console.warn("[AUTH] Could not inject Supabase session storage:", storageErr);
-          }
-        } else {
-          // No supabaseAccessToken = user exists in RDS but NOT in Supabase auth.users.
-          // Auto-create their Supabase account using the same credentials so that:
-          // 1. They get a proper Supabase JWT for storage/RLS operations.
-          // 2. Future Go logins will include supabaseAccessToken (user now in auth.users).
-          console.warn("[AUTH] No supabaseAccessToken — user not in Supabase auth. Auto-registering...");
-          localStorage.removeItem("supabase_access_token");
-
-          // Build phone in E.164 format for Supabase
-          const e164Phone = `+91${last10}`;
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            phone: e164Phone,
-            password,
-            options: {
-              data: {
-                user_role: goResponse.user.role,
-                name: goResponse.user.phone, // placeholder; real name is in RDS
-              },
-            },
-          });
-
-          if (!signUpError && signUpData?.session) {
-            // Successfully created Supabase account and got a session
-            console.log("[AUTH] ✅ Supabase account auto-created for Go user. Session established.");
-            // No need to inject — Supabase client already has the session
-          } else if (!signUpError && signUpData?.user && !signUpData?.session) {
-            // Account created but no session (Supabase email/phone confirmation required)
-            console.warn("[AUTH] Supabase account created but awaiting confirmation. Storage may not work until confirmed.");
-            await supabase.auth.signOut({ scope: "local" });
-          } else {
-            console.warn("[AUTH] Could not auto-create Supabase account:", signUpError?.message, "— clearing stale session.");
-            await supabase.auth.signOut({ scope: "local" });
-          }
-        }
-
-        setUser(goUser);
-        console.log("[AUTH] ✅ Go login successful!");
         return;
       }
 
-      // Go failed → fall through to Supabase
-      console.log("[AUTH] Go login failed — falling back to Supabase.");
+      console.warn(
+        "[AUTH] refreshSession failed:",
+        refreshError?.message,
+        "— injecting Go tokens directly (skipping setSession to avoid SIGNED_OUT race).",
+      );
+
+      // Step 2: inject directly — do NOT call setSession here.
+      // Construct a minimal Supabase-shaped User from the Go response.
+      // Use supabaseUserId (not user.id which is the RDS UUID) as the Supabase user ID.
+      const goUser = {
+        id: goResponse.supabaseUserId,  // Supabase auth.users UUID (must match JWT sub claim)
+        phone: goResponse.user.phone,
+        aud: "authenticated",
+        role: "authenticated",
+        app_metadata: {
+          provider: "go_auth",
+          providers: ["go_auth"],
+          user_role: goResponse.user.role,
+        },
+        user_metadata: {
+          user_role: goResponse.user.role,
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email: "",
+        email_confirmed_at: undefined as unknown as string,
+        phone_confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        identities: [],
+        factors: [],
+      } as unknown as User;
+
+      // Store the supabaseAccessToken so it is available for all Supabase
+      // API calls (e.g. in hooks / queries throughout the app).
+      localStorage.setItem("supabase_access_token", goResponse.supabaseAccessToken);
+
+      // Inject the token into Supabase's internal session storage so that
+      // every supabase.from(...) call automatically sends it as the
+      // Authorization Bearer header — without touching individual queries.
+      try {
+        const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+        const supabaseStorageKey = `sb-${projectRef}-auth-token`;
+        const injectedSession = {
+          access_token: goResponse.supabaseAccessToken,
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          refresh_token: goResponse.refreshToken,
+          user: goUser,
+        };
+        localStorage.setItem(supabaseStorageKey, JSON.stringify(injectedSession));
+        console.log("[AUTH] Supabase session storage injected with Go supabaseAccessToken.");
+      } catch (storageErr) {
+        console.warn("[AUTH] Could not inject Supabase session storage:", storageErr);
+      }
+
+      setUser(goUser);
+      console.log(
+        "[AUTH] ✅ Go login successful! go_access_token + supabase_access_token stored.",
+      );
+      return;
     }
 
-    // ── Supabase login (fallback when Go fails or go_auth_enabled = false) ────
-    console.log("[AUTH] Using Supabase direct login");
+    // ── Fallback: direct Supabase login ────────────────────────────────────
+    console.log("[AUTH] Using Supabase direct login (go_auth_enabled = false)");
 
     const phoneFormats = [
       `+91${last10}`,
@@ -344,173 +313,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log("[AUTH] Login successful!");
-    // Trigger shadow auth for all users (Supabase fallback path)
-    triggerShadowAuth(data.user, data.session);
+    // Shadow auth only for pilot users (go_auth_enabled=false + shadow_auth_enabled=true migration path)
+    if (isGoAuthUser(last10)) {
+      triggerShadowAuth(data.user, data.session);
+    }
   };
 
-  const signUp = async (phone: string, password: string, role: UserRole, name?: string) => {
-    // Normalize phone number
-    const inputDigits = phone.replace(/\D/g, "");
-    const last10 = inputDigits.slice(-10);
-    // Supabase and Go signup both use E.164 format: +91XXXXXXXXXX
-    const formattedPhone = phone.startsWith("+") ? phone : `+91${last10}`;
-
-    console.log("[AUTH] Signup attempt:", { phone: formattedPhone, role, name });
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // LEARNER SIGNUP: Call Supabase + Go service in parallel
-    // Go service returns tokens immediately so learner is auto-logged in
-    // ──────────────────────────────────────────────────────────────────────────
-    if (role === "learner") {
-      const supabaseSignupPromise = supabase.auth.signUp({
-        phone: formattedPhone,
-        password,
-        options: {
-          data: {
-            user_role: "learner",
-            name: name || "",
-          },
+  const signUp = async (phone: string, password: string, role: UserRole) => {
+    const { data, error } = await supabase.auth.signUp({
+      phone,
+      password,
+      options: {
+        data: {
+          user_role: role,
         },
+      },
+    });
+
+    if (error) throw error;
+
+    // Check if learner record already exists
+    const { data: existingLearner } = await supabase
+      .from("Learner")
+      .select("id")
+      .eq("phone", phone)
+      .maybeSingle();
+
+    // Create learner record if it doesn't exist
+    if (!existingLearner) {
+      const { error: insertError } = await supabase.from("Learner").insert({
+        phone,
+        onboarding_completed: false,
       });
 
-      // Go learner signup — POST /auth/signup
-      // Contract: { phone: "+91XXXXXXXXXX", password, name }
-      // Role is hardcoded as "learner" server-side
-      const goSignupPromise = (async () => {
-        try {
-          console.log("[AUTH] Attempting Go signup for learner:", formattedPhone);
-          const res = await fetch(`${BACKEND_API}/auth/signup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: formattedPhone,  // +919876543210 per API contract
-              password,
-              name: name || "",
-            }),
-          });
-
-          if (!res.ok) {
-            const errBody = await res.json().catch(() => ({}));
-            if (res.status === 409 && errBody.code === "phone_already_registered") {
-              console.warn("[AUTH] Go: Learner phone already registered in RDS");
-              return { success: false, error: "phone_already_registered", data: null };
-            }
-            if (res.status === 400 && errBody.code === "weak_password") {
-              console.warn("[AUTH] Go: Weak password");
-              return { success: false, error: "weak_password", data: null };
-            }
-            console.warn("[AUTH] Go learner signup failed:", errBody.message || "Unknown error");
-            return { success: false, error: errBody.message || "Unknown error", data: null };
-          }
-
-          const goResponse = await res.json();
-          console.log("[AUTH] ✅ Go learner signup successful:", goResponse.user?.id);
-          return { success: true, error: null, data: goResponse };
-        } catch (err: any) {
-          console.warn("[AUTH] Go signup error (non-fatal, continuing with Supabase):", err.message);
-          return { success: false, error: err.message, data: null };
-        }
-      })();
-
-      // Run both in parallel
-      const [supabaseResult, goResult] = await Promise.all([
-        supabaseSignupPromise,
-        goSignupPromise,
-      ]);
-
-      // Supabase must succeed
-      const { data, error } = supabaseResult;
-      if (error) {
-        console.error("[AUTH] Supabase learner signup failed:", error.message);
-        throw error;
-      }
-      console.log("[AUTH] ✅ Supabase learner signup successful:", data.user?.id);
-
-      // Store Go tokens → learner is auto-logged in (no separate login needed)
-      if (goResult.success && goResult.data) {
-        localStorage.setItem("go_access_token", goResult.data.accessToken);
-        localStorage.setItem("go_refresh_token", goResult.data.refreshToken);
-        console.log("[AUTH] ✅ Go tokens stored — learner auto-logged in via Go.");
-      } else {
-        console.warn("[AUTH] Go signup failed (non-fatal). Learner will use Supabase session.", goResult.error);
-      }
-
-      // Create Learner record in Supabase DB (if not already created by trigger)
-      const { data: existingLearner } = await supabase
-        .from("Learner")
-        .select("id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
-
-      if (!existingLearner) {
-        // Use 'as any' — the typed client enforces all NOT NULL columns but
-        // these fields have DB-level defaults; the signup only sets the minimum.
-        const { error: insertError } = await (supabase as any).from("Learner").insert({
-          phone: formattedPhone,
-          name: name || null,
-          onboarding_completed: false,
-        });
-        if (insertError) {
-          console.warn("[AUTH] Failed to create Learner record:", insertError.message);
-        }
-      }
-
-      console.log("[AUTH] ✅ Learner signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
-      return;
+      if (insertError) throw insertError;
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // INSTRUCTOR SIGNUP: Supabase only (primary) + shadow auth sync to RDS
-    // There is no dedicated Go endpoint for instructor signup.
-    // After Supabase signup, triggerShadowAuth syncs the instructor to Go/RDS.
-    // ──────────────────────────────────────────────────────────────────────────
-    if (role === "instructor") {
-      const { data, error } = await supabase.auth.signUp({
-        phone: formattedPhone,
-        password,
-        options: {
-          data: {
-            user_role: "instructor",
-            name: name || "",
-          },
-        },
-      });
-
-      if (error) {
-        console.error("[AUTH] Supabase instructor signup failed:", error.message);
-        throw error;
-      }
-      console.log("[AUTH] ✅ Supabase instructor signup successful:", data.user?.id);
-
-      // Create Instructor record in Supabase DB
-      const { data: existingInstructor } = await supabase
-        .from("Instructor")
-        .select("id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
-
-      if (!existingInstructor) {
-        const { error: insertError } = await supabase.from("Instructor").insert({
-          phone: formattedPhone,
-          name: name || null,
-        });
-        if (insertError) {
-          console.warn("[AUTH] Failed to create Instructor record:", insertError.message);
-        }
-      }
-
-      // Trigger shadow auth to sync instructor to Go/RDS in the background
-      // This ensures no data loss — instructor ends up in both Supabase and RDS
-      if (data.user && data.session) {
-        console.log("[AUTH] Triggering shadow auth to sync instructor to RDS:", data.user.id);
-        triggerShadowAuth(data.user, data.session);
-      }
-
-      console.log("[AUTH] ✅ Instructor signup complete (Supabase: true, RDS sync: triggered)");
-      return;
-    }
-
-    throw new Error(`Unsupported signup role: ${role}`);
   };
 
   const logout = async () => {
@@ -532,7 +369,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ── Admin context: Always use Go service (don't check Learner/Instructor tables) ──
     if (context === "admin") {
       console.log("[AUTH] Admin context - using Go service directly");
-      const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+      const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
       if (goAuthEnabled) {
         const res = await fetch(`${BACKEND_API}/auth/otp/request`, {
@@ -699,7 +536,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // ── Step 2: Not Learner/Instructor → Use Go service for Admins ───────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
     if (goAuthEnabled) {
       console.log("[AUTH] User not found in Learner/Instructor, using Go service for admin:", last10);
@@ -828,7 +665,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // ── Step 2: OTP not in store → Use Go service for Admins ─────────────────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
     if (goAuthEnabled) {
       if (!newPassword) {
@@ -924,11 +761,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Normalize phone to last 10 digits
     const last10 = user.phone.replace(/\D/g, "").slice(-10);
 
-    // ── Go-service change password (feature-flagged for all users) ───────
-    const goAuthEnabled = await isFeatureEnabled("use_go_auth");
+    // ── Go-service change password (feature-flagged + per-user pilot list) ───────
+    const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
-    if (goAuthEnabled) {
-      console.log("[AUTH] Changing password via Go service for user:", last10);
+    if (goAuthEnabled && isGoAuthUser(last10)) {
+      console.log("[AUTH] Changing password via Go service for pilot user:", last10);
 
       const goAccessToken = localStorage.getItem("go_access_token");
       if (!goAccessToken) {
