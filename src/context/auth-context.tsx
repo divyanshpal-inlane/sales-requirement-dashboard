@@ -4,7 +4,6 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { triggerShadowAuth } from "@/utils/shadowAuth";
 import { isFeatureEnabled } from "@/services/featureFlagService";
-import { isGoAuthUser } from "@/constants/goAuthUsers";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
@@ -71,8 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
-      // Shadow auth only applies to pilot users in the Go migration list
-      if (session?.user && isGoAuthUser(session.user.phone ?? "")) {
+      // Trigger shadow auth for all users when Go auth is enabled
+      if (session?.user) {
         triggerShadowAuth(session.user, session);
       }
     });
@@ -97,8 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(session?.user ?? null);
       setLoading(false);
-      // Shadow auth only applies to pilot users in the Go migration list
-      if (_event === 'SIGNED_IN' && session?.user && isGoAuthUser(session.user.phone ?? "")) {
+      // Trigger shadow auth for all users when signed in
+      if (_event === 'SIGNED_IN' && session?.user) {
         triggerShadowAuth(session.user, session);
       }
     });
@@ -121,11 +120,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const last10 = inputDigits.slice(-10);
     console.log("[AUTH] Last 10 digits:", last10);
 
-    // ── Go-service login (feature-flagged + per-user pilot list) ────────────
+    // ── Go-service login (feature-flagged for all users) ────────────
     const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
-    if (goAuthEnabled && isGoAuthUser(last10)) {
-      console.log("[AUTH] Using Go service login for pilot user:", last10);
+    if (goAuthEnabled) {
+      console.log("[AUTH] Using Go service login for user:", last10);
 
       let goResponse: GoLoginResponse;
       try {
@@ -313,10 +312,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log("[AUTH] Login successful!");
-    // Shadow auth only for pilot users (go_auth_enabled=false + shadow_auth_enabled=true migration path)
-    if (isGoAuthUser(last10)) {
-      triggerShadowAuth(data.user, data.session);
-    }
+    // Trigger shadow auth for all users (Supabase fallback path)
+    triggerShadowAuth(data.user, data.session);
   };
 
   const signUp = async (phone: string, password: string, role: UserRole, name?: string) => {
@@ -864,11 +861,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Normalize phone to last 10 digits
     const last10 = user.phone.replace(/\D/g, "").slice(-10);
 
-    // ── Go-service change password (feature-flagged + per-user pilot list) ───────
+    // ── Go-service change password (feature-flagged for all users) ───────
     const goAuthEnabled = await isFeatureEnabled("go_auth_enabled");
 
-    if (goAuthEnabled && isGoAuthUser(last10)) {
-      console.log("[AUTH] Changing password via Go service for pilot user:", last10);
+    if (goAuthEnabled) {
+      console.log("[AUTH] Changing password via Go service for user:", last10);
 
       const goAccessToken = localStorage.getItem("go_access_token");
       if (!goAccessToken) {
