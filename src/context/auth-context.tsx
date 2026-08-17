@@ -239,38 +239,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.warn("[AUTH] Could not inject Supabase session storage:", storageErr);
           }
         } else {
-          // No supabaseAccessToken = user exists in RDS but NOT in Supabase auth.users.
-          // Auto-create their Supabase account using the same credentials so that:
-          // 1. They get a proper Supabase JWT for storage/RLS operations.
-          // 2. Future Go logins will include supabaseAccessToken (user now in auth.users).
-          console.warn("[AUTH] No supabaseAccessToken — user not in Supabase auth. Auto-registering...");
+          // No supabaseAccessToken from Go — clear any stale/broken session.
+          // Must use signOut({scope:'local'}) to reset the client's in-memory state,
+          // not just localStorage (same-tab writes don't trigger storage events).
+          // The resulting SIGNED_OUT event is suppressed by the guard above because
+          // go_access_token is already in localStorage.
+          console.warn("[AUTH] No supabaseAccessToken in Go response — clearing stale session.");
           localStorage.removeItem("supabase_access_token");
-
-          // Build phone in E.164 format for Supabase
-          const e164Phone = `+91${last10}`;
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            phone: e164Phone,
-            password,
-            options: {
-              data: {
-                user_role: goResponse.user.role,
-                name: goResponse.user.phone, // placeholder; real name is in RDS
-              },
-            },
-          });
-
-          if (!signUpError && signUpData?.session) {
-            // Successfully created Supabase account and got a session
-            console.log("[AUTH] ✅ Supabase account auto-created for Go user. Session established.");
-            // No need to inject — Supabase client already has the session
-          } else if (!signUpError && signUpData?.user && !signUpData?.session) {
-            // Account created but no session (Supabase email/phone confirmation required)
-            console.warn("[AUTH] Supabase account created but awaiting confirmation. Storage may not work until confirmed.");
-            await supabase.auth.signOut({ scope: "local" });
-          } else {
-            console.warn("[AUTH] Could not auto-create Supabase account:", signUpError?.message, "— clearing stale session.");
-            await supabase.auth.signOut({ scope: "local" });
-          }
+          await supabase.auth.signOut({ scope: "local" });
         }
 
         setUser(goUser);
