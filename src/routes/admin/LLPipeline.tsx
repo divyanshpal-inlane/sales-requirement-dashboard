@@ -7,9 +7,10 @@ import {
   Clock,
   Plus,
   Search,
+  Undo2,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import LLDocumentsReview from "@/components/admin/LLDocumentsReview";
@@ -35,6 +36,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  getLLRevertTargets,
   isLLFailureStatus,
   LL_BATCHES,
   LL_FAILURE_STAGES,
@@ -53,6 +55,7 @@ import {
   useLLDocuments,
   useLLLearnerSearch,
   useLLPipelineEvents,
+  useRevertLLStatus,
   useUpdateLLFields,
   useUpdateLLStatus,
   useUploadLLCard,
@@ -66,6 +69,7 @@ export default function LLPipeline() {
   const { toast } = useToast();
   const { data: currentUser } = useCurrentUser();
   const actorName = currentUser?.name ?? null;
+  const actorId = currentUser?.id ?? null;
 
   const { data: applications, isLoading } = useLLApplications();
   const [queue, setQueue] = useState<QueueKey>("all");
@@ -79,6 +83,7 @@ export default function LLPipeline() {
   const [dateTo, setDateTo] = useState("");
 
   const updateStatus = useUpdateLLStatus();
+  const revertStatus = useRevertLLStatus();
   const updateFields = useUpdateLLFields();
 
   const filtered = useMemo(() => {
@@ -282,6 +287,7 @@ export default function LLPipeline() {
                     toStatus,
                     note,
                     actorName,
+                    actorId,
                     extraFields,
                   },
                   {
@@ -293,6 +299,30 @@ export default function LLPipeline() {
                     onError: (e: Error) =>
                       toast({
                         title: "Error",
+                        description: e.message,
+                        variant: "destructive",
+                      }),
+                  },
+                )
+              }
+              onRevert={(toStatus, reason) =>
+                revertStatus.mutate(
+                  {
+                    application: selected,
+                    toStatus,
+                    reason,
+                    actorName,
+                    actorId,
+                  },
+                  {
+                    onSuccess: () =>
+                      toast({
+                        title: "Stage reverted",
+                        description: `${selected.Learner?.name ?? "Application"} → ${llStageLabel(toStatus)}`,
+                      }),
+                    onError: (e: Error) =>
+                      toast({
+                        title: "Revert failed",
                         description: e.message,
                         variant: "destructive",
                       }),
@@ -313,7 +343,11 @@ export default function LLPipeline() {
                   },
                 )
               }
-              isBusy={updateStatus.isPending || updateFields.isPending}
+              isBusy={
+                updateStatus.isPending ||
+                revertStatus.isPending ||
+                updateFields.isPending
+              }
             />
           ) : (
             <Card className="h-full border-dashed">
@@ -352,6 +386,7 @@ function ApplicationDetail({
   application,
   actorName,
   onTransition,
+  onRevert,
   onSaveFields,
   isBusy,
 }: {
@@ -362,6 +397,7 @@ function ApplicationDetail({
     note?: string,
     extraFields?: Partial<LLApplication>,
   ) => void;
+  onRevert: (toStatus: string, reason: string) => void;
   onSaveFields: (fields: Partial<LLApplication>) => void;
   isBusy: boolean;
 }) {
@@ -369,9 +405,21 @@ function ApplicationDetail({
   const failure = LL_FAILURE_STAGES[application.status];
   const { data: events } = useLLPipelineEvents(application.id);
   const [note, setNote] = useState("");
+  const [revertTarget, setRevertTarget] = useState<string>("");
+  const [revertReason, setRevertReason] = useState("");
+  const [revertOpen, setRevertOpen] = useState(false);
+
+  const revertTargets = useMemo(
+    () => getLLRevertTargets(application.status),
+    [application.status],
+  );
 
   // Editable Ops fields (draft state, saved together)
   const [draft, setDraft] = useState<Partial<LLApplication>>({});
+  // Drop local edits when the server row moves (advance / revert / external update).
+  useEffect(() => {
+    setDraft({});
+  }, [application.id, application.status, application.updated_at]);
   const value = (k: keyof LLApplication) =>
     (draft[k] ?? application[k] ?? "") as string;
   const setValue = (k: keyof LLApplication, v: string | null) =>
@@ -498,6 +546,22 @@ function ApplicationDetail({
                 <AlertTriangle className="mr-1 h-4 w-4" />
                 {application.escalated ? "Clear escalation" : "Escalate"}
               </Button>
+              {revertTargets.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-400 text-slate-700 hover:bg-slate-50"
+                  disabled={isBusy}
+                  onClick={() => {
+                    setRevertTarget(revertTargets[revertTargets.length - 1] ?? "");
+                    setRevertReason("");
+                    setRevertOpen(true);
+                  }}
+                >
+                  <Undo2 className="mr-1 h-4 w-4" />
+                  Revert stage
+                </Button>
+              )}
             </div>
             {application.escalated && (
               <p className="mt-2 text-xs text-amber-700">
@@ -506,6 +570,98 @@ function ApplicationDetail({
               </p>
             )}
           </div>
+
+          <Dialog
+            open={revertOpen}
+            onOpenChange={(open) => {
+              setRevertOpen(open);
+              if (!open) {
+                setRevertReason("");
+                setRevertTarget("");
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Revert application stage</DialogTitle>
+                <DialogDescription>
+                  Move this application back to an earlier stage to fix a
+                  mistaken promotion. A reason is required and will be stored on
+                  the timeline. The customer will not get a WhatsApp for this
+                  change.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">
+                    Current stage
+                  </label>
+                  <Input
+                    className="h-8 bg-gray-50 text-sm"
+                    readOnly
+                    value={llStageLabel(application.status)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">
+                    Revert to
+                  </label>
+                  <Select
+                    value={revertTarget || undefined}
+                    onValueChange={setRevertTarget}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Pick an earlier stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {revertTargets.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {llStageLabel(t)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">
+                    Reason (required)
+                  </label>
+                  <Textarea
+                    placeholder="Why is this stage being reverted?"
+                    value={revertReason}
+                    onChange={(e) => setRevertReason(e.target.value)}
+                    className="h-20 text-sm"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Fields that only apply after the target stage (LL/DL numbers,
+                  test dates, etc.) will be cleared automatically.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setRevertOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={
+                      isBusy || !revertTarget || !revertReason.trim()
+                    }
+                    onClick={() => {
+                      onRevert(revertTarget, revertReason.trim());
+                      setRevertOpen(false);
+                      setRevertReason("");
+                      setRevertTarget("");
+                    }}
+                  >
+                    <Undo2 className="mr-1 h-4 w-4" />
+                    Confirm revert
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Customer's form submission + uploaded documents */}
           <LLDocumentsReview application={application} actorName={actorName} />
@@ -813,11 +969,21 @@ function ApplicationDetail({
                 <ul className="space-y-2">
                   {(events ?? []).map((e) => (
                     <li key={e.id} className="flex gap-2 text-sm">
-                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      {e.event_type === "status_reversal" ? (
+                        <Undo2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      ) : (
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      )}
                       <div>
                         <div>
-                          {e.event_type === "status_change" ? (
+                          {e.event_type === "status_change" ||
+                          e.event_type === "status_reversal" ? (
                             <>
+                              {e.event_type === "status_reversal" && (
+                                <span className="mr-1 font-medium text-amber-700">
+                                  Reverted:
+                                </span>
+                              )}
                               {e.from_status ? (
                                 <>
                                   <span className="text-gray-500">
@@ -850,7 +1016,9 @@ function ApplicationDetail({
                         <div className="text-xs text-gray-400">
                           {format(new Date(e.created_at), "dd MMM yyyy, HH:mm")}
                           {e.actor_name ? ` · ${e.actor_name}` : ""}
-                          {e.event_type === "status_change" && e.note
+                          {(e.event_type === "status_change" ||
+                            e.event_type === "status_reversal") &&
+                          e.note
                             ? ` · ${e.note}`
                             : ""}
                         </div>

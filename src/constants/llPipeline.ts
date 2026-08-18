@@ -368,6 +368,157 @@ export function isLLFailureStatus(status: string): boolean {
   return status in LL_FAILURE_STAGES;
 }
 
+/**
+ * Reverse edges of the happy-path graph (and stage → failure edges).
+ * Used to compute which stages Ops may legally revert an application to.
+ */
+const LL_REVERSE_EDGES: Record<string, string[]> = (() => {
+  const map: Record<string, Set<string>> = {};
+  const link = (from: string, to: string) => {
+    if (!map[to]) map[to] = new Set();
+    map[to].add(from);
+  };
+  for (const s of LL_STAGES) {
+    for (const n of s.next) link(s.key, n);
+    for (const f of s.failures ?? []) link(s.key, f.key);
+  }
+  return Object.fromEntries(
+    Object.entries(map).map(([k, v]) => [k, [...v]]),
+  );
+})();
+
+const LL_STAGE_ORDER: Record<string, number> = Object.fromEntries([
+  ...LL_STAGES.map((s, i) => [s.key, i] as const),
+  ...Object.keys(LL_FAILURE_STAGES).map(
+    (k, i) => [k, LL_STAGES.length + i] as const,
+  ),
+]);
+
+/**
+ * Stages the RTO agent may move this application back to (to correct a
+ * mistaken promotion). Walks the state-machine backwards; failure statuses
+ * also allow their documented recoverTo target.
+ *
+ * Only happy-path stages are offered as targets (never another failure box).
+ */
+export function getLLRevertTargets(currentStatus: string): string[] {
+  const seen = new Set<string>();
+  const queue = [...(LL_REVERSE_EDGES[currentStatus] ?? [])];
+  const targets: string[] = [];
+
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    if (!isLLFailureStatus(cur)) targets.push(cur);
+    for (const prev of LL_REVERSE_EDGES[cur] ?? []) queue.push(prev);
+  }
+
+  // From a failure box, the resume target is always a valid revert destination
+  // even if the reverse-edge walk somehow missed it.
+  const failure = LL_FAILURE_STAGES[currentStatus];
+  if (failure && !targets.includes(failure.recoverTo)) {
+    targets.push(failure.recoverTo);
+  }
+
+  return targets.sort(
+    (a, b) => (LL_STAGE_ORDER[a] ?? 999) - (LL_STAGE_ORDER[b] ?? 999),
+  );
+}
+
+/** True when the current stage has at least one valid earlier stage. */
+export function canRevertLLStatus(status: string): boolean {
+  return getLLRevertTargets(status).length > 0;
+}
+
+/**
+ * Fields that become relevant only at/after certain stages. When Ops reverts
+ * past those stages, clear the values so the customer homepage doesn't show
+ * stale RTO/DL data for a stage the application is no longer in.
+ */
+const STAGE_FIELD_CLEAR_AFTER: {
+  /** Cleared when target stage order is strictly before this stage. */
+  afterStage: string;
+  fields: LLRevertClearField[];
+}[] = [
+  {
+    afterStage: "application_ready",
+    fields: ["application_number", "application_date", "batch_code"],
+  },
+  {
+    afterStage: "ll_test_enabled",
+    fields: ["scrutiny_approved_date"],
+  },
+  {
+    afterStage: "ll_issued",
+    fields: ["ll_number", "ll_issue_date", "ll_expiry_date", "ll_type", "ll_matures_at"],
+  },
+  {
+    afterStage: "dl_date_preference_received",
+    fields: ["dl_preferred_date", "dl_preferred_rto"],
+  },
+  {
+    afterStage: "dl_test_scheduled",
+    fields: [
+      "dl_application_number",
+      "dl_application_date",
+      "dl_test_date",
+      "dl_test_time",
+      "dl_test_rto",
+      "dl_test_rto_address",
+    ],
+  },
+  {
+    afterStage: "dl_number_generated",
+    fields: ["dl_number", "dl_expiry_date"],
+  },
+  {
+    afterStage: "dl_delivery_pending",
+    fields: ["dl_dispatch_eta", "dl_tracking_ref"],
+  },
+];
+
+export type LLRevertClearField =
+  | "application_number"
+  | "application_date"
+  | "batch_code"
+  | "scrutiny_approved_date"
+  | "ll_number"
+  | "ll_issue_date"
+  | "ll_expiry_date"
+  | "ll_type"
+  | "ll_matures_at"
+  | "dl_preferred_date"
+  | "dl_preferred_rto"
+  | "dl_application_number"
+  | "dl_application_date"
+  | "dl_test_date"
+  | "dl_test_time"
+  | "dl_test_rto"
+  | "dl_test_rto_address"
+  | "dl_number"
+  | "dl_expiry_date"
+  | "dl_dispatch_eta"
+  | "dl_tracking_ref";
+
+/**
+ * Returns fields to null out when moving back to `toStatus`.
+ * Does not clear documents, form_data, or services — those stay for re-use.
+ */
+export function fieldsToClearOnLLRevert(
+  toStatus: string,
+): Partial<Record<LLRevertClearField, null>> {
+  const targetOrder = LL_STAGE_ORDER[toStatus] ?? -1;
+  const clear: Partial<Record<LLRevertClearField, null>> = {};
+  for (const rule of STAGE_FIELD_CLEAR_AFTER) {
+    const gate = LL_STAGE_ORDER[rule.afterStage] ?? 999;
+    if (targetOrder < gate) {
+      for (const f of rule.fields) clear[f] = null;
+    }
+  }
+  return clear;
+}
+
 /** Services Ops can tick on the RTO application (from the board's checkbox list). */
 export const LL_SERVICES: { key: string; label: string }[] = [
   { key: "ll", label: "LL" },
