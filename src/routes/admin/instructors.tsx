@@ -938,7 +938,7 @@ export default function InstructorsManagement() {
     return memoizedInstructors.filter((instructor) => {
       const nameMatch = instructor.name?.toLowerCase().includes(query);
       const phoneMatch = instructor.phone?.toLowerCase().includes(query);
-      const carMatch = (instructor.car_mode + instructor.car_number)
+      const carMatch = `${instructor.car_mode ?? ''}${instructor.car_number ?? ''}`
         .toLowerCase()
         .includes(query);
       const areaMatch = instructor.areas?.some((area) =>
