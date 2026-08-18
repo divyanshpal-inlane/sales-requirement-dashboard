@@ -371,16 +371,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Go learner signup — POST /auth/signup
-      // Contract: { phone: "+91XXXXXXXXXX", password, name }
+      // Contract: { phone: "XXXXXXXXXX" (10 digits, no +91), password, name }
       // Role is hardcoded as "learner" server-side
       const goSignupPromise = (async () => {
         try {
-          console.log("[AUTH] Attempting Go signup for learner:", formattedPhone);
+          console.log("[AUTH] Attempting Go signup for learner:", last10);
           const res = await fetch(`${BACKEND_API}/auth/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              phone: formattedPhone,  // +919876543210 per API contract
+              phone: last10,  // 10-digit number only, no +91 prefix
               password,
               name: name || "",
             }),
@@ -474,15 +474,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Go instructor signup — POST /auth/signup
-      // Contract: { phone: "+91XXXXXXXXXX", password, name, role: "instructor" }
+      // Contract: { phone: "XXXXXXXXXX" (10 digits, no +91), password, name, role: "instructor" }
       const goSignupPromise = (async () => {
         try {
-          console.log("[AUTH] Attempting Go signup for instructor:", formattedPhone);
+          console.log("[AUTH] Attempting Go signup for instructor:", last10);
           const res = await fetch(`${BACKEND_API}/auth/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              phone: formattedPhone,
+              phone: last10,  // 10-digit number only, no +91 prefix
               password,
               name: name || "",
               role: "instructor",
