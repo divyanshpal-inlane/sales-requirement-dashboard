@@ -36,14 +36,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  getLLAdvanceTargets,
+  getLLFailureOptions,
   getLLRevertTargets,
   isLLFailureStatus,
-  LL_BATCHES,
+  isLLSegregationRouteCode,
   LL_FAILURE_STAGES,
   LL_PHASES,
+  LL_SEGREGATION_ROUTES,
   LL_SERVICES,
   LL_STAGE_MAP,
   LLPhaseKey,
+  llSegregationRouteChecklist,
+  llSegregationRouteLabel,
   llStageLabel,
   llStagePhase,
 } from "@/constants/llPipeline";
@@ -81,6 +86,8 @@ export default function LLPipeline() {
   );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  /** Filter by segregation route A–D ("all" = no filter). */
+  const [routeFilter, setRouteFilter] = useState<"all" | string>("all");
 
   const updateStatus = useUpdateLLStatus();
   const revertStatus = useRevertLLStatus();
@@ -92,6 +99,9 @@ export default function LLPipeline() {
       list = list.filter((a) => a.escalated || isLLFailureStatus(a.status));
     } else if (queue !== "all") {
       list = list.filter((a) => llStagePhase(a.status) === queue);
+    }
+    if (routeFilter !== "all") {
+      list = list.filter((a) => a.batch_code === routeFilter);
     }
     if (dateFrom) {
       list = list.filter((a) => a[dateField].slice(0, 10) >= dateFrom);
@@ -106,11 +116,21 @@ export default function LLPipeline() {
           a.Learner?.name?.toLowerCase().includes(term) ||
           a.Learner?.phone?.includes(term) ||
           a.application_number?.toLowerCase().includes(term) ||
-          a.ll_number?.toLowerCase().includes(term),
+          a.ll_number?.toLowerCase().includes(term) ||
+          a.batch_code?.toLowerCase().includes(term) ||
+          llSegregationRouteLabel(a.batch_code).toLowerCase().includes(term),
       );
     }
     return list;
-  }, [applications, queue, searchTerm, dateField, dateFrom, dateTo]);
+  }, [
+    applications,
+    queue,
+    routeFilter,
+    searchTerm,
+    dateField,
+    dateFrom,
+    dateTo,
+  ]);
 
   const selected = filtered.find((a) => a.id === selectedId)
     ? ((applications ?? []).find((a) => a.id === selectedId) ?? null)
@@ -175,7 +195,20 @@ export default function LLPipeline() {
             {t.label} {queueCounts[t.key] ?? 0}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          <Select value={routeFilter} onValueChange={setRouteFilter}>
+            <SelectTrigger className="h-7 w-44 text-xs">
+              <SelectValue placeholder="Route" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All routes</SelectItem>
+              {LL_SEGREGATION_ROUTES.map((r) => (
+                <SelectItem key={r.code} value={r.code}>
+                  {r.code} — {r.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select
             value={dateField}
             onValueChange={(v) =>
@@ -265,6 +298,11 @@ export default function LLPipeline() {
                     </div>
                     <div className="text-xs text-gray-500">
                       {a.Learner?.phone}
+                      {a.batch_code ? (
+                        <span className="ml-1 text-gray-400">
+                          · {llSegregationRouteLabel(a.batch_code)}
+                        </span>
+                      ) : null}
                     </div>
                     <StatusBadge status={a.status} />
                   </button>
@@ -410,8 +448,8 @@ function ApplicationDetail({
   const [revertOpen, setRevertOpen] = useState(false);
 
   const revertTargets = useMemo(
-    () => getLLRevertTargets(application.status),
-    [application.status],
+    () => getLLRevertTargets(application.status, application.batch_code),
+    [application.status, application.batch_code],
   );
 
   // Editable Ops fields (draft state, saved together)
@@ -429,7 +467,19 @@ function ApplicationDetail({
     ? (draft.services as string[])
     : (application.services ?? []);
 
-  const advanceTargets = stage?.next ?? [];
+  const effectiveBatchCode =
+    (draft.batch_code as string | null | undefined) ?? application.batch_code;
+  const advanceTargets = getLLAdvanceTargets(
+    application.status,
+    effectiveBatchCode,
+  );
+  const failureOptions = getLLFailureOptions(
+    application.status,
+    effectiveBatchCode,
+  );
+  const needsRouteToAdvance =
+    application.status === "application_ready" &&
+    !isLLSegregationRouteCode(effectiveBatchCode);
 
   return (
     <div className="space-y-2">
@@ -450,7 +500,19 @@ function ApplicationDetail({
           <div className="rounded-md border p-3">
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
               Move this application
+              {isLLSegregationRouteCode(effectiveBatchCode) && (
+                <span className="ml-2 font-normal normal-case text-gray-400">
+                  ({llSegregationRouteLabel(effectiveBatchCode)})
+                </span>
+              )}
             </div>
+            {needsRouteToAdvance && (
+              <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                Select a segregation route (A–D) under RTO details and Save
+                before advancing. Route decides scrutiny vs LL-test vs approval
+                path.
+              </p>
+            )}
             <Textarea
               placeholder="Optional note for the timeline (reason, remarks…)"
               value={note}
@@ -478,16 +540,25 @@ function ApplicationDetail({
                   <Button
                     key={t}
                     size="sm"
-                    disabled={isBusy}
+                    disabled={isBusy || needsRouteToAdvance}
                     onClick={() => {
-                      // Post-LL branch selection also records ll_type.
-                      const extra: Partial<LLApplication> | undefined =
-                        t === "ob_form_enabled"
-                          ? { ll_type: "with_classes" }
-                          : t === "ll_maturing"
-                            ? { ll_type: "direct_dl" }
-                            : undefined;
-                      onTransition(t, note || undefined, extra);
+                      const extra: Partial<LLApplication> = {};
+                      if (t === "ob_form_enabled") {
+                        extra.ll_type = "with_classes";
+                      } else if (t === "ll_maturing") {
+                        extra.ll_type = "direct_dl";
+                      }
+                      if (
+                        draft.batch_code &&
+                        isLLSegregationRouteCode(String(draft.batch_code))
+                      ) {
+                        extra.batch_code = draft.batch_code as string;
+                      }
+                      onTransition(
+                        t,
+                        note || undefined,
+                        Object.keys(extra).length ? extra : undefined,
+                      );
                       setNote("");
                     }}
                   >
@@ -496,7 +567,7 @@ function ApplicationDetail({
                   </Button>
                 ))
               )}
-              {(stage?.failures ?? []).map((f) => (
+              {failureOptions.map((f) => (
                 <Button
                   key={f.key}
                   size="sm"
@@ -504,9 +575,6 @@ function ApplicationDetail({
                   className="border-red-300 text-red-600 hover:bg-red-50"
                   disabled={isBusy}
                   onClick={() => {
-                    // A customer no-show bumps the miss counter — the 2nd
-                    // miss switches the homepage + WhatsApp to "Ops will
-                    // call you" (spec: If Customer Misses the Meeting Twice).
                     const extra: Partial<LLApplication> | undefined =
                       f.key === "call_missed"
                         ? {
@@ -709,22 +777,54 @@ function ApplicationDetail({
                   onChange={(e) => setValue("application_date", e.target.value)}
                 />
               </Field>
-              <Field label="Batch">
+              <Field label="Segregation route" className="col-span-2 md:col-span-3">
                 <Select
-                  value={value("batch_code") || undefined}
+                  value={
+                    isLLSegregationRouteCode(value("batch_code"))
+                      ? value("batch_code")
+                      : undefined
+                  }
                   onValueChange={(v) => setValue("batch_code", v)}
                 >
                   <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Segregation batch" />
+                    <SelectValue placeholder="Pick route A / B / C / D" />
                   </SelectTrigger>
                   <SelectContent>
-                    {LL_BATCHES.map((b) => (
-                      <SelectItem key={b} value={b}>
-                        {b}
+                    {LL_SEGREGATION_ROUTES.map((r) => (
+                      <SelectItem key={r.code} value={r.code}>
+                        {r.code} — {r.name} ({r.namingSchema})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {value("batch_code") &&
+                  !isLLSegregationRouteCode(value("batch_code")) && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Legacy batch code “{value("batch_code")}” — re-select a
+                      route A–D and save.
+                    </p>
+                  )}
+                {isLLSegregationRouteCode(value("batch_code")) && (
+                  <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                    <p className="mb-1 font-medium text-gray-800">
+                      {llSegregationRouteLabel(value("batch_code"))}
+                    </p>
+                    <p className="mb-2 text-gray-600">
+                      {
+                        LL_SEGREGATION_ROUTES.find(
+                          (r) => r.code === value("batch_code"),
+                        )?.who
+                      }
+                    </p>
+                    <ul className="grid gap-0.5 sm:grid-cols-2">
+                      {llSegregationRouteChecklist(value("batch_code")).map(
+                        (line) => (
+                          <li key={line}>• {line}</li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
               </Field>
               <Field label="Scrutiny Approved Date">
                 <Input

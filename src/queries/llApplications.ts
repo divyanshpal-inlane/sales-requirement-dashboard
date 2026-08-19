@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  assertLLStatusTransition,
+  classifyLLStatusTransition,
   fieldsToClearOnLLRevert,
-  getLLRevertTargets,
+  isLLSegregationRouteCode,
+  llSegregationRouteLabel,
 } from "@/constants/llPipeline";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -244,7 +247,7 @@ const FIELD_LABELS: Record<string, string> = {
   application_number: "LL Application Number",
   application_date: "LL Application Date",
   date_of_birth: "Date of Birth",
-  batch_code: "Batch",
+  batch_code: "Segregation route",
   ll_number: "LL Number",
   scrutiny_approved_date: "Scrutiny Approved Date",
   ll_matures_at: "LL Matures On",
@@ -292,6 +295,30 @@ export function useUpdateLLStatus() {
       /** Fields to persist together with the transition (e.g. ll_type, escalated). */
       extraFields?: Partial<LLApplication>;
     }) => {
+      // Prefer draft batch_code if the transition is bundled with a route set.
+      const batchCode =
+        (extraFields?.batch_code as string | null | undefined) ??
+        application.batch_code;
+
+      const kind = classifyLLStatusTransition(
+        application.status,
+        toStatus,
+        batchCode,
+      );
+      if (!kind) {
+        throw new Error(
+          `Illegal status move ${application.status} → ${toStatus} for route ${
+            batchCode ?? "unset"
+          }.`,
+        );
+      }
+      assertLLStatusTransition({
+        fromStatus: application.status,
+        toStatus,
+        batchCode,
+        kind,
+      });
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { Learner: _l, ...fields } = extraFields ?? {};
       const { error } = await sb
@@ -371,22 +398,20 @@ export function useRevertLLStatus() {
       if (!trimmed) {
         throw new Error("A reason is required when reverting a stage.");
       }
-      const allowed = getLLRevertTargets(application.status);
-      if (!allowed.includes(toStatus)) {
-        throw new Error(
-          `Cannot revert from ${application.status} to ${toStatus}.`,
-        );
-      }
+      assertLLStatusTransition({
+        fromStatus: application.status,
+        toStatus,
+        batchCode: application.batch_code,
+        kind: "revert",
+      });
 
       const cleared = fieldsToClearOnLLRevert(toStatus);
-      const { error } = await sb
-        .from("ll_applications")
-        .update({
-          status: toStatus,
-          updated_at: new Date().toISOString(),
-          ...cleared,
-        })
-        .eq("id", application.id);
+      // RPC sets ll.transition_kind=revert so the DB trigger allows the move.
+      const { error } = await sb.rpc("ll_revert_application", {
+        p_application_id: application.id,
+        p_to_status: toStatus,
+        p_clear_fields: cleared,
+      });
       if (error) throw error;
 
       const clearedLabels = Object.keys(cleared);
@@ -599,14 +624,35 @@ export function useUpdateLLFields() {
               (application as unknown as Record<string, unknown>)[k],
             ),
         )
-        .map(([field, value]) => ({
-          field,
-          label: FIELD_LABELS[field] ?? field,
-          old:
-            (application as unknown as Record<string, unknown>)[field] ?? null,
-          new: value ?? null,
-        }));
+        .map(([field, value]) => {
+          const format =
+            field === "batch_code"
+              ? (v: unknown) =>
+                  v == null || v === ""
+                    ? null
+                    : llSegregationRouteLabel(String(v))
+              : (v: unknown) => v ?? null;
+          return {
+            field,
+            label: FIELD_LABELS[field] ?? field,
+            old: format(
+              (application as unknown as Record<string, unknown>)[field],
+            ),
+            new: format(value),
+          };
+        });
       if (changes.length === 0) return;
+
+      if (
+        "batch_code" in fields &&
+        fields.batch_code != null &&
+        fields.batch_code !== "" &&
+        !isLLSegregationRouteCode(String(fields.batch_code))
+      ) {
+        throw new Error(
+          "Segregation route must be A, B, C, or D.",
+        );
+      }
 
       const { error } = await sb
         .from("ll_applications")

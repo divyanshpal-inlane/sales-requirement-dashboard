@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS "public"."ll_applications" (
   -- Ops data-entry fields (filled as the journey progresses)
   "application_number" text,
   "application_date" date,
-  "batch_code" text,            -- segregation batch e.g. "LN001-007"
+  "batch_code" text,            -- segregation route A|B|C|D (was LN001-007 style)
   "ll_number" text,
   "ll_test_date" date,
   "ll_matures_at" date,         -- ll_issued + 1 month for direct_dl branch

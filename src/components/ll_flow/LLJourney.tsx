@@ -381,11 +381,13 @@ export default function LLJourney() {
     const officeReason =
       "Customer requested a Lane office slot for the LL test";
     const homeReason = "Customer requested a home visit for the LL test";
+    const isFastTrack = application?.batch_code === "B";
     return (
       <JourneyCard title="Take Your LL Test">
         <p className="text-base">
-          Your scrutiny has been completed at the RTO. Kindly complete the LL
-          test.
+          {isFastTrack
+            ? "Your application is ready on the Aadhaar fast-track. Kindly complete the LL test."
+            : "Your scrutiny has been completed at the RTO. Kindly complete the LL test."}
         </p>
         <Button asChild className="w-full py-3 text-lg">
           <a href={PARIVAHAN_LL_TEST_URL} target="_blank" rel="noreferrer">
@@ -489,8 +491,8 @@ export default function LLJourney() {
     );
   }
 
-  // ── 13. LL test passed — waiting for RTO approval ──────────────────────
-  if (status === "ll_test_passed" || status === "ll_approval_pending") {
+  // ── 13. Waiting for RTO approval (after LL test, or add-on routes C/D) ─
+  if (status === "ll_test_passed") {
     return (
       <JourneyCard title="Congratulations! 🎉">
         <div className="flex items-center gap-3">
@@ -498,6 +500,29 @@ export default function LLJourney() {
           <p className="text-base">
             Congratulations on passing your LL test! It will be approved by the
             RTO in a few working days.
+          </p>
+        </div>
+      </JourneyCard>
+    );
+  }
+
+  if (status === "ll_approval_pending") {
+    const isAddOn =
+      application?.batch_code === "C" || application?.batch_code === "D";
+    return (
+      <JourneyCard
+        title={isAddOn ? "Application Under Approval" : "Congratulations! 🎉"}
+      >
+        <div className="flex items-center gap-3">
+          {isAddOn ? (
+            <Hourglass className="h-8 w-8 shrink-0 text-primary" />
+          ) : (
+            <PartyPopper className="h-8 w-8 shrink-0 text-primary" />
+          )}
+          <p className="text-base">
+            {isAddOn
+              ? "Your add-on application is with the RTO for approval. We will update you once it is approved."
+              : "Congratulations on passing your LL test! It will be approved by the RTO in a few working days."}
           </p>
         </div>
       </JourneyCard>

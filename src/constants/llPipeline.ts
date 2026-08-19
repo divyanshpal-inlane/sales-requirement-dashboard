@@ -22,6 +22,127 @@ export const LL_PHASES: { key: LLPhaseKey; label: string }[] = [
   { key: "dl_test", label: "DL Test & Delivery" },
 ];
 
+/**
+ * Segregation routes (stored in ll_applications.batch_code).
+ * RTO lane = Aadhaar auth × existing 2W LL. Drives which stages Ops may advance to.
+ */
+export type LLSegregationRouteCode = "A" | "B" | "C" | "D";
+
+export interface LLSegregationRoute {
+  code: LLSegregationRouteCode;
+  name: string;
+  namingSchema: string;
+  who: string;
+  aadhaarAuth: boolean;
+  documentUpload: string;
+  physicalVerification: boolean;
+  /** "yes" | "none" | "normally_none" */
+  scrutiny: "yes" | "none" | "normally_none";
+  llTest: boolean;
+  approval: boolean;
+}
+
+export const LL_SEGREGATION_ROUTES: LLSegregationRoute[] = [
+  {
+    code: "A",
+    name: "Out of state",
+    namingSchema: "No aadhaar auth — No 2WL DL",
+    who: "No KA licence; Aadhaar from another state; rental agreement / affidavit",
+    aadhaarAuth: false,
+    documentUpload: "Yes",
+    physicalVerification: true,
+    scrutiny: "yes",
+    llTest: true,
+    approval: true,
+  },
+  {
+    code: "B",
+    name: "Aadhaar fast track",
+    namingSchema: "Yes aadhaar auth — No 2WL DL",
+    who: "No KA licence; KA-Bengaluru Aadhaar; recent photo",
+    aadhaarAuth: true,
+    documentUpload: "None",
+    physicalVerification: false,
+    scrutiny: "normally_none",
+    llTest: true,
+    approval: true,
+  },
+  {
+    code: "C",
+    name: "Add-on, name matched",
+    namingSchema: "Yes aadhaar auth — Yes 2WL DL",
+    who: "Holds KA 2W LL; adding 4W; DL name = Aadhaar name",
+    aadhaarAuth: true,
+    documentUpload: "None",
+    physicalVerification: false,
+    scrutiny: "none",
+    llTest: false,
+    approval: true,
+  },
+  {
+    code: "D",
+    name: "Add-on, name mismatch",
+    namingSchema: "No aadhaar auth — Yes 2WL DL",
+    who: "Holds KA 2W LL; adding 4W; DL name ≠ Aadhaar name",
+    aadhaarAuth: false,
+    documentUpload: "DL uploaded manually on portal",
+    physicalVerification: false,
+    scrutiny: "yes",
+    llTest: false,
+    approval: true,
+  },
+];
+
+export const LL_SEGREGATION_ROUTE_MAP: Record<
+  LLSegregationRouteCode,
+  LLSegregationRoute
+> = Object.fromEntries(
+  LL_SEGREGATION_ROUTES.map((r) => [r.code, r]),
+) as Record<LLSegregationRouteCode, LLSegregationRoute>;
+
+/** @deprecated Use LL_SEGREGATION_ROUTES — kept as code list for callers that expect strings. */
+export const LL_BATCHES = LL_SEGREGATION_ROUTES.map((r) => r.code);
+
+export function isLLSegregationRouteCode(
+  value: string | null | undefined,
+): value is LLSegregationRouteCode {
+  return value === "A" || value === "B" || value === "C" || value === "D";
+}
+
+/** Badge / select label: "A — Out of state". Falls back to raw value for legacy LN* codes. */
+export function llSegregationRouteLabel(
+  code: string | null | undefined,
+): string {
+  if (!code) return "—";
+  if (isLLSegregationRouteCode(code)) {
+    const r = LL_SEGREGATION_ROUTE_MAP[code];
+    return `${r.code} — ${r.name}`;
+  }
+  return code;
+}
+
+function scrutinyLabel(scrutiny: LLSegregationRoute["scrutiny"]): string {
+  if (scrutiny === "yes") return "Yes";
+  if (scrutiny === "normally_none") return "Normally none";
+  return "None";
+}
+
+/** Compact ops checklist lines for the selected route. */
+export function llSegregationRouteChecklist(
+  code: string | null | undefined,
+): string[] {
+  if (!isLLSegregationRouteCode(code)) return [];
+  const r = LL_SEGREGATION_ROUTE_MAP[code];
+  return [
+    `Aadhaar auth: ${r.aadhaarAuth ? "Yes" : "No"}`,
+    `Document upload: ${r.documentUpload}`,
+    `Physical verification: ${r.physicalVerification ? "Yes" : "No"}`,
+    `Scrutiny: ${scrutinyLabel(r.scrutiny)}`,
+    `LL test: ${r.llTest ? "Yes" : "No"}`,
+    `Approval: ${r.approval ? "Yes" : "No"}`,
+  ];
+}
+
 export interface LLFailure {
   key: string;
   label: string;
@@ -126,8 +247,10 @@ export const LL_STAGES: LLStage[] = [
   },
   {
     key: "application_ready",
-    label: "Ready for Scrutiny (No. & Date entered)",
+    label: "Ready for RTO (No., Date & Route)",
     phase: "rto_submission",
+    // Default graph edge (Route A/D). Actual advances are route-aware via
+    // getLLAdvanceTargets — B skips to LL test, C skips to approval.
     next: ["in_scrutiny_queue"],
     fields: ["application_number", "application_date", "batch_code"],
   },
@@ -154,6 +277,8 @@ export const LL_STAGES: LLStage[] = [
     label: "Waiting for RTO Verification",
     phase: "rto_submission",
     next: ["ll_test_enabled"],
+    // Route D (add-on, no LL test) advances to ll_approval_pending instead —
+    // see getLLAdvanceTargets.
     failures: [
       {
         key: "scrutiny_rejected",
@@ -368,25 +493,6 @@ export function isLLFailureStatus(status: string): boolean {
   return status in LL_FAILURE_STAGES;
 }
 
-/**
- * Reverse edges of the happy-path graph (and stage → failure edges).
- * Used to compute which stages Ops may legally revert an application to.
- */
-const LL_REVERSE_EDGES: Record<string, string[]> = (() => {
-  const map: Record<string, Set<string>> = {};
-  const link = (from: string, to: string) => {
-    if (!map[to]) map[to] = new Set();
-    map[to].add(from);
-  };
-  for (const s of LL_STAGES) {
-    for (const n of s.next) link(s.key, n);
-    for (const f of s.failures ?? []) link(s.key, f.key);
-  }
-  return Object.fromEntries(
-    Object.entries(map).map(([k, v]) => [k, [...v]]),
-  );
-})();
-
 const LL_STAGE_ORDER: Record<string, number> = Object.fromEntries([
   ...LL_STAGES.map((s, i) => [s.key, i] as const),
   ...Object.keys(LL_FAILURE_STAGES).map(
@@ -395,15 +501,125 @@ const LL_STAGE_ORDER: Record<string, number> = Object.fromEntries([
 ]);
 
 /**
- * Stages the RTO agent may move this application back to (to correct a
- * mistaken promotion). Walks the state-machine backwards; failure statuses
- * also allow their documented recoverTo target.
+ * Happy-path next stages for this status, branched by segregation route.
  *
- * Only happy-path stages are offered as targets (never another failure box).
+ * A — full scrutiny → runner → verification → LL test → approval
+ * B — normally skip scrutiny → LL test (optional scrutiny path kept)
+ * C — skip scrutiny + LL test → approval
+ * D — scrutiny path, then skip LL test → approval
+ *
+ * Legacy / missing route: keep default stage.next (scrutiny path) so old
+ * rows still move, but advancing past application_ready requires A–D.
  */
-export function getLLRevertTargets(currentStatus: string): string[] {
+export function getLLAdvanceTargets(
+  status: string,
+  batchCode: string | null | undefined,
+): string[] {
+  const stage = LL_STAGE_MAP[status];
+  if (!stage) return [];
+
+  const route = isLLSegregationRouteCode(batchCode) ? batchCode : null;
+  const def = route ? LL_SEGREGATION_ROUTE_MAP[route] : null;
+
+  if (status === "application_ready") {
+    if (!route) return [];
+    switch (route) {
+      case "A":
+        return ["in_scrutiny_queue"];
+      case "B":
+        // Fast track first; ops can still send through scrutiny if needed.
+        return ["ll_test_enabled", "in_scrutiny_queue"];
+      case "C":
+        return ["ll_approval_pending"];
+      case "D":
+        return ["in_scrutiny_queue"];
+    }
+  }
+
+  if (status === "waiting_rto_verification") {
+    if (def && !def.llTest) return ["ll_approval_pending"];
+    return ["ll_test_enabled"];
+  }
+
+  // Escape hatch if a no-LL-test route was wrongly parked on LL-test stages.
+  if (
+    (status === "ll_test_enabled" || status === "ll_test_passed") &&
+    def &&
+    !def.llTest
+  ) {
+    return ["ll_approval_pending"];
+  }
+
+  let next = [...stage.next];
+  if (def && !def.llTest) {
+    next = next.filter(
+      (n) => n !== "ll_test_enabled" && n !== "ll_test_passed",
+    );
+  }
+  return next;
+}
+
+/** Failure buttons reachable from this stage for the given route. */
+export function getLLFailureOptions(
+  status: string,
+  batchCode: string | null | undefined,
+): LLFailure[] {
+  const stage = LL_STAGE_MAP[status];
+  if (!stage?.failures?.length) return [];
+
+  const route = isLLSegregationRouteCode(batchCode) ? batchCode : null;
+  const def = route ? LL_SEGREGATION_ROUTE_MAP[route] : null;
+
+  return stage.failures.filter((f) => {
+    if (
+      (f.key === "ll_test_failed" || f.key === "scrutiny_expired") &&
+      def &&
+      !def.llTest
+    ) {
+      return false;
+    }
+    if (f.key === "scrutiny_rejected" && def && def.scrutiny === "none") {
+      return false;
+    }
+    return true;
+  });
+}
+
+function buildLLReverseEdges(
+  batchCode: string | null | undefined,
+): Record<string, string[]> {
+  const map: Record<string, Set<string>> = {};
+  const link = (from: string, to: string) => {
+    if (!map[to]) map[to] = new Set();
+    map[to].add(from);
+  };
+  for (const s of LL_STAGES) {
+    for (const n of getLLAdvanceTargets(s.key, batchCode)) link(s.key, n);
+    for (const f of getLLFailureOptions(s.key, batchCode)) link(s.key, f.key);
+  }
+  // Union default graph edges so legacy rows (no route) remain reversible.
+  if (!isLLSegregationRouteCode(batchCode)) {
+    for (const s of LL_STAGES) {
+      for (const n of s.next) link(s.key, n);
+      for (const f of s.failures ?? []) link(s.key, f.key);
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(map).map(([k, v]) => [k, [...v]]),
+  );
+}
+
+/**
+ * Stages the RTO agent may move this application back to (to correct a
+ * mistaken promotion). Walks the route-aware state-machine backwards.
+ */
+export function getLLRevertTargets(
+  currentStatus: string,
+  batchCode?: string | null,
+): string[] {
+  const reverse = buildLLReverseEdges(batchCode ?? null);
   const seen = new Set<string>();
-  const queue = [...(LL_REVERSE_EDGES[currentStatus] ?? [])];
+  const queue = [...(reverse[currentStatus] ?? [])];
   const targets: string[] = [];
 
   while (queue.length > 0) {
@@ -411,11 +627,9 @@ export function getLLRevertTargets(currentStatus: string): string[] {
     if (seen.has(cur)) continue;
     seen.add(cur);
     if (!isLLFailureStatus(cur)) targets.push(cur);
-    for (const prev of LL_REVERSE_EDGES[cur] ?? []) queue.push(prev);
+    for (const prev of reverse[cur] ?? []) queue.push(prev);
   }
 
-  // From a failure box, the resume target is always a valid revert destination
-  // even if the reverse-edge walk somehow missed it.
   const failure = LL_FAILURE_STAGES[currentStatus];
   if (failure && !targets.includes(failure.recoverTo)) {
     targets.push(failure.recoverTo);
@@ -427,8 +641,94 @@ export function getLLRevertTargets(currentStatus: string): string[] {
 }
 
 /** True when the current stage has at least one valid earlier stage. */
-export function canRevertLLStatus(status: string): boolean {
-  return getLLRevertTargets(status).length > 0;
+export function canRevertLLStatus(
+  status: string,
+  batchCode?: string | null,
+): boolean {
+  return getLLRevertTargets(status, batchCode).length > 0;
+}
+
+export type LLTransitionKind = "advance" | "failure" | "recover" | "revert";
+
+/**
+ * Throws if the status move is illegal for this segregation route.
+ * Used by admin mutations (and mirrored in Postgres).
+ */
+export function assertLLStatusTransition(opts: {
+  fromStatus: string;
+  toStatus: string;
+  batchCode: string | null | undefined;
+  kind: LLTransitionKind;
+}): void {
+  const { fromStatus, toStatus, batchCode, kind } = opts;
+
+  if (fromStatus === toStatus) {
+    throw new Error("Status is already set to that stage.");
+  }
+
+  if (kind === "revert") {
+    const allowed = getLLRevertTargets(fromStatus, batchCode);
+    if (!allowed.includes(toStatus)) {
+      throw new Error(
+        `Cannot revert from ${fromStatus} to ${toStatus} for route ${batchCode ?? "unset"}.`,
+      );
+    }
+    return;
+  }
+
+  if (kind === "recover") {
+    const failure = LL_FAILURE_STAGES[fromStatus];
+    if (!failure || failure.recoverTo !== toStatus) {
+      throw new Error(
+        `Cannot recover from ${fromStatus} to ${toStatus}.`,
+      );
+    }
+    return;
+  }
+
+  if (kind === "failure") {
+    const allowed = getLLFailureOptions(fromStatus, batchCode).map((f) => f.key);
+    if (!allowed.includes(toStatus)) {
+      throw new Error(
+        `Failure ${toStatus} is not available from ${fromStatus} for route ${batchCode ?? "unset"}.`,
+      );
+    }
+    return;
+  }
+
+  // advance
+  if (fromStatus === "application_ready" && !isLLSegregationRouteCode(batchCode)) {
+    throw new Error(
+      "Set segregation route (A / B / C / D) before advancing from Ready for RTO.",
+    );
+  }
+  const allowed = getLLAdvanceTargets(fromStatus, batchCode);
+  if (!allowed.includes(toStatus)) {
+    throw new Error(
+      `Cannot advance from ${fromStatus} to ${toStatus} for route ${
+        batchCode ?? "unset"
+      }. Allowed: ${allowed.join(", ") || "none"}.`,
+    );
+  }
+}
+
+/**
+ * Infer transition kind for a proposed status change (non-revert).
+ */
+export function classifyLLStatusTransition(
+  fromStatus: string,
+  toStatus: string,
+  batchCode: string | null | undefined,
+): LLTransitionKind | null {
+  if (getLLAdvanceTargets(fromStatus, batchCode).includes(toStatus)) {
+    return "advance";
+  }
+  if (getLLFailureOptions(fromStatus, batchCode).some((f) => f.key === toStatus)) {
+    return "failure";
+  }
+  const failure = LL_FAILURE_STAGES[fromStatus];
+  if (failure?.recoverTo === toStatus) return "recover";
+  return null;
 }
 
 /**
@@ -535,8 +835,6 @@ export const LL_SERVICES: { key: string; label: string }[] = [
     label: "DL address change (other state → KA)",
   },
 ];
-
-export const LL_BATCHES = ["LN001-007", "LN008-011", "LN012-015", "LN016-019"];
 
 // ── Customer-facing journey (homepage states) ────────────────────────────
 
