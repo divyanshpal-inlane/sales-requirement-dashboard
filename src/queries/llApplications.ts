@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import {
+  assertLLStatusTransition,
+  classifyLLStatusTransition,
+  fieldsToClearOnLLRevert,
+  isLLSegregationRouteCode,
+  llSegregationRouteLabel,
+} from "@/constants/llPipeline";
 import { supabase } from "@/lib/supabaseClient";
 
 // The generated database types don't include the new ll_* tables yet
@@ -127,7 +134,12 @@ export function useLLLearnerSearch(term: string) {
 async function appendEvent(event: {
   application_id: string;
   learner_id?: string | null;
-  event_type: "status_change" | "field_update" | "note" | "escalation";
+  event_type:
+    | "status_change"
+    | "status_reversal"
+    | "field_update"
+    | "note"
+    | "escalation";
   from_status?: string | null;
   to_status?: string | null;
   actor_name?: string | null;
@@ -231,76 +243,11 @@ function llStatusMessageType(
   }
 }
 
-export function useUpdateLLStatus() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      application,
-      toStatus,
-      note,
-      actorName,
-      extraFields,
-    }: {
-      application: LLApplication;
-      toStatus: string;
-      note?: string;
-      actorName?: string | null;
-      /** Fields to persist together with the transition (e.g. ll_type, escalated). */
-      extraFields?: Partial<LLApplication>;
-    }) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { Learner: _l, ...fields } = extraFields ?? {};
-      const { error } = await sb
-        .from("ll_applications")
-        .update({
-          status: toStatus,
-          updated_at: new Date().toISOString(),
-          ...fields,
-        })
-        .eq("id", application.id);
-      if (error) throw error;
-      await appendEvent({
-        application_id: application.id,
-        learner_id: application.learner_id,
-        event_type: "status_change",
-        from_status: application.status,
-        to_status: toStatus,
-        actor_name: actorName,
-        note: note ?? null,
-      });
-
-      // Customer WhatsApp update for this transition — fire and forget, a
-      // messaging hiccup must not roll back the operational change.
-      const messageType = llStatusMessageType(
-        toStatus,
-        (extraFields?.call_missed_count ?? application.call_missed_count) || 0,
-        extraFields?.ll_type ?? application.ll_type,
-      );
-      if (messageType) {
-        supabase.functions
-          .invoke("send-message", {
-            body: {
-              message_type: messageType,
-              learner_id: application.learner_id,
-            },
-          })
-          .catch((e: Error) =>
-            console.error("[llApplications] send-message failed:", e),
-          );
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
-      queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
-    },
-  });
-}
-
 const FIELD_LABELS: Record<string, string> = {
   application_number: "LL Application Number",
   application_date: "LL Application Date",
   date_of_birth: "Date of Birth",
-  batch_code: "Batch",
+  batch_code: "Segregation route",
   ll_number: "LL Number",
   scrutiny_approved_date: "Scrutiny Approved Date",
   ll_matures_at: "LL Matures On",
@@ -327,6 +274,186 @@ const FIELD_LABELS: Record<string, string> = {
   dl_dispatch_eta: "DL Card Expected Delivery",
   dl_tracking_ref: "DL Card Tracking Ref",
 };
+
+export function useUpdateLLStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      application,
+      toStatus,
+      note,
+      actorName,
+      actorId,
+      extraFields,
+    }: {
+      application: LLApplication;
+      toStatus: string;
+      note?: string;
+      actorName?: string | null;
+      /** Admin user id — stored on the timeline for stronger audit. */
+      actorId?: string | null;
+      /** Fields to persist together with the transition (e.g. ll_type, escalated). */
+      extraFields?: Partial<LLApplication>;
+    }) => {
+      // Prefer draft batch_code if the transition is bundled with a route set.
+      const batchCode =
+        (extraFields?.batch_code as string | null | undefined) ??
+        application.batch_code;
+
+      const kind = classifyLLStatusTransition(
+        application.status,
+        toStatus,
+        batchCode,
+      );
+      if (!kind) {
+        throw new Error(
+          `Illegal status move ${application.status} → ${toStatus} for route ${
+            batchCode ?? "unset"
+          }.`,
+        );
+      }
+      assertLLStatusTransition({
+        fromStatus: application.status,
+        toStatus,
+        batchCode,
+        kind,
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { Learner: _l, ...fields } = extraFields ?? {};
+      const { error } = await sb
+        .from("ll_applications")
+        .update({
+          status: toStatus,
+          updated_at: new Date().toISOString(),
+          ...fields,
+        })
+        .eq("id", application.id);
+      if (error) throw error;
+      await appendEvent({
+        application_id: application.id,
+        learner_id: application.learner_id,
+        event_type: "status_change",
+        from_status: application.status,
+        to_status: toStatus,
+        actor_name: actorName,
+        note: note ?? null,
+        changes: actorId
+          ? [{ field: "actor_id", label: "Actor ID", old: null, new: actorId }]
+          : [],
+      });
+
+      // Customer WhatsApp update for this transition — fire and forget, a
+      // messaging hiccup must not roll back the operational change.
+      const messageType = llStatusMessageType(
+        toStatus,
+        (extraFields?.call_missed_count ?? application.call_missed_count) || 0,
+        extraFields?.ll_type ?? application.ll_type,
+      );
+      if (messageType) {
+        supabase.functions
+          .invoke("send-message", {
+            body: {
+              message_type: messageType,
+              learner_id: application.learner_id,
+            },
+          })
+          .catch((e: Error) =>
+            console.error("[llApplications] send-message failed:", e),
+          );
+      }
+    },
+    onSuccess: (_d, { application }) => {
+      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", application.learner_id],
+      });
+    },
+  });
+}
+
+/**
+ * Move an application back to an earlier stage (Ops mistake correction).
+ * Requires a reason. Skips customer WhatsApp. Clears stage-gated fields that
+ * no longer apply. Logged as event_type = status_reversal.
+ */
+export function useRevertLLStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      application,
+      toStatus,
+      reason,
+      actorName,
+      actorId,
+    }: {
+      application: LLApplication;
+      toStatus: string;
+      reason: string;
+      actorName?: string | null;
+      actorId?: string | null;
+    }) => {
+      const trimmed = reason.trim();
+      if (!trimmed) {
+        throw new Error("A reason is required when reverting a stage.");
+      }
+      assertLLStatusTransition({
+        fromStatus: application.status,
+        toStatus,
+        batchCode: application.batch_code,
+        kind: "revert",
+      });
+
+      const cleared = fieldsToClearOnLLRevert(toStatus);
+      // RPC sets ll.transition_kind=revert so the DB trigger allows the move.
+      const { error } = await sb.rpc("ll_revert_application", {
+        p_application_id: application.id,
+        p_to_status: toStatus,
+        p_clear_fields: cleared,
+      });
+      if (error) throw error;
+
+      const clearedLabels = Object.keys(cleared);
+      await appendEvent({
+        application_id: application.id,
+        learner_id: application.learner_id,
+        event_type: "status_reversal",
+        from_status: application.status,
+        to_status: toStatus,
+        actor_name: actorName,
+        note: trimmed,
+        changes: [
+          ...(actorId
+            ? [
+                {
+                  field: "actor_id",
+                  label: "Actor ID",
+                  old: null as unknown,
+                  new: actorId as unknown,
+                },
+              ]
+            : []),
+          ...clearedLabels.map((field) => ({
+            field,
+            label: FIELD_LABELS[field] ?? field,
+            old:
+              (application as unknown as Record<string, unknown>)[field] ??
+              null,
+            new: null as unknown,
+          })),
+        ],
+      });
+    },
+    onSuccess: (_d, { application }) => {
+      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", application.learner_id],
+      });
+    },
+  });
+}
 
 // ── Uploaded documents (in-app LL application form) ──────────────────────
 
@@ -497,14 +624,35 @@ export function useUpdateLLFields() {
               (application as unknown as Record<string, unknown>)[k],
             ),
         )
-        .map(([field, value]) => ({
-          field,
-          label: FIELD_LABELS[field] ?? field,
-          old:
-            (application as unknown as Record<string, unknown>)[field] ?? null,
-          new: value ?? null,
-        }));
+        .map(([field, value]) => {
+          const format =
+            field === "batch_code"
+              ? (v: unknown) =>
+                  v == null || v === ""
+                    ? null
+                    : llSegregationRouteLabel(String(v))
+              : (v: unknown) => v ?? null;
+          return {
+            field,
+            label: FIELD_LABELS[field] ?? field,
+            old: format(
+              (application as unknown as Record<string, unknown>)[field],
+            ),
+            new: format(value),
+          };
+        });
       if (changes.length === 0) return;
+
+      if (
+        "batch_code" in fields &&
+        fields.batch_code != null &&
+        fields.batch_code !== "" &&
+        !isLLSegregationRouteCode(String(fields.batch_code))
+      ) {
+        throw new Error(
+          "Segregation route must be A, B, C, or D.",
+        );
+      }
 
       const { error } = await sb
         .from("ll_applications")

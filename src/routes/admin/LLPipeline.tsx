@@ -7,9 +7,10 @@ import {
   Clock,
   Plus,
   Search,
+  Undo2,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import LLDocumentsReview from "@/components/admin/LLDocumentsReview";
@@ -35,13 +36,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  getLLAdvanceTargets,
+  getLLFailureOptions,
+  getLLRevertTargets,
   isLLFailureStatus,
-  LL_BATCHES,
+  isLLSegregationRouteCode,
   LL_FAILURE_STAGES,
   LL_PHASES,
+  LL_SEGREGATION_ROUTES,
   LL_SERVICES,
   LL_STAGE_MAP,
   LLPhaseKey,
+  llSegregationRouteChecklist,
+  llSegregationRouteLabel,
   llStageLabel,
   llStagePhase,
 } from "@/constants/llPipeline";
@@ -53,6 +60,7 @@ import {
   useLLDocuments,
   useLLLearnerSearch,
   useLLPipelineEvents,
+  useRevertLLStatus,
   useUpdateLLFields,
   useUpdateLLStatus,
   useUploadLLCard,
@@ -66,6 +74,7 @@ export default function LLPipeline() {
   const { toast } = useToast();
   const { data: currentUser } = useCurrentUser();
   const actorName = currentUser?.name ?? null;
+  const actorId = currentUser?.id ?? null;
 
   const { data: applications, isLoading } = useLLApplications();
   const [queue, setQueue] = useState<QueueKey>("all");
@@ -77,8 +86,11 @@ export default function LLPipeline() {
   );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  /** Filter by segregation route A–D ("all" = no filter). */
+  const [routeFilter, setRouteFilter] = useState<"all" | string>("all");
 
   const updateStatus = useUpdateLLStatus();
+  const revertStatus = useRevertLLStatus();
   const updateFields = useUpdateLLFields();
 
   const filtered = useMemo(() => {
@@ -87,6 +99,9 @@ export default function LLPipeline() {
       list = list.filter((a) => a.escalated || isLLFailureStatus(a.status));
     } else if (queue !== "all") {
       list = list.filter((a) => llStagePhase(a.status) === queue);
+    }
+    if (routeFilter !== "all") {
+      list = list.filter((a) => a.batch_code === routeFilter);
     }
     if (dateFrom) {
       list = list.filter((a) => a[dateField].slice(0, 10) >= dateFrom);
@@ -101,11 +116,21 @@ export default function LLPipeline() {
           a.Learner?.name?.toLowerCase().includes(term) ||
           a.Learner?.phone?.includes(term) ||
           a.application_number?.toLowerCase().includes(term) ||
-          a.ll_number?.toLowerCase().includes(term),
+          a.ll_number?.toLowerCase().includes(term) ||
+          a.batch_code?.toLowerCase().includes(term) ||
+          llSegregationRouteLabel(a.batch_code).toLowerCase().includes(term),
       );
     }
     return list;
-  }, [applications, queue, searchTerm, dateField, dateFrom, dateTo]);
+  }, [
+    applications,
+    queue,
+    routeFilter,
+    searchTerm,
+    dateField,
+    dateFrom,
+    dateTo,
+  ]);
 
   const selected = filtered.find((a) => a.id === selectedId)
     ? ((applications ?? []).find((a) => a.id === selectedId) ?? null)
@@ -170,7 +195,20 @@ export default function LLPipeline() {
             {t.label} {queueCounts[t.key] ?? 0}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          <Select value={routeFilter} onValueChange={setRouteFilter}>
+            <SelectTrigger className="h-7 w-44 text-xs">
+              <SelectValue placeholder="Route" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All routes</SelectItem>
+              {LL_SEGREGATION_ROUTES.map((r) => (
+                <SelectItem key={r.code} value={r.code}>
+                  {r.code} — {r.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select
             value={dateField}
             onValueChange={(v) =>
@@ -260,6 +298,11 @@ export default function LLPipeline() {
                     </div>
                     <div className="text-xs text-gray-500">
                       {a.Learner?.phone}
+                      {a.batch_code ? (
+                        <span className="ml-1 text-gray-400">
+                          · {llSegregationRouteLabel(a.batch_code)}
+                        </span>
+                      ) : null}
                     </div>
                     <StatusBadge status={a.status} />
                   </button>
@@ -282,6 +325,7 @@ export default function LLPipeline() {
                     toStatus,
                     note,
                     actorName,
+                    actorId,
                     extraFields,
                   },
                   {
@@ -293,6 +337,30 @@ export default function LLPipeline() {
                     onError: (e: Error) =>
                       toast({
                         title: "Error",
+                        description: e.message,
+                        variant: "destructive",
+                      }),
+                  },
+                )
+              }
+              onRevert={(toStatus, reason) =>
+                revertStatus.mutate(
+                  {
+                    application: selected,
+                    toStatus,
+                    reason,
+                    actorName,
+                    actorId,
+                  },
+                  {
+                    onSuccess: () =>
+                      toast({
+                        title: "Stage reverted",
+                        description: `${selected.Learner?.name ?? "Application"} → ${llStageLabel(toStatus)}`,
+                      }),
+                    onError: (e: Error) =>
+                      toast({
+                        title: "Revert failed",
                         description: e.message,
                         variant: "destructive",
                       }),
@@ -313,7 +381,11 @@ export default function LLPipeline() {
                   },
                 )
               }
-              isBusy={updateStatus.isPending || updateFields.isPending}
+              isBusy={
+                updateStatus.isPending ||
+                revertStatus.isPending ||
+                updateFields.isPending
+              }
             />
           ) : (
             <Card className="h-full border-dashed">
@@ -352,6 +424,7 @@ function ApplicationDetail({
   application,
   actorName,
   onTransition,
+  onRevert,
   onSaveFields,
   isBusy,
 }: {
@@ -362,6 +435,7 @@ function ApplicationDetail({
     note?: string,
     extraFields?: Partial<LLApplication>,
   ) => void;
+  onRevert: (toStatus: string, reason: string) => void;
   onSaveFields: (fields: Partial<LLApplication>) => void;
   isBusy: boolean;
 }) {
@@ -369,9 +443,21 @@ function ApplicationDetail({
   const failure = LL_FAILURE_STAGES[application.status];
   const { data: events } = useLLPipelineEvents(application.id);
   const [note, setNote] = useState("");
+  const [revertTarget, setRevertTarget] = useState<string>("");
+  const [revertReason, setRevertReason] = useState("");
+  const [revertOpen, setRevertOpen] = useState(false);
+
+  const revertTargets = useMemo(
+    () => getLLRevertTargets(application.status, application.batch_code),
+    [application.status, application.batch_code],
+  );
 
   // Editable Ops fields (draft state, saved together)
   const [draft, setDraft] = useState<Partial<LLApplication>>({});
+  // Drop local edits when the server row moves (advance / revert / external update).
+  useEffect(() => {
+    setDraft({});
+  }, [application.id, application.status, application.updated_at]);
   const value = (k: keyof LLApplication) =>
     (draft[k] ?? application[k] ?? "") as string;
   const setValue = (k: keyof LLApplication, v: string | null) =>
@@ -381,7 +467,19 @@ function ApplicationDetail({
     ? (draft.services as string[])
     : (application.services ?? []);
 
-  const advanceTargets = stage?.next ?? [];
+  const effectiveBatchCode =
+    (draft.batch_code as string | null | undefined) ?? application.batch_code;
+  const advanceTargets = getLLAdvanceTargets(
+    application.status,
+    effectiveBatchCode,
+  );
+  const failureOptions = getLLFailureOptions(
+    application.status,
+    effectiveBatchCode,
+  );
+  const needsRouteToAdvance =
+    application.status === "application_ready" &&
+    !isLLSegregationRouteCode(effectiveBatchCode);
 
   return (
     <div className="space-y-2">
@@ -402,7 +500,19 @@ function ApplicationDetail({
           <div className="rounded-md border p-3">
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
               Move this application
+              {isLLSegregationRouteCode(effectiveBatchCode) && (
+                <span className="ml-2 font-normal normal-case text-gray-400">
+                  ({llSegregationRouteLabel(effectiveBatchCode)})
+                </span>
+              )}
             </div>
+            {needsRouteToAdvance && (
+              <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                Select a segregation route (A–D) under RTO details and Save
+                before advancing. Route decides scrutiny vs LL-test vs approval
+                path.
+              </p>
+            )}
             <Textarea
               placeholder="Optional note for the timeline (reason, remarks…)"
               value={note}
@@ -430,16 +540,25 @@ function ApplicationDetail({
                   <Button
                     key={t}
                     size="sm"
-                    disabled={isBusy}
+                    disabled={isBusy || needsRouteToAdvance}
                     onClick={() => {
-                      // Post-LL branch selection also records ll_type.
-                      const extra: Partial<LLApplication> | undefined =
-                        t === "ob_form_enabled"
-                          ? { ll_type: "with_classes" }
-                          : t === "ll_maturing"
-                            ? { ll_type: "direct_dl" }
-                            : undefined;
-                      onTransition(t, note || undefined, extra);
+                      const extra: Partial<LLApplication> = {};
+                      if (t === "ob_form_enabled") {
+                        extra.ll_type = "with_classes";
+                      } else if (t === "ll_maturing") {
+                        extra.ll_type = "direct_dl";
+                      }
+                      if (
+                        draft.batch_code &&
+                        isLLSegregationRouteCode(String(draft.batch_code))
+                      ) {
+                        extra.batch_code = draft.batch_code as string;
+                      }
+                      onTransition(
+                        t,
+                        note || undefined,
+                        Object.keys(extra).length ? extra : undefined,
+                      );
                       setNote("");
                     }}
                   >
@@ -448,7 +567,7 @@ function ApplicationDetail({
                   </Button>
                 ))
               )}
-              {(stage?.failures ?? []).map((f) => (
+              {failureOptions.map((f) => (
                 <Button
                   key={f.key}
                   size="sm"
@@ -456,9 +575,6 @@ function ApplicationDetail({
                   className="border-red-300 text-red-600 hover:bg-red-50"
                   disabled={isBusy}
                   onClick={() => {
-                    // A customer no-show bumps the miss counter — the 2nd
-                    // miss switches the homepage + WhatsApp to "Ops will
-                    // call you" (spec: If Customer Misses the Meeting Twice).
                     const extra: Partial<LLApplication> | undefined =
                       f.key === "call_missed"
                         ? {
@@ -498,6 +614,22 @@ function ApplicationDetail({
                 <AlertTriangle className="mr-1 h-4 w-4" />
                 {application.escalated ? "Clear escalation" : "Escalate"}
               </Button>
+              {revertTargets.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-400 text-slate-700 hover:bg-slate-50"
+                  disabled={isBusy}
+                  onClick={() => {
+                    setRevertTarget(revertTargets[revertTargets.length - 1] ?? "");
+                    setRevertReason("");
+                    setRevertOpen(true);
+                  }}
+                >
+                  <Undo2 className="mr-1 h-4 w-4" />
+                  Revert stage
+                </Button>
+              )}
             </div>
             {application.escalated && (
               <p className="mt-2 text-xs text-amber-700">
@@ -506,6 +638,98 @@ function ApplicationDetail({
               </p>
             )}
           </div>
+
+          <Dialog
+            open={revertOpen}
+            onOpenChange={(open) => {
+              setRevertOpen(open);
+              if (!open) {
+                setRevertReason("");
+                setRevertTarget("");
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Revert application stage</DialogTitle>
+                <DialogDescription>
+                  Move this application back to an earlier stage to fix a
+                  mistaken promotion. A reason is required and will be stored on
+                  the timeline. The customer will not get a WhatsApp for this
+                  change.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">
+                    Current stage
+                  </label>
+                  <Input
+                    className="h-8 bg-gray-50 text-sm"
+                    readOnly
+                    value={llStageLabel(application.status)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">
+                    Revert to
+                  </label>
+                  <Select
+                    value={revertTarget || undefined}
+                    onValueChange={setRevertTarget}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Pick an earlier stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {revertTargets.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {llStageLabel(t)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">
+                    Reason (required)
+                  </label>
+                  <Textarea
+                    placeholder="Why is this stage being reverted?"
+                    value={revertReason}
+                    onChange={(e) => setRevertReason(e.target.value)}
+                    className="h-20 text-sm"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Fields that only apply after the target stage (LL/DL numbers,
+                  test dates, etc.) will be cleared automatically.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setRevertOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={
+                      isBusy || !revertTarget || !revertReason.trim()
+                    }
+                    onClick={() => {
+                      onRevert(revertTarget, revertReason.trim());
+                      setRevertOpen(false);
+                      setRevertReason("");
+                      setRevertTarget("");
+                    }}
+                  >
+                    <Undo2 className="mr-1 h-4 w-4" />
+                    Confirm revert
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Customer's form submission + uploaded documents */}
           <LLDocumentsReview application={application} actorName={actorName} />
@@ -553,22 +777,54 @@ function ApplicationDetail({
                   onChange={(e) => setValue("application_date", e.target.value)}
                 />
               </Field>
-              <Field label="Batch">
+              <Field label="Segregation route" className="col-span-2 md:col-span-3">
                 <Select
-                  value={value("batch_code") || undefined}
+                  value={
+                    isLLSegregationRouteCode(value("batch_code"))
+                      ? value("batch_code")
+                      : undefined
+                  }
                   onValueChange={(v) => setValue("batch_code", v)}
                 >
                   <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Segregation batch" />
+                    <SelectValue placeholder="Pick route A / B / C / D" />
                   </SelectTrigger>
                   <SelectContent>
-                    {LL_BATCHES.map((b) => (
-                      <SelectItem key={b} value={b}>
-                        {b}
+                    {LL_SEGREGATION_ROUTES.map((r) => (
+                      <SelectItem key={r.code} value={r.code}>
+                        {r.code} — {r.name} ({r.namingSchema})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {value("batch_code") &&
+                  !isLLSegregationRouteCode(value("batch_code")) && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Legacy batch code “{value("batch_code")}” — re-select a
+                      route A–D and save.
+                    </p>
+                  )}
+                {isLLSegregationRouteCode(value("batch_code")) && (
+                  <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                    <p className="mb-1 font-medium text-gray-800">
+                      {llSegregationRouteLabel(value("batch_code"))}
+                    </p>
+                    <p className="mb-2 text-gray-600">
+                      {
+                        LL_SEGREGATION_ROUTES.find(
+                          (r) => r.code === value("batch_code"),
+                        )?.who
+                      }
+                    </p>
+                    <ul className="grid gap-0.5 sm:grid-cols-2">
+                      {llSegregationRouteChecklist(value("batch_code")).map(
+                        (line) => (
+                          <li key={line}>• {line}</li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
               </Field>
               <Field label="Scrutiny Approved Date">
                 <Input
@@ -813,11 +1069,21 @@ function ApplicationDetail({
                 <ul className="space-y-2">
                   {(events ?? []).map((e) => (
                     <li key={e.id} className="flex gap-2 text-sm">
-                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      {e.event_type === "status_reversal" ? (
+                        <Undo2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      ) : (
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      )}
                       <div>
                         <div>
-                          {e.event_type === "status_change" ? (
+                          {e.event_type === "status_change" ||
+                          e.event_type === "status_reversal" ? (
                             <>
+                              {e.event_type === "status_reversal" && (
+                                <span className="mr-1 font-medium text-amber-700">
+                                  Reverted:
+                                </span>
+                              )}
                               {e.from_status ? (
                                 <>
                                   <span className="text-gray-500">
@@ -850,7 +1116,9 @@ function ApplicationDetail({
                         <div className="text-xs text-gray-400">
                           {format(new Date(e.created_at), "dd MMM yyyy, HH:mm")}
                           {e.actor_name ? ` · ${e.actor_name}` : ""}
-                          {e.event_type === "status_change" && e.note
+                          {(e.event_type === "status_change" ||
+                            e.event_type === "status_reversal") &&
+                          e.note
                             ? ` · ${e.note}`
                             : ""}
                         </div>
