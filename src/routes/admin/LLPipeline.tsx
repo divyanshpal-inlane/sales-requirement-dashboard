@@ -36,6 +36,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  calcLLExpiryDate,
+  calcLLMaturityDate,
   getLLAdvanceTargets,
   getLLFailureOptions,
   getLLRevertTargets,
@@ -170,7 +172,16 @@ export default function LLPipeline() {
             </Button>
             <h1 className="text-2xl font-bold">LL → DL Pipeline</h1>
           </div>
-          <NewApplicationButton actorName={actorName} />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/admin/dl-test-slots")}
+            >
+              DL test dates
+            </Button>
+            <NewApplicationButton actorName={actorName} />
+          </div>
         </div>
       </div>
 
@@ -463,6 +474,29 @@ function ApplicationDetail({
   const setValue = (k: keyof LLApplication, v: string | null) =>
     setDraft((p) => ({ ...p, [k]: v === "" ? null : v }));
 
+  /** Issue date drives Valid Till (+6mo −1d) and Maturity (+1mo). */
+  const setLLIssueDate = (raw: string) => {
+    if (!raw) {
+      setDraft((p) => ({
+        ...p,
+        ll_issue_date: null,
+        ll_expiry_date: null,
+        ll_matures_at: null,
+      }));
+      return;
+    }
+    setDraft((p) => ({
+      ...p,
+      ll_issue_date: raw,
+      ll_expiry_date: calcLLExpiryDate(raw),
+      ll_matures_at: calcLLMaturityDate(raw),
+    }));
+  };
+
+  const issueDate = value("ll_issue_date");
+  const derivedExpiry = issueDate ? calcLLExpiryDate(issueDate) : "";
+  const derivedMaturity = issueDate ? calcLLMaturityDate(issueDate) : "";
+
   const services: string[] = Array.isArray(draft.services)
     ? (draft.services as string[])
     : (application.services ?? []);
@@ -547,6 +581,15 @@ function ApplicationDetail({
                         extra.ll_type = "with_classes";
                       } else if (t === "ll_maturing") {
                         extra.ll_type = "direct_dl";
+                      }
+                      // Keep expiry / maturity in sync whenever we know the
+                      // issue date (draft takes precedence over saved value).
+                      const issue =
+                        (draft.ll_issue_date as string | null | undefined) ??
+                        application.ll_issue_date;
+                      if (issue) {
+                        extra.ll_expiry_date = calcLLExpiryDate(issue);
+                        extra.ll_matures_at = calcLLMaturityDate(issue);
                       }
                       if (
                         draft.batch_code &&
@@ -863,15 +906,16 @@ function ApplicationDetail({
                   type="date"
                   className="h-8 text-sm"
                   value={value("ll_issue_date")}
-                  onChange={(e) => setValue("ll_issue_date", e.target.value)}
+                  onChange={(e) => setLLIssueDate(e.target.value)}
                 />
               </Field>
-              <Field label="LL Valid Till">
+              <Field label="LL Valid Till (auto: +6 months − 1 day)">
                 <Input
                   type="date"
-                  className="h-8 text-sm"
-                  value={value("ll_expiry_date")}
-                  onChange={(e) => setValue("ll_expiry_date", e.target.value)}
+                  className="h-8 bg-gray-50 text-sm"
+                  readOnly
+                  tabIndex={-1}
+                  value={derivedExpiry}
                 />
               </Field>
               <Field label="Reapply Govt Fee (Rs.)">
@@ -883,12 +927,13 @@ function ApplicationDetail({
                   onChange={(e) => setValue("reapply_fee", e.target.value)}
                 />
               </Field>
-              <Field label="LL Matures On">
+              <Field label="LL Matures On (auto: +1 month)">
                 <Input
                   type="date"
-                  className="h-8 text-sm"
-                  value={value("ll_matures_at")}
-                  onChange={(e) => setValue("ll_matures_at", e.target.value)}
+                  className="h-8 bg-gray-50 text-sm"
+                  readOnly
+                  tabIndex={-1}
+                  value={derivedMaturity}
                 />
               </Field>
               <Field label="DL Test Application Number">
@@ -1048,7 +1093,15 @@ function ApplicationDetail({
                 size="sm"
                 disabled={isBusy || Object.keys(draft).length === 0}
                 onClick={() => {
-                  onSaveFields(draft);
+                  const fields: Partial<LLApplication> = { ...draft };
+                  const issue =
+                    (fields.ll_issue_date as string | null | undefined) ??
+                    application.ll_issue_date;
+                  if (issue) {
+                    fields.ll_expiry_date = calcLLExpiryDate(issue);
+                    fields.ll_matures_at = calcLLMaturityDate(issue);
+                  }
+                  onSaveFields(fields);
                   setDraft({});
                 }}
               >

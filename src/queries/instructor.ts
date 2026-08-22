@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, subDays } from "date-fns";
 
 import { supabase } from "@/lib/supabaseClient";
+import { runLLAutoPromoteDL } from "@/queries/llApplications";
 
 const getCurrentDate = () => {
   const date = subDays(new Date(), 0);
@@ -588,6 +589,21 @@ export const useUpdateScheduleStatus = () => {
         .single();
 
       if (error) throw new Error(error.message);
+
+      // V1 item 9: after a lesson ends, try auto-promoting the learner to
+      // DL date selection when (total − 1) classes are done inside the LL
+      // maturity → expiry window.
+      if (status === "completed" && data?.learner_id) {
+        try {
+          await runLLAutoPromoteDL(data.learner_id as string);
+        } catch (e) {
+          console.error(
+            "[useUpdateScheduleStatus] LL auto-promote failed:",
+            e,
+          );
+        }
+      }
+
       return data as unknown as Schedule;
     },
     onSuccess: () => {
@@ -595,6 +611,8 @@ export const useUpdateScheduleStatus = () => {
       queryClient.invalidateQueries({ queryKey: ["schedule"] });
       queryClient.invalidateQueries({ queryKey: ["instructor"] });
       queryClient.invalidateQueries({ queryKey: ["verify-otp"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["my-ll-application"] });
     },
   });
 };

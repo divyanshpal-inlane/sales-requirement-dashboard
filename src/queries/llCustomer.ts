@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { isDLSlotVisibleToCustomer } from "@/constants/llPipeline";
 import { useUser } from "@/context/auth-context";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -150,6 +151,8 @@ export function useSelectDLTestDate() {
       preferredDate,
       preferredRto,
       actorName,
+      llMaturesAt,
+      llExpiryDate,
     }: {
       applicationId: string;
       learnerId: string;
@@ -157,7 +160,36 @@ export function useSelectDLTestDate() {
       preferredDate: string;
       preferredRto: string;
       actorName?: string | null;
+      llMaturesAt?: string | null;
+      llExpiryDate?: string | null;
     }) => {
+      // Re-check eligibility so stale UI can't submit an invalid slot.
+      if (
+        !isDLSlotVisibleToCustomer(preferredDate, {
+          llMaturesAt,
+          llExpiryDate,
+        })
+      ) {
+        throw new Error(
+          "That date is no longer available. Please pick another slot.",
+        );
+      }
+
+      // Confirm the date+RTO still exists as an active uploaded slot.
+      const { data: slotRows, error: slotError } = await sb
+        .from("dl_test_slots")
+        .select("id")
+        .eq("test_date", preferredDate)
+        .eq("rto", preferredRto)
+        .eq("is_active", true)
+        .limit(1);
+      if (slotError) throw slotError;
+      if (!slotRows?.length) {
+        throw new Error(
+          "That slot is no longer available. Please pick another date.",
+        );
+      }
+
       const { error } = await sb
         .from("ll_applications")
         .update({
@@ -247,6 +279,8 @@ export function useRequestLLHelp() {
 
 export interface LLDocumentUpload {
   docType: string;
+  /** primary | secondary | front | back */
+  docSlot: string;
   subtype: string | null;
   file: File;
 }
@@ -306,29 +340,32 @@ export function useSubmitLLApplication() {
       }
 
       // 2. Upload documents; each upload replaces the previous row (and
-      //    review verdict) for that doc_type.
+      //    review verdict) for that doc_type + doc_slot pair.
       for (const u of uploads) {
+        const slot = u.docSlot || "primary";
         const ext = u.file.name.split(".").pop()?.toLowerCase() || "bin";
-        const path = `${learnerId}/${u.docType}-${Date.now()}.${ext}`;
+        const path = `${learnerId}/${u.docType}-${slot}-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("ll-documents")
           .upload(path, u.file, { cacheControl: "3600", upsert: true });
         if (uploadError)
           throw new Error(
-            `Upload failed for ${u.docType}: ${uploadError.message}`,
+            `Upload failed for ${u.docType} (${slot}): ${uploadError.message}`,
           );
 
         const { error: deleteError } = await sb
           .from("ll_documents")
           .delete()
           .eq("application_id", applicationId)
-          .eq("doc_type", u.docType);
+          .eq("doc_type", u.docType)
+          .eq("doc_slot", slot);
         if (deleteError) throw deleteError;
 
         const { error: insertError } = await sb.from("ll_documents").insert({
           application_id: applicationId,
           learner_id: learnerId,
           doc_type: u.docType,
+          doc_slot: slot,
           doc_subtype: u.subtype,
           storage_path: path,
           file_name: u.file.name,
@@ -336,6 +373,21 @@ export function useSubmitLLApplication() {
           status: "pending",
         });
         if (insertError) throw insertError;
+      }
+
+      // Drop leftover secondary address-proof files when the customer
+      // switched to a single-document subtype (e.g. Aadhaar).
+      const addressUploads = uploads.filter((u) => u.docType === "address_proof");
+      if (
+        addressUploads.length > 0 &&
+        !addressUploads.some((u) => u.docSlot === "secondary")
+      ) {
+        await sb
+          .from("ll_documents")
+          .delete()
+          .eq("application_id", applicationId)
+          .eq("doc_type", "address_proof")
+          .eq("doc_slot", "secondary");
       }
 
       // 3. Save the answers and auto-advance to "Documents under review".

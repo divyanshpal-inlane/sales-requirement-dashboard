@@ -16,22 +16,17 @@ import {
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DL_PHASE_CUSTOMER_STATUSES,
+  DL_PREFERRED_DATE_MIN_DAYS,
   DL_RETEST_FEE_DEFAULT,
-  DL_RTO_OPTIONS,
-  DL_TEST_CHECKLIST,
+  DL_TEST_CHECKLIST_SECTIONS,
+  isDLSlotVisibleToCustomer,
+  parseLLDateYmd,
 } from "@/constants/llPipeline";
 import { whatsappHref } from "@/constants/support";
+import { useCustomerDLTestSlots } from "@/queries/dlTestSlots";
 import { useLearner } from "@/queries/learner";
 import {
   LLApplication,
@@ -58,9 +53,14 @@ function directionsHref(application: LLApplication): string {
 /** All-day Google Calendar event for the DL test. */
 function calendarHref(application: LLApplication): string {
   const d = application.dl_test_date?.replaceAll("-", "") ?? "";
+  const carryLines = DL_TEST_CHECKLIST_SECTIONS.flatMap((section) => [
+    section.title,
+    ...section.items.map((item) => `• ${item}`),
+  ]);
   const details = [
     application.dl_test_time ? `Time: ${application.dl_test_time}` : null,
-    `Carry: ${DL_TEST_CHECKLIST.join(", ")}`,
+    "What to carry:",
+    ...carryLines,
   ]
     .filter(Boolean)
     .join("\n");
@@ -77,20 +77,28 @@ function calendarHref(application: LLApplication): string {
 function ChecklistCard() {
   return (
     <div className="rounded-md border p-3">
-      <p className="mb-1 text-sm font-semibold">What to carry</p>
-      <ul className="list-inside list-disc space-y-1 text-sm text-gray-700">
-        {DL_TEST_CHECKLIST.map((item) => (
-          <li key={item}>{item}</li>
+      <p className="mb-2 text-sm font-semibold">What to Carry on DL Test Day</p>
+      <div className="space-y-3">
+        {DL_TEST_CHECKLIST_SECTIONS.map((section) => (
+          <div key={section.title}>
+            <p className="mb-1 text-sm font-medium text-gray-800">
+              {section.title}
+            </p>
+            <ul className="list-inside list-disc space-y-1 text-sm text-gray-700">
+              {section.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
 
 /**
- * Customer picks a preferred DL test date + RTO; ops confirms the slot with
- * the RTO afterwards. Used by the matured / classes-completed / retest /
- * missed-test states.
+ * Customer picks from ops-uploaded DL test slots (date + RTO). Free-form
+ * preferred dates are no longer offered (V1 items 6 & 12).
  */
 function DLDatePicker({
   application,
@@ -102,50 +110,79 @@ function DLDatePicker({
   learnerName: string | null;
 }) {
   const selectDate = useSelectDLTestDate();
-  const [date, setDate] = useState("");
-  const [rto, setRto] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const { data: slots, isLoading } = useCustomerDLTestSlots({
+    llMaturesAt: application.ll_matures_at,
+    llExpiryDate: application.ll_expiry_date,
+  });
 
-  const minDate = format(new Date(), "yyyy-MM-dd");
+  const selected = (slots ?? []).find((s) => s.id === selectedId) ?? null;
 
   return (
     <div className="space-y-3 rounded-md border p-3">
       <div>
-        <Label className="mb-1 block text-sm">Preferred test date</Label>
-        <Input
-          type="date"
-          min={minDate}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-      </div>
-      <div>
-        <Label className="mb-1 block text-sm">Preferred RTO</Label>
-        <Select value={rto || undefined} onValueChange={setRto}>
-          <SelectTrigger>
-            <SelectValue placeholder="Pick an RTO…" />
-          </SelectTrigger>
-          <SelectContent>
-            {DL_RTO_OPTIONS.map((o) => (
-              <SelectItem key={o} value={o}>
-                {o}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label className="mb-1 block text-sm">Available test dates</Label>
+        <p className="mb-2 text-xs text-gray-500">
+          Only dates at least {DL_PREFERRED_DATE_MIN_DAYS} days from today,
+          between your LL maturity and expiry, are shown.
+        </p>
+        {isLoading ? (
+          <p className="text-sm text-gray-400">Loading dates…</p>
+        ) : (slots ?? []).length === 0 ? (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            No DL test dates are available right now. Please check back soon, or
+            contact Lane support if this persists.
+          </p>
+        ) : (
+          <ul className="max-h-64 space-y-2 overflow-y-auto">
+            {(slots ?? []).map((s) => {
+              const active = selectedId === s.id;
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(s.id)}
+                    className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${
+                      active
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-medium">
+                      {format(parseLLDateYmd(s.test_date), "dd MMM yyyy")}
+                    </span>
+                    <span className="mt-0.5 block text-gray-600">{s.rto}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
       <Button
         className="w-full py-3 text-lg"
-        disabled={!date || !rto || selectDate.isPending}
-        onClick={() =>
+        disabled={!selected || selectDate.isPending}
+        onClick={() => {
+          if (!selected) return;
+          if (
+            !isDLSlotVisibleToCustomer(selected.test_date, {
+              llMaturesAt: application.ll_matures_at,
+              llExpiryDate: application.ll_expiry_date,
+            })
+          ) {
+            return;
+          }
           selectDate.mutate({
             applicationId: application.id,
             learnerId,
             fromStatus: application.status,
-            preferredDate: date,
-            preferredRto: rto,
+            preferredDate: selected.test_date,
+            preferredRto: selected.rto,
             actorName: learnerName,
-          })
-        }
+            llMaturesAt: application.ll_matures_at,
+            llExpiryDate: application.ll_expiry_date,
+          });
+        }}
       >
         <CalendarDays className="mr-2 h-5 w-5" />
         {selectDate.isPending ? "Submitting…" : "Select DL Test Date"}
@@ -169,23 +206,7 @@ export function DLPhaseCard({
   learnerId: string;
   learnerName: string | null;
 }) {
-  const requestHelp = useRequestLLHelp();
-  const [helpRequested, setHelpRequested] = useState<string | null>(null);
   const status = application.status;
-
-  const requestOnce = (reason: string) => {
-    requestHelp.mutate(
-      {
-        applicationId: application.id,
-        learnerId,
-        reason,
-        actorName: learnerName,
-      },
-      { onSuccess: () => setHelpRequested(reason) },
-    );
-  };
-  const isRequested = (reason: string) =>
-    helpRequested === reason || application.escalation_reason === reason;
 
   // ── Pick a DL test date (LL matured / classes completed) ───────────────
   if (status === "ll_matured" || status === "dl_date_selection") {
@@ -195,8 +216,8 @@ export function DLPhaseCard({
       <JourneyCard title="Pick Your DL Test Date">
         <p className="text-base">
           {classesTrack
-            ? "You have completed your classes. Pick your preferred DL test date and RTO."
-            : "Great news — your Learner's Licence has matured. You can now pick your DL test date."}
+            ? "You have completed your classes. Choose an available DL test date below."
+            : "Great news — your Learner's Licence has matured. Choose an available DL test date below."}
         </p>
         <DLDatePicker
           application={application}
@@ -442,7 +463,6 @@ export function DLPhaseCard({
 
   // ── Card dispatched ────────────────────────────────────────────────────
   if (status === "dl_delivery_pending") {
-    const editReason = "Customer wants to update the DL card delivery address";
     return (
       <JourneyCard title="Your DL Card is on the Way 📦">
         <div className="flex items-center gap-3">
@@ -470,20 +490,6 @@ export function DLPhaseCard({
             {application.form_data?.address ??
               "Address on your RTO application"}
           </p>
-          {isRequested(editReason) ? (
-            <p className="mt-2 text-sm font-medium text-green-700">
-              Got it — our team will call you to confirm the new address.
-            </p>
-          ) : (
-            <Button
-              variant="link"
-              className="h-auto p-0 text-sm"
-              disabled={requestHelp.isPending}
-              onClick={() => requestOnce(editReason)}
-            >
-              Need it delivered somewhere else? Tell us
-            </Button>
-          )}
         </div>
       </JourneyCard>
     );
