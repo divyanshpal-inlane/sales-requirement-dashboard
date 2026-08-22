@@ -42,6 +42,7 @@ import { PhoneVisibilityProvider } from "@/context/phone-visibility-context";
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import DLTestDates from "@/routes/admin/DLTestDates";
+import DLTestSlots from "@/routes/admin/DLTestSlots";
 import UserManagement from "@/routes/admin/UserManagement";
 import InstructorEarnings from "@/routes/admin/InstructorEarnings";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
@@ -338,6 +339,7 @@ export default function App() {
 
               <Route path="learner-ll-details" element={<LearnerLLDetails />} />
               <Route path="ll-pipeline" element={<LLPipeline />} />
+              <Route path="dl-test-slots" element={<DLTestSlots />} />
               <Route path="dl-test-dates" element={<DLTestDates />} />
               <Route path="learner-details" element={<LearnerDetails />} />
               <Route

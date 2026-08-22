@@ -19,6 +19,8 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   LL_DOC_TYPES,
   LL_FORM_FIELDS,
+  llDocFileKey,
+  llDocSlotsFor,
   llStageLabel,
 } from "@/constants/llPipeline";
 import { useLearner } from "@/queries/learner";
@@ -34,7 +36,8 @@ const MAX_FILE_MB = 10;
 /**
  * Native LL application form (WAI-75) — replaces the Google Form redirect.
  * Handles both first submission and resubmission after the RTO team rejects
- * one or more documents.
+ * one or more documents. Supports multi-slot uploads (ID front/back,
+ * rental agreement + bill, etc.).
  */
 export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
   const { toast } = useToast();
@@ -44,13 +47,17 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
   const [submitted, setSubmitted] = useState(false);
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  /** Keyed by `${docType}:${slot}` */
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [subtypes, setSubtypes] = useState<Record<string, string>>({});
   const prefilled = useRef(false);
 
   const application = mine?.application ?? null;
-  const docsByType: Record<string, LLDocument> = {};
-  for (const d of mine?.documents ?? []) docsByType[d.doc_type] = d;
+  const docsBySlot: Record<string, LLDocument> = {};
+  for (const d of mine?.documents ?? []) {
+    const slot = d.doc_slot || "primary";
+    docsBySlot[llDocFileKey(d.doc_type, slot)] = d;
+  }
 
   useEffect(() => {
     if (prefilled.current || !learner || isLoading) return;
@@ -102,7 +109,7 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
   const setAnswer = (key: string, value: string) =>
     setAnswers((p) => ({ ...p, [key]: value }));
 
-  const pickFile = (docType: string, file: File | null) => {
+  const pickFile = (fileKey: string, file: File | null) => {
     if (file && file.size > MAX_FILE_MB * 1024 * 1024) {
       toast({
         title: "File too large",
@@ -111,7 +118,27 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
       });
       return;
     }
-    setFiles((p) => ({ ...p, [docType]: file }));
+    setFiles((p) => ({ ...p, [fileKey]: file }));
+  };
+
+  const setSubtype = (docType: string, value: string) => {
+    setSubtypes((p) => ({ ...p, [docType]: value }));
+    // Clear file picks for slots that no longer apply after a subtype change
+    // (e.g. dual → single address proof drops the secondary upload).
+    const def = LL_DOC_TYPES.find((d) => d.key === docType);
+    if (!def) return;
+    const nextSlots = new Set(
+      llDocSlotsFor(def, value).map((s) => llDocFileKey(docType, s.key)),
+    );
+    setFiles((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (key.startsWith(`${docType}:`) && !nextSlots.has(key)) {
+          delete next[key];
+        }
+      }
+      return next;
+    });
   };
 
   const handleSubmit = () => {
@@ -120,12 +147,25 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
       if (f.required && !answers[f.key]?.trim()) missing.push(f.label);
 
     for (const d of LL_DOC_TYPES) {
-      const existing = docsByType[d.key];
-      const hasValidExisting = existing && existing.status !== "rejected";
-      const hasNewFile = !!files[d.key];
-      if (d.required && !hasValidExisting && !hasNewFile) missing.push(d.label);
-      if (hasNewFile && d.subtypes.length > 0 && !subtypes[d.key])
+      const subtype = subtypes[d.key];
+      if (d.required && d.subtypes.length > 0 && !subtype) {
         missing.push(`${d.label} — pick the document type`);
+        continue;
+      }
+      const slots = llDocSlotsFor(d, subtype);
+      for (const slot of slots) {
+        const fileKey = llDocFileKey(d.key, slot.key);
+        const existing = docsBySlot[fileKey];
+        const hasValidExisting = existing && existing.status !== "rejected";
+        const hasNewFile = !!files[fileKey];
+        if (d.required && !hasValidExisting && !hasNewFile) {
+          const slotSuffix =
+            slots.length > 1 || slot.key !== "primary"
+              ? ` — ${slot.label}`
+              : "";
+          missing.push(`${d.label}${slotSuffix}`);
+        }
+      }
     }
 
     if (missing.length > 0) {
@@ -139,11 +179,15 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
 
     const uploads: LLDocumentUpload[] = Object.entries(files)
       .filter((e): e is [string, File] => !!e[1])
-      .map(([docType, file]) => ({
-        docType,
-        subtype: subtypes[docType] ?? null,
-        file,
-      }));
+      .map(([fileKey, file]) => {
+        const [docType, docSlot] = fileKey.split(":");
+        return {
+          docType,
+          docSlot: docSlot || "primary",
+          subtype: subtypes[docType] ?? null,
+          file,
+        };
+      });
 
     submitMutation.mutate(
       {
@@ -232,8 +276,13 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
         </CardHeader>
         <CardContent className="space-y-4 p-4">
           {LL_DOC_TYPES.map((d) => {
-            const existing = docsByType[d.key];
-            const newFile = files[d.key];
+            const subtype = subtypes[d.key];
+            const slots = llDocSlotsFor(d, subtype);
+            const anyRejected = slots.some((slot) => {
+              const existing = docsBySlot[llDocFileKey(d.key, slot.key)];
+              return existing?.status === "rejected" && !files[llDocFileKey(d.key, slot.key)];
+            });
+
             return (
               <div key={d.key} className="rounded-md border p-3">
                 <div className="flex items-center justify-between gap-2">
@@ -241,31 +290,24 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
                     {d.label}
                     {d.required && <span className="text-red-500"> *</span>}
                   </Label>
-                  {existing && !newFile && (
-                    <DocStatusBadge status={existing.status} />
-                  )}
                 </div>
                 {d.hint && (
                   <p className="mt-0.5 text-xs text-gray-500">{d.hint}</p>
                 )}
-                {existing?.status === "rejected" && !newFile && (
+                {anyRejected && (
                   <p className="mt-1 text-xs text-red-600">
-                    Rejected
-                    {existing.rejection_reason
-                      ? `: ${existing.rejection_reason}`
-                      : ""}{" "}
-                    — please upload a new file.
+                    One or more files were rejected — please re-upload the ones
+                    marked below.
                   </p>
                 )}
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                  {d.subtypes.length > 0 && (
+
+                {d.subtypes.length > 0 && (
+                  <div className="mt-2">
                     <Select
-                      value={subtypes[d.key] || undefined}
-                      onValueChange={(v) =>
-                        setSubtypes((p) => ({ ...p, [d.key]: v }))
-                      }
+                      value={subtype || undefined}
+                      onValueChange={(v) => setSubtype(d.key, v)}
                     >
-                      <SelectTrigger className="sm:w-64">
+                      <SelectTrigger className="sm:w-72">
                         <SelectValue placeholder="Which document?" />
                       </SelectTrigger>
                       <SelectContent>
@@ -276,25 +318,63 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
                         ))}
                       </SelectContent>
                     </Select>
-                  )}
-                  <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                    <FileUp className="h-4 w-4 shrink-0" />
-                    <span className="truncate">
-                      {newFile
-                        ? newFile.name
-                        : existing && existing.status !== "rejected"
-                          ? `Uploaded: ${existing.file_name ?? "document"} (tap to replace)`
-                          : "Upload photo or PDF"}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={(e) =>
-                        pickFile(d.key, e.target.files?.[0] ?? null)
-                      }
-                    />
-                  </label>
+                  </div>
+                )}
+
+                <div className="mt-2 space-y-2">
+                  {slots.map((slot) => {
+                    const fileKey = llDocFileKey(d.key, slot.key);
+                    const existing = docsBySlot[fileKey];
+                    const newFile = files[fileKey];
+                    const showSlotLabel =
+                      slots.length > 1 || slot.key !== "primary";
+                    return (
+                      <div key={slot.key} className="space-y-1">
+                        {showSlotLabel && (
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-medium text-gray-600">
+                              {slot.label}
+                            </p>
+                            {existing && !newFile && (
+                              <DocStatusBadge status={existing.status} />
+                            )}
+                          </div>
+                        )}
+                        {!showSlotLabel && existing && !newFile && (
+                          <div className="flex justify-end">
+                            <DocStatusBadge status={existing.status} />
+                          </div>
+                        )}
+                        {existing?.status === "rejected" && !newFile && (
+                          <p className="text-xs text-red-600">
+                            Rejected
+                            {existing.rejection_reason
+                              ? `: ${existing.rejection_reason}`
+                              : ""}{" "}
+                            — please upload a new file.
+                          </p>
+                        )}
+                        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                          <FileUp className="h-4 w-4 shrink-0" />
+                          <span className="truncate">
+                            {newFile
+                              ? newFile.name
+                              : existing && existing.status !== "rejected"
+                                ? `Uploaded: ${existing.file_name ?? "document"} (tap to replace)`
+                                : `Upload ${showSlotLabel ? slot.label.toLowerCase() : "photo or PDF"}`}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            onChange={(e) =>
+                              pickFile(fileKey, e.target.files?.[0] ?? null)
+                            }
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

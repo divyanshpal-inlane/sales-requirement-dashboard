@@ -7,9 +7,11 @@ import {
   CalendarDays,
   Clock,
   Download,
+  BookOpen,
   ExternalLink,
   FileWarning,
   Home,
+  PlayCircle,
   Hourglass,
   PartyPopper,
   ShieldCheck,
@@ -21,7 +23,10 @@ import { Button } from "@/components/ui/button";
 import {
   DL_PHASE_CUSTOMER_STATUSES,
   LL_DOC_TYPE_MAP,
+  LL_LEARNING_MODULE_URL,
   LL_REAPPLY_FEE_DEFAULT,
+  LL_TEST_VIDEO_URL,
+  llDocSlotLabel,
   PARIVAHAN_LL_TEST_URL,
 } from "@/constants/llPipeline";
 import { whatsappHref } from "@/constants/support";
@@ -227,7 +232,16 @@ export default function LLJourney() {
                 className="rounded-md border border-red-200 bg-red-50 p-3"
               >
                 <p className="text-sm font-semibold text-red-800">
-                  {LL_DOC_TYPE_MAP[d.doc_type]?.label ?? d.doc_type}
+                  {(() => {
+                    const def = LL_DOC_TYPE_MAP[d.doc_type];
+                    const slot = llDocSlotLabel(
+                      def,
+                      d.doc_slot || "primary",
+                      d.doc_subtype,
+                    );
+                    const base = def?.label ?? d.doc_type;
+                    return slot ? `${base} — ${slot}` : base;
+                  })()}
                 </p>
                 {d.rejection_reason && (
                   <p className="text-sm text-red-700">
@@ -395,6 +409,20 @@ export default function LLJourney() {
             Take the LL Test on Parivahan
           </a>
         </Button>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button asChild variant="outline" className="w-full py-3">
+            <a href={LL_TEST_VIDEO_URL} target="_blank" rel="noreferrer">
+              <PlayCircle className="mr-2 h-5 w-5" />
+              LL test video
+            </a>
+          </Button>
+          <Button asChild variant="outline" className="w-full py-3">
+            <a href={LL_LEARNING_MODULE_URL} target="_blank" rel="noreferrer">
+              <BookOpen className="mr-2 h-5 w-5" />
+              Learning Module
+            </a>
+          </Button>
+        </div>
         <SupportCallButton label="Need Help with Test" />
         {sinceScrutiny >= 3 && (
           <HelpOfferCard

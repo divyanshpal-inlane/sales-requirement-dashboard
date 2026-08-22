@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { LL_DOC_TYPE_MAP, LL_FORM_FIELDS } from "@/constants/llPipeline";
+import { LL_DOC_TYPE_MAP, LL_FORM_FIELDS, llDocSlotLabel } from "@/constants/llPipeline";
 import {
   LLApplication,
   LLDocument,
@@ -52,7 +52,11 @@ export default function LLDocumentsReview({
   const docLabel = (d: LLDocument) => {
     const def = LL_DOC_TYPE_MAP[d.doc_type];
     const subtype = def?.subtypes.find((s) => s.key === d.doc_subtype)?.label;
-    return `${def?.label ?? d.doc_type}${subtype ? ` (${subtype})` : ""}`;
+    const slot = llDocSlotLabel(def, d.doc_slot || "primary", d.doc_subtype);
+    const parts = [def?.label ?? d.doc_type];
+    if (subtype) parts.push(subtype);
+    if (slot) parts.push(slot);
+    return parts.join(" · ");
   };
 
   const verdict = (

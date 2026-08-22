@@ -174,6 +174,40 @@ Deno.serve(async (req) => {
       Deno.env.get("MY_SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
+    // V1 item 9: promote matured / classes−1 learners before sending nudges,
+    // and notify them to pick a DL test date.
+    try {
+      const { data: promoted, error: promoteError } = await supabase.rpc(
+        "ll_auto_promote_dl",
+      );
+      if (promoteError) {
+        console.error("[ll-flow-reminders] ll_auto_promote_dl failed:", promoteError);
+      } else {
+        for (const row of promoted ?? []) {
+          const messageType =
+            row.to_status === "ll_matured"
+              ? "LL_MATURED_SELECT_DL_DATE"
+              : row.to_status === "dl_date_selection"
+                ? "CLASSES_COMPLETED_SELECT_DL_DATE"
+                : null;
+          if (!messageType || !row.learner_id) continue;
+          try {
+            await heltarMessageService.processMessageRequest(messageType, {
+              learner_id: row.learner_id,
+            });
+          } catch (e) {
+            console.error(
+              "[ll-flow-reminders] promote WhatsApp failed:",
+              row.application_id,
+              e,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[ll-flow-reminders] auto-promote sweep error:", e);
+    }
+
     const { data: applications, error } = await supabase
       .from("ll_applications")
       .select("*, Learner(id, name, phone)")

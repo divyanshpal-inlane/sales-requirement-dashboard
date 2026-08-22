@@ -5,6 +5,8 @@
 // `failure` describes the red-box outcome for a stage and where recovery
 // re-enters the flow.
 
+import { addDays, addMonths, format, subDays } from "date-fns";
+
 export type LLPhaseKey =
   | "documents"
   | "application_call"
@@ -842,6 +844,127 @@ export const LL_SERVICES: { key: string; label: string }[] = [
 export const PARIVAHAN_LL_TEST_URL =
   "https://sarathi.parivahan.gov.in/sarathiservice/stateSelection.do";
 
+/** Walkthrough video shown on the "Take Your LL Test" screen. */
+export const LL_TEST_VIDEO_URL =
+  "https://drive.google.com/file/d/1xEe3DeV0utJhl5k4fxW_zYtSXImQkLBs/view?usp=sharing";
+
+/** Learning module PDF linked from the "Take Your LL Test" screen. */
+export const LL_LEARNING_MODULE_URL =
+  "https://drive.google.com/file/d/141-ogGVc2KDfN_FpYRM3oMq05K7GQtV1/view?usp=sharing";
+
+/**
+ * Parse a YYYY-MM-DD string as a local calendar date (avoids UTC day-shift).
+ */
+export function parseLLDateYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * LL Valid Till = LL Issue Date + 6 months − 1 day.
+ * Example: 2026-08-21 → 2027-02-20.
+ */
+export function calcLLExpiryDate(issueDateYmd: string): string {
+  return format(
+    subDays(addMonths(parseLLDateYmd(issueDateYmd), 6), 1),
+    "yyyy-MM-dd",
+  );
+}
+
+/**
+ * LL Maturity Date = LL Issue Date + 1 month.
+ * Example: 2026-08-20 → 2026-09-20.
+ */
+export function calcLLMaturityDate(issueDateYmd: string): string {
+  return format(addMonths(parseLLDateYmd(issueDateYmd), 1), "yyyy-MM-dd");
+}
+
+/**
+ * True when the learner is inside the V1 promotion window for DL test:
+ * on/after LL maturity and on/before LL expiry.
+ */
+export function isWithinLLMaturityWindow(opts: {
+  today?: string;
+  llMaturesAt?: string | null;
+  llExpiryDate?: string | null;
+}): boolean {
+  const today = opts.today ?? todayYmd();
+  if (!opts.llMaturesAt || !opts.llExpiryDate) return false;
+  return today >= opts.llMaturesAt && today <= opts.llExpiryDate;
+}
+
+/**
+ * Promote when completed lessons reach (total classes − 1).
+ */
+export function hasCompletedClassesMinusOne(
+  completed: number,
+  total: number,
+): boolean {
+  if (total <= 0) return false;
+  return completed >= total - 1;
+}
+
+/**
+ * Customer may only select a preferred DL test date this many days from
+ * today (V1 item 12). Also used as the visibility floor for uploaded slots
+ * (stricter than the 12-day floor in item 6).
+ */
+export const DL_PREFERRED_DATE_MIN_DAYS = 14;
+
+/**
+ * Ops must upload a DL test slot at least this many days before the test
+ * date (V1 item 6).
+ */
+export const DL_SLOT_UPLOAD_LEAD_DAYS = 15;
+
+/** Today's date as YYYY-MM-DD in local time. */
+export function todayYmd(): string {
+  return format(new Date(), "yyyy-MM-dd");
+}
+
+/**
+ * Earliest YYYY-MM-DD a customer may pick (today + DL_PREFERRED_DATE_MIN_DAYS).
+ */
+export function dlPreferredDateMinYmd(fromYmd: string = todayYmd()): string {
+  return format(
+    addDays(parseLLDateYmd(fromYmd), DL_PREFERRED_DATE_MIN_DAYS),
+    "yyyy-MM-dd",
+  );
+}
+
+/**
+ * Whether ops may upload a slot for this test date (must be ≥ today + 15 days).
+ */
+export function isDLSlotUploadAllowed(
+  testDateYmd: string,
+  fromYmd: string = todayYmd(),
+): boolean {
+  const minDate = format(
+    addDays(parseLLDateYmd(fromYmd), DL_SLOT_UPLOAD_LEAD_DAYS),
+    "yyyy-MM-dd",
+  );
+  return testDateYmd >= minDate;
+}
+
+/**
+ * Whether a published slot should appear for this customer.
+ * Rules: ≥14 days from today, on/after LL maturity, on/before LL expiry.
+ */
+export function isDLSlotVisibleToCustomer(
+  testDateYmd: string,
+  opts: {
+    today?: string;
+    llMaturesAt?: string | null;
+    llExpiryDate?: string | null;
+  } = {},
+): boolean {
+  const today = opts.today ?? todayYmd();
+  if (testDateYmd < dlPreferredDateMinYmd(today)) return false;
+  if (opts.llMaturesAt && testDateYmd < opts.llMaturesAt) return false;
+  if (opts.llExpiryDate && testDateYmd > opts.llExpiryDate) return false;
+  return true;
+}
+
 /**
  * Fresh government fee quoted when RTO scrutiny expires (LL test not taken
  * within 7 days). Ops can override per application via
@@ -854,22 +977,42 @@ export const DL_RETEST_FEE_DEFAULT = 300;
 
 /** RTOs the customer can pick for the DL test (Bengaluru). */
 export const DL_RTO_OPTIONS = [
-  "Koramangala RTO (KA-01)",
-  "Rajajinagar RTO (KA-02)",
-  "Indiranagar RTO (KA-03)",
-  "Yeshwanthpur RTO (KA-04)",
-  "Jayanagar RTO (KA-05)",
-  "KR Puram RTO (KA-53)",
-  "Electronic City RTO (KA-51)",
-  "Marathahalli RTO (KA-03)",
+  "KR Puram RTO - KA53",
+  "Kasturi Nagar RTO - KA03",
+  "Electronic City ADTT Track - KA51 / KA01",
+  "Jnanabharathi KA41",
 ];
 
-/** What to carry to the DL test (confirmed-test card + reminder checklist). */
-export const DL_TEST_CHECKLIST = [
-  "Original Learner's Licence",
-  "Aadhaar card (original)",
-  "The vehicle you will be tested on",
+/**
+ * What to carry on DL test day (V1) — two sections shown on the confirmed
+ * test card. Second-section bullets drafted where ops copy was incomplete;
+ * easy to tweak in one place.
+ */
+export const DL_TEST_CHECKLIST_SECTIONS: {
+  title: string;
+  items: string[];
+}[] = [
+  {
+    title: "If you don't have a previously issued DL",
+    items: [
+      "Carry your printed Learner's Licence",
+      "Carry a Karnataka-registered 2-wheeler for the test (if applying for it)",
+      "Carry your Aadhaar card (original)",
+    ],
+  },
+  {
+    title: "If you have a 2-wheeler (2 WL) DL",
+    items: [
+      "Carry your printed Learner's Licence",
+      "Carry your existing 2-wheeler Driving Licence (original)",
+      "Carry your Aadhaar card (original)",
+    ],
+  },
 ];
+
+/** Flat list for calendar/reminder snippets. */
+export const DL_TEST_CHECKLIST: string[] =
+  DL_TEST_CHECKLIST_SECTIONS.flatMap((s) => s.items);
 
 /**
  * DL-phase statuses that get their own customer homepage screens. These are
@@ -926,6 +1069,11 @@ export const LL_APPROVED_STATUSES = [
 // Documents the customer must upload, from the "DL Docs? Sorted in Seconds!"
 // checklist shown in the app (public/assets/documents_list.jpg).
 
+export interface LLDocSlotDef {
+  key: string;
+  label: string;
+}
+
 export interface LLDocTypeDef {
   key: string;
   label: string;
@@ -933,6 +1081,68 @@ export interface LLDocTypeDef {
   /** Accepted proof kinds the customer picks from (empty = no picker). */
   subtypes: { key: string; label: string }[];
   hint?: string;
+  /**
+   * Always-required upload slots (e.g. ID front + back). When omitted,
+   * defaults to a single "primary" slot unless the chosen subtype is in
+   * dualUploadSubtypes.
+   */
+  slots?: LLDocSlotDef[];
+  /**
+   * Subtypes that need two separate files. Keys are subtype keys; values
+   * are labels for the primary + secondary upload slots.
+   */
+  dualUploadSubtypes?: Record<
+    string,
+    { primary: string; secondary: string }
+  >;
+}
+
+/** Default single-file slot used by most document types. */
+export const LL_DOC_SLOT_PRIMARY: LLDocSlotDef = {
+  key: "primary",
+  label: "Document",
+};
+
+/**
+ * Resolve which upload slots a document type needs for the chosen subtype.
+ * ID proof always needs front+back; rental/affidavit address proofs need two
+ * files; everything else is a single upload.
+ */
+export function llDocSlotsFor(
+  def: LLDocTypeDef,
+  subtype: string | undefined | null,
+): LLDocSlotDef[] {
+  if (def.slots?.length) return def.slots;
+  if (subtype && def.dualUploadSubtypes?.[subtype]) {
+    const dual = def.dualUploadSubtypes[subtype];
+    return [
+      { key: "primary", label: dual.primary },
+      { key: "secondary", label: dual.secondary },
+    ];
+  }
+  return [LL_DOC_SLOT_PRIMARY];
+}
+
+/** Composite key used in the form file map and docs-by-slot lookups. */
+export function llDocFileKey(docType: string, slot: string): string {
+  return `${docType}:${slot}`;
+}
+
+export function llDocSlotLabel(
+  def: LLDocTypeDef | undefined,
+  slot: string,
+  subtype?: string | null,
+): string | null {
+  if (!def) return null;
+  const fromSlots = def.slots?.find((s) => s.key === slot);
+  if (fromSlots) return fromSlots.label;
+  if (subtype && def.dualUploadSubtypes?.[subtype]) {
+    const dual = def.dualUploadSubtypes[subtype];
+    if (slot === "primary") return dual.primary;
+    if (slot === "secondary") return dual.secondary;
+  }
+  if (slot === "primary") return null;
+  return slot;
 }
 
 export const LL_DOC_TYPES: LLDocTypeDef[] = [
@@ -981,6 +1191,16 @@ export const LL_DOC_TYPES: LLDocTypeDef[] = [
         label: "Notarized Self-Affidavit + supporting proof",
       },
     ],
+    dualUploadSubtypes: {
+      rental_agreement: {
+        primary: "Rental Agreement",
+        secondary: "Electricity/Gas Bill",
+      },
+      self_affidavit: {
+        primary: "Self Affidavit",
+        secondary: "Supporting Proof",
+      },
+    },
   },
   {
     key: "id_proof",
@@ -991,6 +1211,11 @@ export const LL_DOC_TYPES: LLDocTypeDef[] = [
       { key: "pan", label: "PAN" },
       { key: "passport", label: "Passport" },
     ],
+    slots: [
+      { key: "front", label: "Front" },
+      { key: "back", label: "Back" },
+    ],
+    hint: "Upload both the front and back of your ID",
   },
 ];
 

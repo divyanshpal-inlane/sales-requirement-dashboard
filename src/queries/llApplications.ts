@@ -463,6 +463,8 @@ export interface LLDocument {
   learner_id: string | null;
   doc_type: string;
   doc_subtype: string | null;
+  /** primary | secondary | front | back — distinguishes multi-file docs. */
+  doc_slot: string;
   storage_path: string;
   file_name: string | null;
   mime_type: string | null;
@@ -524,13 +526,15 @@ export function useUploadLLCard() {
         .from("ll_documents")
         .delete()
         .eq("application_id", application.id)
-        .eq("doc_type", docType);
+        .eq("doc_type", docType)
+        .eq("doc_slot", "primary");
       if (deleteError) throw deleteError;
 
       const { error: insertError } = await sb.from("ll_documents").insert({
         application_id: application.id,
         learner_id: application.learner_id,
         doc_type: docType,
+        doc_slot: "primary",
         storage_path: path,
         file_name: file.name,
         mime_type: file.type,
@@ -672,4 +676,49 @@ export function useUpdateLLFields() {
       queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
     },
   });
+}
+
+export interface LLAutoPromoteResult {
+  application_id: string;
+  learner_id: string;
+  from_status: string;
+  to_status: string;
+}
+
+/**
+ * Run the DB auto-promote pass (classes − 1 + maturity window, and
+ * ll_maturing → ll_matured). Sends the matching WhatsApp for each move.
+ * Pass learnerId to scope to one learner (lesson-complete hook); omit for
+ * a full sweep (daily cron / reminders job).
+ */
+export async function runLLAutoPromoteDL(
+  learnerId?: string | null,
+): Promise<LLAutoPromoteResult[]> {
+  const { data, error } = await sb.rpc("ll_auto_promote_dl", {
+    p_learner_id: learnerId ?? null,
+  });
+  if (error) throw error;
+  const rows = (data ?? []) as LLAutoPromoteResult[];
+
+  for (const row of rows) {
+    const messageType =
+      row.to_status === "ll_matured"
+        ? "LL_MATURED_SELECT_DL_DATE"
+        : row.to_status === "dl_date_selection"
+          ? "CLASSES_COMPLETED_SELECT_DL_DATE"
+          : null;
+    if (!messageType) continue;
+    supabase.functions
+      .invoke("send-message", {
+        body: {
+          message_type: messageType,
+          learner_id: row.learner_id,
+        },
+      })
+      .catch((e: Error) =>
+        console.error("[llApplications] auto-promote send-message failed:", e),
+      );
+  }
+
+  return rows;
 }
