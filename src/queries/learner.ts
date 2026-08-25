@@ -239,31 +239,29 @@ export function useLearnerUpdate() {
     mutationFn: async (data: PartialLearner) => {
       if (!phone) throw new Error("Phone is required");
 
-      // Check if learner exists
-      const { data: existing } = await supabase
+      // ── IMPORTANT: Learner record was already created by database trigger during signup ──
+      // We ONLY update the existing record. We NEVER insert a new one here.
+      // If the record doesn't exist, something went wrong during signup and we should fail.
+      console.log("[LEARNER_UPDATE] Updating learner record for phone:", phone);
+      
+      const result = await supabase
         .from("Learner")
-        .select("id")
+        .update(data)
         .eq("phone", phone)
-        .maybeSingle();
+        .select();
 
-      let error;
-      if (existing) {
-        // Update existing record
-        const result = await supabase
-          .from("Learner")
-          .update(data)
-          .eq("phone", phone);
-        error = result.error;
-      } else {
-        // Insert new record
-        const result = await supabase
-          .from("Learner")
-          .insert({ ...data, phone });
-        error = result.error;
+      if (result.error) {
+        console.error("[LEARNER_UPDATE] Error updating learner:", result.error);
+        throw new Error(result.error.message);
       }
 
-      if (error) throw new Error(error.message);
-      return null;
+      if (!result.data || result.data.length === 0) {
+        console.error("[LEARNER_UPDATE] Learner record not found for phone:", phone);
+        throw new Error(`Learner profile not found. Please sign up again.`);
+      }
+
+      console.log("[LEARNER_UPDATE] Learner updated successfully:", result.data[0]);
+      return result.data[0];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
