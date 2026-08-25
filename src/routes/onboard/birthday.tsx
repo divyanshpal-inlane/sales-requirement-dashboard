@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "@/context/auth-context";
 import { useLearnerUpdate } from "@/queries/learner";
-import { checkLearnerDuplicate, learnerHasDOB } from "@/utils/duplicateDetection";
+import { learnerHasDOB } from "@/utils/duplicateDetection";
 
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
@@ -39,94 +39,78 @@ export default function Birthday() {
   const [month, setMonth] = useState<string>("");
   const [year, setYear] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [isChecking, setIsChecking] = useState<boolean>(false);
   const { mutate, isPending } = useLearnerUpdate();
   const navigate = useNavigate();
   const { phone } = useUser();
 
-  const handleContinueClick = useCallback(async () => {
-    setError("");
+   const handleContinueClick = useCallback(async () => {
+     setError("");
 
-    if (!day || !month || !year) {
-      setError("Please select your full date of birth");
-      return;
-    }
+     if (!day || !month || !year) {
+       setError("Please select your full date of birth");
+       return;
+     }
 
-    const dayNum = parseInt(day);
-    const monthIndex = months.indexOf(month);
-    const yearNum = parseInt(year);
+     const dayNum = parseInt(day);
+     const monthIndex = months.indexOf(month);
+     const yearNum = parseInt(year);
 
-    // Guard against impossible dates (e.g. 31 Feb).
-    const candidate = new Date(yearNum, monthIndex, dayNum);
-    if (
-      candidate.getFullYear() !== yearNum ||
-      candidate.getMonth() !== monthIndex ||
-      candidate.getDate() !== dayNum
-    ) {
-      setError("That date doesn't exist. Please check the day and month.");
-      return;
-    }
+     // Guard against impossible dates (e.g. 31 Feb).
+     const candidate = new Date(yearNum, monthIndex, dayNum);
+     if (
+       candidate.getFullYear() !== yearNum ||
+       candidate.getMonth() !== monthIndex ||
+       candidate.getDate() !== dayNum
+     ) {
+       setError("That date doesn't exist. Please check the day and month.");
+       return;
+     }
 
-    // ── CHECK FOR DUPLICATES ────────────────────────────────────────────
-    if (!phone) {
-      setError("Phone number not found. Please log in again.");
-      return;
-    }
+     // ── VERIFY PHONE EXISTS ──────────────────────────────────────────────
+     if (!phone) {
+       setError("Phone number not found. Please log in again.");
+       return;
+     }
 
-    console.log("[BIRTHDAY] Checking for duplicate learner with phone:", phone);
-    setIsChecking(true);
+     console.log("[BIRTHDAY] Proceeding with DOB update for phone:", phone);
 
-    try {
-      // Check if learner already exists (in any phone format)
-      const duplicateResult = await checkLearnerDuplicate(phone);
-      
-      if (duplicateResult.isDuplicate) {
-        console.error("[BIRTHDAY] ❌ Duplicate learner found:", duplicateResult);
-        setError(duplicateResult.message);
-        setIsChecking(false);
-        return;
-      }
+     try {
+       // Check if learner already has DOB filled to prevent overwriting
+       const alreadyHasDOB = await learnerHasDOB(phone);
+       
+       if (alreadyHasDOB) {
+         console.warn("[BIRTHDAY] ⚠️ Learner already has DOB filled");
+         setError("You have already entered your date of birth. If you need to change it, please contact support.");
+         return;
+       }
 
-      // Check if learner already has DOB filled
-      const alreadyHasDOB = await learnerHasDOB(phone);
-      
-      if (alreadyHasDOB) {
-        console.warn("[BIRTHDAY] ⚠️ Learner already has DOB filled");
-        setError("You have already entered your date of birth. If you need to change it, please contact support.");
-        setIsChecking(false);
-        return;
-      }
+       const dob = `${yearNum}-${String(monthIndex + 1).padStart(2, "0")}-${String(
+         dayNum,
+       ).padStart(2, "0")}`;
 
-      console.log("[BIRTHDAY] ✅ Duplicate check passed. Proceeding with DOB update.");
-      setIsChecking(false);
+       console.log("[BIRTHDAY] Updating learner DOB with phone:", { phone, dob });
 
-      const dob = `${yearNum}-${String(monthIndex + 1).padStart(2, "0")}-${String(
-        dayNum,
-      ).padStart(2, "0")}`;
-
-      console.log("[BIRTHDAY] Updating learner DOB:", { phone, dob });
-
-      mutate(
-        { dob },
-        {
-          onSuccess: () => {
-            console.log("[BIRTHDAY] ✅ DOB updated successfully");
-            navigate("/onboard/aadhar");
-          },
-          onError: (error) => {
-            console.error("[BIRTHDAY] ❌ Failed to update DOB:", error);
-            setError("Failed to save your date of birth. Please try again.");
-          },
-        },
-      );
-    } catch (err: any) {
-      console.error("[BIRTHDAY] ❌ Error during duplicate check:", err);
-      setError(
-        err.message || "An error occurred while checking your information. Please try again."
-      );
-      setIsChecking(false);
-    }
-  }, [day, month, year, mutate, navigate, phone]);
+       // Update the existing learner record created during signup
+       mutate(
+         { dob },
+         {
+           onSuccess: () => {
+             console.log("[BIRTHDAY] ✅ DOB updated successfully");
+             navigate("/onboard/aadhar");
+           },
+           onError: (error) => {
+             console.error("[BIRTHDAY] ❌ Failed to update DOB:", error);
+             setError("Failed to save your date of birth. Please try again.");
+           },
+         },
+       );
+     } catch (err: any) {
+       console.error("[BIRTHDAY] ❌ Error during DOB update:", err);
+       setError(
+         err.message || "An error occurred while updating your information. Please try again."
+       );
+     }
+   }, [day, month, year, mutate, navigate, phone]);
 
   return (
     <div className="flex h-full w-full flex-col rounded-md">
@@ -204,9 +188,9 @@ export default function Birthday() {
         <Button
           onClick={handleContinueClick}
           className="w-full"
-          disabled={isPending || isChecking}
+          disabled={isPending}
         >
-          {isChecking ? "Checking..." : "Continue"}
+          {isPending ? "Saving..." : "Continue"}
         </Button>
       </div>
     </div>
