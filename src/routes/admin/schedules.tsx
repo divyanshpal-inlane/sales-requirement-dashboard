@@ -204,7 +204,7 @@ export default function AdminSchedules() {
       // Step 2: Conflict check — one query per unique instructor (not per schedule)
       const instructorDates = new Map<string, Set<string>>();
       for (const schedule of schedules) {
-        const dateStr = schedule.date.toISOString().split("T")[0];
+        const dateStr = format(schedule.date, "yyyy-MM-dd");
         if (!instructorDates.has(schedule.instructorId)) {
           instructorDates.set(schedule.instructorId, new Set());
         }
@@ -236,7 +236,7 @@ export default function AdminSchedules() {
       // Check conflicts in memory
       const conflicts: string[] = [];
       for (const schedule of schedules) {
-        const dateStr = schedule.date.toISOString().split("T")[0];
+        const dateStr = format(schedule.date, "yyyy-MM-dd");
         const endTime = schedule.end_time;
 
         for (const existing of allExistingSchedules) {
@@ -279,7 +279,7 @@ export default function AdminSchedules() {
             course_id: courseId,
             lesson_id: lessonId,
             instructor_id: schedule.instructorId,
-            date: schedule.date.toISOString().split("T")[0],
+            date: format(schedule.date, "yyyy-MM-dd"),
             start_time: schedule.start_time,
             end_time: schedule.end_time,
             enabled: true,

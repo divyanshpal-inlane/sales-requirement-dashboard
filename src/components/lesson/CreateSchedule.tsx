@@ -1768,8 +1768,8 @@ function CreateSchedule({
         .select(
           ` date, start_time, end_time, learner_id, instructor_id, isTentative, Learner(name, area, pick_up_location, address_lat, address_lng)`,
         )
-        .gte("date", prevWindowStart.toISOString().split("T")[0])
-        .lte("date", prevWindowEnd.toISOString().split("T")[0])
+        .gte("date", format(prevWindowStart, "yyyy-MM-dd"))
+        .lte("date", format(prevWindowEnd, "yyyy-MM-dd"))
         .order("date", { ascending: false })
         .order("end_time", { ascending: false })
         .neq("status", "paused");
@@ -2972,7 +2972,7 @@ function CreateSchedule({
     }
 
     // Generate truly unique ID using timestamp + random + date/hour to prevent collisions
-    const dateStr = selectedDate.toISOString().split("T")[0];
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
     const slotGroupId = `${dateStr}-${hour}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Track this slot group's duration
