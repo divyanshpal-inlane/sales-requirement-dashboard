@@ -363,6 +363,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Go service returns tokens immediately so learner is auto-logged in
     // ──────────────────────────────────────────────────────────────────────────
     if (role === "learner") {
+      // ── Create Learner record FIRST ────────────────────────────────────────
+      // The Supabase BEFORE INSERT trigger on auth.users (update_signed_up_flag)
+      // requires the Learner record to ALREADY EXIST with the same phone.
+      // We create it before signUp and rely on ON CONFLICT to handle duplicates.
+      const { error: learnerError } = await (supabase as any).from("Learner").upsert(
+        { phone: formattedPhone, name: name || null, onboarding_completed: false },
+        { onConflict: "phone", ignoreDuplicates: true }
+      );
+      if (learnerError) {
+        console.warn("[AUTH] Failed to pre-create Learner record (non-fatal):", learnerError.message);
+      } else {
+        console.log("[AUTH] ✅ Learner record pre-created with phone:", formattedPhone);
+      }
+
       const supabaseSignupPromise = supabase.auth.signUp({
         phone: formattedPhone,
         password,
@@ -449,6 +463,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // After Supabase signup, triggerShadowAuth also syncs the instructor to Go/RDS.
     // ──────────────────────────────────────────────────────────────────────────
     if (role === "instructor") {
+      // ── Create Instructor record FIRST ─────────────────────────────────────
+      // Same reason as learner: BEFORE INSERT trigger on auth.users requires
+      // the Instructor record to already exist with the same phone.
+      const { error: instructorError } = await supabase.from("Instructor").upsert(
+        { phone: formattedPhone, name: name || null } as any,
+        { onConflict: "phone", ignoreDuplicates: true }
+      );
+      if (instructorError) {
+        console.warn("[AUTH] Failed to pre-create Instructor record (non-fatal):", instructorError.message);
+      } else {
+        console.log("[AUTH] ✅ Instructor record pre-created with phone:", formattedPhone);
+      }
+
       const supabaseSignupPromise = supabase.auth.signUp({
         phone: formattedPhone,
         password,

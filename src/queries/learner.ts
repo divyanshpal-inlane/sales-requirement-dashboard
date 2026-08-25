@@ -8,6 +8,7 @@ import {
 import { useUser } from "@/context/auth-context";
 import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/types/database.types";
+import { getAllPhoneFormats } from "@/utils/phoneNormalization";
 
 export function useLearner() {
   const { phone } = useUser();
@@ -239,29 +240,47 @@ export function useLearnerUpdate() {
     mutationFn: async (data: PartialLearner) => {
       if (!phone) throw new Error("Phone is required");
 
-      // ── IMPORTANT: Learner record was already created by database trigger during signup ──
-      // We ONLY update the existing record. We NEVER insert a new one here.
-      // If the record doesn't exist, something went wrong during signup and we should fail.
-      console.log("[LEARNER_UPDATE] Updating learner record for phone:", phone);
-      
-      const result = await supabase
+      // ── Try all phone formats to find and update the existing Learner record ──
+      // The phone in auth context may differ in format from what's stored in the DB.
+      // e.g., auth returns "917368948038" but DB has "+917368948038"
+      const phoneFormats = getAllPhoneFormats(phone);
+      console.log("[LEARNER_UPDATE] Trying phone formats:", phoneFormats);
+
+      for (const format of phoneFormats) {
+        const result = await supabase
+          .from("Learner")
+          .update(data)
+          .eq("phone", format)
+          .select();
+
+        if (result.error) {
+          console.warn("[LEARNER_UPDATE] Error with format", format, ":", result.error.message);
+          continue;
+        }
+
+        if (result.data && result.data.length > 0) {
+          console.log("[LEARNER_UPDATE] ✅ Learner updated successfully with format:", format, result.data[0]);
+          return result.data[0];
+        }
+      }
+
+      // If no existing record found with any format, create one as fallback
+      // This handles users who signed up before the trigger was in place
+      console.warn("[LEARNER_UPDATE] No existing record found. Creating new Learner record.");
+      const e164Phone = `+91${phone.replace(/\D/g, "").slice(-10)}`;
+      const insertResult = await (supabase as any)
         .from("Learner")
-        .update(data)
-        .eq("phone", phone)
+        .insert({ ...data, phone: e164Phone })
         .select();
 
-      if (result.error) {
-        console.error("[LEARNER_UPDATE] Error updating learner:", result.error);
-        throw new Error(result.error.message);
+      if (insertResult.error) {
+        // If insert fails due to unique constraint (already exists), try once more with correct format
+        console.error("[LEARNER_UPDATE] Insert failed:", insertResult.error.message);
+        throw new Error("Failed to update your profile. Please try again.");
       }
 
-      if (!result.data || result.data.length === 0) {
-        console.error("[LEARNER_UPDATE] Learner record not found for phone:", phone);
-        throw new Error(`Learner profile not found. Please sign up again.`);
-      }
-
-      console.log("[LEARNER_UPDATE] Learner updated successfully:", result.data[0]);
-      return result.data[0];
+      console.log("[LEARNER_UPDATE] ✅ Learner created as fallback:", insertResult.data?.[0]);
+      return insertResult.data?.[0] ?? null;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
