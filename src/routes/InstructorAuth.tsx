@@ -84,12 +84,22 @@ export default function InstructorAuth() {
       const formattedPhone = `+91${phone.replace(/\D/g, "")}`;
       if (active === "login") {
         await login(formattedPhone, password, "instructor");
-      } else if (active === "signup") {
-        if (!name || name.trim().length < 2) {
-          throw new Error("Please enter your full name");
-        }
-        await signUp(formattedPhone, password, "instructor", name.trim());
-      } else if (active === "forgot-password") {
+       } else if (active === "signup") {
+         if (!name || name.trim().length < 2) {
+           throw new Error("Please enter your full name");
+         }
+         await signUp(formattedPhone, password, "instructor", name.trim());
+         // Show success message and redirect to login
+         setSuccessMessage("User registered successfully! You can now login with your phone number.");
+         setTimeout(() => {
+           setActive("login");
+           setPhone("");
+           setName("");
+           setPassword("");
+           setSuccessMessage("");
+           setErrorMessage("");
+         }, 2500);
+       } else if (active === "forgot-password") {
         if (!resetRequested) {
           if (!phone || phone.trim().length < 10) {
             throw new Error("Please enter a valid phone number");

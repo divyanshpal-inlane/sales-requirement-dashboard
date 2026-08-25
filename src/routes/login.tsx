@@ -78,18 +78,28 @@ export default function Login() {
     }
   };
 
-  const onSubmitHandler = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(""); // Clear any previous errors
-    try {
-      if (active === "login") {
-        await login(phone, password, "learner");
-      } else if (active === "signup") {
-        if (!name || name.trim().length < 2) {
-          throw new Error("Please enter your full name");
-        }
-        await signUp(phone, password, "learner", name.trim());
-      } else if (active === "forgot-password") {
+   const onSubmitHandler = async (e: React.FormEvent) => {
+     e.preventDefault();
+     setErrorMessage(""); // Clear any previous errors
+     try {
+       if (active === "login") {
+         await login(phone, password, "learner");
+       } else if (active === "signup") {
+         if (!name || name.trim().length < 2) {
+           throw new Error("Please enter your full name");
+         }
+         await signUp(phone, password, "learner", name.trim());
+         // Show success message and redirect to login
+         setSuccessMessage("User registered successfully! You can now login with your phone number.");
+         setTimeout(() => {
+           setSearchParams({ active: "login" });
+           setPhone("");
+           setName("");
+           setPassword("");
+           setSuccessMessage("");
+           setErrorMessage("");
+         }, 2500);
+       } else if (active === "forgot-password") {
         if (!resetRequested) {
           // Step 1: Request password reset OTP
           if (!phone || phone.trim().length < 10) {
