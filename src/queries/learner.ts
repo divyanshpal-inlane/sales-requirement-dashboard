@@ -16,23 +16,34 @@ export function useLearner() {
     queryKey: ["learner", phone],
     queryFn: async () => {
       if (!phone) throw new Error("phone is required");
-      const { data: Learner, error } = await supabase
-        .from("Learner")
-        .select()
-        .eq("phone", phone)
-        .order("created_at", { ascending: false }) // replace created_at with your time column
-        .limit(1)
-        .maybeSingle();
 
-      if (error) throw new Error("Supabase error");
-      if (Learner) {
-        console.log(
-          "Fetched learner:",
-          Learner.onboarding_completed,
-          Learner.dob,
-        );
+      // Try all phone formats since auth context may return phone without +
+      // e.g., auth returns "917368948038" but DB has "+917368948038"
+      const phoneFormats = getAllPhoneFormats(phone);
+      console.log("[LEARNER] Trying phone formats to fetch learner:", phoneFormats);
+
+      for (const format of phoneFormats) {
+        const { data: Learner, error } = await supabase
+          .from("Learner")
+          .select()
+          .eq("phone", format)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.warn("[LEARNER] Error with format", format, ":", error.message);
+          continue;
+        }
+
+        if (Learner) {
+          console.log("[LEARNER] ✅ Found learner with format:", format, "onboarding_completed:", Learner.onboarding_completed, "dob:", Learner.dob);
+          return Learner;
+        }
       }
-      return Learner;
+
+      console.log("[LEARNER] No learner found with any phone format for:", phone);
+      return null;
     },
     staleTime: Infinity,
     enabled: !!phone,
