@@ -82,14 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Guard: if Supabase fires SIGNED_OUT while a Go auth user is logged in
-      // (e.g. because refreshSession failed with an invalid token during Go login),
-      // do NOT clear the user state.  We can detect this by checking whether
-      // go_access_token is still in localStorage:
-      //   - During Go login: go_access_token is set BEFORE refreshSession runs,
-      //     so it is present here → suppress the spurious SIGNED_OUT.
-      //   - During real logout: logout() removes go_access_token BEFORE calling
-      //     supabase.auth.signOut(), so it is gone here → SIGNED_OUT proceeds normally.
       if (_event === 'SIGNED_OUT' && !session && localStorage.getItem("go_access_token")) {
         console.log("[AUTH] SIGNED_OUT suppressed — Go auth session in progress.");
         setLoading(false);
@@ -154,36 +146,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         goLoginFailed = true;
       }
 
-      if (!goLoginFailed && goResponse) {
-        console.log("[AUTH] Go service response received for user:", goResponse.user?.id);
+       if (!goLoginFailed && goResponse) {
+         console.log("[AUTH] ========== GO SERVICE LOGIN SUCCESS ==========");
+         console.log("[AUTH] Go Service User ID:", goResponse.user?.id);
+         console.log("[AUTH] Go Service Phone:", goResponse.user?.phone);
+         console.log("[AUTH] Go Service Role:", goResponse.user?.role);
+         console.log("[AUTH] Go Service Status:", goResponse.user?.status);
+         console.log("[AUTH] Supabase User ID (from Go):", goResponse.supabaseUserId);
+         console.log("[AUTH] ================================================");
 
-        // Role check against Go user object
-        const userRole = goResponse.user?.role;
-        const isValidRole =
-          userRole === role ||
-          (role === "admin" && (userRole === "admin" || userRole === "user" || userRole === "super_admin"));
+         // Role check against Go user object
+         const userRole = goResponse.user?.role;
+         const isValidRole =
+           userRole === role ||
+           (role === "admin" && (userRole === "admin" || userRole === "user" || userRole === "super_admin"));
 
-        if (!isValidRole) {
-          console.error("[AUTH] Role mismatch:", { expected: role, actual: userRole });
-          throw new Error("Invalid role for this login");
-        }
+         if (!isValidRole) {
+           console.error("[AUTH] ❌ ROLE MISMATCH - Expected:", role, "Got:", userRole);
+           throw new Error("Invalid role for this login");
+         }
 
-        // Persist Go tokens for backend API calls
-        localStorage.setItem("go_access_token", goResponse.accessToken);
-        localStorage.setItem("go_refresh_token", goResponse.refreshToken);
+         console.log("[AUTH] ✅ Role validation passed:", userRole);
 
-        // ── Establish Supabase session ──────────────────────────────────────
-        // Step 1: try refreshSession
-        const { data: refreshData, error: refreshError } =
-          await supabase.auth.refreshSession({ refresh_token: goResponse.refreshToken });
+         // Persist Go tokens for backend API calls
+         localStorage.setItem("go_access_token", goResponse.accessToken);
+         localStorage.setItem("go_refresh_token", goResponse.refreshToken);
+         console.log("[AUTH] Go tokens stored in localStorage");
 
-        if (!refreshError && refreshData?.session) {
-          console.log("[AUTH] ✅ Supabase session established via refreshSession.");
-          if (refreshData.user && refreshData.session) {
-            triggerShadowAuth(refreshData.user, refreshData.session);
-          }
-          return;
-        }
+         // ── Establish Supabase session ──────────────────────────────────────
+         // Step 1: try refreshSession
+         const { data: refreshData, error: refreshError } =
+           await supabase.auth.refreshSession({ refresh_token: goResponse.refreshToken });
+
+         if (!refreshError && refreshData?.session) {
+           console.log("[AUTH] ✅ Supabase session established via refreshSession");
+           console.log("[AUTH] Supabase Auth User ID:", refreshData.user?.id);
+           console.log("[AUTH] Supabase Auth Phone:", refreshData.user?.phone);
+           console.log("[AUTH] Supabase Auth Role:", refreshData.user?.user_metadata?.user_role);
+           if (refreshData.user && refreshData.session) {
+             triggerShadowAuth(refreshData.user, refreshData.session);
+           }
+           return;
+         }
 
         console.warn(
           "[AUTH] refreshSession failed:",
@@ -323,11 +327,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const data = loginData;
 
-    console.log("[AUTH] User authenticated:", {
-      userId: data.user?.id,
-      phone: data.user?.phone,
-      role: data.user?.user_metadata?.user_role,
-    });
+    console.log("[AUTH] ========== SUPABASE LOGIN SUCCESS ==========");
+    console.log("[AUTH] Supabase Auth User ID:", data.user?.id);
+    console.log("[AUTH] Supabase Auth Phone:", data.user?.phone);
+    console.log("[AUTH] Supabase Auth Role:", data.user?.user_metadata?.user_role);
+    console.log("[AUTH] ===========================================");
 
     const userRole = data.user?.user_metadata.user_role;
     const isValidRole =
@@ -335,12 +339,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (role === "admin" && (userRole === "admin" || userRole === "user"));
 
     if (!isValidRole) {
-      console.error("[AUTH] Role mismatch:", { expected: role, actual: userRole });
+      console.error("[AUTH] ❌ ROLE MISMATCH - Expected:", role, "Got:", userRole);
       await supabase.auth.signOut();
       throw new Error("Invalid role for this login");
     }
 
-    console.log("[AUTH] Login successful!");
+    console.log("[AUTH] ✅ Supabase login successful!");
     // Trigger shadow auth for all users (Supabase fallback path)
     triggerShadowAuth(data.user, data.session);
   };
@@ -432,27 +436,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn("[AUTH] Go signup failed (non-fatal). Learner will use Supabase session.", goResult.error);
       }
 
-      // Create Learner record in Supabase DB (if not already created by trigger)
-      const { data: existingLearner } = await supabase
-        .from("Learner")
-        .select("id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
-
-      if (!existingLearner) {
-        // Use 'as any' — the typed client enforces all NOT NULL columns but
-        // these fields have DB-level defaults; the signup only sets the minimum.
-        const { error: insertError } = await (supabase as any).from("Learner").insert({
-          phone: formattedPhone,
-          name: name || null,
-          onboarding_completed: false,
-        });
-        if (insertError) {
-          console.warn("[AUTH] Failed to create Learner record:", insertError.message);
-        }
-      }
-
-      console.log("[AUTH] ✅ Learner signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
+       // Learner record is created by the update_signed_up_flag() trigger in Supabase
+       // when the auth user is created. No manual insertion needed.
+       console.log("[AUTH] ✅ Learner profile will be created by database trigger");
+       console.log("[AUTH] ✅ Learner signup complete (Supabase:", !!data.user, ", Go:", goResult.success, ")");
       return;
     }
 
@@ -522,22 +509,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn("[AUTH] Go instructor signup failed (non-fatal). Instructor will use Supabase session.", goResult.error);
       }
 
-      // Create Instructor record in Supabase DB
-      const { data: existingInstructor } = await supabase
-        .from("Instructor")
-        .select("id")
-        .eq("phone", formattedPhone)
-        .maybeSingle();
-
-      if (!existingInstructor) {
-        const { error: insertError } = await supabase.from("Instructor").insert({
-          phone: formattedPhone,
-          name: name || null,
-        });
-        if (insertError) {
-          console.warn("[AUTH] Failed to create Instructor record:", insertError.message);
-        }
-      }
+      // Instructor record is created by the update_signed_up_flag() trigger in Supabase
+      // when the auth user is created. No manual insertion needed.
+      console.log("[AUTH] ✅ Instructor profile will be created by database trigger");
 
       // Trigger shadow auth to sync instructor to Go/RDS in the background
       if (data.user && data.session) {
