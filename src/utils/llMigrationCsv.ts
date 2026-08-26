@@ -166,6 +166,60 @@ function resolveCourse(v: string | undefined): { id: string | null; label: strin
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Normalise CSV dates to YYYY-MM-DD for Postgres `date` columns.
+ * Accepts ISO (2026-02-28), Indian (28-02-2026 / 28/02/2026), and rejects
+ * impossible calendar days (e.g. 29-02-2026 — 2026 is not a leap year).
+ */
+export function parseMigrationDate(
+  raw: string | undefined,
+  fieldLabel: string,
+): { value: string | null; error: string | null } {
+  const s = (raw ?? "").trim();
+  if (!s) return { value: null, error: null };
+
+  let y: number;
+  let m: number;
+  let d: number;
+
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  const dmy = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(s);
+  if (iso) {
+    y = Number(iso[1]);
+    m = Number(iso[2]);
+    d = Number(iso[3]);
+  } else if (dmy) {
+    d = Number(dmy[1]);
+    m = Number(dmy[2]);
+    y = Number(dmy[3]);
+  } else {
+    return {
+      value: null,
+      error: `${fieldLabel} must be YYYY-MM-DD or DD-MM-YYYY (got "${s}")`,
+    };
+  }
+
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1900 || y > 2100) {
+    return { value: null, error: `${fieldLabel} is not a valid date ("${s}")` };
+  }
+
+  // Reject impossible days (29 Feb in non-leap years, 31 Apr, etc.).
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    return {
+      value: null,
+      error: `${fieldLabel} is not a real calendar date ("${s}")`,
+    };
+  }
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { value: `${y}-${pad(m)}-${pad(d)}`, error: null };
+}
+
 // ---------------------------------------------------------------------------
 // Map + validate the parsed grid into typed rows.
 // ---------------------------------------------------------------------------
@@ -201,6 +255,19 @@ export function analyzeLLRows(grid: string[][]): {
     const email = get(r, "email") || null;
     if (email && !EMAIL_RE.test(email)) errors.push("invalid email");
 
+    const dobParsed = parseMigrationDate(get(r, "dob"), "dob");
+    if (dobParsed.error) errors.push(dobParsed.error);
+    const llRecvParsed = parseMigrationDate(
+      get(r, "ll_received_date"),
+      "ll_received_date",
+    );
+    if (llRecvParsed.error) errors.push(llRecvParsed.error);
+    const llTestParsed = parseMigrationDate(
+      get(r, "ll_test_date"),
+      "ll_test_date",
+    );
+    if (llTestParsed.error) errors.push(llTestParsed.error);
+
     // Stage: default to has_ll (these are LL customers); a 4-wheeler DL implies LL.
     const hasADL = parseBool(get(r, "has_a_dl"));
     let stage = get(r, "ll_stage").toLowerCase() as LLStage;
@@ -225,7 +292,7 @@ export function analyzeLLRows(grid: string[][]): {
       name,
       phone,
       email,
-      dob: get(r, "dob") || null,
+      dob: dobParsed.value,
       area: get(r, "area") || null,
       pincode: get(r, "pincode") || null,
       pickupLocation: get(r, "pick_up_location") || null,
@@ -233,8 +300,8 @@ export function analyzeLLRows(grid: string[][]): {
       addressLng: parseNum(get(r, "address_lng")),
       stage,
       llApplicationId: get(r, "ll_application_id") || null,
-      llReceivedDate: get(r, "ll_received_date") || null,
-      llTestDate: get(r, "ll_test_date") || null,
+      llReceivedDate: llRecvParsed.value,
+      llTestDate: llTestParsed.value,
       hasADL,
       hasTwoWheeler: parseBool(get(r, "has_two_wheeler_license")),
       courseId: course.id,
