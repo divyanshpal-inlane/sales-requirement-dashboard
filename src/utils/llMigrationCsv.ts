@@ -302,6 +302,10 @@ export function buildLearnerInsert(row: ParsedLLRow): Record<string, unknown> {
     pick_up_location: row.pickupLocation,
     address_lat: row.addressLat,
     address_lng: row.addressLng,
+    // Match LearnerMigration / create-learner-and-enrollment — both are required
+    // on insert in production (no DB default).
+    address_change_required: false,
+    has_postLL_done: false,
     ...llFieldsForStage(row),
     comments: `[LL Migration] ${row.comments ?? "Migrated LL customer"}`,
     onboarding_completed: true,
