@@ -155,7 +155,7 @@ export default function CarCommerceLeads() {
               </div>
             ) : (
               <ScrollArea>
-                <table className="w-full min-w-[1300px] text-sm">
+                <table className="w-full min-w-[1450px] text-sm">
                   <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
                     <tr className="[&>th]:p-2 [&>th]:text-left">
                       <th>Name</th>
@@ -169,6 +169,7 @@ export default function CarCommerceLeads() {
                       <th>Condition</th>
                       <th>Buy timeframe</th>
                       <th>Updated</th>
+                      <th>Onboarded</th>
                       <th>1st Class</th>
                       <th>50% Class</th>
                       <th>Last Class</th>
@@ -195,9 +196,17 @@ export default function CarCommerceLeads() {
                         <td>{r.carIntentType ?? "—"}</td>
                         <td>{r.carIntentCondition ?? "—"}</td>
                         <td>{r.carIntentTimeframe ?? "—"}</td>
-                        <td className="text-xs text-muted-foreground">
+                        <td className="whitespace-nowrap text-xs text-muted-foreground">
                           {r.carIntentUpdatedAt
-                            ? format(new Date(r.carIntentUpdatedAt), "d MMM yy")
+                            ? format(new Date(r.carIntentUpdatedAt), "d MMM yy, h:mm a")
+                            : "—"}
+                        </td>
+                        <td className="whitespace-nowrap text-xs text-muted-foreground">
+                          {r.carOnboardingIntentAt
+                            ? format(
+                                new Date(r.carOnboardingIntentAt),
+                                "d MMM yy, h:mm a",
+                              )
                             : "—"}
                         </td>
                         <td className="whitespace-nowrap text-xs">

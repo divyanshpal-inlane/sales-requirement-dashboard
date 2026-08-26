@@ -792,6 +792,11 @@ const LEARNER_FIELD_GROUPS: LearnerFieldGroup[] = [
         label: "Car Intent Updated",
         type: "readonly",
       },
+      {
+        key: "car_onboarding_intent_at",
+        label: "Car Onboarding Intent At",
+        type: "readonly",
+      },
     ],
   },
   {

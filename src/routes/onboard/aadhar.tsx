@@ -45,6 +45,12 @@ export default function ExcitementQuestions() {
       {
         driving_motivation: motivation,
         car_purchase_timeline: wantsCar ? timeline : "",
+        ...(wantsCar
+          ? {
+              car_intent_source: "onboarding",
+              car_onboarding_intent_at: new Date().toISOString(),
+            }
+          : {}),
         onboarding_completed: true,
       },
       {
