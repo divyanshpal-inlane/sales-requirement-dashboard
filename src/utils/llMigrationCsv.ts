@@ -181,6 +181,8 @@ export function analyzeLLRows(grid: string[][]): {
     return i >= 0 ? (r[i] ?? "").trim() : "";
   };
 
+  const phonesSeenInCsv = new Map<string, number>(); // phone → first row number
+
   const rows: ParsedLLRow[] = grid.slice(1).map((r, i) => {
     const errors: string[] = [];
     const name = get(r, "name");
@@ -188,6 +190,13 @@ export function analyzeLLRows(grid: string[][]): {
 
     const phone = normalisePhone(get(r, "phone"));
     if (!phone) errors.push("phone must have 10 digits");
+    else if (phonesSeenInCsv.has(phone)) {
+      errors.push(
+        `duplicate phone in this CSV (also on row ${phonesSeenInCsv.get(phone)})`,
+      );
+    } else {
+      phonesSeenInCsv.set(phone, i + 1);
+    }
 
     const email = get(r, "email") || null;
     if (email && !EMAIL_RE.test(email)) errors.push("invalid email");
@@ -349,7 +358,10 @@ export function buildEnrollmentInsert(
     installment_mode: paid < total ? "installment" : "full",
     installment1_amount: paid,
     installment2_amount: Math.max(0, total - paid),
-    payment_status: paid >= total && total > 0 ? "completed" : paid > 0 ? "half_paid" : "pending",
+    // Must be full_paid / half_paid / pending — "completed" is payment.status only.
+    // Issue Fixer and the learner app key off enrollment.payment_status === "full_paid".
+    payment_status:
+      paid >= total && total > 0 ? "full_paid" : paid > 0 ? "half_paid" : "pending",
     // Migrated customers get full lesson access.
     unlocked_lessons: Array.from({ length: totalLessons }, (_, i) => i + 1),
     progress: {
