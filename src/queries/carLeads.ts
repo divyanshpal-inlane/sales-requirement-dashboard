@@ -20,6 +20,7 @@ export interface CarLead {
   carIntentCondition: string | null;
   carIntentTimeframe: string | null;
   carIntentUpdatedAt: string | null;
+  carOnboardingIntentAt: string | null;
   // Course-timeline dates, computed chronologically from the learner's
   // Schedule rows (see attachClassDates). null when the learner has no classes.
   firstClassDate: string | null; // 1st class
@@ -95,7 +96,7 @@ export function useCarLeads() {
       const { data, error } = await supabase
         .from("Learner")
         .select(
-          "id, name, phone, area, pick_up_location, driving_motivation, car_purchase_timeline, car_intent_planning, car_intent_type, car_intent_condition, car_intent_timeframe, car_intent_updated_at",
+          "id, name, phone, area, pick_up_location, driving_motivation, car_purchase_timeline, car_intent_planning, car_intent_type, car_intent_condition, car_intent_timeframe, car_intent_updated_at, car_onboarding_intent_at",
         )
         .or(
           `driving_motivation.eq.${CAR_MOTIVATION},car_intent_planning.eq.Yes,car_purchase_timeline.neq.`,
@@ -115,6 +116,7 @@ export function useCarLeads() {
           carIntentCondition: (r.car_intent_condition as string) ?? null,
           carIntentTimeframe: (r.car_intent_timeframe as string) ?? null,
           carIntentUpdatedAt: (r.car_intent_updated_at as string) ?? null,
+          carOnboardingIntentAt: (r.car_onboarding_intent_at as string) ?? null,
           firstClassDate: null,
           midClassDate: null,
           lastClassDate: null,
@@ -141,6 +143,7 @@ export function carLeadsToCSV(rows: CarLead[]): string {
     "Condition",
     "Buy Timeframe",
     "Intent Updated",
+    "Onboarding Intent At",
     "1st Class Date",
     "50% Class Date",
     "Last Class Date",
@@ -165,7 +168,10 @@ export function carLeadsToCSV(rows: CarLead[]): string {
         r.carIntentCondition,
         r.carIntentTimeframe,
         r.carIntentUpdatedAt
-          ? format(new Date(r.carIntentUpdatedAt), "yyyy-MM-dd")
+          ? format(new Date(r.carIntentUpdatedAt), "yyyy-MM-dd HH:mm")
+          : "",
+        r.carOnboardingIntentAt
+          ? format(new Date(r.carOnboardingIntentAt), "yyyy-MM-dd HH:mm")
           : "",
         r.firstClassDate ?? "",
         r.midClassDate ?? "",

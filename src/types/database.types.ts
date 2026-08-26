@@ -728,6 +728,7 @@ export type Database = {
           car_intent_timeframe: string | null;
           car_intent_source: string | null;
           car_intent_updated_at: string | null;
+          car_onboarding_intent_at: string | null;
           car_purchase_timeline: string | null;
           city: string | null;
           comments: string | null;
@@ -782,6 +783,7 @@ export type Database = {
           car_intent_timeframe?: string | null;
           car_intent_source?: string | null;
           car_intent_updated_at?: string | null;
+          car_onboarding_intent_at?: string | null;
           car_purchase_timeline?: string | null;
           city?: string | null;
           comments?: string | null;
@@ -831,6 +833,7 @@ export type Database = {
           car_intent_timeframe?: string | null;
           car_intent_source?: string | null;
           car_intent_updated_at?: string | null;
+          car_onboarding_intent_at?: string | null;
           car_purchase_timeline?: string | null;
           city?: string | null;
           comments?: string | null;
