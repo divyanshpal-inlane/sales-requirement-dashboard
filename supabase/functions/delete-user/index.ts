@@ -31,9 +31,9 @@ serve(async (req) => {
 
     // Normalize phone number to consistent format: +919876543210
     const phoneDigits = phone.replace(/\D/g, "");
-    const normalizedPhone = phoneDigits.endsWith("91") 
-      ? `+${phoneDigits}` 
-      : `+91${phoneDigits.replace(/^91/, "")}`;
+    const normalizedPhone = phoneDigits.startsWith("91") && phoneDigits.length > 10
+      ? `+${phoneDigits}`
+      : `+91${phoneDigits}`;
     phone = normalizedPhone;
     console.log("[delete-user] Normalized phone:", phone);
 
@@ -101,43 +101,81 @@ serve(async (req) => {
     console.log("[delete-user] Found user with ID:", userId);
 
     // Step 1: Find the actual auth user by phone (user ID != auth user ID)
-    console.log("[delete-user] Searching for auth user by phone:", phone);
-    
-    // Try to find auth user by phone - search all variations
-    let authUser = null;
+    // Build phone search variants
+    const basePhone = phone.replace(/^\+91/, "").replace(/^91/, ""); // 10-digit number
     const phoneSearchVariants = [
-      phone,
-      phone.replace(/^\+91/, ""),
-      phone.replace(/^\+/, ""),
-      phone.replace(/\D/g, ""),
+      phone,           // +919876543210
+      basePhone,       // 9876543210
+      `91${basePhone}`, // 919876543210
     ];
+    console.log("[delete-user] Searching for auth user with variants:", phoneSearchVariants);
 
-    for (const variant of phoneSearchVariants) {
-      try {
-        const { data: users } = await supabase.auth.admin.listUsers();
-        authUser = users?.users?.find((u) => u.phone === variant);
-        if (authUser) {
-          console.log("[delete-user] Found auth user with phone variant:", variant);
-          break;
-        }
-      } catch (e) {
-        console.log("[delete-user] Error searching with variant:", variant, e);
+    // Fetch ALL auth users with pagination to avoid missing users
+    let authUser = null;
+    let page = 1;
+    const perPage = 1000;
+
+    while (!authUser) {
+      const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (listError) {
+        console.error("[delete-user] Error listing auth users:", listError);
+        break;
       }
+
+      const users = usersData?.users ?? [];
+      console.log(`[delete-user] Page ${page}: fetched ${users.length} auth users`);
+
+      authUser = users.find((u) =>
+        phoneSearchVariants.some((variant) => u.phone === variant)
+      ) ?? null;
+
+      // If we got fewer users than perPage, we've reached the last page
+      if (users.length < perPage) break;
+      page++;
     }
 
     if (!authUser) {
-      console.error("[delete-user] Auth user not found by phone");
+      console.error("[delete-user] Auth user not found for phone variants:", phoneSearchVariants);
+      // Still delete the User DB record even if auth user not found
+      // (auth user may have already been deleted or may not exist)
+      console.warn("[delete-user] Proceeding to delete User record only (no auth user found)");
+
+      const { error: deleteError } = await supabase
+        .from("User")
+        .delete()
+        .eq("id", userId);
+
+      if (deleteError) {
+        console.error("[delete-user] Error deleting user record:", deleteError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Failed to delete user record from database",
+            details: deleteError.message 
+          }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Auth user not found" 
+        JSON.stringify({
+          success: true,
+          message: "User database record deleted (no matching auth user found)",
+          userId,
         }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
       );
     }
 
     const authUserId = authUser.id;
-    console.log("[delete-user] Found auth user with ID:", authUserId);
+    console.log("[delete-user] Found auth user with ID:", authUserId, "phone:", authUser.phone);
 
     // Step 2: Delete auth user FIRST (before deleting database record)
     console.log("[delete-user] Attempting to delete auth user:", authUserId);
@@ -157,7 +195,7 @@ serve(async (req) => {
 
     console.log("[delete-user] ✓ Auth user deleted successfully");
 
-    // Step 2: Delete from User table (permissions will cascade due to ON DELETE CASCADE)
+    // Step 3: Delete from User table (permissions will cascade due to ON DELETE CASCADE)
     console.log("[delete-user] Attempting to delete User record:", userId);
     const { error: deleteError } = await supabase
       .from("User")
