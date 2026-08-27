@@ -558,8 +558,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("go_access_token");
     localStorage.removeItem("go_refresh_token");
     localStorage.removeItem("supabase_access_token");
+
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+
+    // AuthSessionMissingError (403) is expected when:
+    //   - The session was already invalidated server-side (e.g. after a password
+    //     change via the Go service / Supabase admin API).
+    // In that case the user is effectively already logged out — do NOT throw,
+    // just let the caller continue with its navigation / cleanup.
+    if (error && error.name !== "AuthSessionMissingError") {
+      throw error;
+    }
+
+    if (error) {
+      console.warn("[AUTH] signOut returned AuthSessionMissingError — session was already invalidated (e.g. after password change). Treating as successful logout.");
+    }
   };
 
 
