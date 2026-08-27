@@ -42,7 +42,7 @@ import {
   ParsedLLRow,
 } from "@/utils/llMigrationCsv";
 
-type RowStatus = "valid" | "duplicate" | "invalid";
+type RowStatus = "valid" | "imported" | "duplicate" | "invalid";
 
 const STAGE_LABELS: Record<LLStage, string> = {
   has_ll: "Already has LL (ready to schedule)",
@@ -61,8 +61,23 @@ const COURSE_OPTIONS = Object.values(COURSES_DATA);
 
 const STATUS_BADGE: Record<RowStatus, string> = {
   valid: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  imported: "border-emerald-300 bg-emerald-100 text-emerald-800",
   duplicate: "border-amber-200 bg-amber-50 text-amber-700",
   invalid: "border-red-200 bg-red-50 text-red-700",
+};
+
+const STATUS_LABEL: Record<RowStatus, string> = {
+  valid: "ready",
+  imported: "imported",
+  duplicate: "already in system",
+  invalid: "invalid",
+};
+
+const STATUS_NOTE: Record<RowStatus, string> = {
+  valid: "Will be created on import",
+  imported: "Created in this import",
+  duplicate: "Skipped — this phone is already a learner",
+  invalid: "",
 };
 
 // ---------------------------------------------------------------------------
@@ -263,29 +278,31 @@ function BulkImport() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<ParsedLLRow[]>([]);
   const [duplicates, setDuplicates] = useState<Set<string>>(new Set());
+  const [imported, setImported] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
 
-  const statusOf = (r: ParsedLLRow): RowStatus =>
-    r.errors.length > 0
-      ? "invalid"
-      : duplicates.has(r.phone)
-        ? "duplicate"
-        : "valid";
+  const statusOf = (r: ParsedLLRow): RowStatus => {
+    if (r.errors.length > 0) return "invalid";
+    if (imported.has(r.phone)) return "imported";
+    if (duplicates.has(r.phone)) return "duplicate";
+    return "valid";
+  };
 
   const counts = useMemo(() => {
-    const c = { valid: 0, duplicate: 0, invalid: 0 };
+    const c = { valid: 0, imported: 0, duplicate: 0, invalid: 0 };
     for (const r of rows) c[statusOf(r)]++;
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, duplicates]);
+  }, [rows, duplicates, imported]);
 
   const handleTemplate = () =>
     downloadCSV("ll_customer_migration_template.csv", buildTemplateCsv());
 
   const handleFile = async (file: File) => {
     setResult(null);
+    setImported(new Set());
     setAnalyzing(true);
     try {
       const text = await file.text();
@@ -312,7 +329,7 @@ function BulkImport() {
     if (validRows.length === 0) return;
     setImporting(true);
     const res: ImportResult = { created: 0, failed: 0, errors: [] };
-    const importedPhones = new Set(duplicates);
+    const newlyImported = new Set(imported);
     for (const r of validRows) {
       const err = await importLLCustomer(r);
       if (err) {
@@ -320,10 +337,10 @@ function BulkImport() {
         res.errors.push(`Row ${r.rowNumber} (${r.name || r.phone}): ${err}`);
       } else {
         res.created++;
-        importedPhones.add(r.phone);
+        newlyImported.add(r.phone);
       }
     }
-    setDuplicates(importedPhones);
+    setImported(newlyImported);
     setResult(res);
     setImporting(false);
     toast({
@@ -371,8 +388,13 @@ function BulkImport() {
           <Badge variant="outline" className={STATUS_BADGE.valid}>
             {counts.valid} ready
           </Badge>
+          {counts.imported > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.imported}>
+              {counts.imported} imported
+            </Badge>
+          )}
           <Badge variant="outline" className={STATUS_BADGE.duplicate}>
-            {counts.duplicate} duplicate (skipped)
+            {counts.duplicate} already in system (skipped)
           </Badge>
           <Badge variant="outline" className={STATUS_BADGE.invalid}>
             {counts.invalid} invalid
@@ -434,7 +456,7 @@ function BulkImport() {
                         <td className="text-muted-foreground">{r.rowNumber}</td>
                         <td>
                           <Badge variant="outline" className={`text-[10px] ${STATUS_BADGE[s]}`}>
-                            {s}
+                            {STATUS_LABEL[s]}
                           </Badge>
                         </td>
                         <td className="font-medium">{r.name || "—"}</td>
@@ -447,10 +469,10 @@ function BulkImport() {
                               <AlertTriangle className="h-3 w-3" />
                               {r.errors.join("; ")}
                             </span>
-                          ) : s === "duplicate" ? (
-                            "phone already exists"
+                          ) : s === "imported" ? (
+                            <span className="text-emerald-700">{STATUS_NOTE.imported}</span>
                           ) : (
-                            ""
+                            STATUS_NOTE[s]
                           )}
                         </td>
                       </tr>
