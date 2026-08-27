@@ -373,6 +373,14 @@ function BulkImport() {
           <p className="text-xs text-muted-foreground">
             Columns: name, phone (required), email, area, ll_stage,
             ll_application_id, has_a_dl, course, total_amount…
+            <br />
+            <span className="font-medium text-foreground">
+              Dates (dob, ll_received_date, ll_test_date): use YYYY-MM-DD
+            </span>{" "}
+            e.g. <code className="rounded bg-muted px-1">2026-02-28</code>.
+            DD-MM-YYYY also works, but the day must be real —{" "}
+            <code className="rounded bg-muted px-1">29-02-2026</code> fails
+            (2026 is not a leap year).
           </p>
         </CardContent>
       </Card>
