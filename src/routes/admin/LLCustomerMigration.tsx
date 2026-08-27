@@ -62,22 +62,16 @@ const COURSE_OPTIONS = Object.values(COURSES_DATA);
 const STATUS_BADGE: Record<RowStatus, string> = {
   valid: "border-emerald-200 bg-emerald-50 text-emerald-700",
   imported: "border-emerald-300 bg-emerald-100 text-emerald-800",
-  duplicate: "border-amber-200 bg-amber-50 text-amber-700",
+  duplicate: "border-emerald-300 bg-emerald-100 text-emerald-800",
   invalid: "border-red-200 bg-red-50 text-red-700",
 };
 
+// User-facing labels — keep logic keys (valid/duplicate) but show create/successful.
 const STATUS_LABEL: Record<RowStatus, string> = {
-  valid: "ready",
-  imported: "imported",
-  duplicate: "already in system",
+  valid: "create",
+  imported: "successful",
+  duplicate: "successful",
   invalid: "invalid",
-};
-
-const STATUS_NOTE: Record<RowStatus, string> = {
-  valid: "Will be created on import",
-  imported: "Created in this import",
-  duplicate: "Skipped — this phone is already a learner",
-  invalid: "",
 };
 
 // ---------------------------------------------------------------------------
@@ -379,6 +373,14 @@ function BulkImport() {
           <p className="text-xs text-muted-foreground">
             Columns: name, phone (required), email, area, ll_stage,
             ll_application_id, has_a_dl, course, total_amount…
+            <br />
+            <span className="font-medium text-foreground">
+              Dates (dob, ll_received_date, ll_test_date): use YYYY-MM-DD
+            </span>{" "}
+            e.g. <code className="rounded bg-muted px-1">2026-02-28</code>.
+            DD-MM-YYYY also works, but the day must be real —{" "}
+            <code className="rounded bg-muted px-1">29-02-2026</code> fails
+            (2026 is not a leap year).
           </p>
         </CardContent>
       </Card>
@@ -386,16 +388,13 @@ function BulkImport() {
       {rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant="outline" className={STATUS_BADGE.valid}>
-            {counts.valid} ready
+            {counts.valid} create
           </Badge>
-          {counts.imported > 0 && (
+          {counts.imported + counts.duplicate > 0 && (
             <Badge variant="outline" className={STATUS_BADGE.imported}>
-              {counts.imported} imported
+              {counts.imported + counts.duplicate} successful
             </Badge>
           )}
-          <Badge variant="outline" className={STATUS_BADGE.duplicate}>
-            {counts.duplicate} already in system (skipped)
-          </Badge>
           <Badge variant="outline" className={STATUS_BADGE.invalid}>
             {counts.invalid} invalid
           </Badge>
@@ -469,10 +468,8 @@ function BulkImport() {
                               <AlertTriangle className="h-3 w-3" />
                               {r.errors.join("; ")}
                             </span>
-                          ) : s === "imported" ? (
-                            <span className="text-emerald-700">{STATUS_NOTE.imported}</span>
                           ) : (
-                            STATUS_NOTE[s]
+                            "—"
                           )}
                         </td>
                       </tr>
