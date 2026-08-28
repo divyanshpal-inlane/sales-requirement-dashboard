@@ -16,77 +16,88 @@ Deno.serve(async (req) => {
       throw new Error("'from' and 'to' phone numbers are required");
     }
 
-    const MSG91_AUTHKEY = Deno.env.get("MSG91_AUTHKEY");
-    const MSG91_CALLER_ID = Deno.env.get("MSG91_CALLER_ID");
-    const MSG91_VOICE_URL =
-      Deno.env.get("MSG91_VOICE_URL") ||
-      "https://control.msg91.com/api/v5/voice/call/ctc";
+    // --- Exotel credentials ---
+    const EXOTEL_ACCOUNT_SID = Deno.env.get("EXOTEL_ACCOUNT_SID");
+    const EXOTEL_API_KEY = Deno.env.get("EXOTEL_API_KEY");
+    const EXOTEL_API_TOKEN = Deno.env.get("EXOTEL_API_TOKEN");
+    const EXOTEL_CALLER_ID = Deno.env.get("EXOTEL_CALLER_ID");
+    const EXOTEL_SUBDOMAIN =
+      Deno.env.get("EXOTEL_SUBDOMAIN") || "api.in.exotel.com";
 
-    if (!MSG91_AUTHKEY || !MSG91_CALLER_ID) {
-      throw new Error("MSG91 credentials are not configured");
+    if (
+      !EXOTEL_ACCOUNT_SID ||
+      !EXOTEL_API_KEY ||
+      !EXOTEL_API_TOKEN ||
+      !EXOTEL_CALLER_ID
+    ) {
+      throw new Error("Exotel credentials are not configured");
     }
 
-    const normalizePhone = (phone: string) => {
+    // Normalize to 10-digit Indian number (Exotel accepts both formats)
+    const normalizePhone = (phone: string): string => {
       const digits = phone.replace(/\D/g, "");
-      if (digits.startsWith("91") && digits.length === 12) return digits;
-      if (digits.length === 10) return `91${digits}`;
+      if (digits.startsWith("91") && digits.length === 12) {
+        return digits.slice(2); // Strip country code → 10 digits
+      }
+      if (digits.length === 10) return digits;
       return digits;
     };
 
-    const destination = normalizePhone(from);
-    const destinationB = normalizePhone(to);
+    const fromPhone = normalizePhone(from);
+    const toPhone = normalizePhone(to);
 
-    const payload = {
-      caller_id: MSG91_CALLER_ID,
-      destination,
-      destinationB: [destinationB],
-    };
+    // Exotel C2C endpoint
+    const url = `https://${EXOTEL_SUBDOMAIN}/v1/Accounts/${EXOTEL_ACCOUNT_SID}/Calls/connect`;
 
-    console.log("Calling MSG91:", MSG91_VOICE_URL);
+    // Build form-encoded payload (Exotel requires application/x-www-form-urlencoded)
+    const body = new URLSearchParams({
+      From: fromPhone,
+      To: toPhone,
+      CallerId: EXOTEL_CALLER_ID,
+      TimeLimit: "600", // 10 minutes max — adjust as needed
+      TimeOut: "30", // Ring for 30 seconds before giving up
+      Record: "true", // Record the call
+    });
+
+    console.log(`[masked-call] Calling Exotel C2C: ${url}`);
     console.log(
-      "destination:",
-      destination,
-      "destinationB:",
-      destinationB,
-      "callerId:",
-      MSG91_CALLER_ID,
+      `[masked-call] From: ${fromPhone}, To: ${toPhone}, CallerId: ${EXOTEL_CALLER_ID}`,
     );
 
-    const response = await fetch(MSG91_VOICE_URL, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        authkey: MSG91_AUTHKEY,
-        "Content-Type": "application/json",
-        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization:
+          "Basic " + btoa(`${EXOTEL_API_KEY}:${EXOTEL_API_TOKEN}`),
       },
-      body: JSON.stringify(payload),
+      body: body.toString(),
     });
 
     const responseText = await response.text();
-    console.log("MSG91 response status:", response.status);
-    console.log("MSG91 response body:", responseText);
+    console.log(`[masked-call] Exotel status: ${response.status}`);
+    console.log(`[masked-call] Exotel response: ${responseText}`);
 
     if (!response.ok) {
-      throw new Error(`MSG91 API error: ${response.status} - ${responseText}`);
+      throw new Error(
+        `Exotel API error: ${response.status} - ${responseText}`,
+      );
     }
 
-    let data;
+    let data: Record<string, unknown>;
     try {
       data = JSON.parse(responseText);
     } catch {
       data = { raw: responseText };
     }
 
+    const callData = (data?.Call ?? {}) as Record<string, unknown>;
+
     return new Response(
       JSON.stringify({
         success: true,
-        callSid:
-          data?.data?.id ??
-          data.requestId ??
-          data.request_id ??
-          data.id ??
-          null,
-        status: data.message ?? data.type ?? data.status ?? null,
+        callSid: callData?.Sid ?? null,
+        status: callData?.Status ?? null,
         raw: data,
       }),
       {
@@ -95,6 +106,7 @@ Deno.serve(async (req) => {
       },
     );
   } catch (error) {
+    console.error("[masked-call] Error:", (error as Error).message);
     return new Response(
       JSON.stringify({ success: false, error: (error as Error).message }),
       {
