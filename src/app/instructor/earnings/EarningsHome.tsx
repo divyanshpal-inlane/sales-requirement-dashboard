@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useUser } from "@/context/auth-context";
-import { useMaskedCall } from "@/hooks/useMaskedCall";
+import { useMaskedCallMsg91 } from "@/hooks/useMaskedCallMsg91";
 import {
   useInstructorEarnings,
   useInstructorKAM,
@@ -33,7 +33,7 @@ export default function EarningsHome() {
   const { phone } = useUser();
   const { data, isLoading, isError } = useInstructorEarnings(phone);
   const { data: kam } = useInstructorKAM(data?.instructorId);
-  const { initiateCall, isCallLoading } = useMaskedCall();
+  const { initiateCall, isCallLoading } = useMaskedCallMsg91();
   const [period, setPeriod] = useState<PeriodTab>("thisWeek");
 
   if (isLoading) return <Spinner />;
