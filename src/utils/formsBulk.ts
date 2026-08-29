@@ -249,21 +249,29 @@ export async function generateAllFormsMergedPDF(
 
   for (let i = 0; i < entries.length; i++) {
     const { learner, period, overrides } = entries[i];
-    const { form14, form15, form5 } = buildBulkFormData(
-      learner,
-      period,
-      overrides,
-      sessionsByLearner.get(learner.id) ?? [],
-    );
-    const parts = await Promise.all([
-      generateForm14PDF(form14),
-      generateForm15PDF(form15),
-      generateForm5PDF(form5),
-    ]);
-    for (const bytes of parts) {
-      const doc = await PDFDocument.load(bytes);
-      const pages = await merged.copyPages(doc, doc.getPageIndices());
-      pages.forEach((p) => merged.addPage(p));
+    try {
+      const { form14, form15, form5 } = buildBulkFormData(
+        learner,
+        period,
+        overrides,
+        sessionsByLearner.get(learner.id) ?? [],
+      );
+      const parts = await Promise.all([
+        generateForm14PDF(form14),
+        generateForm15PDF(form15),
+        generateForm5PDF(form5),
+      ]);
+      for (const bytes of parts) {
+        const doc = await PDFDocument.load(bytes);
+        const pages = await merged.copyPages(doc, doc.getPageIndices());
+        pages.forEach((p) => merged.addPage(p));
+      }
+    } catch (error) {
+      const who = learner.name || learner.phone || learner.id || `#${i + 1}`;
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed on ${who} (${i + 1} of ${entries.length}): ${reason}`,
+      );
     }
     onProgress?.(i + 1, entries.length);
   }

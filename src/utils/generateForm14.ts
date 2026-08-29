@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 import { loadInstructorSignatureBytes } from "@/utils/formSignatures";
+import { loadPdfTemplate } from "@/utils/formTemplates";
 import { toWinAnsi } from "@/utils/winAnsi";
 
 export interface Form14Data {
@@ -34,11 +35,10 @@ export interface Form14Data {
  * instead of overlapping the question labels on the left.
  */
 export async function generateForm14PDF(data: Form14Data): Promise<Uint8Array> {
-  const templateUrl = "/assets/form-14-template.pdf";
-  const templateBytes = await fetch(templateUrl).then((res) => {
-    if (!res.ok) throw new Error("Failed to load Form-14 template");
-    return res.arrayBuffer();
-  });
+  const templateBytes = await loadPdfTemplate(
+    "/assets/form-14-template.pdf",
+    "Form-14 template",
+  );
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   const page = pdfDoc.getPages()[0];
