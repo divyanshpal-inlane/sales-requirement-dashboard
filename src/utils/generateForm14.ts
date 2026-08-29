@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
+import { loadInstructorSignatureBytes } from "@/utils/formSignatures";
 import { toWinAnsi } from "@/utils/winAnsi";
 
 export interface Form14Data {
@@ -123,7 +124,25 @@ export async function generateForm14PDF(data: Form14Data): Promise<Uint8Array> {
     ]),
     443,
   ); // 12. Remarks
-  // 13. Signature — left blank for manual signature
+
+  // 13. Signature of the licence holder/instructor — sit on the dotted line.
+  const signatureBytes = await loadInstructorSignatureBytes();
+  const signature = await pdfDoc.embedPng(signatureBytes);
+  const sigMaxW = 180;
+  const sigMaxH = 22;
+  const aspect = signature.width / signature.height;
+  let sigW = sigMaxW;
+  let sigH = sigW / aspect;
+  if (sigH > sigMaxH) {
+    sigH = sigMaxH;
+    sigW = sigH * aspect;
+  }
+  page.drawImage(signature, {
+    x: answerX,
+    y: 425,
+    width: sigW,
+    height: sigH,
+  });
 
   return pdfDoc.save();
 }
