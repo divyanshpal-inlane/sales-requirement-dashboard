@@ -1,4 +1,11 @@
-import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from "pdf-lib";
+import {
+  PDFDocument,
+  PDFFont,
+  PDFImage,
+  PDFPage,
+  rgb,
+  StandardFonts,
+} from "pdf-lib";
 
 import { toWinAnsi } from "@/utils/winAnsi";
 
@@ -42,12 +49,23 @@ const CONT_LABELS = [
   "Signature or thumb impression of the trainee",
 ];
 
+const INSTRUCTOR_SIG_COL = 4;
+const SIG_CELL_PADDING = 3;
+
+/** Row bounds for the session table (pdf-lib y, origin = bottom-left). */
+function rowCellBounds(topY: number, rowIndex: number) {
+  const cellTop = topY - rowIndex * ROW_H;
+  const cellBottom = cellTop - ROW_H;
+  return { cellTop, cellBottom };
+}
+
 /**
  * Fills Form-15 ("Register showing driving hours spent by a trainee"), A4
  * 595.2 x 842. Fills the four header fields and, when `sessions` are given,
  * one table row per driving session (the template's two preprinted blank rows
  * are painted over and the grid redrawn to fit; overflow continues on extra
- * pages). Signature columns are always left blank for manual signing.
+ * pages). The instructor-signature column is filled from the school signature
+ * image; the trainee column is left blank for manual signing.
  *
  * Dotted answer lines (measured from the template) run x≈390→529 at these
  * baselines (pdf-lib y from bottom):
@@ -104,10 +122,51 @@ export async function generateForm15PDF(data: Form15Data): Promise<Uint8Array> {
 
   const sessions = data.sessions ?? [];
   if (sessions.length > 0) {
-    fillSessionsTable(pdfDoc, firstPage, font, textColor, lineColor, sessions);
+    const signatureBytes = await fetch("/assets/instructor-signature.png").then(
+      (res) => {
+        if (!res.ok) throw new Error("Failed to load instructor signature");
+        return res.arrayBuffer();
+      },
+    );
+    const instructorSignature = await pdfDoc.embedPng(signatureBytes);
+    fillSessionsTable(
+      pdfDoc,
+      firstPage,
+      font,
+      textColor,
+      lineColor,
+      sessions,
+      instructorSignature,
+    );
   }
 
   return pdfDoc.save();
+}
+
+/** Fit and center the instructor signature inside one table row (column 4). */
+function drawInstructorSignature(
+  page: PDFPage,
+  image: PDFImage,
+  topY: number,
+  rowIndex: number,
+) {
+  const { cellTop, cellBottom } = rowCellBounds(topY, rowIndex);
+  const cellLeft = COLS[INSTRUCTOR_SIG_COL] + SIG_CELL_PADDING;
+  const cellRight = COLS[INSTRUCTOR_SIG_COL + 1] - SIG_CELL_PADDING;
+  const cellW = cellRight - cellLeft;
+  const innerH = ROW_H - SIG_CELL_PADDING * 2;
+
+  const aspect = image.width / image.height;
+  let drawW = cellW;
+  let drawH = drawW / aspect;
+  if (drawH > innerH) {
+    drawH = innerH;
+    drawW = drawH * aspect;
+  }
+
+  const x = cellLeft + (cellW - drawW) / 2;
+  const y = cellBottom + SIG_CELL_PADDING + (innerH - drawH) / 2;
+  page.drawImage(image, { x, y, width: drawW, height: drawH });
 }
 
 function fillSessionsTable(
@@ -117,32 +176,12 @@ function fillSessionsTable(
   textColor: ReturnType<typeof rgb>,
   lineColor: ReturnType<typeof rgb>,
   sessions: Form15Session[],
+  instructorSignature: PDFImage,
 ) {
   const left = COLS[0];
   const right = COLS[COLS.length - 1];
-
-  const centerText = (
-    page: PDFPage,
-    text: string,
-    col: number,
-    y: number,
-    base = 9,
-  ) => {
-    text = toWinAnsi(text);
-    const maxWidth = COLS[col + 1] - COLS[col] - 6;
-    let size = base;
-    while (size > 5 && font.widthOfTextAtSize(text, size) > maxWidth) {
-      size -= 0.5;
-    }
-    const x = COLS[col] + (COLS[col + 1] - COLS[col]) / 2;
-    page.drawText(text, {
-      x: x - font.widthOfTextAtSize(text, size) / 2,
-      y,
-      size,
-      font,
-      color: textColor,
-    });
-  };
+  const tableLeft = left - 0.5;
+  const tableRight = right + 0.5;
 
   const drawGrid = (page: PDFPage, topY: number, rows: number) => {
     const bottomY = topY - rows * ROW_H;
@@ -154,25 +193,66 @@ function fillSessionsTable(
         color: lineColor,
       });
     }
-    for (let i = 1; i <= rows; i++) {
+    for (let i = 0; i <= rows; i++) {
       const y = topY - i * ROW_H;
       page.drawLine({
-        start: { x: left, y },
-        end: { x: right, y },
+        start: { x: tableLeft, y },
+        end: { x: tableRight, y },
         thickness: LINE_W,
         color: lineColor,
       });
     }
   };
 
+  /** Paint over template grid lines before redrawing the session table. */
+  const eraseTableArea = (page: PDFPage, topY: number, rows: number) => {
+    if (rows <= 0) return;
+    const bottomY = topY - rows * ROW_H;
+    page.drawRectangle({
+      x: tableLeft - 1,
+      y: bottomY - 2,
+      width: tableRight - tableLeft + 2,
+      height: topY - bottomY + 4,
+      color: rgb(1, 1, 1),
+    });
+  };
+
+  const drawRowText = (
+    page: PDFPage,
+    text: string,
+    col: number,
+    topY: number,
+    rowIndex: number,
+    base = 9,
+  ) => {
+    text = toWinAnsi(text);
+    const maxWidth = COLS[col + 1] - COLS[col] - 6;
+    let size = base;
+    while (size > 5 && font.widthOfTextAtSize(text, size) > maxWidth) {
+      size -= 0.5;
+    }
+    const { cellBottom } = rowCellBounds(topY, rowIndex);
+    // drawText y is the glyph baseline. Helvetica cap-height is ~0.72×size,
+    // so the visual centre of digits sits ~0.36×size above the baseline.
+    const y = cellBottom + ROW_H / 2 - size * 0.36;
+    const x = COLS[col] + (COLS[col + 1] - COLS[col]) / 2;
+    page.drawText(text, {
+      x: x - font.widthOfTextAtSize(text, size) / 2,
+      y,
+      size,
+      font,
+      color: textColor,
+    });
+  };
+
   const drawRows = (page: PDFPage, topY: number, rows: Form15Session[]) => {
     drawGrid(page, topY, rows.length);
     rows.forEach((s, i) => {
-      const y = topY - i * ROW_H - ROW_H / 2 - 3;
-      centerText(page, s.date, 0, y);
-      centerText(page, s.fromHrs, 1, y);
-      centerText(page, s.toHrs, 2, y);
-      centerText(page, s.vehicleClass || "LMV", 3, y);
+      drawRowText(page, s.date, 0, topY, i);
+      drawRowText(page, s.fromHrs, 1, topY, i);
+      drawRowText(page, s.toHrs, 2, topY, i);
+      drawRowText(page, s.vehicleClass || "LMV", 3, topY, i);
+      drawInstructorSignature(page, instructorSignature, topY, i);
     });
   };
 
@@ -214,10 +294,10 @@ function fillSessionsTable(
   // Paint over the template's two preprinted blank rows (their inner lines
   // don't match the per-session row height), keeping the header row intact.
   firstPage.drawRectangle({
-    x: left - 0.6,
-    y: PREPRINTED_BOTTOM - 0.6,
-    width: right - left + 1.2,
-    height: HEADER_BOTTOM - PREPRINTED_BOTTOM,
+    x: tableLeft - 1,
+    y: PREPRINTED_BOTTOM - 2,
+    width: tableRight - tableLeft + 2,
+    height: HEADER_BOTTOM - PREPRINTED_BOTTOM + 4,
     color: rgb(1, 1, 1),
   });
 
@@ -225,6 +305,7 @@ function fillSessionsTable(
   const firstPageRows = Math.floor(
     (HEADER_BOTTOM - PAGE_BOTTOM_MARGIN) / ROW_H,
   );
+  eraseTableArea(firstPage, HEADER_BOTTOM, firstPageRows);
   drawRows(firstPage, HEADER_BOTTOM, sessions.slice(0, firstPageRows));
 
   let remaining = sessions.slice(firstPageRows);
@@ -263,6 +344,7 @@ function fillSessionsTable(
       color: lineColor,
     });
     const pageRows = Math.floor((dataTop - PAGE_BOTTOM_MARGIN) / ROW_H);
+    eraseTableArea(page, dataTop, pageRows);
     drawRows(page, dataTop, remaining.slice(0, pageRows));
     remaining = remaining.slice(pageRows);
   }
