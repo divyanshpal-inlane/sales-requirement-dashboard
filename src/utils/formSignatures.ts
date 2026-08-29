@@ -4,7 +4,7 @@
  * /assets/instructor-signature.png.
  */
 import instructorSignatureUrl from "@/assets/signatures/instructor-signature.png";
-import principalSignatureUrl from "@/assets/signatures/principal-signature.jpg";
+import principalSignatureUrl from "@/assets/signatures/principal-signature.png";
 
 async function urlToBytes(url: string): Promise<ArrayBuffer> {
   const res = await fetch(url);
