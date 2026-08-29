@@ -155,7 +155,7 @@ export async function fetchTrainingSessions(
 
 const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
-/** Schedule rows → Form-15 table rows (signature columns stay blank). */
+/** Schedule rows → Form-15 table rows (trainee signature column stays blank). */
 export const toForm15Sessions = (
   sessions: TrainingSession[],
 ): Form15Session[] =>
