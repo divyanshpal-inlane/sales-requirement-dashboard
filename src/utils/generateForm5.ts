@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
+import { loadPrincipalSignatureBytes } from "@/utils/formSignatures";
 import { toWinAnsi } from "@/utils/winAnsi";
 
 export interface Form5CertificateData {
@@ -38,10 +39,8 @@ export async function generateForm5PDF(
   const page = pdfDoc.getPages()[0];
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const textColor = rgb(0.05, 0.05, 0.25);
-  // Lift values a couple of points so they rest on the dotted blank, not
-  // through it. (The page is roughly half A4, so lifts/sizes are ~half of
-  // the old A4 template's values.)
-  const LINE_LIFT = 2;
+  // Baseline sits on the dotted blank so glyphs rest above the line.
+  const LINE_LIFT = 7;
   const BASE_SIZE = 9;
   const MIN_SIZE = 6;
 
@@ -107,19 +106,39 @@ export async function generateForm5PDF(
     }
   };
 
-  drawAnswer(data.certificateNo, 36, 294, 74); // No.
-  drawAnswer(data.date, 234, 294, 58); // Date
-  drawAnswer(data.name, 216, 276, 77); // Shri/Smt./Kumari ___
-  drawAnswer(data.guardian, 114, 258.5, 179); // Son/Wife/Daughter of ___
+  drawAnswer(data.certificateNo, 36, 279, 74); // No.
+  drawAnswer(data.date, 234, 279, 58); // Date
+  drawAnswer(data.name, 216, 261, 77); // Shri/Smt./Kumari ___
+  drawAnswer(data.guardian, 114, 243.5, 179); // Son/Wife/Daughter of ___
   drawWrapped(data.address, [
-    { x: 53, y: 240.5, maxWidth: 240 },
-    { x: 27, y: 222.5, maxWidth: 262 },
+    { x: 53, y: 225.5, maxWidth: 240 },
+    { x: 27, y: 207.5, maxWidth: 262 },
   ]); // residing at ___ (2 lines)
-  drawAnswer(data.enrolledOn, 138, 204.5, 80); // enrolled in this school on ___
-  drawAnswer(data.serialNumber, 131, 186.5, 74); // serial number ___
-  drawAnswer(data.vehicleClass, 23, 153, 177); // training in driving of ___
-  drawAnswer(data.periodFrom, 131, 133, 162); // for a period from ___
-  drawAnswer(data.periodTo, 32, 117, 134); // to ___ satisfactorily
+  drawAnswer(data.enrolledOn, 138, 189.5, 80); // enrolled in this school on ___
+  drawAnswer(data.serialNumber, 131, 171.5, 74); // serial number ___
+  drawAnswer(data.vehicleClass, 23, 138, 177); // training in driving of ___
+  drawAnswer(data.periodFrom, 131, 118, 162); // for a period from ___
+  drawAnswer(data.periodTo, 32, 102, 134); // to ___ satisfactorily
+
+  // Principal signature — bottom-right, above the preprinted PRINCIPAL label.
+  const signatureBytes = await loadPrincipalSignatureBytes();
+  const signature = await pdfDoc.embedJpg(signatureBytes);
+  const sigMaxW = 125;
+  const sigMaxH = 36;
+  const aspect = signature.width / signature.height;
+  let sigW = sigMaxW;
+  let sigH = sigW / aspect;
+  if (sigH > sigMaxH) {
+    sigH = sigMaxH;
+    sigW = sigH * aspect;
+  }
+  const { width: pageW } = page.getSize();
+  page.drawImage(signature, {
+    x: pageW - 18 - sigW,
+    y: 58,
+    width: sigW,
+    height: sigH,
+  });
 
   return pdfDoc.save();
 }

@@ -7,6 +7,7 @@ import {
   StandardFonts,
 } from "pdf-lib";
 
+import { loadInstructorSignatureBytes } from "@/utils/formSignatures";
 import { toWinAnsi } from "@/utils/winAnsi";
 
 /** One driving session — a row in the Form-15 hours register. */
@@ -122,12 +123,7 @@ export async function generateForm15PDF(data: Form15Data): Promise<Uint8Array> {
 
   const sessions = data.sessions ?? [];
   if (sessions.length > 0) {
-    const signatureBytes = await fetch("/assets/instructor-signature.png").then(
-      (res) => {
-        if (!res.ok) throw new Error("Failed to load instructor signature");
-        return res.arrayBuffer();
-      },
-    );
+    const signatureBytes = await loadInstructorSignatureBytes();
     const instructorSignature = await pdfDoc.embedPng(signatureBytes);
     fillSessionsTable(
       pdfDoc,
