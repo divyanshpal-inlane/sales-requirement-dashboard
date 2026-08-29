@@ -39,7 +39,10 @@ export async function generateForm5PDF(
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const textColor = rgb(0.05, 0.05, 0.25);
   // Baseline sits on the dotted blank so glyphs rest above the line.
-  const LINE_LIFT = 7;
+  const LINE_LIFT = 14;
+  // A few lower rows need a touch more lift (measured on the Canva template).
+  const FIELD_LIFT: Record<number, number> = { 207.5: 2, 102: 4 };
+  const liftFor = (y: number) => LINE_LIFT + (FIELD_LIFT[y] ?? 0);
   const BASE_SIZE = 9;
   const MIN_SIZE = 6;
 
@@ -70,7 +73,13 @@ export async function generateForm5PDF(
     text = text && toWinAnsi(text);
     if (!text) return;
     const { out, size } = fit(text, maxWidth);
-    page.drawText(out, { x, y: y + LINE_LIFT, size, font, color: textColor });
+    page.drawText(out, {
+      x,
+      y: y + liftFor(y),
+      size,
+      font,
+      color: textColor,
+    });
   };
 
   // Greedy word-wrap across multiple (x, y, maxWidth) slots.
@@ -101,7 +110,13 @@ export async function generateForm5PDF(
         }
         line += "…";
       }
-      page.drawText(line, { x, y: y + LINE_LIFT, size, font, color: textColor });
+      page.drawText(line, {
+        x,
+        y: y + liftFor(y),
+        size,
+        font,
+        color: textColor,
+      });
     }
   };
 
@@ -121,9 +136,9 @@ export async function generateForm5PDF(
 
   // Principal signature — bottom-right, above the preprinted PRINCIPAL label.
   const signatureBytes = await loadPrincipalSignatureBytes();
-  const signature = await pdfDoc.embedJpg(signatureBytes);
-  const sigMaxW = 125;
-  const sigMaxH = 36;
+  const signature = await pdfDoc.embedPng(signatureBytes);
+  const sigMaxW = 120;
+  const sigMaxH = 28;
   const aspect = signature.width / signature.height;
   let sigW = sigMaxW;
   let sigH = sigW / aspect;
@@ -134,7 +149,7 @@ export async function generateForm5PDF(
   const { width: pageW } = page.getSize();
   page.drawImage(signature, {
     x: pageW - 18 - sigW,
-    y: 58,
+    y: 70,
     width: sigW,
     height: sigH,
   });
