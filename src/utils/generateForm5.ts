@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 import { loadPrincipalSignatureBytes } from "@/utils/formSignatures";
+import { loadPdfTemplate } from "@/utils/formTemplates";
 import { toWinAnsi } from "@/utils/winAnsi";
 
 export interface Form5CertificateData {
@@ -28,12 +29,10 @@ export interface Form5CertificateData {
 export async function generateForm5PDF(
   data: Form5CertificateData,
 ): Promise<Uint8Array> {
-  const templateBytes = await fetch(
+  const templateBytes = await loadPdfTemplate(
     "/assets/form-5-certificate-template.pdf",
-  ).then((res) => {
-    if (!res.ok) throw new Error("Failed to load Form-5 certificate template");
-    return res.arrayBuffer();
-  });
+    "Form-5 certificate template",
+  );
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   const page = pdfDoc.getPages()[0];

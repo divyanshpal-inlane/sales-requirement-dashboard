@@ -8,6 +8,7 @@ import {
 } from "pdf-lib";
 
 import { loadInstructorSignatureBytes } from "@/utils/formSignatures";
+import { loadPdfTemplate } from "@/utils/formTemplates";
 import { toWinAnsi } from "@/utils/winAnsi";
 
 /** One driving session — a row in the Form-15 hours register. */
@@ -73,11 +74,9 @@ function rowCellBounds(topY: number, rowIndex: number) {
  *   school: 680, trainee: 647, enrolment no.: 613, enrolment date: 579
  */
 export async function generateForm15PDF(data: Form15Data): Promise<Uint8Array> {
-  const templateBytes = await fetch("/assets/form-15-template.pdf").then(
-    (res) => {
-      if (!res.ok) throw new Error("Failed to load Form-15 template");
-      return res.arrayBuffer();
-    },
+  const templateBytes = await loadPdfTemplate(
+    "/assets/form-15-template.pdf",
+    "Form-15 template",
   );
 
   const pdfDoc = await PDFDocument.load(templateBytes);

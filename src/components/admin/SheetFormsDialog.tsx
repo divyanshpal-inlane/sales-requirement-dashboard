@@ -135,25 +135,43 @@ export default function SheetFormsDialog({
   const handlePDF = async () => {
     if (!rows?.length) return;
     setBusy("pdf");
+    const CHUNK = 25;
     try {
-      const pdfBytes = await generateAllFormsMergedPDF(
-        rows.map((r) => r.entry),
-        (done, total) => setProgress(`Generating ${done}/${total}...`),
-      );
-      downloadPDF(
-        pdfBytes,
-        `AllForms_Sheet_${format(new Date(), "yyyy-MM-dd")}.pdf`,
-      );
+      const entries = rows.map((r) => r.entry);
+      const parts = Math.ceil(entries.length / CHUNK);
+      for (let i = 0, part = 1; i < entries.length; i += CHUNK, part++) {
+        const slice = entries.slice(i, i + CHUNK);
+        const pdfBytes = await generateAllFormsMergedPDF(
+          slice,
+          (done) =>
+            setProgress(
+              `Generating ${i + done}/${entries.length}${
+                parts > 1 ? ` (file ${part}/${parts})` : ""
+              }...`,
+            ),
+        );
+        const suffix = parts > 1 ? `_part${part}of${parts}` : "";
+        downloadPDF(
+          pdfBytes,
+          `AllForms_Sheet_${format(new Date(), "yyyy-MM-dd")}${suffix}.pdf`,
+        );
+        if (part < parts) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
       toast({
         title: "Success",
-        description: `Form 14, 15 & Certificate generated for ${rows.length} customer(s).`,
+        description:
+          parts > 1
+            ? `Downloaded ${parts} PDFs covering ${rows.length} customer(s).`
+            : `Form 14, 15 & Certificate generated for ${rows.length} customer(s).`,
       });
     } catch (error) {
       console.error("Error generating forms:", error);
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "Failed to generate forms",
+          error instanceof Error ? error.message : String(error) || "Failed to generate forms",
         variant: "destructive",
       });
     } finally {
