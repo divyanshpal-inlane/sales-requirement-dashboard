@@ -168,36 +168,56 @@ export function useLessonsDashboard(filters: LessonsDashboardFilters) {
       >();
 
       if (uniqueInstructorIds.length > 0) {
+        // Step 2a: fetch raw instructor→kam_id links without embedding.
+        // Using plain columns avoids PostgREST resource-embedding ambiguity
+        // with the quoted "KAM" table name, which was silently returning null
+        // for the embedded object and making the KAM filter show 0 results.
         const { data: links, error: linkErr } = await supabase
           .from("kam_instructor")
-          .select("instructor_id, KAM:kam_id (id, name)")
+          .select("instructor_id, kam_id")
           .in("instructor_id", uniqueInstructorIds);
         if (linkErr) throw linkErr;
 
-        const linkRows = (links ?? []) as unknown as Array<{
+        const linkRows = (links ?? []) as Array<{
           instructor_id: string;
-          KAM:
-            | { id: string; name: string }
-            | { id: string; name: string }[]
-            | null;
+          kam_id: string;
         }>;
-        // If an instructor has multiple KAMs (M:N supported), take the first
-        // alphabetically by name for the display column. The KAM filter logic
-        // below still matches against every assigned KAM, so multi-KAM
-        // instructors stay discoverable.
-        const allKamsByInstructor = new Map<
-          string,
-          { id: string; name: string }[]
-        >();
+
+        // Build instructor → [kam_id, ...] map (M:N supported).
+        const allKamIdsByInstructor = new Map<string, string[]>();
         for (const r of linkRows) {
-          const k = Array.isArray(r.KAM) ? r.KAM[0] : r.KAM;
-          if (!k) continue;
-          const list = allKamsByInstructor.get(r.instructor_id) ?? [];
-          list.push({ id: k.id, name: k.name });
-          allKamsByInstructor.set(r.instructor_id, list);
+          const list = allKamIdsByInstructor.get(r.instructor_id) ?? [];
+          list.push(r.kam_id);
+          allKamIdsByInstructor.set(r.instructor_id, list);
         }
-        for (const [iid, kams] of allKamsByInstructor) {
-          kams.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Step 2b: fetch KAM names for the display column (separate query so
+        // the filter logic never depends on the join working correctly).
+        // This is non-fatal: if the KAM table query fails (e.g. transient
+        // error or RLS) the filter still works by ID; names just won't show.
+        const uniqueKamIds = Array.from(
+          new Set(linkRows.map((r) => r.kam_id)),
+        );
+        const kamNameById = new Map<string, string>();
+        if (uniqueKamIds.length > 0) {
+          const { data: kamData } = await supabase
+            .from("KAM")
+            .select("id, name")
+            .in("id", uniqueKamIds);
+          for (const k of (kamData ?? []) as Array<{
+            id: string;
+            name: string;
+          }>) {
+            kamNameById.set(k.id, k.name);
+          }
+        }
+
+        // Build instructor → primary KAM display object (alphabetically first
+        // when an instructor is linked to multiple KAMs).
+        for (const [iid, kIds] of allKamIdsByInstructor) {
+          const kams = kIds
+            .map((kid) => ({ id: kid, name: kamNameById.get(kid) ?? "" }))
+            .sort((a, b) => a.name.localeCompare(b.name));
           kamByInstructor.set(iid, kams[0] ?? null);
         }
 
@@ -206,8 +226,8 @@ export function useLessonsDashboard(filters: LessonsDashboardFilters) {
         if (kamIds && kamIds.length > 0) {
           const kamFilter = new Set(kamIds);
           const matchedInstructors = new Set<string>();
-          for (const [iid, kams] of allKamsByInstructor) {
-            if (kams.some((k) => kamFilter.has(k.id))) {
+          for (const [iid, kIds] of allKamIdsByInstructor) {
+            if (kIds.some((kid) => kamFilter.has(kid))) {
               matchedInstructors.add(iid);
             }
           }
