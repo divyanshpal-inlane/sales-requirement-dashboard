@@ -1,9 +1,9 @@
 import { HelpCircle, Mail, MessageCircle, Phone } from "lucide-react";
 
 // Support contact details
-const SUPPORT_PHONE_DISPLAY = "07316914676"; // shown to the user (with national 0 prefix)
-const SUPPORT_PHONE_TEL = "+917316914676"; // tel: link (E.164, no leading 0)
-const SUPPORT_PHONE_WHATSAPP = "917316914676"; // wa.me requires country code, no leading 0
+const SUPPORT_PHONE_DISPLAY = "08040266972"; // shown to the user (with national 0 prefix)
+const SUPPORT_PHONE_TEL = "+918040266972"; // tel: link (E.164, no leading 0)
+const SUPPORT_PHONE_WHATSAPP = "916360739863"; // wa.me requires country code, no leading 0
 const SUPPORT_EMAIL = "support@inlane.in";
 
 export default function HelpSupport() {
@@ -55,7 +55,7 @@ export default function HelpSupport() {
                 <div className="flex flex-col items-start text-left">
                   <span className="text-lg font-medium">WhatsApp</span>
                   <span className="text-base opacity-70">
-                    {SUPPORT_PHONE_DISPLAY}
+                    {SUPPORT_PHONE_WHATSAPP.replace(/^91/, "")}
                   </span>
                 </div>
               </button>
