@@ -2,9 +2,9 @@
 // Help page, the instructor Support screen, and the admin Support Tickets page.
 // Numbers mirror src/routes/help.tsx.
 
-export const SUPPORT_PHONE_DISPLAY = "07316914676"; // shown to the user (national 0 prefix)
-export const SUPPORT_PHONE_TEL = "+917316914676"; // tel: link (E.164, no leading 0)
-export const SUPPORT_PHONE_WHATSAPP = "917316914676"; // wa.me requires country code, no leading 0
+export const SUPPORT_PHONE_DISPLAY = "08040266972"; // shown to the user (national 0 prefix)
+export const SUPPORT_PHONE_TEL = "+918040266972"; // tel: link (E.164, no leading 0)
+export const SUPPORT_PHONE_WHATSAPP = "916360739863"; // wa.me requires country code, no leading 0
 export const SUPPORT_EMAIL = "support@inlane.in";
 
 // Sales line — used by the learner "Chat with Sales" CTA after a demo/first class.
