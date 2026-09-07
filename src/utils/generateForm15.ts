@@ -26,6 +26,9 @@ export interface Form15Data {
   enrollmentDate: string;
   /** Driving sessions to list in the table; omit to leave it blank. */
   sessions?: Form15Session[];
+  /** Learner e-signature captured during onboarding. */
+  traineeSignatureBytes?: ArrayBuffer;
+  traineeSignatureMimeType?: string;
 }
 
 /**
@@ -52,6 +55,7 @@ const CONT_LABELS = [
 ];
 
 const INSTRUCTOR_SIG_COL = 4;
+const TRAINEE_SIG_COL = 5;
 const SIG_CELL_PADDING = 3;
 
 /** Row bounds for the session table (pdf-lib y, origin = bottom-left). */
@@ -67,7 +71,8 @@ function rowCellBounds(topY: number, rowIndex: number) {
  * one table row per driving session (the template's two preprinted blank rows
  * are painted over and the grid redrawn to fit; overflow continues on extra
  * pages). The instructor-signature column is filled from the school signature
- * image; the trainee column is left blank for manual signing.
+ * image; the trainee column is filled from the learner's onboarding
+ * e-signature when supplied.
  *
  * Dotted answer lines (measured from the template) run x≈390→529 at these
  * baselines (pdf-lib y from bottom):
@@ -124,6 +129,11 @@ export async function generateForm15PDF(data: Form15Data): Promise<Uint8Array> {
   if (sessions.length > 0) {
     const signatureBytes = await loadInstructorSignatureBytes();
     const instructorSignature = await pdfDoc.embedPng(signatureBytes);
+    const traineeSignature = data.traineeSignatureBytes
+      ? data.traineeSignatureMimeType === "image/jpeg"
+        ? await pdfDoc.embedJpg(data.traineeSignatureBytes)
+        : await pdfDoc.embedPng(data.traineeSignatureBytes)
+      : undefined;
     fillSessionsTable(
       pdfDoc,
       firstPage,
@@ -132,22 +142,24 @@ export async function generateForm15PDF(data: Form15Data): Promise<Uint8Array> {
       lineColor,
       sessions,
       instructorSignature,
+      traineeSignature,
     );
   }
 
   return pdfDoc.save();
 }
 
-/** Fit and center the instructor signature inside one table row (column 4). */
-function drawInstructorSignature(
+/** Fit and center a signature inside one table row. */
+function drawSignature(
   page: PDFPage,
   image: PDFImage,
+  column: number,
   topY: number,
   rowIndex: number,
 ) {
-  const { cellTop, cellBottom } = rowCellBounds(topY, rowIndex);
-  const cellLeft = COLS[INSTRUCTOR_SIG_COL] + SIG_CELL_PADDING;
-  const cellRight = COLS[INSTRUCTOR_SIG_COL + 1] - SIG_CELL_PADDING;
+  const { cellBottom } = rowCellBounds(topY, rowIndex);
+  const cellLeft = COLS[column] + SIG_CELL_PADDING;
+  const cellRight = COLS[column + 1] - SIG_CELL_PADDING;
   const cellW = cellRight - cellLeft;
   const innerH = ROW_H - SIG_CELL_PADDING * 2;
 
@@ -172,6 +184,7 @@ function fillSessionsTable(
   lineColor: ReturnType<typeof rgb>,
   sessions: Form15Session[],
   instructorSignature: PDFImage,
+  traineeSignature?: PDFImage,
 ) {
   const left = COLS[0];
   const right = COLS[COLS.length - 1];
@@ -247,7 +260,10 @@ function fillSessionsTable(
       drawRowText(page, s.fromHrs, 1, topY, i);
       drawRowText(page, s.toHrs, 2, topY, i);
       drawRowText(page, s.vehicleClass || "LMV", 3, topY, i);
-      drawInstructorSignature(page, instructorSignature, topY, i);
+      drawSignature(page, instructorSignature, INSTRUCTOR_SIG_COL, topY, i);
+      if (traineeSignature) {
+        drawSignature(page, traineeSignature, TRAINEE_SIG_COL, topY, i);
+      }
     });
   };
 
