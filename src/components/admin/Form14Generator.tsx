@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabaseClient";
 import {
   downloadPDF,
   Form14Data,
@@ -53,6 +54,11 @@ interface LearnerForForm14 {
   DL_id?: string | null;
   DL_received_date?: string | null;
   has_a_DL?: boolean | null;
+  signature_storage_path?: string | null;
+  signature_submitted_at?: string | null;
+  signature_consent_at?: string | null;
+  signature_terms_version?: string | null;
+  signature_privacy_version?: string | null;
 }
 
 interface Form14GeneratorProps {
@@ -70,7 +76,26 @@ export default function Form14Generator({
   const [generating, setGenerating] = useState<
     null | "14" | "15" | "5" | "all"
   >(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const isGenerating = generating !== null;
+
+  useEffect(() => {
+    let active = true;
+    setSignatureUrl(null);
+    if (!open || !learner.signature_storage_path) return;
+
+    supabase.storage
+      .from("learner-signatures")
+      .createSignedUrl(learner.signature_storage_path, 10 * 60)
+      .then(({ data, error }) => {
+        if (!active || error) return;
+        setSignatureUrl(data.signedUrl);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [learner.signature_storage_path, open]);
 
   const safeName = () =>
     (learner.name || "learner").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
@@ -345,6 +370,36 @@ export default function Form14Generator({
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
             Fields are pre-filled from learner data. Edit any field before
             generating the PDF.
+          </div>
+
+          <div
+            className={`rounded-lg border p-3 text-sm ${
+              learner.signature_storage_path && learner.signature_consent_at
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">
+                  {learner.signature_storage_path && learner.signature_consent_at
+                    ? "Learner signature and consent received"
+                    : "Learner signature pending"}
+                </p>
+                {learner.signature_submitted_at && (
+                  <p className="mt-1 text-xs">
+                    Submitted {format(new Date(learner.signature_submitted_at), "dd MMM yyyy, h:mm a")}
+                  </p>
+                )}
+              </div>
+              {signatureUrl && (
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <a href={signatureUrl} target="_blank" rel="noreferrer">
+                    View signature
+                  </a>
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* 1. Enrolment Number */}

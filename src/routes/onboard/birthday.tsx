@@ -117,7 +117,7 @@ export default function Birthday() {
       <div className="flex flex-col rounded-b-[20px] bg-primary">
         <div className="flex items-center justify-end p-4">
           <span className="text-lg font-semibold text-primary-foreground">
-            1/2
+            1/3
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">

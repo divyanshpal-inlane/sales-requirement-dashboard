@@ -73,7 +73,7 @@ export default function DLQuestion() {
             LL_result: true,
             has_a_DL: true,
             LL_received: true,
-            onboarding_completed: true,
+            onboarding_completed: false,
           },
           {
             onSuccess: async () => {
@@ -82,9 +82,7 @@ export default function DLQuestion() {
               // Better solution than addding delays
               await queryClient.refetchQueries({ queryKey: ["learner"] });
 
-              localStorage.setItem("onboardingDone", "true");
-
-              navigate("/home");
+              navigate("/onboard/signature");
 
               // Send message in the background without awaiting
               if (learner) {
@@ -108,7 +106,7 @@ export default function DLQuestion() {
           {
             LL_result: null,
             has_a_DL: false,
-            onboarding_completed: true,
+            onboarding_completed: false,
           },
           {
             onSuccess: async () => {
@@ -122,10 +120,7 @@ export default function DLQuestion() {
               // Better solution than addding delays
               await queryClient.refetchQueries({ queryKey: ["learner"] });
 
-              // Also set onboardingDone on localStorage
-              localStorage.setItem("onboardingDone", "true");
-
-              navigate("/home");
+              navigate("/onboard/signature");
 
               // Send messages in the background without awaiting
               if (learner) {
