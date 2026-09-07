@@ -7,12 +7,15 @@ import {
   History,
   Link2,
   Lock,
+  FileSignature,
+  Loader2,
   MessageCircle,
   RefreshCw,
   Save,
   Search,
   Send,
   Trash2,
+  Upload,
   Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +23,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 
 import { Badge } from "@/components/ui/badge";
+import Form14Generator from "@/components/admin/Form14Generator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -175,6 +179,16 @@ function detectIssues(
       title: "No Schedules Created",
       description: "Learner has active enrollment but no schedules",
       fix: "Check schedule_preferences and create schedules",
+    });
+  }
+
+  if (!learner.signature_storage_path) {
+    issues.push({
+      type: "learner",
+      severity: "info",
+      title: "Missing Learner Signature",
+      description: "This learner does not have a signature available for Form 15",
+      fix: "Upload the learner's signature in the Learner tab",
     });
   }
 
@@ -902,6 +916,16 @@ function LearnerEditor({ learner }: { learner: Learner }) {
   const [initialData, setInitialData] = useState<Record<string, any>>(() =>
     buildLearnerFormState(learner),
   );
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
+  const [storedSignaturePath, setStoredSignaturePath] = useState(
+    learner.signature_storage_path,
+  );
+  const [storedSignatureMimeType, setStoredSignatureMimeType] = useState(
+    learner.signature_mime_type,
+  );
+  const [formsDialogOpen, setFormsDialogOpen] = useState(false);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -1033,6 +1057,84 @@ function LearnerEditor({ learner }: { learner: Learner }) {
     setFormData({ ...initialData });
     if (addressInputRef.current) {
       addressInputRef.current.value = initialData.pick_up_location || "";
+    }
+  };
+
+  const handleSignatureUpload = async () => {
+    if (!signatureFile) {
+      toast({
+        title: "Choose a signature",
+        description: "Select a PNG or JPG signature image first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!["image/png", "image/jpeg"].includes(signatureFile.type)) {
+      toast({
+        title: "Unsupported file",
+        description: "The signature must be a PNG or JPG image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (signatureFile.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "The signature image must be 5 MB or smaller.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingSignature(true);
+    let newStoragePath: string | null = null;
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw authError || new Error("You must be signed in to upload a signature.");
+      }
+
+      const extension = signatureFile.type === "image/png" ? "png" : "jpg";
+      newStoragePath = `${authData.user.id}/${learner.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("learner-signatures")
+        .upload(newStoragePath, signatureFile, {
+          contentType: signatureFile.type,
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      await updateMutation.mutateAsync({
+        id: learner.id,
+        updates: {
+          signature_storage_path: newStoragePath,
+          signature_submitted_at: new Date().toISOString(),
+          signature_method: "admin_upload",
+          signature_mime_type: signatureFile.type,
+        },
+      });
+
+      setStoredSignaturePath(newStoragePath);
+      setStoredSignatureMimeType(signatureFile.type);
+      setSignatureFile(null);
+      if (signatureInputRef.current) signatureInputRef.current.value = "";
+      toast({
+        title: "Signature uploaded",
+        description: "Future Form 15 downloads will include this learner signature.",
+      });
+    } catch (error: any) {
+      if (newStoragePath) {
+        await supabase.storage.from("learner-signatures").remove([newStoragePath]);
+      }
+      toast({
+        title: "Signature upload failed",
+        description: error?.message || "Could not save the learner signature.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingSignature(false);
     }
   };
 
@@ -1177,6 +1279,75 @@ function LearnerEditor({ learner }: { learner: Learner }) {
 
   return (
     <div className="space-y-5 pb-2">
+      <div className="space-y-3 rounded-lg border p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-700">
+              <FileSignature className="h-4 w-4" />
+              Form 15 learner signature
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {storedSignaturePath
+                ? "A signature is stored. Upload another image to replace it on future Form 15 downloads."
+                : "No signature is stored. Upload one so it appears on future Form 15 downloads."}
+            </p>
+          </div>
+          <Badge variant={storedSignaturePath ? "secondary" : "outline"}>
+            {storedSignaturePath ? "Signature available" : "Missing"}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            ref={signatureInputRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            className="h-9 max-w-md text-xs"
+            onChange={(event) => setSignatureFile(event.target.files?.[0] || null)}
+            disabled={isUploadingSignature}
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSignatureUpload}
+            disabled={!signatureFile || isUploadingSignature}
+          >
+            {isUploadingSignature ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 h-4 w-4" />
+            )}
+            {storedSignaturePath ? "Replace signature" : "Upload signature"}
+          </Button>
+          {storedSignaturePath && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setFormsDialogOpen(true)}
+            >
+              Download Form 15
+            </Button>
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          PNG or JPG, maximum 5 MB. Admin uploads do not record learner terms consent.
+        </p>
+      </div>
+
+      <Form14Generator
+        learner={{
+          ...learner,
+          signature_storage_path: storedSignaturePath,
+          signature_mime_type: storedSignatureMimeType,
+          signature_method:
+            storedSignaturePath === learner.signature_storage_path
+              ? learner.signature_method
+              : "admin_upload",
+        }}
+        open={formsDialogOpen}
+        onClose={() => setFormsDialogOpen(false)}
+      />
+
       {LEARNER_FIELD_GROUPS.map((group) => (
         <div key={group.title} className="space-y-3">
           <p className="border-b pb-1 text-xs font-semibold uppercase tracking-wide text-gray-700">

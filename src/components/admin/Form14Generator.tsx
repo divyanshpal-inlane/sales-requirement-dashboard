@@ -61,6 +61,7 @@ interface LearnerForForm14 {
   signature_terms_version?: string | null;
   signature_privacy_version?: string | null;
   signature_mime_type?: string | null;
+  signature_method?: string | null;
 }
 
 interface Form14GeneratorProps {
@@ -384,7 +385,7 @@ export default function Form14Generator({
 
           <div
             className={`rounded-lg border p-3 text-sm ${
-              learner.signature_storage_path && learner.signature_consent_at
+              learner.signature_storage_path
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-amber-200 bg-amber-50 text-amber-800"
             }`}
@@ -392,8 +393,10 @@ export default function Form14Generator({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium">
-                  {learner.signature_storage_path && learner.signature_consent_at
-                    ? "Learner signature and consent received"
+                  {learner.signature_storage_path
+                    ? learner.signature_consent_at
+                      ? "Learner signature and consent received"
+                      : "Learner signature uploaded by admin"
                     : "Learner signature pending"}
                 </p>
                 {learner.signature_submitted_at && (
