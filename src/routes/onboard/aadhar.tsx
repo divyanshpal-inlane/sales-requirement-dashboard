@@ -22,8 +22,8 @@ const TIMELINE_OPTIONS = [
 // Q2 (purchase timeline) only applies to the "buy my own car" motivation.
 const CAR_OPTION = "Finally buy my own car";
 
-// Route stays /onboard/aadhar; this screen now captures car-commerce intent
-// instead of the Aadhaar state (licence info is filled by admin).
+// Route stays /onboard/aadhar; this screen captures car-commerce intent
+// before the learner completes consent and signature in step 3.
 export default function ExcitementQuestions() {
   const [motivation, setMotivation] = useState<string>("");
   const [timeline, setTimeline] = useState<string>("");
@@ -51,13 +51,12 @@ export default function ExcitementQuestions() {
               car_onboarding_intent_at: new Date().toISOString(),
             }
           : {}),
-        onboarding_completed: true,
+        onboarding_completed: false,
       },
       {
         onSuccess: async () => {
           await queryClient.refetchQueries({ queryKey: ["learner"] });
-          localStorage.setItem("onboardingDone", "true");
-          navigate("/home");
+          navigate("/onboard/signature");
         },
       },
     );
@@ -76,7 +75,7 @@ export default function ExcitementQuestions() {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <span className="text-lg font-semibold text-primary-foreground">
-            2/2
+            2/3
           </span>
         </div>
         <div className="relative z-10 rounded-b-[40px] bg-primary p-6 text-primary-foreground">

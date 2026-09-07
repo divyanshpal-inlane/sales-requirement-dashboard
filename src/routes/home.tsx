@@ -168,7 +168,11 @@ export default function Home() {
 
   // FIRST: Check if onboarding is complete (before checking payment)
   if (!learner?.onboarding_completed) {
-    return <Navigate to="/onboard/birthday" />;
+    if (!learner?.dob) return <Navigate to="/onboard/birthday" />;
+    if (!learner?.driving_motivation) {
+      return <Navigate to="/onboard/aadhar" />;
+    }
+    return <Navigate to="/onboard/signature" />;
   }
 
   // THEN: Check if payment is complete or half/full paid via enrollment

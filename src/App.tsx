@@ -73,6 +73,7 @@ import Login from "@/routes/login";
 import Aadhar from "@/routes/onboard/aadhar";
 import Birthday from "@/routes/onboard/birthday";
 import DLQuestion from "@/routes/onboard/DL";
+import OnboardingSignature from "@/routes/onboard/signature";
 import Preferences from "@/routes/preferences";
 import Profile2 from "@/routes/profile2";
 import Start from "@/routes/start";
@@ -128,6 +129,7 @@ export default function App() {
             >
               <Route path="birthday" element={<Birthday />} />
               <Route path="aadhar" element={<Aadhar />} />
+              <Route path="signature" element={<OnboardingSignature />} />
               <Route path="dl" element={<DLQuestion />} />
             </Route>
             <Route
