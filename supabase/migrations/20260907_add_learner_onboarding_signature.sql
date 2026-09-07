@@ -16,7 +16,7 @@ VALUES (
   'learner-signatures',
   false,
   5242880,
-  ARRAY['image/png', 'image/jpeg', 'image/webp']
+  ARRAY['image/png', 'image/jpeg']
 )
 ON CONFLICT (id) DO UPDATE SET
   public = false,

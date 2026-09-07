@@ -28,7 +28,7 @@ const TERMS_VERSION = "rto-signature-2026-09-07";
 const PRIVACY_VERSION = "privacy-2026-09-07";
 const SIGNATURE_PURPOSE = "RTO documentation, including Form 14 and Form 15";
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg"];
 
 type SignatureMode = "draw" | "upload";
 
@@ -123,7 +123,7 @@ export default function OnboardingSignature() {
     setError("");
     if (!file) return;
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      setError("Upload a PNG, JPG, or WebP image.");
+      setError("Upload a PNG or JPG image.");
       event.target.value = "";
       return;
     }
@@ -166,11 +166,7 @@ export default function OnboardingSignature() {
           : uploadedFile!;
       const mimeType = mode === "draw" ? "image/png" : signatureFile.type;
       const extension =
-        mimeType === "image/jpeg"
-          ? "jpg"
-          : mimeType === "image/webp"
-            ? "webp"
-            : "png";
+        mimeType === "image/jpeg" ? "jpg" : "png";
       storagePath = `${user.id}/${learner.id}/${crypto.randomUUID()}.${extension}`;
 
       const { error: uploadError } = await supabase.storage
@@ -335,12 +331,12 @@ export default function OnboardingSignature() {
               <>
                 <Upload className="mb-2 h-8 w-8 text-primary" />
                 <span className="font-medium">Choose signature image</span>
-                <span className="mt-1 text-xs text-muted-foreground">PNG, JPG, or WebP · maximum 5 MB</span>
+                <span className="mt-1 text-xs text-muted-foreground">PNG or JPG · maximum 5 MB</span>
               </>
             )}
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg"
               className="sr-only"
               onChange={handleFileChange}
             />

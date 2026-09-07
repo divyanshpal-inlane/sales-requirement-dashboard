@@ -35,6 +35,8 @@ export interface BulkFormLearner {
   LL_id?: string | null;
   DL_id?: string | null;
   DL_received_date?: string | null;
+  signature_storage_path?: string | null;
+  signature_mime_type?: string | null;
 }
 
 export interface TrainingPeriod {
@@ -155,7 +157,7 @@ export async function fetchTrainingSessions(
 
 const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
-/** Schedule rows → Form-15 table rows (trainee signature column stays blank). */
+/** Schedule rows → Form-15 table rows. */
 export const toForm15Sessions = (
   sessions: TrainingSession[],
 ): Form15Session[] =>
@@ -234,6 +236,34 @@ export function buildBulkFormData(
   return { form14, form15, form5 };
 }
 
+/** Download a private learner signature for embedding in an RTO form. */
+export async function loadLearnerSignature(
+  storagePath: string | null | undefined,
+  storedMimeType?: string | null,
+): Promise<
+  | { traineeSignatureBytes: ArrayBuffer; traineeSignatureMimeType: string }
+  | undefined
+> {
+  if (!storagePath) return undefined;
+
+  const { data, error } = await supabase.storage
+    .from("learner-signatures")
+    .download(storagePath);
+  if (error) {
+    throw new Error(`Learner signature failed to load: ${error.message}`);
+  }
+
+  const mimeType = data.type || storedMimeType || "image/png";
+  if (mimeType !== "image/png" && mimeType !== "image/jpeg") {
+    throw new Error(`Unsupported learner signature format: ${mimeType}`);
+  }
+
+  return {
+    traineeSignatureBytes: await data.arrayBuffer(),
+    traineeSignatureMimeType: mimeType,
+  };
+}
+
 /**
  * One merged PDF for every entry: Form 14, Form 15 and the Form-5
  * certificate per learner, in list order.
@@ -256,6 +286,11 @@ export async function generateAllFormsMergedPDF(
         overrides,
         sessionsByLearner.get(learner.id) ?? [],
       );
+      const learnerSignature = await loadLearnerSignature(
+        learner.signature_storage_path,
+        learner.signature_mime_type,
+      );
+      if (learnerSignature) Object.assign(form15, learnerSignature);
       const parts = await Promise.all([
         generateForm14PDF(form14),
         generateForm15PDF(form15),
@@ -300,7 +335,7 @@ export async function matchLearnersByPhone(
       .select(
         // LL_id exists in the live DB but is missing from the stale generated
         // types, hence the returns<> cast.
-        "id, name, phone, email, dob, pick_up_location, area, city, pincode, aadhar_state, created_at, LL_application_id, LL_id, DL_id, DL_received_date",
+        "id, name, phone, email, dob, pick_up_location, area, city, pincode, aadhar_state, created_at, LL_application_id, LL_id, DL_id, DL_received_date, signature_storage_path, signature_mime_type",
       )
       .or(chunk.map((d) => `phone.ilike.%${d}`).join(","))
       .returns<BulkFormLearner[]>();

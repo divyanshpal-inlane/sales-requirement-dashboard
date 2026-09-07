@@ -33,6 +33,7 @@ import { Form15Data, generateForm15PDF } from "@/utils/generateForm15";
 import {
   fetchTrainingPeriods,
   fetchTrainingSessions,
+  loadLearnerSignature,
   SCHOOL_NAME,
   toForm15Sessions,
 } from "@/utils/formsBulk";
@@ -59,6 +60,7 @@ interface LearnerForForm14 {
   signature_consent_at?: string | null;
   signature_terms_version?: string | null;
   signature_privacy_version?: string | null;
+  signature_mime_type?: string | null;
 }
 
 interface Form14GeneratorProps {
@@ -205,13 +207,20 @@ export default function Form14Generator({
     email: learner.email || undefined,
   });
 
-  const buildForm15Data = (): Form15Data => ({
-    schoolName: SCHOOL_NAME.toUpperCase(),
-    traineeName: formData.name,
-    enrollmentNumber: formData.enrollmentNumber,
-    enrollmentDate: formData.enrollmentDate,
-    sessions: toForm15Sessions(trainingSessions ?? []),
-  });
+  const buildForm15Data = async (): Promise<Form15Data> => {
+    const learnerSignature = await loadLearnerSignature(
+      learner.signature_storage_path,
+      learner.signature_mime_type,
+    );
+    return {
+      schoolName: SCHOOL_NAME.toUpperCase(),
+      traineeName: formData.name,
+      enrollmentNumber: formData.enrollmentNumber,
+      enrollmentDate: formData.enrollmentDate,
+      sessions: toForm15Sessions(trainingSessions ?? []),
+      ...learnerSignature,
+    };
+  };
 
   const buildForm5Data = (): Form5CertificateData => ({
     certificateNo: formData.enrollmentNumber || undefined,
@@ -272,7 +281,7 @@ export default function Form14Generator({
     if (!requireName()) return;
     setGenerating("15");
     try {
-      const pdfBytes = await generateForm15PDF(buildForm15Data());
+      const pdfBytes = await generateForm15PDF(await buildForm15Data());
       downloadPDF(pdfBytes, `Form15_${safeName()}.pdf`);
       toast({
         title: "Success",
@@ -324,9 +333,10 @@ export default function Form14Generator({
     if (!requireName()) return;
     setGenerating("all");
     try {
+      const form15Data = await buildForm15Data();
       const [f14, f15, f5] = await Promise.all([
         generateForm14PDF(buildForm14Data()),
-        generateForm15PDF(buildForm15Data()),
+        generateForm15PDF(form15Data),
         generateForm5PDF(buildForm5Data()),
       ]);
       downloadPDF(f14, `Form14_${safeName()}.pdf`);
