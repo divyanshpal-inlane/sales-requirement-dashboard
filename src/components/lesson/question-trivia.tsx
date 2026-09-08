@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { QuestionGame } from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
+import { PaintedText } from "@/components/ui/paint-text";
 import { prepareLessonQuestions } from "@/utils/prepareLessonQuestions";
 
 export default function QuestionTrivia({
@@ -77,7 +78,7 @@ export default function QuestionTrivia({
           return (
             <label
               key={answerNumber}
-              className={`flex items-start gap-3 rounded-xl border p-3 text-sm leading-relaxed ${isSelected ? (correct ? "border-green-500 bg-green-50" : "border-red-400 bg-red-50") : "border-gray-200"} ${answered || timedOut ? "" : "cursor-pointer hover:bg-purple-50"}`}
+              className={`mb-3 flex w-full items-start gap-3 text-left font-semibold leading-relaxed ${answered || timedOut ? "" : "cursor-pointer"}`}
             >
               <input
                 type="radio"
@@ -89,12 +90,11 @@ export default function QuestionTrivia({
                 }}
                 className="mt-1 shrink-0 accent-purple-600"
               />
-              <span>
-                <span className="mr-2 font-semibold">
-                  {String.fromCharCode(65 + optionIndex)}.
-                </span>
+              <PaintedText
+                variant={isSelected ? (correct ? "green" : "red") : null}
+              >
                 {answer}
-              </span>
+              </PaintedText>
             </label>
           );
         })}
