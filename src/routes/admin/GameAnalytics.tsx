@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, ChevronDown, RefreshCw } from "lucide-react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,12 @@ export default function GameAnalytics() {
   const [game, setGame] = useState("");
   const [activity, setActivity] = useState("all");
   const [page, setPage] = useState(0);
+  const [expandedLearners, setExpandedLearners] = useState<Set<string>>(
+    new Set(),
+  );
   const report = useQuery({
     queryKey: [
-      "gameAnalytics",
+      "gameAnalyticsByLearner",
       admin?.id,
       member?.id,
       search,
@@ -57,10 +60,6 @@ export default function GameAnalytics() {
             loads or completions. No recorded activity does not mean a learner
             never played before tracking began.
           </p>
-          <p className="text-sm text-gray-600">
-            Active viewing time is unavailable until the game websites support
-            activity tracking.
-          </p>
           {report.data && (
             <p className="text-sm">
               Tracking enabled: {dateLabel(report.data.tracking_since)}. All
@@ -82,6 +81,7 @@ export default function GameAnalytics() {
                 event.preventDefault();
                 setSearch(searchInput.trim());
                 setPage(0);
+                setExpandedLearners(new Set());
               }}
             >
               <label className="grid gap-1 text-sm" htmlFor="game-search">
@@ -103,6 +103,7 @@ export default function GameAnalytics() {
                   onChange={(event) => {
                     setGame(event.target.value);
                     setPage(0);
+                    setExpandedLearners(new Set());
                   }}
                 >
                   <option value="">All games</option>
@@ -122,6 +123,7 @@ export default function GameAnalytics() {
                   onChange={(event) => {
                     setActivity(event.target.value);
                     setPage(0);
+                    setExpandedLearners(new Set());
                   }}
                 >
                   <option value="all">All activity</option>
@@ -147,15 +149,17 @@ export default function GameAnalytics() {
                 className="rounded-md border border-red-200 bg-red-50 p-4 text-red-800"
               >
                 Unable to load game analytics. Check your access and that the
-                game analytics database migration has been applied, then
+                grouped game analytics database migration has been applied, then
                 refresh.
               </p>
             ) : (
               report.data && (
                 <>
                   <p className="text-sm text-gray-600">
-                    {report.data.total_rows} learner–game records match these
-                    filters.
+                    {report.data.total_rows} learner
+                    {report.data.total_rows === 1 ? " matches" : "s match"}{" "}
+                    these filters. Expand a learner to view their games. Totals
+                    follow the selected game filter.
                   </p>
                   <div className="overflow-x-auto rounded-lg border bg-white">
                     <table className="w-full text-left text-sm">
@@ -167,11 +171,10 @@ export default function GameAnalytics() {
                           {[
                             "Learner",
                             "Phone",
-                            "Game",
-                            "Openings",
+                            "Games opened",
+                            "Total openings",
                             "First opened",
                             "Last opened",
-                            "Viewing time",
                           ].map((label) => (
                             <th
                               key={label}
@@ -184,40 +187,123 @@ export default function GameAnalytics() {
                         </tr>
                       </thead>
                       <tbody>
-                        {report.data.rows.map((row) => (
-                          <tr
-                            key={`${row.learner_id}-${row.game_id}`}
-                            className="border-t"
-                          >
-                            <td className="p-3">
-                              {row.name || "Unnamed learner"}
-                            </td>
-                            <td className="whitespace-nowrap p-3">
-                              {row.phone}
-                            </td>
-                            <td className="p-3">
-                              {PREP_GAMES.find(
-                                (item) => item.id === row.game_id,
-                              )?.title.replace(/:$/, "")}
-                            </td>
-                            <td className="p-3">
-                              {row.opens > 0
-                                ? row.opens
-                                : "No recorded activity"}
-                            </td>
-                            <td className="whitespace-nowrap p-3">
-                              {dateLabel(row.first_opened_at)}
-                            </td>
-                            <td className="whitespace-nowrap p-3">
-                              {dateLabel(row.last_opened_at)}
-                            </td>
-                            <td className="p-3 text-gray-500">Unavailable</td>
-                          </tr>
-                        ))}
+                        {report.data.rows.map((row) => {
+                          const expanded = expandedLearners.has(row.learner_id);
+                          const detailsId = `game-details-${row.learner_id}`;
+                          return (
+                            <Fragment key={row.learner_id}>
+                              <tr
+                                className={
+                                  expanded
+                                    ? "border-t bg-violet-50/50"
+                                    : "border-t hover:bg-gray-50"
+                                }
+                              >
+                                <td className="p-3">
+                                  <button
+                                    type="button"
+                                    className="flex items-center gap-2 rounded text-left font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-600"
+                                    aria-expanded={expanded}
+                                    aria-controls={detailsId}
+                                    aria-label={`${expanded ? "Hide" : "Show"} games for ${row.name || "Unnamed learner"}, ${row.phone}`}
+                                    onClick={() =>
+                                      setExpandedLearners((current) => {
+                                        const next = new Set(current);
+                                        if (next.has(row.learner_id))
+                                          next.delete(row.learner_id);
+                                        else next.add(row.learner_id);
+                                        return next;
+                                      })
+                                    }
+                                  >
+                                    <ChevronDown
+                                      aria-hidden="true"
+                                      className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+                                    />
+                                    {row.name || "Unnamed learner"}
+                                  </button>
+                                </td>
+                                <td className="whitespace-nowrap p-3">
+                                  {row.phone}
+                                </td>
+                                <td className="p-3">
+                                  {row.games_opened} / {row.total_games}
+                                </td>
+                                <td className="p-3">
+                                  {row.opens > 0
+                                    ? row.opens
+                                    : "No recorded activity"}
+                                </td>
+                                <td className="whitespace-nowrap p-3">
+                                  {dateLabel(row.first_opened_at)}
+                                </td>
+                                <td className="whitespace-nowrap p-3">
+                                  {dateLabel(row.last_opened_at)}
+                                </td>
+                              </tr>
+                              <tr id={detailsId} hidden={!expanded}>
+                                <td
+                                  colSpan={6}
+                                  className="border-t bg-gray-50 p-4 md:px-8"
+                                >
+                                  <table className="w-full text-left text-sm">
+                                    <caption className="mb-3 text-left font-medium">
+                                      Game activity for {row.name || row.phone}
+                                    </caption>
+                                    <thead>
+                                      <tr>
+                                        {[
+                                          "Game",
+                                          "Openings",
+                                          "First opened",
+                                          "Last opened",
+                                        ].map((label) => (
+                                          <th
+                                            key={label}
+                                            scope="col"
+                                            className="whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500"
+                                          >
+                                            {label}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {row.games.map((detail) => (
+                                        <tr
+                                          key={detail.game_id}
+                                          className="border-t"
+                                        >
+                                          <td className="px-3 py-3">
+                                            {PREP_GAMES.find(
+                                              (item) =>
+                                                item.id === detail.game_id,
+                                            )?.title.replace(/:$/, "")}
+                                          </td>
+                                          <td className="px-3 py-3">
+                                            {detail.opens > 0
+                                              ? detail.opens
+                                              : "No recorded activity"}
+                                          </td>
+                                          <td className="whitespace-nowrap px-3 py-3">
+                                            {dateLabel(detail.first_opened_at)}
+                                          </td>
+                                          <td className="whitespace-nowrap px-3 py-3">
+                                            {dateLabel(detail.last_opened_at)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </td>
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
                         {report.data.rows.length === 0 && (
                           <tr>
                             <td
-                              colSpan={7}
+                              colSpan={6}
                               className="p-8 text-center text-gray-500"
                             >
                               No learners match these filters.
