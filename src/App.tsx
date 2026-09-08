@@ -4,6 +4,7 @@ import { APIProvider } from "@vis.gl/react-google-maps";
 import React, { Suspense } from "react";
 import {
   BrowserRouter,
+  Link,
   Navigate,
   Outlet,
   Route,
@@ -41,6 +42,7 @@ import {
 import { PhoneVisibilityProvider } from "@/context/phone-visibility-context";
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
+import ComplianceForms from "@/routes/admin/ComplianceForms";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import DLTestSlots from "@/routes/admin/DLTestSlots";
 import UserManagement from "@/routes/admin/UserManagement";
@@ -325,6 +327,7 @@ export default function App() {
               }
             >
               <Route index element={<AdminHome />} />
+              <Route path="compliance-forms" element={<ComplianceForms />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructor-matrix" element={<InstructorMatrix />} />
               <Route
@@ -404,6 +407,18 @@ export default function App() {
             <Route
               path="/reschedule/callback"
               element={<ReschedulePaymentCallback />}
+            />
+            <Route
+              path="*"
+              element={
+                <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+                  <h1 className="text-2xl font-bold">Page not found</h1>
+                  <p>The page you requested does not exist.</p>
+                  <Link className="text-blue-600 underline" to="/">
+                    Return home
+                  </Link>
+                </main>
+              }
             />
             </Routes>
           </PhoneVisibilityProvider>
