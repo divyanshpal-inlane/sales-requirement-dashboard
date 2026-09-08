@@ -1245,6 +1245,19 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      record_game_launch: {
+        Args: { p_event_id: string; p_game_id: string };
+        Returns: undefined;
+      };
+      get_game_analytics: {
+        Args: {
+          p_search: string;
+          p_game_id: string;
+          p_activity: string;
+          p_page: number;
+        };
+        Returns: Json;
+      };
       calculate_reschedule_fee: {
         Args: {
           lesson_ids: string[];

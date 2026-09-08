@@ -70,6 +70,13 @@ const featureConfig: Record<
     color: string;
   }
 > = {
+  game_analytics: {
+    title: "Game Analytics",
+    description: "See which learners launch games and how often",
+    icon: Gauge,
+    link: "/admin/game-analytics",
+    color: "text-violet-500",
+  },
   learner_management: {
     title: "Learner Management",
     description: "Create and manage learner enrollments",

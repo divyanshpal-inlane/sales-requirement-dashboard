@@ -43,6 +43,7 @@ import { PhoneVisibilityProvider } from "@/context/phone-visibility-context";
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import ComplianceForms from "@/routes/admin/ComplianceForms";
+import GameAnalytics from "@/routes/admin/GameAnalytics";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import DLTestSlots from "@/routes/admin/DLTestSlots";
 import UserManagement from "@/routes/admin/UserManagement";
@@ -327,6 +328,7 @@ export default function App() {
               }
             >
               <Route index element={<AdminHome />} />
+              <Route path="game-analytics" element={<GameAnalytics />} />
               <Route path="compliance-forms" element={<ComplianceForms />} />
               <Route path="schedules" element={<AdminSchedules />} />
               <Route path="instructor-matrix" element={<InstructorMatrix />} />

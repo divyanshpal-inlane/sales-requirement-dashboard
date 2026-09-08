@@ -4,6 +4,12 @@ import { supabase } from "@/lib/supabaseClient";
 
 // All available admin permissions
 export const ADMIN_PERMISSIONS = {
+  game_analytics: {
+    key: "game_analytics",
+    label: "Game Analytics",
+    description: "View learner game launches and activity history",
+    route: "/admin/game-analytics",
+  },
   learner_management: {
     key: "learner_management",
     label: "Learner Management",

@@ -3,34 +3,10 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PREP_GAMES, type PrepGameId } from "@/constants/prepGames";
+import { recordGameLaunch } from "@/queries/gameAnalytics";
 
 export default function Prep() {
-  const games = [
-    {
-      image: "/assets/master-the-roads.png",
-      title: "Master the roads:",
-      description: "Ace real-life driving scenarios",
-      link: "https://staging.d1p2nu8lfeelfo.amplifyapp.com/",
-    },
-    {
-      image: "/assets/crush-it.jpg",
-      title: "Crush it:",
-      description: "Know your road signs",
-      link: "https://staging.d220l9t4enoyw1.amplifyapp.com/",
-    },
-    {
-      image: "/assets/hazard-hero.png",
-      title: "Sharpen your reflexes:",
-      description: "Spot hazards while driving",
-      link: "https://staging.d2kmwf5a99pa71.amplifyapp.com/",
-    },
-    {
-      image: "/assets/speed-test.png",
-      title: "Speed Test:",
-      description: "How fast can you spot road signs",
-      link: "https://staging.dho5r9sclfwnb.amplifyapp.com/",
-    },
-  ];
   return (
     <div className="flex h-full flex-col bg-black pb-20 text-primary-foreground">
       <img
@@ -51,8 +27,8 @@ export default function Prep() {
           <p className="h-40"></p>
           <p className="text-4xl">Lane Learning Game Club</p>
           <div className="flex flex-col gap-4">
-            {games.map((game, index) => (
-              <GameCard key={index} {...game} />
+            {PREP_GAMES.map((game) => (
+              <GameCard key={game.id} {...game} />
             ))}
           </div>
         </div>
@@ -62,11 +38,13 @@ export default function Prep() {
 }
 
 const GameCard = ({
+  id,
   image,
   title,
   description,
   link,
 }: {
+  id: PrepGameId;
   image: string;
   title: string;
   description: string;
@@ -78,7 +56,12 @@ const GameCard = ({
       <h3 className="text-sm font-bold text-primary-foreground/70">{title}</h3>
       <p className="mb-2 text-primary-foreground">{description}</p>
       <Button
-        onClick={() => window.open(link || "https://inlane.in", "_blank")}
+        onClick={() => {
+          window.open(link, "_blank", "noopener,noreferrer");
+          void recordGameLaunch(id).catch(() => {
+            console.warn("Game launch analytics could not be saved");
+          });
+        }}
         size={"sm"}
         className="w-fit"
         variant={"secondary"}
