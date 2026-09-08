@@ -1,4 +1,5 @@
 import { Game } from "@/components/lesson/trivia";
+import { LESSON_TRIVIA } from "@/constants/lessonTrivia";
 
 export const LESSON_IDS = [
   "1",
@@ -101,27 +102,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Press brake and then clutch for quick stops",
         },
       ],
-      game: {
-        type: "image",
-        games: [
-          {
-            mapAreas: [
-              { x: 15.65625, y: 69, width: 93, height: 84, id: 1 },
-              { x: 142.65625, y: 55, width: 78, height: 77, id: 2 },
-              { x: 221.65625, y: 10, width: 89, height: 125, id: 3 },
-            ],
-            correctAnswer: 3,
-            imageSrc: "/assets/ThreePedal.png",
-            question: "Which one is the Accelerator?",
-          },
-          {
-            mapAreas: [{ x: 203.15625, y: 65, width: 40, height: 24, id: 1 }],
-            correctAnswer: 1,
-            imageSrc: "/assets/SteeringWheel.png",
-            question: "Where is the turn signal?",
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["1"],
     },
   },
   "2": {
@@ -182,28 +163,7 @@ export const LESSON_CONTENT: LessonContent = {
         },
       ],
 
-      game: {
-        type: "question",
-        games: [
-          {
-            question:
-              "While reversing, how can we maintain control of the car?",
-            answers: [
-              "Just use the mirror",
-              "Use the clutch and brake pedals to control speed, and look back",
-            ],
-            correctAnswer: 2,
-          },
-          {
-            question: "To start driving in a manual car, you should",
-            answers: [
-              "Press the clutch, shift into first gear, slowly release the clutch while pressing the accelerator",
-              "Skip first gear and go straight to second",
-            ],
-            correctAnswer: 1,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["2"],
     },
   },
   "3": {
@@ -266,29 +226,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Slow down, signal, and check mirrors",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question:
-              "What should you do before shifting gears in a manual car?",
-            answers: [
-              "Press the clutch pedal fully",
-              "Press the brake pedal fully",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question:
-              "Which gear should you use when driving uphill in a manual car?",
-            answers: [
-              "First or second gear for more power and torque, essential for going uphill",
-              "Fifth gear for cruising at higher speeds.",
-            ],
-            correctAnswer: 1,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["3"],
     },
   },
   "4": {
@@ -362,29 +300,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Balance pedals and gear in slow movements",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question:
-              "What’s the best way to check your car’s position while parking?",
-            answers: [
-              "Look at the side mirrors regularly to monitor distance from nearby objects",
-              "Open the door and check manually",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question:
-              "What is the safest practice when exiting a parallel parking spot?",
-            answers: [
-              "Start moving when the coast looks clear",
-              "Check your blind spots and signal before pulling out.",
-            ],
-            correctAnswer: 2,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["4"],
     },
   },
   "5": {
@@ -441,28 +357,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Parallel park SLIDE!",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question: "How do you maintain a steady speed while making turns?",
-            answers: [
-              "Slow down before the turn and accelerate smoothly through it",
-              "Maintain the same speed throughout the turn",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question:
-              "How do you maintain steady speed, if you see traffic slowing ahead?",
-            answers: [
-              "Slam on the brakes",
-              "Gradually ease off the accelerator",
-            ],
-            correctAnswer: 2,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["5"],
     },
   },
   "6": {
@@ -529,25 +424,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Maintain your lane",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question:
-              "Why is it important to maintain your lane while driving?",
-            answers: [
-              "It prevents accidents by ensuring predictable movements",
-              "It saves fuel",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question: "How often should you check your mirrors while driving?",
-            answers: ["Every 5-8 seconds", "Only when changing lanes"],
-            correctAnswer: 2,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["6"],
     },
   },
   "7": {
@@ -622,27 +499,7 @@ export const LESSON_CONTENT: LessonContent = {
         },
       ],
 
-      game: {
-        type: "question",
-        games: [
-          {
-            question: "What's the golden rule when entering a roundabout?",
-            answers: [
-              "Yield to traffic already in the roundabout",
-              "Speed up to merge quickly",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question: "How should you signal your exit from a roundabout?",
-            answers: [
-              "Use your turn signal just before you exit",
-              "Use your turn signal at all times",
-            ],
-            correctAnswer: 1,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["7"],
     },
   },
   "8": {
@@ -700,29 +557,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Practice makes perfect",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question:
-              "How can you signal to another driver that you are about to overtake them at night?",
-            answers: [
-              "Flash your high beams briefly to communicate your intention",
-              "Honk your horn repeatedly",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question:
-              "What is the best practice for parking at night in a poorly lit area?",
-            answers: [
-              "Use your hazard lights to increase visibility while parking",
-              "Park quickly without using additional lights",
-            ],
-            correctAnswer: 1,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["8"],
     },
   },
   "9": {
@@ -783,27 +618,7 @@ export const LESSON_CONTENT: LessonContent = {
           desc: "Using GPS without distractions",
         },
       ],
-      game: {
-        type: "question",
-        games: [
-          {
-            question: "What's key to driving safely on a flyover?",
-            answers: [
-              "Maintaining steady speed and lane discipline",
-              "Driving faster to avoid traffic",
-            ],
-            correctAnswer: 1,
-          },
-          {
-            question: "What should you do when merging or exiting a flyover?",
-            answers: [
-              "Adjust your speed to match traffic and signal in advance",
-              "Brake suddenly and exit quickly",
-            ],
-            correctAnswer: 2,
-          },
-        ],
-      },
+      game: LESSON_TRIVIA["9"],
     },
   },
   "10": {
@@ -811,6 +626,11 @@ export const LESSON_CONTENT: LessonContent = {
     description: "Mini challenges",
     image_path: "/assets/lesson-pic-10.png",
     menu: {
+      trivia: {
+        title: "You drove into a quiz",
+        icon: "🤖",
+        color: "bg-purple-400",
+      },
       signature: {
         title: "Sign your completion",
         icon: "✍️",
@@ -818,6 +638,7 @@ export const LESSON_CONTENT: LessonContent = {
       },
     },
     content: {
+      game: LESSON_TRIVIA["10"],
       remember: [
         {
           icon: "🏎",

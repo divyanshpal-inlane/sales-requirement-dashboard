@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
-import { InteractiveImageQuiz, QuestionQuiz } from "@/components/lesson/quiz";
+import QuestionTrivia from "@/components/lesson/question-trivia";
+import { InteractiveImageQuiz } from "@/components/lesson/quiz";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PaintedText } from "@/components/ui/paint-text";
@@ -27,6 +28,7 @@ export type QuestionGame = {
   games: {
     question: string;
     answers: string[];
+    explanation?: string;
     correctAnswer: number;
   }[];
 };
@@ -34,17 +36,12 @@ export type QuestionGame = {
 export type Game = ImageGame | QuestionGame;
 export type GameType = Game["type"];
 
-const gameToTriviaMap: Record<GameType, any> = {
-  image: InteractiveImageQuiz,
-  question: QuestionQuiz,
-};
-
-const TriviaCard = ({
+const LegacyTriviaCard = ({
   finishGame,
   game: { type: gameType, games: game },
 }: {
   finishGame: () => void;
-  game: Game;
+  game: ImageGame;
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState<number | undefined>(
     undefined,
@@ -72,13 +69,15 @@ const TriviaCard = ({
     setTimeLeft(15);
   }, [gameIndex]);
 
-  const Comp = gameToTriviaMap[gameType];
+  const Comp = InteractiveImageQuiz;
   return (
     <div className="flex h-full w-full items-center justify-center">
       <Dialog open={showTimeUpDialog} onOpenChange={setShowTimeUpDialog}>
         <DialogContent className="sm:max-w-md">
           <div className="flex flex-col items-center gap-4 p-6">
-            <h2 className="text-2xl font-bold text-destructive">Time's Up!</h2>
+            <h2 className="text-2xl font-bold text-destructive">
+              Time&apos;s Up!
+            </h2>
             <p className="text-center text-gray-600">
               You ran out of time for this question.
             </p>
@@ -126,7 +125,7 @@ const TriviaCard = ({
           <Comp
             key={game[gameIndex].imageSrc}
             setSelectedAnswer={setSelectedAnswer}
-            selectedAnswer={selectedAnswer}
+            selectedAnswer={selectedAnswer ?? 0}
             game={game[gameIndex]}
           />
           {gameType === "image" ? (
@@ -176,4 +175,13 @@ const TriviaCard = ({
   );
 };
 
-export default TriviaCard;
+export default function TriviaCard(props: {
+  finishGame: () => void;
+  game: Game;
+}) {
+  return props.game.type === "question" ? (
+    <QuestionTrivia game={props.game} finishGame={props.finishGame} />
+  ) : (
+    <LegacyTriviaCard game={props.game} finishGame={props.finishGame} />
+  );
+}
