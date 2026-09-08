@@ -9,14 +9,23 @@ export async function recordGameLaunch(gameId: PrepGameId) {
   if (error) throw error;
 }
 
-export interface GameAnalyticsRow {
-  learner_id: string;
-  name: string | null;
-  phone: string;
+export interface GameAnalyticsDetail {
   game_id: PrepGameId;
   opens: number;
   first_opened_at: string | null;
   last_opened_at: string | null;
+}
+
+export interface GameAnalyticsRow {
+  learner_id: string;
+  name: string | null;
+  phone: string;
+  opens: number;
+  games_opened: number;
+  total_games: number;
+  first_opened_at: string | null;
+  last_opened_at: string | null;
+  games: GameAnalyticsDetail[];
 }
 
 export interface GameAnalyticsReport {
@@ -31,7 +40,7 @@ export async function fetchGameAnalytics(
   activity: string,
   page: number,
 ): Promise<GameAnalyticsReport> {
-  const { data, error } = await supabase.rpc("get_game_analytics", {
+  const { data, error } = await supabase.rpc("get_game_analytics_by_learner", {
     p_search: search,
     p_game_id: game,
     p_activity: activity,

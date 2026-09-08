@@ -1258,6 +1258,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      get_game_analytics_by_learner: {
+        Args: {
+          p_search: string;
+          p_game_id: string;
+          p_activity: string;
+          p_page: number;
+        };
+        Returns: Json;
+      };
       calculate_reschedule_fee: {
         Args: {
           lesson_ids: string[];
