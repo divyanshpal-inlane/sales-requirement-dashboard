@@ -406,10 +406,7 @@ function PaymentPage() {
             setCompletedDemoCount(demoPayments.length);
             setDemoPaymentId(demoPayments[0].id);
             setDemoCreditTotal(
-              demoPayments.reduce(
-                (sum, p) => sum + (Number(p.amount) || 0),
-                0,
-              ),
+              demoPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
             );
           } else if (demoError) {
             console.log("Demo payment check skipped:", demoError.message);
@@ -932,8 +929,8 @@ function PaymentPage() {
                     </Select>
                     {hasCompletedDemo && (
                       <p className="mt-1 text-xs text-green-600">
-                        ₹{demoCreditTotal} credit from your{" "}
-                        {completedDemoCount} demo
+                        ₹{demoCreditTotal} credit from your {completedDemoCount}{" "}
+                        demo
                         {completedDemoCount === 1 ? "" : "s"} will be deducted
                         from the course price
                       </p>

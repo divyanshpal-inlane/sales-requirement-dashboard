@@ -9,7 +9,7 @@ The web app auto-deploys to **Vercel** when a commit lands on `main`.
 - Production project: **`inlane-web-app`** → `inlane-web-app.vercel.app` (the domain baked into payment links).
 - Build command: `vite build`. Install: `pnpm install --frozen-lockfile`.
 
-### ⚠️ Vercel gates deploys on the git *commit author*
+### ⚠️ Vercel gates deploys on the git _commit author_
 
 `inlane-web-app` is configured so a deploy only runs if the **author of the
 merged commit** is a member of the Vercel team. A merge authored by an account
@@ -22,7 +22,7 @@ merged fine; only the deploy is blocked. Pulling / rebasing / re-merging does
 **not** fix it. To ship:
 
 1. **Merge with an authorized account** — a GitHub "Create a merge commit" is
-   authored by whoever clicks *Merge*, so merging as a Vercel-team member
+   authored by whoever clicks _Merge_, so merging as a Vercel-team member
    produces an authorized commit.
 2. Or have a teammate click **Redeploy** on the commit in the Vercel dashboard
    (redeploys are attributed to the clicker, not the git author).

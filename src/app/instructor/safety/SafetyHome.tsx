@@ -51,9 +51,24 @@ const REPORT_TYPES: {
   label: string;
   hint: string;
 }[] = [
-  { type: "accident", icon: Car, label: "Accident", hint: "Collision or injury during a lesson" },
-  { type: "breakdown", icon: Wrench, label: "Vehicle breakdown", hint: "Car trouble on the road" },
-  { type: "misconduct", icon: UserX, label: "Learner misconduct", hint: "Unsafe or abusive behaviour" },
+  {
+    type: "accident",
+    icon: Car,
+    label: "Accident",
+    hint: "Collision or injury during a lesson",
+  },
+  {
+    type: "breakdown",
+    icon: Wrench,
+    label: "Vehicle breakdown",
+    hint: "Car trouble on the road",
+  },
+  {
+    type: "misconduct",
+    icon: UserX,
+    label: "Learner misconduct",
+    hint: "Unsafe or abusive behaviour",
+  },
 ];
 
 export default function SafetyHome() {
@@ -68,7 +83,9 @@ export default function SafetyHome() {
   const report = useReportSafetyIncident();
   const { toast } = useToast();
 
-  const [openType, setOpenType] = useState<Exclude<IncidentType, "sos"> | null>(null);
+  const [openType, setOpenType] = useState<Exclude<IncidentType, "sos"> | null>(
+    null,
+  );
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
 
@@ -80,7 +97,10 @@ export default function SafetyHome() {
 
   const submit = async () => {
     if (!instructorId) {
-      toast({ title: "Couldn't identify your instructor account", variant: "destructive" });
+      toast({
+        title: "Couldn't identify your instructor account",
+        variant: "destructive",
+      });
       return;
     }
     if (!description.trim()) {
@@ -94,7 +114,10 @@ export default function SafetyHome() {
         description: description.trim(),
         location: location.trim() || null,
       });
-      toast({ title: "Report submitted", description: "Our team has been notified." });
+      toast({
+        title: "Report submitted",
+        description: "Our team has been notified.",
+      });
       setOpenType(null);
     } catch (e) {
       toast({
@@ -110,10 +133,17 @@ export default function SafetyHome() {
   const triggerSos = () => {
     if (instructorId) {
       report.mutate(
-        { instructorId, incidentType: "sos", description: "SOS triggered from app" },
+        {
+          instructorId,
+          incidentType: "sos",
+          description: "SOS triggered from app",
+        },
         {
           onSuccess: () =>
-            toast({ title: "SOS alert sent", description: "Admin team notified." }),
+            toast({
+              title: "SOS alert sent",
+              description: "Admin team notified.",
+            }),
         },
       );
     }
@@ -149,7 +179,8 @@ export default function SafetyHome() {
           <span>
             <span className="block text-base font-bold">Emergency SOS</span>
             <span className="block text-xs opacity-90">
-              Calls {SUPPORT_PHONE_DISPLAY} and alerts the admin team immediately
+              Calls {SUPPORT_PHONE_DISPLAY} and alerts the admin team
+              immediately
             </span>
           </span>
           <PhoneCall className="ml-auto h-5 w-5 shrink-0" />
@@ -157,7 +188,9 @@ export default function SafetyHome() {
 
         {/* Report actions */}
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Report an incident</h2>
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">
+            Report an incident
+          </h2>
           <div className="space-y-2">
             {REPORT_TYPES.map(({ type, icon: Icon, label, hint }) => (
               <button
@@ -180,7 +213,9 @@ export default function SafetyHome() {
 
         {/* My reports */}
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">My reports</h2>
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">
+            My reports
+          </h2>
           {isLoading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -193,7 +228,10 @@ export default function SafetyHome() {
           ) : (
             <div className="space-y-2">
               {incidents.map((r: SafetyIncident) => (
-                <div key={r.id} className="rounded-lg border bg-white p-3 shadow-sm">
+                <div
+                  key={r.id}
+                  className="rounded-lg border bg-white p-3 shadow-sm"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-sm font-medium">
@@ -205,15 +243,21 @@ export default function SafetyHome() {
                         )}
                       </div>
                       {r.description && (
-                        <p className="mt-0.5 text-xs text-gray-500">{r.description}</p>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {r.description}
+                        </p>
                       )}
                       {r.admin_response && (
                         <p className="mt-1 text-xs text-gray-600">
-                          <span className="font-medium">Admin:</span> {r.admin_response}
+                          <span className="font-medium">Admin:</span>{" "}
+                          {r.admin_response}
                         </p>
                       )}
                     </div>
-                    <Badge variant="outline" className={`text-[10px] capitalize ${STATUS_STYLE[r.status]}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] capitalize ${STATUS_STYLE[r.status]}`}
+                    >
                       {r.status}
                     </Badge>
                   </div>
@@ -229,10 +273,12 @@ export default function SafetyHome() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Report {openType ? INCIDENT_TYPE_LABEL[openType].toLowerCase() : ""}
+              Report{" "}
+              {openType ? INCIDENT_TYPE_LABEL[openType].toLowerCase() : ""}
             </DialogTitle>
             <DialogDescription>
-              Our team reviews every report. For anything life-threatening, use the SOS button.
+              Our team reviews every report. For anything life-threatening, use
+              the SOS button.
             </DialogDescription>
           </DialogHeader>
 
@@ -257,11 +303,17 @@ export default function SafetyHome() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenType(null)} disabled={report.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setOpenType(null)}
+              disabled={report.isPending}
+            >
               Cancel
             </Button>
             <Button onClick={submit} disabled={report.isPending}>
-              {report.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {report.isPending && (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              )}
               Submit report
             </Button>
           </DialogFooter>

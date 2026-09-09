@@ -57,8 +57,7 @@ export function InstructorMultiSelect({
     setQuery("");
     setOpen(true); // stay open to add more
   };
-  const remove = (id: string) =>
-    onChange(selectedIds.filter((x) => x !== id));
+  const remove = (id: string) => onChange(selectedIds.filter((x) => x !== id));
 
   return (
     <div ref={containerRef} className="relative w-full max-w-md">

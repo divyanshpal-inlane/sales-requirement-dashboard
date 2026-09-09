@@ -441,10 +441,7 @@ export function LearnerEditDialog({
         // dialog instead of selecting the address.
         onPointerDownOutside={(e) => {
           const target = e.target as HTMLElement;
-          if (
-            target.closest(".pac-container") ||
-            target.closest(".pac-item")
-          ) {
+          if (target.closest(".pac-container") || target.closest(".pac-item")) {
             e.preventDefault();
           }
         }}

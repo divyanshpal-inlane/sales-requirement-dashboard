@@ -280,7 +280,10 @@ export default function LLApplicationForm({ onDone }: { onDone?: () => void }) {
             const slots = llDocSlotsFor(d, subtype);
             const anyRejected = slots.some((slot) => {
               const existing = docsBySlot[llDocFileKey(d.key, slot.key)];
-              return existing?.status === "rejected" && !files[llDocFileKey(d.key, slot.key)];
+              return (
+                existing?.status === "rejected" &&
+                !files[llDocFileKey(d.key, slot.key)]
+              );
             });
 
             return (

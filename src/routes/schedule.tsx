@@ -598,7 +598,7 @@ export default function Schedule() {
                 </AlertDescription>
               </Alert>
             )}
-            <div className="grid grid-cols-2 gap-4 pb-6">
+            <div className="grid grid-cols-2 gap-4 pb-32">
               {enrollment?.course_id &&
                 Object.values(
                   COURSES_DATA[enrollment.course_id].lessonsData,
