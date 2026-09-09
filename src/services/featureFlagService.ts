@@ -34,11 +34,22 @@ const FEATURE_FLAG_API = `${BACKEND_API}/internal/feature-flags`;
 // In production set VITE_INTERNAL_API_KEY in your environment.
 const INTERNAL_API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || 'local-internal-secret-key';
 
+// Default flags when Go service is unavailable — falls back to Supabase
+const DEFAULT_FLAGS: FeatureFlags = { shadow_auth_enabled: false, use_go_auth: false };
+
+// Timeout for feature flag fetch (in ms) — fail fast in local dev when Go service isn't running
+const FETCH_TIMEOUT_MS = 3000;
+
 /**
- * Fetch feature flags from the backend
- * This function handles the actual API call
+ * Fetch feature flags from the backend with timeout
+ * This function handles the actual API call with a quick timeout
+ * so local dev falls back to Supabase fast when Go service isn't running
  */
 async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
+  // Create an AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
     console.log('[Feature Flags] Fetching feature flags from backend...');
     
@@ -48,22 +59,33 @@ async function fetchFlagsFromBackend(): Promise<FeatureFlags> {
         'Content-Type': 'application/json',
         'x-internal-key': INTERNAL_API_KEY,
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error('[Feature Flags] API returned status:', response.status);
       // Return safe defaults if API fails — use_go_auth=false means Supabase fallback
-      return { shadow_auth_enabled: false, use_go_auth: false };
+      return DEFAULT_FLAGS;
     }
 
     const data = await response.json();
     console.log('[Feature Flags] ✅ Feature flags fetched successfully');
     
-    return data || { shadow_auth_enabled: false, use_go_auth: false };
-  } catch (error) {
-    console.error('[Feature Flags] Error fetching feature flags:', error);
+    return data || DEFAULT_FLAGS;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    // Check if it's a timeout/abort error
+    if (error.name === 'AbortError') {
+      console.warn('[Feature Flags] ⏱️ Request timed out after', FETCH_TIMEOUT_MS, 'ms — Go service may not be running. Falling back to Supabase.');
+    } else {
+      console.warn('[Feature Flags] ⚠️ Error fetching feature flags:', error.message || error, '— Falling back to Supabase.');
+    }
+    
     // Return safe defaults if network error — use_go_auth=false means Supabase fallback
-    return { shadow_auth_enabled: false, use_go_auth: false };
+    return DEFAULT_FLAGS;
   }
 }
 
