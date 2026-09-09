@@ -26,7 +26,9 @@ export default function ReportNoShow() {
   const navigate = useNavigate();
   const { phone } = useUser();
   const { data: instructor } = useInstructor(phone ?? "");
-  const instructorId = instructor?.instructorInfo?.id_instructor as string | undefined;
+  const instructorId = instructor?.instructorInfo?.id_instructor as
+    | string
+    | undefined;
 
   const { data: lessons, isLoading } = useInstructorRecentLessons(instructorId);
   const report = useReportLearnerNoShow();
@@ -43,7 +45,10 @@ export default function ReportNoShow() {
         reporterInstructorId: instructorId,
         note: note.trim() || null,
       });
-      toast({ title: "No-show reported", description: "Your admin will review it." });
+      toast({
+        title: "No-show reported",
+        description: "Your admin will review it.",
+      });
       setSelected(null);
       setNote("");
     } catch (e) {
@@ -84,11 +89,14 @@ export default function ReportNoShow() {
           </div>
         ) : (
           lessons.map((l) => (
-            <div key={l.scheduleId} className="flex items-center justify-between gap-2 rounded-lg border bg-white p-3 shadow-sm">
+            <div
+              key={l.scheduleId}
+              className="flex items-center justify-between gap-2 rounded-lg border bg-white p-3 shadow-sm"
+            >
               <div className="min-w-0">
                 <div className="text-sm font-medium">
-                  {format(new Date(l.date), "EEE d MMM")} · {l.startTime?.slice(0, 5)}–
-                  {l.endTime?.slice(0, 5)}
+                  {format(new Date(l.date), "EEE d MMM")} ·{" "}
+                  {l.startTime?.slice(0, 5)}–{l.endTime?.slice(0, 5)}
                 </div>
                 <div className="truncate text-xs text-gray-500">
                   {l.learnerName ?? "Learner"}
@@ -138,7 +146,11 @@ export default function ReportNoShow() {
             onChange={(e) => setNote(e.target.value)}
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelected(null)} disabled={report.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setSelected(null)}
+              disabled={report.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -146,7 +158,9 @@ export default function ReportNoShow() {
               onClick={submit}
               disabled={report.isPending}
             >
-              {report.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {report.isPending && (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              )}
               Report no-show
             </Button>
           </DialogFooter>

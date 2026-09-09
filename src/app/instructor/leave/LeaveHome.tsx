@@ -1,5 +1,11 @@
 import { format } from "date-fns";
-import { AlertTriangle, ArrowLeft, CalendarOff, Loader2, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CalendarOff,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -84,15 +90,24 @@ export default function LeaveHome() {
   const submit = async () => {
     const finalTo = multiDay ? toDate : fromDate;
     if (finalTo < fromDate) {
-      toast({ title: "End date can't be before start date", variant: "destructive" });
+      toast({
+        title: "End date can't be before start date",
+        variant: "destructive",
+      });
       return;
     }
     if (!allDay && !(startTime < endTime)) {
-      toast({ title: "End time must be after start time", variant: "destructive" });
+      toast({
+        title: "End time must be after start time",
+        variant: "destructive",
+      });
       return;
     }
     if (!instructorId) {
-      toast({ title: "Couldn't identify your instructor account", variant: "destructive" });
+      toast({
+        title: "Couldn't identify your instructor account",
+        variant: "destructive",
+      });
       return;
     }
     try {
@@ -106,7 +121,10 @@ export default function LeaveHome() {
         endTime: allDay ? null : endTime,
         reason: reason.trim() || null,
       });
-      toast({ title: "Leave request submitted", description: "Your admin will review it shortly." });
+      toast({
+        title: "Leave request submitted",
+        description: "Your admin will review it shortly.",
+      });
       setOpen(false);
     } catch (e) {
       toast({
@@ -138,10 +156,15 @@ export default function LeaveHome() {
       <div className="flex-1 space-y-4 overflow-y-auto p-4 pb-24">
         {/* Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <Button className="h-auto flex-col items-start gap-1 py-3" onClick={() => openForm("planned")}>
+          <Button
+            className="h-auto flex-col items-start gap-1 py-3"
+            onClick={() => openForm("planned")}
+          >
             <Plus className="h-4 w-4" />
             <span className="text-sm font-semibold">Apply for leave</span>
-            <span className="text-[11px] font-normal opacity-90">Planned time off</span>
+            <span className="text-[11px] font-normal opacity-90">
+              Planned time off
+            </span>
           </Button>
           <Button
             variant="outline"
@@ -150,13 +173,17 @@ export default function LeaveHome() {
           >
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm font-semibold">Emergency leave</span>
-            <span className="text-[11px] font-normal opacity-80">Urgent — needs approval</span>
+            <span className="text-[11px] font-normal opacity-80">
+              Urgent — needs approval
+            </span>
           </Button>
         </div>
 
         {/* My requests */}
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">My leave requests</h2>
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">
+            My leave requests
+          </h2>
           {isLoading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -169,25 +196,41 @@ export default function LeaveHome() {
           ) : (
             <div className="space-y-2">
               {requests.map((r) => (
-                <div key={r.id} className="rounded-lg border bg-white p-3 shadow-sm">
+                <div
+                  key={r.id}
+                  className="rounded-lg border bg-white p-3 shadow-sm"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{fmtRange(r)}</span>
+                        <span className="text-sm font-medium">
+                          {fmtRange(r)}
+                        </span>
                         {r.leave_type === "emergency" && (
-                          <Badge variant="outline" className="border-red-200 bg-red-50 text-[10px] text-red-700">
+                          <Badge
+                            variant="outline"
+                            className="border-red-200 bg-red-50 text-[10px] text-red-700"
+                          >
                             Emergency
                           </Badge>
                         )}
                       </div>
-                      {r.reason && <p className="mt-0.5 text-xs text-gray-500">{r.reason}</p>}
+                      {r.reason && (
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {r.reason}
+                        </p>
+                      )}
                       {r.admin_note && (
                         <p className="mt-1 text-xs text-gray-600">
-                          <span className="font-medium">Admin:</span> {r.admin_note}
+                          <span className="font-medium">Admin:</span>{" "}
+                          {r.admin_note}
                         </p>
                       )}
                     </div>
-                    <Badge variant="outline" className={`text-[10px] capitalize ${STATUS_STYLE[r.status]}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] capitalize ${STATUS_STYLE[r.status]}`}
+                    >
                       {r.status}
                     </Badge>
                   </div>
@@ -216,7 +259,9 @@ export default function LeaveHome() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {leaveType === "emergency" ? "Report emergency leave" : "Apply for leave"}
+              {leaveType === "emergency"
+                ? "Report emergency leave"
+                : "Apply for leave"}
             </DialogTitle>
             <DialogDescription>
               {leaveType === "emergency"
@@ -227,40 +272,70 @@ export default function LeaveHome() {
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label className="text-xs">{multiDay ? "From date" : "Date"}</Label>
-              <Input type="date" min={today} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <Label className="text-xs">
+                {multiDay ? "From date" : "Date"}
+              </Label>
+              <Input
+                type="date"
+                min={today}
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
             </div>
 
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={multiDay} onChange={(e) => setMultiDay(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={multiDay}
+                onChange={(e) => setMultiDay(e.target.checked)}
+              />
               Multiple days
             </label>
             {multiDay && (
               <div className="space-y-1">
                 <Label className="text-xs">To date</Label>
-                <Input type="date" min={fromDate} value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                <Input
+                  type="date"
+                  min={fromDate}
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
               </div>
             )}
 
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={allDay}
+                onChange={(e) => setAllDay(e.target.checked)}
+              />
               All day
             </label>
             {!allDay && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">From time</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">To time</Label>
-                  <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  <Input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
                 </div>
               </div>
             )}
 
             <div className="space-y-1">
-              <Label className="text-xs">Reason {leaveType === "planned" && "(optional)"}</Label>
+              <Label className="text-xs">
+                Reason {leaveType === "planned" && "(optional)"}
+              </Label>
               <Textarea
                 rows={2}
                 placeholder="e.g. Family function, medical, car servicing…"
@@ -271,11 +346,17 @@ export default function LeaveHome() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={createLeave.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={createLeave.isPending}
+            >
               Cancel
             </Button>
             <Button onClick={submit} disabled={createLeave.isPending}>
-              {createLeave.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {createLeave.isPending && (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              )}
               Submit request
             </Button>
           </DialogFooter>

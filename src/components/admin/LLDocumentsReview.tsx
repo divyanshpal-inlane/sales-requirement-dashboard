@@ -6,7 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { LL_DOC_TYPE_MAP, LL_FORM_FIELDS, llDocSlotLabel } from "@/constants/llPipeline";
+import {
+  LL_DOC_TYPE_MAP,
+  LL_FORM_FIELDS,
+  llDocSlotLabel,
+} from "@/constants/llPipeline";
 import {
   LLApplication,
   LLDocument,

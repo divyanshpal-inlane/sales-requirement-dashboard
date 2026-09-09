@@ -141,14 +141,12 @@ export default function SheetFormsDialog({
       const parts = Math.ceil(entries.length / CHUNK);
       for (let i = 0, part = 1; i < entries.length; i += CHUNK, part++) {
         const slice = entries.slice(i, i + CHUNK);
-        const pdfBytes = await generateAllFormsMergedPDF(
-          slice,
-          (done) =>
-            setProgress(
-              `Generating ${i + done}/${entries.length}${
-                parts > 1 ? ` (file ${part}/${parts})` : ""
-              }...`,
-            ),
+        const pdfBytes = await generateAllFormsMergedPDF(slice, (done) =>
+          setProgress(
+            `Generating ${i + done}/${entries.length}${
+              parts > 1 ? ` (file ${part}/${parts})` : ""
+            }...`,
+          ),
         );
         const suffix = parts > 1 ? `_part${part}of${parts}` : "";
         downloadPDF(
@@ -171,7 +169,9 @@ export default function SheetFormsDialog({
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : String(error) || "Failed to generate forms",
+          error instanceof Error
+            ? error.message
+            : String(error) || "Failed to generate forms",
         variant: "destructive",
       });
     } finally {
@@ -209,9 +209,9 @@ export default function SheetFormsDialog({
             Forms from Compliance Sheet
           </DialogTitle>
           <DialogDescription>
-            Copy the customer rows from the sheet&apos;s &quot;Data dump for
-            all forms&quot; tab and paste them below. Customers are matched to
-            the database by phone number; residing at, serial no. and training
+            Copy the customer rows from the sheet&apos;s &quot;Data dump for all
+            forms&quot; tab and paste them below. Customers are matched to the
+            database by phone number; residing at, serial no. and training
             period come from the backend.
           </DialogDescription>
         </DialogHeader>

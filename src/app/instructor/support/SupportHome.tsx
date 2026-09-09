@@ -60,7 +60,9 @@ export default function SupportHome() {
   const navigate = useNavigate();
   const { phone } = useUser();
   const { data: instructor } = useInstructor(phone ?? "");
-  const instructorId = instructor?.instructorInfo?.id_instructor as string | undefined;
+  const instructorId = instructor?.instructorInfo?.id_instructor as
+    | string
+    | undefined;
 
   const { data: tickets, isLoading } = useMySupportTickets(instructorId);
   const createTicket = useCreateSupportTicket();
@@ -86,7 +88,10 @@ export default function SupportHome() {
       return;
     }
     if (!instructorId) {
-      toast({ title: "Couldn't identify your account", variant: "destructive" });
+      toast({
+        title: "Couldn't identify your account",
+        variant: "destructive",
+      });
       return;
     }
     try {
@@ -97,7 +102,10 @@ export default function SupportHome() {
         subject: subject.trim(),
         description: description.trim() || null,
       });
-      toast({ title: "Ticket raised", description: "Support will get back to you." });
+      toast({
+        title: "Ticket raised",
+        description: "Support will get back to you.",
+      });
       setOpen(false);
     } catch (e) {
       toast({
@@ -132,7 +140,9 @@ export default function SupportHome() {
           >
             <Phone className="h-5 w-5" />
             <span className="text-sm font-semibold">Call support</span>
-            <span className="text-[11px] opacity-90">{SUPPORT_PHONE_DISPLAY}</span>
+            <span className="text-[11px] opacity-90">
+              {SUPPORT_PHONE_DISPLAY}
+            </span>
           </a>
           <a
             href={whatsappHref()}
@@ -142,7 +152,9 @@ export default function SupportHome() {
           >
             <MessageCircle className="h-5 w-5" />
             <span className="text-sm font-semibold">WhatsApp</span>
-            <span className="text-[11px] opacity-70">{SUPPORT_PHONE_DISPLAY}</span>
+            <span className="text-[11px] opacity-70">
+              {SUPPORT_PHONE_DISPLAY}
+            </span>
           </a>
         </div>
 
@@ -154,7 +166,9 @@ export default function SupportHome() {
           <Siren className="h-6 w-6" />
           <div>
             <div className="text-sm font-semibold">Emergency support</div>
-            <div className="text-[11px] opacity-80">Call us right now for urgent on-road issues</div>
+            <div className="text-[11px] opacity-80">
+              Call us right now for urgent on-road issues
+            </div>
           </div>
         </a>
 
@@ -165,7 +179,9 @@ export default function SupportHome() {
 
         {/* My tickets */}
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">My tickets</h2>
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">
+            My tickets
+          </h2>
           {isLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -178,28 +194,42 @@ export default function SupportHome() {
           ) : (
             <div className="space-y-2">
               {tickets.map((t: SupportTicket) => (
-                <div key={t.id} className="rounded-lg border bg-white p-3 shadow-sm">
+                <div
+                  key={t.id}
+                  className="rounded-lg border bg-white p-3 shadow-sm"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{t.subject}</span>
+                        <span className="truncate text-sm font-medium">
+                          {t.subject}
+                        </span>
                         {t.priority === "urgent" && (
-                          <Badge variant="outline" className="border-red-200 bg-red-50 text-[10px] text-red-700">
+                          <Badge
+                            variant="outline"
+                            className="border-red-200 bg-red-50 text-[10px] text-red-700"
+                          >
                             Urgent
                           </Badge>
                         )}
                       </div>
                       <div className="mt-0.5 text-[11px] text-muted-foreground">
                         {TICKET_CATEGORY_LABEL[t.category]} ·{" "}
-                        {t.created_at ? format(new Date(t.created_at), "d MMM") : ""}
+                        {t.created_at
+                          ? format(new Date(t.created_at), "d MMM")
+                          : ""}
                       </div>
                       {t.admin_response && (
                         <p className="mt-1 text-xs text-gray-600">
-                          <span className="font-medium">Support:</span> {t.admin_response}
+                          <span className="font-medium">Support:</span>{" "}
+                          {t.admin_response}
                         </p>
                       )}
                     </div>
-                    <Badge variant="outline" className={`text-[10px] capitalize ${STATUS_STYLE[t.status]}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] capitalize ${STATUS_STYLE[t.status]}`}
+                    >
                       {statusLabel(t.status)}
                     </Badge>
                   </div>
@@ -215,12 +245,17 @@ export default function SupportHome() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Raise a ticket</DialogTitle>
-            <DialogDescription>Tell us what&apos;s going on and we&apos;ll help.</DialogDescription>
+            <DialogDescription>
+              Tell us what&apos;s going on and we&apos;ll help.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-xs">Category</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as TicketCategory)}>
+              <Select
+                value={category}
+                onValueChange={(v) => setCategory(v as TicketCategory)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -251,16 +286,26 @@ export default function SupportHome() {
               />
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={urgent}
+                onChange={(e) => setUrgent(e.target.checked)}
+              />
               Mark as urgent
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={createTicket.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={createTicket.isPending}
+            >
               Cancel
             </Button>
             <Button onClick={submit} disabled={createTicket.isPending}>
-              {createTicket.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {createTicket.isPending && (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              )}
               Submit ticket
             </Button>
           </DialogFooter>

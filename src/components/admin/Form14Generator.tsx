@@ -123,9 +123,7 @@ export default function Form14Generator({
     guardianName: "",
     permanentAddress: buildAddress(),
     temporaryAddress: "",
-    dob: learner.dob
-      ? format(new Date(learner.dob), "dd/MM/yyyy")
-      : "",
+    dob: learner.dob ? format(new Date(learner.dob), "dd/MM/yyyy") : "",
     vehicleClass: "LMV (Light Motor Vehicle)",
     enrollmentDate: learner.created_at
       ? format(new Date(learner.created_at), "dd/MM/yyyy")
@@ -401,7 +399,11 @@ export default function Form14Generator({
                 </p>
                 {learner.signature_submitted_at && (
                   <p className="mt-1 text-xs">
-                    Submitted {format(new Date(learner.signature_submitted_at), "dd MMM yyyy, h:mm a")}
+                    Submitted{" "}
+                    {format(
+                      new Date(learner.signature_submitted_at),
+                      "dd MMM yyyy, h:mm a",
+                    )}
                   </p>
                 )}
               </div>
@@ -441,9 +443,7 @@ export default function Form14Generator({
 
           {/* 3. Son/Wife/Daughter of */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-sm font-medium">
-              Guardian
-            </Label>
+            <Label className="text-right text-sm font-medium">Guardian</Label>
             <div className="col-span-3 flex gap-2">
               <Select
                 value={formData.guardianRelation}

@@ -154,7 +154,7 @@ export function NavUser({
           <DropdownMenuSeparator />
           <DialogTrigger asChild>
             <DropdownMenuItem
-              className="gap-2 cursor-pointer"
+              className="cursor-pointer gap-2"
               onSelect={(e) => e.preventDefault()}
             >
               <Lock className="h-4 w-4 text-muted-foreground" />

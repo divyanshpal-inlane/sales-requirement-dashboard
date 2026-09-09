@@ -134,7 +134,8 @@ export function LessonPlan({
     lessonId: lesson.id,
     learnerId: learner.id,
   });
-  const { canViewUnmaskedPhoneNumbers, canViewUnmaskedCarNumbers } = usePhoneVisibility();
+  const { canViewUnmaskedPhoneNumbers, canViewUnmaskedCarNumbers } =
+    usePhoneVisibility();
 
   const {
     menu,
@@ -374,15 +375,15 @@ export function LessonPlan({
                     </p>
                   </div>
                   <div className="flex flex-col gap-0">
-                     <p className="text-sm font-light">Car Number</p>
-                     <p className="text-base">
-                       {schedule?.Instructor?.car_number
-                         ? canViewUnmaskedCarNumbers
-                           ? schedule?.Instructor?.car_number
-                           : maskCarNumber(schedule?.Instructor?.car_number)
-                         : "Not available"}
-                     </p>
-                   </div>
+                    <p className="text-sm font-light">Car Number</p>
+                    <p className="text-base">
+                      {schedule?.Instructor?.car_number
+                        ? canViewUnmaskedCarNumbers
+                          ? schedule?.Instructor?.car_number
+                          : maskCarNumber(schedule?.Instructor?.car_number)
+                        : "Not available"}
+                    </p>
+                  </div>
                   <div className="flex flex-col gap-0">
                     <p className="text-sm font-light">Pick Up location</p>
 
