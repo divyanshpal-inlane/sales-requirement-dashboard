@@ -13,6 +13,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import invariant from "tiny-invariant";
 
+import TrackedVideo from "@/components/lesson/tracked-video";
+import { videoId, quizId } from "@/lib/learning-analytics/model";
 import TriviaCard from "@/components/lesson/trivia";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -134,7 +136,8 @@ export function LessonPlan({
     lessonId: lesson.id,
     learnerId: learner.id,
   });
-  const { canViewUnmaskedPhoneNumbers, canViewUnmaskedCarNumbers } = usePhoneVisibility();
+  const { canViewUnmaskedPhoneNumbers, canViewUnmaskedCarNumbers } =
+    usePhoneVisibility();
 
   const {
     menu,
@@ -171,17 +174,16 @@ export function LessonPlan({
             icon: video.icon ?? "",
             color: video.color ?? "",
             content: (
-              <video
-                className="overflow-hidden rounded-lg"
-                autoPlay
-                playsInline
-                muted={false}
-                controls
-              >
-                <source src={video.video_path} type="video/mp4" />
-                <track kind="captions" src="" label="English captions" />
-                Your browser does not support the video tag.
-              </video>
+              <TrackedVideo
+                key={video.video_path}
+                src={video.video_path}
+                title={video.title}
+                context={{
+                  courseId: lesson.course_id!,
+                  lessonNumber: lesson.number!,
+                  contentId: videoId(video.video_path),
+                }}
+              />
             ),
           }))
         : []),
@@ -191,7 +193,17 @@ export function LessonPlan({
               title: triviaTitle ?? "",
               icon: triviaIcon ?? "",
               color: triviaColor ?? "",
-              content: <TriviaCard finishGame={finishGame} game={game} />,
+              content: (
+                <TriviaCard
+                  finishGame={finishGame}
+                  game={game}
+                  context={{
+                    courseId: lesson.course_id!,
+                    lessonNumber: lesson.number!,
+                    contentId: quizId(game),
+                  }}
+                />
+              ),
             },
           ]
         : []),
@@ -207,6 +219,8 @@ export function LessonPlan({
         : []),
     ],
     [
+      lesson.course_id,
+      lesson.number,
       videos,
       trivia,
       game,
@@ -374,15 +388,15 @@ export function LessonPlan({
                     </p>
                   </div>
                   <div className="flex flex-col gap-0">
-                     <p className="text-sm font-light">Car Number</p>
-                     <p className="text-base">
-                       {schedule?.Instructor?.car_number
-                         ? canViewUnmaskedCarNumbers
-                           ? schedule?.Instructor?.car_number
-                           : maskCarNumber(schedule?.Instructor?.car_number)
-                         : "Not available"}
-                     </p>
-                   </div>
+                    <p className="text-sm font-light">Car Number</p>
+                    <p className="text-base">
+                      {schedule?.Instructor?.car_number
+                        ? canViewUnmaskedCarNumbers
+                          ? schedule?.Instructor?.car_number
+                          : maskCarNumber(schedule?.Instructor?.car_number)
+                        : "Not available"}
+                    </p>
+                  </div>
                   <div className="flex flex-col gap-0">
                     <p className="text-sm font-light">Pick Up location</p>
 
