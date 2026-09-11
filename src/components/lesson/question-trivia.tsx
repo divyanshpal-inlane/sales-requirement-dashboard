@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { LearningContext } from "@/lib/learning-analytics/model";
+import { useQuizAnalytics } from "@/hooks/useQuizAnalytics";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { QuestionGame } from "@/components/lesson/trivia";
 import { Button } from "@/components/ui/button";
@@ -7,11 +9,15 @@ import { prepareLessonQuestions } from "@/utils/prepareLessonQuestions";
 
 export default function QuestionTrivia({
   game,
+  context,
   finishGame,
 }: {
   game: QuestionGame;
+  context: LearningContext;
   finishGame: () => void;
 }) {
+  const analytics = useQuizAnalytics(context);
+  const timedOutIndex = useRef(-1);
   const questions = useMemo(() => prepareLessonQuestions(game.games), [game]);
   const [index, setIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -30,8 +36,16 @@ export default function QuestionTrivia({
     return () => clearTimeout(timer);
   }, [answered, timeLeft, question]);
 
+  useEffect(() => {
+    if (timedOut && question && timedOutIndex.current !== index) {
+      timedOutIndex.current = index;
+      analytics.answer(question.question, null, 15000);
+    }
+  }, [timedOut, index, question]);
+
   const nextQuestion = () => {
     if (index + 1 === questions.length) {
+      analytics.finish();
       finishGame();
       return;
     }
@@ -86,7 +100,14 @@ export default function QuestionTrivia({
                 value={answerNumber}
                 checked={isSelected}
                 onChange={() => {
-                  if (!answered && !timedOut) setSelectedAnswer(answerNumber);
+                  if (!answered && !timedOut) {
+                    analytics.answer(
+                      question.question,
+                      answer,
+                      (15 - timeLeft) * 1000,
+                    );
+                    setSelectedAnswer(answerNumber);
+                  }
                 }}
                 className="mt-1 shrink-0 accent-purple-600"
               />

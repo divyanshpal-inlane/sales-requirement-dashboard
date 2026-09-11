@@ -1245,6 +1245,37 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      record_learning_session: {
+        Args: {
+          p_session_id: string;
+          p_course_id: string;
+          p_lesson_number: number;
+          p_content_id: string;
+          p_sequence: number;
+          p_snapshot: Json;
+        };
+        Returns: undefined;
+      };
+      get_learning_analytics: {
+        Args: {
+          p_search: string;
+          p_activity: string;
+          p_course_id: string | null;
+          p_lesson_number: number | null;
+          p_page: number;
+        };
+        Returns: Json;
+      };
+      get_learning_attempts: {
+        Args: {
+          p_learner_id: string;
+          p_course_id: string;
+          p_lesson_number: number;
+          p_content_id: string;
+          p_page: number;
+        };
+        Returns: Json;
+      };
       record_game_launch: {
         Args: { p_event_id: string; p_game_id: string };
         Returns: undefined;
