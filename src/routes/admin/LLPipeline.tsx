@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import {
   AlertTriangle,
@@ -57,6 +58,7 @@ import {
 import {
   LLApplication,
   llDocumentUrl,
+  useActiveLLApplication,
   useCreateLLApplication,
   useLLApplications,
   useLLDocuments,
@@ -72,6 +74,7 @@ import { useCurrentUser } from "@/queries/userManagement";
 type QueueKey = "all" | LLPhaseKey | "escalations";
 
 export default function LLPipeline() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: currentUser } = useCurrentUser();
@@ -180,7 +183,26 @@ export default function LLPipeline() {
             >
               DL test dates
             </Button>
-            <NewApplicationButton actorName={actorName} />
+            <NewApplicationButton
+              actorName={actorName}
+              onOpenApplication={(application) => {
+                queryClient.setQueryData<LLApplication[]>(
+                  ["ll-applications"],
+                  (current) => [
+                    application,
+                    ...(current ?? []).filter(
+                      (item) => item.id !== application.id,
+                    ),
+                  ],
+                );
+                setQueue("all");
+                setRouteFilter("all");
+                setDateFrom("");
+                setDateTo("");
+                setSearchTerm("");
+                setSelectedId(application.id);
+              }}
+            />
           </div>
         </div>
       </div>
@@ -1281,7 +1303,13 @@ function Field({
   );
 }
 
-function NewApplicationButton({ actorName }: { actorName: string | null }) {
+function NewApplicationButton({
+  actorName,
+  onOpenApplication,
+}: {
+  actorName: string | null;
+  onOpenApplication: (application: LLApplication) => void;
+}) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -1291,18 +1319,36 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
   const [services, setServices] = useState<string[]>(["ll"]);
   const { data: results } = useLLLearnerSearch(term);
   const createMutation = useCreateLLApplication();
+  const {
+    data: activeApplication,
+    isPending: isCheckingApplication,
+    isFetching: isRefreshingApplication,
+    isError: applicationCheckFailed,
+    refetch: recheckApplication,
+  } = useActiveLLApplication(open ? selectedLearnerId : null);
+
+  const resetDialog = () => {
+    setOpen(false);
+    setTerm("");
+    setSelectedLearnerId(null);
+    setServices(["ll"]);
+  };
 
   const create = () => {
     if (!selectedLearnerId) return;
     createMutation.mutate(
       { learnerId: selectedLearnerId, services, actorName },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          if (result.kind === "existing") {
+            toast({
+              title: "An active journey already exists",
+              description: "Open the existing journey to continue.",
+            });
+            return;
+          }
           toast({ title: "Application created" });
-          setOpen(false);
-          setTerm("");
-          setSelectedLearnerId(null);
-          setServices(["ll"]);
+          resetDialog();
         },
         onError: (e: Error) =>
           toast({
@@ -1323,7 +1369,15 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
       <Button size="sm" onClick={() => setOpen(true)}>
         <Plus className="mr-1 h-4 w-4" /> New Application
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!createMutation.isPending) {
+            if (nextOpen) setOpen(true);
+            else resetDialog();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Start an LL → DL journey</DialogTitle>
@@ -1336,6 +1390,7 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
             <Input
               placeholder="Search learner by name / phone / email (min 3 chars)"
               value={term}
+              disabled={createMutation.isPending}
               onChange={(e) => {
                 setTerm(e.target.value);
                 setSelectedLearnerId(null);
@@ -1351,6 +1406,7 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
                   }) => (
                     <button
                       key={l.id}
+                      disabled={createMutation.isPending}
                       onClick={() => setSelectedLearnerId(l.id)}
                       className={`block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
                         selectedLearnerId === l.id ? "bg-indigo-50" : ""
@@ -1366,44 +1422,100 @@ function NewApplicationButton({ actorName }: { actorName: string | null }) {
                 )}
               </div>
             )}
-            <div>
-              <div className="mb-1 text-xs font-medium text-gray-500">
-                Services
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {LL_SERVICES.map((s) => {
-                  const active = services.includes(s.key);
-                  return (
-                    <button
-                      key={s.key}
-                      onClick={() =>
-                        setServices((prev) =>
-                          active
-                            ? prev.filter((k) => k !== s.key)
-                            : [...prev, s.key],
-                        )
-                      }
-                      className={`rounded-full border px-2 py-0.5 text-[11px] transition ${
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                      }`}
+            {selectedLearnerId && (
+              <div className="rounded-md border p-3 text-sm" role="status">
+                {isCheckingApplication || isRefreshingApplication ? (
+                  <p>Checking for an active journey…</p>
+                ) : applicationCheckFailed ? (
+                  <div>
+                    <p>
+                      Could not check for an existing journey. Please retry.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => recheckApplication()}
                     >
-                      {s.label}
-                    </button>
-                  );
-                })}
+                      Retry
+                    </Button>
+                  </div>
+                ) : activeApplication ? (
+                  <div>
+                    <p className="font-medium">
+                      This learner already has an active journey.
+                    </p>
+                    <p>
+                      Current stage: {llStageLabel(activeApplication.status)}
+                    </p>
+                    <p className="mt-1 text-gray-500">
+                      Open it to continue with its existing progress, documents,
+                      and services.
+                    </p>
+                  </div>
+                ) : (
+                  <p>No active journey. You can create a new application.</p>
+                )}
               </div>
-            </div>
+            )}
+            {!activeApplication && (
+              <div>
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  Services
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {LL_SERVICES.map((s) => {
+                    const active = services.includes(s.key);
+                    return (
+                      <button
+                        key={s.key}
+                        onClick={() =>
+                          setServices((prev) =>
+                            active
+                              ? prev.filter((k) => k !== s.key)
+                              : [...prev, s.key],
+                          )
+                        }
+                        className={`rounded-full border px-2 py-0.5 text-[11px] transition ${
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                variant="outline"
+                disabled={createMutation.isPending}
+                onClick={resetDialog}
+              >
                 Cancel
               </Button>
               <Button
-                onClick={create}
-                disabled={!selectedLearnerId || createMutation.isPending}
+                onClick={() => {
+                  if (activeApplication) {
+                    onOpenApplication(activeApplication);
+                    resetDialog();
+                  } else create();
+                }}
+                disabled={
+                  !selectedLearnerId ||
+                  createMutation.isPending ||
+                  isCheckingApplication ||
+                  isRefreshingApplication ||
+                  applicationCheckFailed
+                }
               >
-                {createMutation.isPending ? "Creating…" : "Create"}
+                {createMutation.isPending
+                  ? "Creating…"
+                  : activeApplication
+                    ? "Open existing journey"
+                    : "Create"}
               </Button>
             </div>
           </div>

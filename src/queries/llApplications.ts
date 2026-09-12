@@ -155,6 +155,29 @@ async function appendEvent(event: {
   if (error) console.error("[llApplications] event insert failed:", error);
 }
 
+/** Match the database's one-active-journey constraint. */
+async function findActiveLLApplication(
+  learnerId: string,
+): Promise<LLApplication | null> {
+  const { data, error } = await sb
+    .from("ll_applications")
+    .select("*, Learner(id, name, phone, email, area)")
+    .eq("learner_id", learnerId)
+    .not("status", "in", "(dl_delivered,closed)")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export function useActiveLLApplication(learnerId: string | null) {
+  return useQuery({
+    queryKey: ["ll-active-application", learnerId],
+    queryFn: () => findActiveLLApplication(learnerId!),
+    enabled: !!learnerId,
+    staleTime: 0,
+  });
+}
+
 export function useCreateLLApplication() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -167,12 +190,23 @@ export function useCreateLLApplication() {
       services: string[];
       actorName?: string | null;
     }) => {
+      const existing = await findActiveLLApplication(learnerId);
+      if (existing) return { kind: "existing" as const, application: existing };
+
       const { data, error } = await sb
         .from("ll_applications")
         .insert({ learner_id: learnerId, services, status: "payment_received" })
         .select("id")
         .single();
-      if (error) throw error;
+      if (error) {
+        // Another admin or the learner may have created a journey after our check.
+        if (error.code === "23505") {
+          const concurrent = await findActiveLLApplication(learnerId);
+          if (concurrent)
+            return { kind: "existing" as const, application: concurrent };
+        }
+        throw error;
+      }
       await appendEvent({
         application_id: data.id,
         learner_id: learnerId,
@@ -181,10 +215,21 @@ export function useCreateLLApplication() {
         actor_name: actorName,
         note: "Application created",
       });
-      return data.id as string;
+      return { kind: "created" as const, id: data.id as string };
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["ll-applications"] }),
+    onSuccess: (result, { learnerId }) => {
+      if (result.kind === "existing") {
+        queryClient.setQueryData(
+          ["ll-active-application", learnerId],
+          result.application,
+        );
+      } else {
+        queryClient.invalidateQueries({
+          queryKey: ["ll-active-application", learnerId],
+        });
+      }
+      return queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+    },
   });
 }
 
