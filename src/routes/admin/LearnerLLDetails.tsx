@@ -2,22 +2,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInDays, format } from "date-fns";
 import {
   ArrowLeft,
+  Download,
   FileText,
   Loader2,
   Search,
   Sheet,
-  Download,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Form14Generator from "@/components/admin/Form14Generator";
-import SheetFormsDialog from "@/components/admin/SheetFormsDialog";
-
 import {
   LearnerInfo,
   LearnerInfoDialog,
 } from "@/components/admin/LearnerInfoCard";
+import SheetFormsDialog from "@/components/admin/SheetFormsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { supabase } from "@/lib/supabaseClient";
 import {
   buildCertificateSheetCSV,
@@ -40,6 +40,69 @@ import {
   generateAllFormsMergedPDF,
 } from "@/utils/formsBulk";
 import { downloadPDF } from "@/utils/generateForm14";
+
+// Animated Search Bar Component
+
+// ── Pending-LL learners — backend-driven pagination ─────────────────────
+// The Select Learner list loads learners from the database in small pages
+// (never the whole table). `Learner.enrollment!inner` can return the same
+// learner multiple times (several active enrollments), so rows are
+// de-duplicated by phone (falling back to id) while scanning.
+
+const PENDING_LL_CHUNK_SIZE = 100;
+const LEARNER_PAGE_LIMIT = 10;
+
+async function fetchPendingLLLearnersChunk(opts: {
+  offset: number;
+  search: string;
+}): Promise<{ rows: any[]; done: boolean }> {
+  // Commas are PostgREST's or() predicate separators — a comma inside the
+  // term breaks parsing (PGRST100), so strip commas before the ilike clauses.
+  const search = opts.search.trim().toLowerCase().replace(/,/g, "");
+  let q = supabase
+    .from("Learner")
+    .select("*, enrollment!inner(learner_id)")
+    .eq("has_a_DL", false)
+    .or("LL_application_approved.is.null,LL_application_approved.neq.true")
+    .or("LL_received.is.null,LL_received.neq.true")
+    .eq("enrollment.status", "active")
+    .order("created_at", { ascending: false })
+    .range(opts.offset, opts.offset + PENDING_LL_CHUNK_SIZE - 1);
+  if (search) {
+    q = q.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+  }
+  const { data, error } = await q;
+  if (error) {
+    // PGRST103 = offset past the end (rows deleted between chunk fetches).
+    // Signal 'done' so the walk stops instead of throwing.
+    if (error.code === "PGRST103") return { rows: [], done: true };
+    throw error;
+  }
+  const rows = (data ?? []) as any[];
+  return { rows, done: rows.length < PENDING_LL_CHUNK_SIZE };
+}
+
+async function fetchAllPendingLLLearners(search: string): Promise<any[]> {
+  const seen = new Set<string>();
+  const all: any[] = [];
+  let offset = 0;
+  for (;;) {
+    const { rows, done } = await fetchPendingLLLearnersChunk({
+      offset,
+      search,
+    });
+    for (const row of rows) {
+      const key = row.phone || row.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        all.push(row);
+      }
+    }
+    if (done) break;
+    offset += PENDING_LL_CHUNK_SIZE;
+  }
+  return all;
+}
 
 // Animated Search Bar Component
 const AnimatedSearchBar = ({ value, onChange, placeholder }) => {
@@ -117,27 +180,88 @@ const LearnerLLDetails = () => {
   const [bulkBusy, setBulkBusy] = useState<null | "pdf" | "csv">(null);
   const [bulkProgress, setBulkProgress] = useState("");
   const [sheetFormsOpen, setSheetFormsOpen] = useState(false);
-  const {
-    data: learners,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["learners", "llDetails"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("Learner")
-        .select("*, enrollment!inner(learner_id)") // Select all Learner columns with Enrollment info
-        .eq("has_a_DL", false)
-        // Use .or() to handle NULL values - in SQL, NULL != true returns NULL (not true)
-        .or("LL_application_approved.is.null,LL_application_approved.neq.true")
-        .or("LL_received.is.null,LL_received.neq.true")
-        .eq("enrollment.status", "active"); // Only paid learners
-      if (error) throw error;
-      console.log("Learner LL paid", data);
-      // Apply the client-side deduplication based on phone and created_at
-      return filterMostRecentLearner(data);
-    },
-  });
+  // ── Learners awaiting LL service — paginated, DB-filtered ──────────────
+  const [learners, setLearners] = useState<any[]>([]);
+  const [listEnded, setListEnded] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const seenRef = useRef<Set<string>>(new Set());
+  const learnerOffsetRef = useRef(0);
+  const learnerDoneRef = useRef(false);
+  const learnerLoadingRef = useRef(false);
+  const learnerRequestIdRef = useRef(0);
+  const learnerBufferRef = useRef<any[]>([]);
+  const learnerSearchRef = useRef("");
+
+  const debouncedLearnerSearch = useDebouncedValue(learnerSearchTerm, 300);
+  learnerSearchRef.current = debouncedLearnerSearch;
+
+  const resetLearnerList = useCallback(() => {
+    learnerRequestIdRef.current += 1;
+    seenRef.current = new Set();
+    learnerOffsetRef.current = 0;
+    learnerDoneRef.current = false;
+    learnerBufferRef.current = [];
+    setLearners([]);
+    setListEnded(false);
+  }, []);
+
+  const loadMoreLearners = useCallback(async () => {
+    if (learnerLoadingRef.current) return;
+    learnerLoadingRef.current = true;
+    const requestId = learnerRequestIdRef.current;
+    setLoadingMore(true);
+    try {
+      let buffer = learnerBufferRef.current;
+      while (buffer.length < LEARNER_PAGE_LIMIT && !learnerDoneRef.current) {
+        const { rows, done } = await fetchPendingLLLearnersChunk({
+          offset: learnerOffsetRef.current,
+          search: learnerSearchRef.current,
+        });
+        if (requestId !== learnerRequestIdRef.current) return;
+        const fresh = rows.filter((row) => {
+          const key = row.phone || row.id;
+          if (seenRef.current.has(key)) return false;
+          seenRef.current.add(key);
+          return true;
+        });
+        buffer = buffer.concat(fresh);
+        learnerOffsetRef.current += rows.length;
+        if (done) learnerDoneRef.current = true;
+      }
+      const reveal = buffer.slice(0, LEARNER_PAGE_LIMIT);
+      learnerBufferRef.current = buffer.slice(LEARNER_PAGE_LIMIT);
+      setLearners((prev) => prev.concat(reveal));
+      setListEnded(learnerDoneRef.current);
+    } catch (err) {
+      setListError(
+        err instanceof Error ? err.message : "Failed to load learners",
+      );
+    } finally {
+      learnerLoadingRef.current = false;
+      setLoadingMore(false);
+    }
+  }, []);
+
+  // Reset + load first page whenever search or refresh flag changes. If a
+  // scroll-triggered load is still in flight it aborts on the stale requestId
+  // (releasing the lock), so wait for it before kicking the fresh first page.
+  useEffect(() => {
+    setLoadingInitial(true);
+    setListError(null);
+    resetLearnerList();
+    const load = (async () => {
+      while (learnerLoadingRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      await loadMoreLearners();
+    })();
+    void load.finally(() => setLoadingInitial(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedLearnerSearch, refreshKey]);
 
   // New query for past LL applications
   const {
@@ -158,31 +282,6 @@ const LearnerLLDetails = () => {
     },
   });
 
-  // The necessary helper function (outside of the component/useQuery)
-  // to select the single, most recent Learner for each unique phone number.
-  function filterMostRecentLearner(learners) {
-    if (!learners || learners.length === 0) return [];
-
-    const uniqueLearnersMap = new Map();
-
-    console.log("check duplicate of ", learners);
-    for (const learner of learners) {
-      const phoneNumber = learner.phone;
-      const currentCreatedAt = new Date(learner.created_at);
-
-      // Keep the entry only if it's not seen the phone, or if the current entry's recent
-      if (
-        !uniqueLearnersMap.has(phoneNumber) ||
-        currentCreatedAt >
-          new Date(uniqueLearnersMap.get(phoneNumber).created_at)
-      ) {
-        uniqueLearnersMap.set(phoneNumber, learner);
-      }
-    }
-
-    return Array.from(uniqueLearnersMap.values());
-  }
-
   // Filter past LL applications based on search term
   const filteredPastApplications = pastLLApplications?.filter((learner) => {
     if (!searchTerm) return true;
@@ -191,16 +290,6 @@ const LearnerLLDetails = () => {
       learner.name?.toLowerCase().includes(searchLower) ||
       learner.phone?.toLowerCase().includes(searchLower) ||
       learner.LL_application_id?.toLowerCase().includes(searchLower)
-    );
-  });
-
-  // Filter main learners list based on search term
-  const filteredLearners = learners?.filter((learner) => {
-    if (!learnerSearchTerm) return true;
-    const searchLower = learnerSearchTerm.toLowerCase();
-    return (
-      learner.name?.toLowerCase().includes(searchLower) ||
-      learner.phone?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -223,7 +312,7 @@ const LearnerLLDetails = () => {
         title: "Success",
         description: "Learner LL details updated successfully.",
       });
-      queryClient.invalidateQueries(["learners", "llDetails"]);
+      setRefreshKey((k) => k + 1);
       queryClient.invalidateQueries(["learners", "pastLLApplications"]);
       setSelectedLearner(null);
       setAppointmentId("");
@@ -340,16 +429,18 @@ const LearnerLLDetails = () => {
     setDialogOpen(true);
   };
 
-  if (isLoading)
+  if (loadingInitial)
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
     );
-  if (isError)
+  if (listError)
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-lg text-red-500">Error loading learners.</div>
+        <div className="text-lg text-red-500">
+          Error loading learners: {listError}
+        </div>
       </div>
     );
 
@@ -397,24 +488,27 @@ const LearnerLLDetails = () => {
     );
   };
   const handleBulkFormsPDF = async () => {
-    if (!filteredLearners?.length) return;
+    if (!learners.length) return;
     setBulkBusy("pdf");
     setBulkProgress("Fetching class dates...");
     try {
-      const periods = await fetchTrainingPeriods(
-        filteredLearners.map((l) => l.id),
+      const allLearners = await fetchAllPendingLLLearners(
+        debouncedLearnerSearch,
       );
+      if (!allLearners.length) {
+        setBulkBusy(null);
+        setBulkProgress("");
+        return;
+      }
+      const periods = await fetchTrainingPeriods(allLearners.map((l) => l.id));
       const pdfBytes = await generateAllFormsMergedPDF(
-        filteredLearners.map((l) => ({ learner: l, period: periods.get(l.id) })),
+        allLearners.map((l) => ({ learner: l, period: periods.get(l.id) })),
         (done, total) => setBulkProgress(`Generating ${done}/${total}...`),
       );
-      downloadPDF(
-        pdfBytes,
-        `AllForms_${format(new Date(), "yyyy-MM-dd")}.pdf`,
-      );
+      downloadPDF(pdfBytes, `AllForms_${format(new Date(), "yyyy-MM-dd")}.pdf`);
       toast({
         title: "Success",
-        description: `Form 14, 15 & Certificate generated for ${filteredLearners.length} learner(s) in one PDF.`,
+        description: `Form 14, 15 & Certificate generated for ${allLearners.length} learner(s) in one PDF.`,
       });
     } catch (error) {
       console.error("Error generating bulk forms:", error);
@@ -431,21 +525,27 @@ const LearnerLLDetails = () => {
   };
 
   const handleBulkSheetCSV = async () => {
-    if (!filteredLearners?.length) return;
+    if (!learners.length) return;
     setBulkBusy("csv");
     setBulkProgress("Fetching class dates...");
     try {
-      const periods = await fetchTrainingPeriods(
-        filteredLearners.map((l) => l.id),
+      const allLearners = await fetchAllPendingLLLearners(
+        debouncedLearnerSearch,
       );
-      const csv = buildCertificateSheetCSV(filteredLearners, periods);
+      if (!allLearners.length) {
+        setBulkBusy(null);
+        setBulkProgress("");
+        return;
+      }
+      const periods = await fetchTrainingPeriods(allLearners.map((l) => l.id));
+      const csv = buildCertificateSheetCSV(allLearners, periods);
       downloadCSV(
         csv,
         `CertificateSheet_${format(new Date(), "yyyy-MM-dd")}.csv`,
       );
       toast({
         title: "Success",
-        description: `Certificate sheet exported for ${filteredLearners.length} learner(s).`,
+        description: `Certificate sheet exported for ${allLearners.length} learner(s).`,
       });
     } catch (error) {
       console.error("Error exporting certificate sheet:", error);
@@ -514,7 +614,7 @@ const LearnerLLDetails = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleBulkFormsPDF}
-                disabled={bulkBusy !== null || !filteredLearners?.length}
+                disabled={bulkBusy !== null || !learners.length}
                 className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50"
               >
                 {bulkBusy === "pdf" ? (
@@ -530,7 +630,7 @@ const LearnerLLDetails = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleBulkSheetCSV}
-                disabled={bulkBusy !== null || !filteredLearners?.length}
+                disabled={bulkBusy !== null || !learners.length}
                 className="flex-1 border-green-300 text-green-700 hover:bg-green-50"
               >
                 {bulkBusy === "csv" ? (
@@ -553,23 +653,31 @@ const LearnerLLDetails = () => {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-[600px] overflow-y-auto">
-              {filteredLearners?.length === 0 ? (
+            <div
+              className="max-h-[600px] overflow-y-auto"
+              onScroll={(event) => {
+                const el = event.currentTarget;
+                if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
+                  void loadMoreLearners();
+                }
+              }}
+            >
+              {learners.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">
                   <div className="text-lg font-medium">
-                    {learnerSearchTerm
+                    {debouncedLearnerSearch
                       ? "No matching learners"
                       : "No pending learners"}
                   </div>
                   <div className="text-sm">
-                    {learnerSearchTerm
+                    {debouncedLearnerSearch
                       ? "Try a different search term"
                       : "All learners have been processed"}
                   </div>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {filteredLearners?.map((learner) => (
+                  {learners.map((learner) => (
                     <div
                       key={learner.id}
                       className={`cursor-pointer p-4 transition-all duration-200 hover:bg-gray-50 ${
@@ -607,6 +715,16 @@ const LearnerLLDetails = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {loadingMore && (
+                <div className="p-4 text-center text-sm text-gray-400">
+                  Loading more…
+                </div>
+              )}
+              {!loadingMore && listEnded && learners.length > 0 && (
+                <div className="p-4 text-center text-xs text-gray-400">
+                  End of list
                 </div>
               )}
             </div>
