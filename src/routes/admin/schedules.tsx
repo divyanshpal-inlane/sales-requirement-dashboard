@@ -1853,6 +1853,8 @@ const [pauseType, setPauseType] =
   const [upgradeInstallment1, setUpgradeInstallment1] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
+  // Per-lesson cost for topup — editable by admin, defaults to 599 (DEMO_COURSE.price equivalent)
+  const [topupPerLessonCost, setTopupPerLessonCost] = useState(599);
   const completeRescheduleRequestMutation =
     useMutationCompleteRescheduleRequest();
   const [topupSlots, setTopupSlots] = useState<
@@ -2725,18 +2727,18 @@ const { error } = await supabase
       if (error) throw error;
 
       // Send payment link to learner. Demo uses ?type=demo (1hr @ ₹599);
-      // topup uses ?type=topup&hours=N (N × ₹599) so PaymentPage prefills
-      // the right flow instead of showing the generic course selector.
-      const totalHours = topupSlots.reduce((sum, slot) => {
-        const start = parseInt(slot.start_time.split(":")[0]);
-        const end = parseInt(slot.end_time.split(":")[0]);
-        return sum + (end - start);
-      }, 0);
+      // topup uses ?type=topup&hours=N so PaymentPage prefills the right flow.
+      // Use topupTotalClasses (admin-selected count) as the canonical number of
+      // classes/hours for payment calculation and WhatsApp message.
+      const totalHours = topupTotalClasses;
+      // Calculate the correct payment amount:
+      // - Demo: ₹1 (fixed)
+      // - Topup: perLessonCost × totalClasses (admin-editable)
+      const paymentAmount = isDemo ? 1 : topupPerLessonCost * topupTotalClasses;
       if (learner.phone) {
         const paymentLink = isDemo
           ? `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`
-          : `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=topup&hours=${totalHours}`;
-        const paymentAmount = isDemo ? 1 : 1 * totalHours;
+          : `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=topup&hours=${topupTotalClasses}&amount=${paymentAmount}`;
         try {
           await supabase.functions.invoke("send-message", {
             body: {
@@ -2760,10 +2762,9 @@ const { error } = await supabase
       // invalidate it here too. Otherwise the new topup/demo schedule
       // wouldn't appear under the learner's card until the cache expired.
       queryClient.invalidateQueries({ queryKey: ["activeLearners"] });
-      const topupPrice = isDemo ? 1 : 1 * totalHours;
       toast({
         title: isDemo ? "Demo Scheduled" : "Topup Added",
-        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹${topupPrice}) sent to ${learner.name}.`,
+        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹${paymentAmount}) sent to ${learner.name}.`,
       });
     } catch (error: any) {
       toast({
@@ -2875,6 +2876,7 @@ const { error } = await supabase
                     },
                   ]);
                   setTopupLessonId("");
+                  setTopupPerLessonCost(599); // Reset to default when opening dialog
                   setIsTopupDialogOpen(true);
                 }}
               >
@@ -3507,6 +3509,35 @@ const { error } = await supabase
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* Per-lesson cost — hidden for demo */}
+            {!isDemo && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">
+                    Per lesson cost (₹):
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={topupPerLessonCost}
+                    onChange={(e) =>
+                      setTopupPerLessonCost(Math.max(1, Number(e.target.value) || 0))
+                    }
+                    className="w-[120px]"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
+                  <span className="font-medium">Total Payment:</span>{" "}
+                  ₹{topupPerLessonCost * topupTotalClasses}{" "}
+                  <span className="text-green-600">
+                    ({topupTotalClasses} class{topupTotalClasses > 1 ? "es" : ""} × ₹{topupPerLessonCost})
+                  </span>
+                </div>
               </div>
             )}
 

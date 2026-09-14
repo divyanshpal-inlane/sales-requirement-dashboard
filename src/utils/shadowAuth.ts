@@ -91,19 +91,20 @@ export async function triggerShadowAuth(
     return;
   }
 
+  // Mark this session as processed EARLY to prevent duplicate feature flag checks
+  // This happens BEFORE the feature flag check to avoid repeated API calls
+  markSessionProcessed(supabaseUser, session);
+
   try {
     // Check feature flag: shadow_auth_enabled
     const shadowAuthEnabled = await isFeatureEnabled('shadow_auth_enabled');
     
     if (!shadowAuthEnabled) {
+      console.log('[Shadow Auth] ⏭️ Shadow auth is DISABLED - skipping API call for user:', supabaseUser.id);
       return;
     }
 
     console.log('[Shadow Auth] Triggering migration for user:', supabaseUser.id);
-
-    // Mark this session as processed BEFORE initiating fetch
-    // This prevents race conditions if triggerShadowAuth is called again while fetch is in-flight
-    markSessionProcessed(supabaseUser, session);
     cleanupOldSessions(); // Cleanup tracking to prevent memory leaks
 
     // Fire-and-forget - don't await the response
