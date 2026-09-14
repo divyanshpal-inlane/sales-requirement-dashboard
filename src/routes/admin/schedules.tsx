@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -11,7 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import InstructorAnalytics from "@/components/admin/InstructorAnalytics";
@@ -57,6 +57,7 @@ import { useMutationCompleteRescheduleRequest } from "@/queries/learner";
 import {
   SchedulingRequests,
   useEnrollmentTypesByLearner,
+  useInfiniteSchedulingRequests,
   useSchedulingRequests,
 } from "@/queries/preferences";
 import {
@@ -130,10 +131,76 @@ const PREDEFINED_COURSES = [
   },
 ];
 
+// Reusable hook for infinite scroll using IntersectionObserver
+function useInfiniteScrollSentinel(
+  hasNextPage: boolean | undefined,
+  isFetchingNextPage: boolean,
+  fetchNextPage: () => void
+) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasNextPage || isFetchingNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // When sentinel becomes visible, fetch next page
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "100px", // Start loading slightly before scrolling to bottom
+      }
+    );
+
+    observer.observe(sentinelRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return sentinelRef;
+}
+
 export default function AdminSchedules() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: requests, isLoading, isRefetching } = useSchedulingRequests();
+  
+  // Use infinite query for scheduling requests
+  const {
+    data: requestsData,
+    isLoading,
+    isRefetching,
+    error: requestsError,
+    fetchNextPage: fetchNextRequestsPage,
+    hasNextPage: hasNextRequestsPage,
+    isFetchingNextPage: isFetchingNextRequestsPage,
+  } = useInfiniteSchedulingRequests();
+  
+  // Log any query errors
+  useEffect(() => {
+    if (requestsError) {
+      console.error('[Infinite Scroll] Requests error:', requestsError);
+    }
+  }, [requestsError]);
+
+  // Auto-fetch all scheduling request pages on mount (they're usually small - <100 total)
+  // This ensures we show accurate counts in tab headers
+  useEffect(() => {
+    if (hasNextRequestsPage && !isFetchingNextRequestsPage && !isLoading) {
+      fetchNextRequestsPage();
+    }
+  }, [hasNextRequestsPage, isFetchingNextRequestsPage, fetchNextRequestsPage, isLoading]);
+
+  // Flatten all pages into a single array
+  // Each page is already an array of requests, so just flatMap them
+  const requests = useMemo(() => {
+    if (!requestsData?.pages) return [];
+    return requestsData.pages.flatMap(page => Array.isArray(page) ? page : []);
+  }, [requestsData]);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
     useState(false);
@@ -637,19 +704,165 @@ export default function AdminSchedules() {
     }
   }, [fetchedInstructorData]);
 
-  // Fetch learners with active enrollment and their schedules
+  // State declarations - MUST be before activeLearners query
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
+  const [selectedFilterInstructorId, setSelectedFilterInstructorId] = useState<string>("");
+  
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
+
+  // Infinite query for active/completed learners
   const {
-    data: activeLearners,
+    data: learnersData,
     isLoading: isLoadingActiveLearners,
+    error: learnersError,
     refetch: refetchActiveLearners,
-  } = useQuery({
-    queryKey: ["activeLearners"],
-    queryFn: async () => {
-      // First, get active enrollment learner IDs with progress info.
-      // PostgREST defaults to 1000 rows per response; with growing learner
-      // counts that silently truncates the result and the most recently
-      // paid learners can fall off the list. Page through in chunks of
-      // 1000 to make sure we get everything.
+    fetchNextPage: fetchNextLearnersPage,
+    hasNextPage: hasNextLearnersPage,
+    isFetchingNextPage: isFetchingNextLearnersPage,
+  } = useInfiniteQuery({
+    queryKey: [
+      "activeLearners-infinite",
+      searchTerm,
+      selectedFilterInstructorId,
+      activeTab,
+    ],
+    queryFn: async ({ pageParam = 0 }) => {
+      const PAGE_SIZE = 20;
+      const { data, error } = await supabase.rpc(
+        "get_active_learners_paginated",
+        {
+          page_offset: pageParam * PAGE_SIZE,
+          page_size: PAGE_SIZE,
+          search_term: searchTerm || null,
+          instructor_filter: selectedFilterInstructorId || null,
+          tab_filter: activeTab,
+        }
+      );
+
+      if (error) throw error;
+
+      // Map snake_case to camelCase for compatibility with existing UI
+      const learners = (data || []).map((learner: any) => ({
+        id: learner.id,
+        name: learner.name,
+        email: learner.email,
+        phone: learner.phone,
+        created_at: learner.created_at,
+        area: learner.area,
+        pick_up_location: learner.pick_up_location,
+        address_lat: learner.address_lat,
+        address_lng: learner.address_lng,
+        preferred_start_date: learner.preferred_start_date,
+        preferred_completion_days: learner.preferred_completion_days,
+        prefers_two_hour_classes: learner.prefers_two_hour_classes,
+        two_hour_days: learner.two_hour_days,
+        DL_test_date: learner.DL_test_date,
+        
+        // Map computed fields
+        isDemo: learner.is_demo,
+        totalLessons: learner.total_lessons,
+        completedLessons: learner.completed_count,
+        isAllCompleted: learner.completed_count >= learner.total_lessons,
+        hasTopupPending: learner.has_topup_pending,
+        
+        // New field for instructor filtering (RPC returns array instead of schedules)
+        instructor_ids: learner.instructor_ids,
+      }));
+
+      const totalCount = data[0]?.total_count || 0;
+      const hasMore = learners.length === PAGE_SIZE && (pageParam + 1) * PAGE_SIZE < totalCount;
+
+      return {
+        learners,
+        totalCount,
+        nextPage: hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    staleTime: 30 * 1000, // 30 seconds - avoid unnecessary refetches
+  });
+
+  //useEffect(() => {
+  //console.log('Active Learners updated:', activeLearners);
+  //}, [activeLearners]);
+
+  // Log any learners query errors
+  useEffect(() => {
+    if (learnersError) {
+      console.error('[Infinite Scroll] Learners error:', learnersError);
+    }
+  }, [learnersError]);
+
+  // Flatten all learner pages into a single array
+  const allLearners = useMemo(() => {
+    if (!learnersData?.pages) return [];
+    return learnersData.pages.flatMap(page => page?.learners || []);
+  }, [learnersData]);
+
+  const totalLearnersCount = learnersData?.pages?.[0]?.totalCount || 0;
+
+  // Create sentinel refs for infinite scroll
+  const requestsSentinelRef = useInfiniteScrollSentinel(
+    hasNextRequestsPage,
+    isFetchingNextRequestsPage,
+    fetchNextRequestsPage
+  );
+  const learnersSentinelRef = useInfiniteScrollSentinel(
+    hasNextLearnersPage,
+    isFetchingNextLearnersPage,
+    fetchNextLearnersPage
+  );
+
+  const handleTabChange = (value: string) => {
+    // Reset selectedRequest when changing tabs
+    setSelectedRequest(null);
+    // Update active tab (infinite query will automatically reset)
+    if (value === "active" || value === "completed") {
+      setActiveTab(value);
+    }
+  };
+
+  // This handles the "Clearing" logic
+  const handleInstructorChange = (id: string) => {
+    setSelectedInstructorId(id);
+    setSelectedLearnerId(null); // Clear the right bar (Schedules)
+    // The left bar (Learner List) will automatically filter based on this ID
+  };
+  
+  // Use the flattened learners for both tabs
+  const activeOnlyLearners = allLearners;
+  const completedLearners = allLearners;
+
+  // Export dialog state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportLearnerCount, setExportLearnerCount] = useState<string>("all");
+  const [exportSchedulePeriod, setExportSchedulePeriod] =
+    useState<string>("all");
+  const [exportStatuses, setExportStatuses] = useState<string[]>([
+    "booked",
+    "ongoing",
+    "completed",
+    "cancelled",
+  ]);
+
+  const toggleExportStatus = (status: string) => {
+    setExportStatuses((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status],
+    );
+  };
+
+  const handleExportActiveLearnersCsv = async () => {
+    // Fetch ALL learners with full schedule data for export
+    // (The paginated view doesn't include schedules array)
+    
+    try {
+      // Fetch all active enrollments
       const enrollmentData: Array<{
         learner_id: string;
         progress: any;
@@ -674,217 +887,60 @@ export default function AdminSchedules() {
         if (data.length < ENROLLMENT_PAGE) break;
       }
 
-      // Deduplicate learner IDs (a learner may have multiple enrollments)
       const learnerIds = [...new Set(enrollmentData.map((e) => e.learner_id))];
-      console.log(
-        `[activeLearners] enrollments=${enrollmentData.length}, unique learners=${learnerIds.length}`,
-      );
 
-      // Batch learner IDs into chunks to avoid URL length limits
+      // Batch fetch learners WITH schedules
       const BATCH_SIZE = 50;
       const batches: string[][] = [];
       for (let i = 0; i < learnerIds.length; i += BATCH_SIZE) {
         batches.push(learnerIds.slice(i, i + BATCH_SIZE));
       }
 
-      // Use allSettled so one failed batch can't wipe out the entire list.
-      // A single batch erroring out previously caused Promise.all to reject,
-      // which left activeLearners empty even when most batches succeeded.
       const batchResults = await Promise.allSettled(
         batches.map(async (batch) => {
           const { data, error } = await supabase
             .from("Learner")
             .select(
               `
-              id,
-              name,
-              area,
-              phone,
-              email,
-              preferred_start_date,
-              preferred_completion_days,
-              prefers_two_hour_classes,
-              two_hour_days,
-              DL_test_date,
-              pick_up_location,
-              created_at,
-              address_lat,
-              address_lng,
-
+              id, name, area, phone, email,
+              preferred_start_date, preferred_completion_days,
+              prefers_two_hour_classes, two_hour_days,
+              DL_test_date, pick_up_location, created_at,
               schedules:Schedule(
-                id,
-                date,
-                start_time,
-                end_time,
-                instructor_id,
-                lesson_id,
-                course_id,
-                learner_id,
-                status,
-                started_at,
-                ended_at,
-                Lesson(
-                  id,
-                  number
-                ),
-                Instructor(
-                  name
-                )
+                id, date, start_time, end_time, instructor_id,
+                lesson_id, course_id, status,
+                Lesson(id, number),
+                Instructor(name)
               )
             `,
             )
-            .in("id", batch)
-            .order("created_at", { ascending: false });
+            .in("id", batch);
 
           if (error) throw error;
           return data ?? [];
         }),
       );
 
-      const learnersData = batchResults.flatMap((r, i) => {
+      const allLearnersWithSchedules = batchResults.flatMap((r) => {
         if (r.status === "fulfilled") return r.value;
-        console.error(
-          `[activeLearners] batch ${i} failed (${batches[i].length} learners dropped):`,
-          r.reason,
-        );
         return [];
       });
-      console.log(
-        `[activeLearners] fetched ${learnersData.length} learners across ${batches.length} batches`,
-      );
 
-      // Build a set of demo learner IDs
-      const demoLearnerIds = new Set(
-        enrollmentData
-          .filter((e: any) => e.progress?.type === "demo")
-          .map((e: any) => e.learner_id),
-      );
+      if (!allLearnersWithSchedules || allLearnersWithSchedules.length === 0) {
+        toast({
+          title: "No data to export",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Build map of learner_id -> total allotted lessons
-      const learnerTotalLessons: Record<string, number> = {};
-      enrollmentData.forEach((e: any) => {
-        const total =
-          e.Courses?.total_lessons ||
-          e.Courses?.duration ||
-          e.progress?.total_hours ||
-          10;
-        // Use the max if learner has multiple enrollments
-        learnerTotalLessons[e.learner_id] = Math.max(
-          learnerTotalLessons[e.learner_id] || 0,
-          total,
+      // 1. Apply instructor filter from the main UI
+      let learnersToExport = allLearnersWithSchedules.filter((learner: any) => {
+        if (!selectedFilterInstructorId) return true;
+        return learner.schedules?.some(
+          (s: any) => s.instructor_id === selectedFilterInstructorId,
         );
       });
-
-      // Show every learner with an active enrollment. The earlier filter
-      // required learner.schedules.length > 0 OR demo, which dropped course
-      // learners whose schedule join silently came back empty (e.g. response
-      // size truncation when many learners × many schedules are joined in
-      // one batched query). learnersData is already scoped to active
-      // enrollments, so no further filter is needed.
-      const learnersWithSchedules = learnersData;
-
-      // Tag demo learners, completion status, and topup payment status
-      learnersWithSchedules.forEach((learner: any) => {
-        learner.isDemo = demoLearnerIds.has(learner.id);
-        const totalLessons = learnerTotalLessons[learner.id] || 10;
-        const completedCount =
-          learner.schedules?.filter((s: any) => s.status === "completed")
-            .length || 0;
-        learner.totalLessons = totalLessons;
-        learner.completedLessons = completedCount;
-        learner.isAllCompleted = completedCount >= totalLessons;
-        learner.hasTopupPending =
-          learner.schedules?.some((s: any) => s.status === "pending_payment") ||
-          false;
-      });
-
-      // Sort by created_at descending (since batching may lose overall order)
-      learnersWithSchedules.sort((a, b) =>
-        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
-      );
-
-      return learnersWithSchedules;
-    },
-    keepPreviousData: true,
-    staleTime: 30 * 1000, // 30 seconds - avoid unnecessary refetches
-  });
-
-  //useEffect(() => {
-  //console.log('Active Learners updated:', activeLearners);
-  //}, [activeLearners]);
-
-  const handleTabChange = (value: string) => {
-    // Reset selectedRequest when changing tabs
-    setSelectedRequest(null);
-  };
-
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const [selectedInstructorId, setSelectedInstructorId] = useState<
-    string | null
-  >(null);
-  const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(
-    null,
-  );
-
-  // Inside your main Dashboard/Tabs component
-  const [selectedFilterInstructorId, setSelectedFilterInstructorId] =
-    useState<string>("");
-
-  // This handles the "Clearing" logic
-  const handleInstructorChange = (id: string) => {
-    setSelectedInstructorId(id);
-    setSelectedLearnerId(null); // Clear the right bar (Schedules)
-    // The left bar (Learner List) will automatically filter based on this ID
-  };
-  console.log(activeLearners);
-  const filteredLearners = activeLearners?.filter((learner) => {
-    const search = searchTerm.toLowerCase();
-    const learnerMatches =
-      learner.name?.toLowerCase().includes(search) ||
-      learner.email?.toLowerCase().includes(search) ||
-      learner.phone?.includes(searchTerm);
-    return learnerMatches;
-  });
-
-  // Split into active (still in progress) vs completed (all lessons done)
-  const activeOnlyLearners = filteredLearners?.filter(
-    (l: any) => !l.isAllCompleted,
-  );
-  const completedLearners = filteredLearners?.filter(
-    (l: any) => l.isAllCompleted,
-  );
-
-  // Export dialog state
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [exportLearnerCount, setExportLearnerCount] = useState<string>("all");
-  const [exportSchedulePeriod, setExportSchedulePeriod] =
-    useState<string>("all");
-  const [exportStatuses, setExportStatuses] = useState<string[]>([
-    "booked",
-    "ongoing",
-    "completed",
-    "cancelled",
-  ]);
-
-  const toggleExportStatus = (status: string) => {
-    setExportStatuses((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status],
-    );
-  };
-
-  const handleExportActiveLearnersCsv = () => {
-    if (!activeLearners || activeLearners.length === 0) return;
-
-    // 1. Apply instructor filter from the main UI
-    let learnersToExport = activeLearners.filter((learner) => {
-      if (!selectedFilterInstructorId) return true;
-      return learner.schedules?.some(
-        (s) => s.instructor_id === selectedFilterInstructorId,
-      );
-    });
 
     // 2. Apply learner count limit
     if (exportLearnerCount !== "all") {
@@ -985,9 +1041,17 @@ export default function AdminSchedules() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `active_learners_${format(new Date(), "yyyy-MM-dd")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setShowExportDialog(false);
+      link.click();
+      URL.revokeObjectURL(url);
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "Export failed",
+        description: "An error occurred while exporting data.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -1032,10 +1096,10 @@ export default function AdminSchedules() {
               10th Lesson Requests {tenthLessonRequests?.length || 0}
             </TabsTrigger>
             <TabsTrigger value="active">
-              Active Learners {activeOnlyLearners?.length || 0}
+              Active Learners {activeTab === "active" ? totalLearnersCount : ""}
             </TabsTrigger>
             <TabsTrigger value="completed">
-              Completed Learners {completedLearners?.length || 0}
+              Completed Learners {activeTab === "completed" ? totalLearnersCount : ""}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1129,6 +1193,12 @@ export default function AdminSchedules() {
                         </div>
                       );
                     })}
+                    {/* Infinite scroll sentinel */}
+                    {hasNextRequestsPage && (
+                      <div ref={requestsSentinelRef} className="py-4 text-center">
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1215,6 +1285,13 @@ export default function AdminSchedules() {
                         />
                       </div>
                     ))}
+                    {/* Infinite scroll sentinel */}
+                    {hasNextRequestsPage && (
+                      <div ref={requestsSentinelRef} className="py-4 text-center">
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
+
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1291,6 +1368,13 @@ export default function AdminSchedules() {
                         />
                       </div>
                     ))}
+                    {/* Infinite scroll sentinel */}
+                    {hasNextRequestsPage && (
+                      <div ref={requestsSentinelRef} className="py-4 text-center">
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
+
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1359,7 +1443,7 @@ export default function AdminSchedules() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowExportDialog(true)}
-                    disabled={!activeLearners || activeLearners.length === 0}
+                    disabled={totalLearnersCount === 0}
                   >
                     <Download size={16} className="mr-2" />
                     Export CSV
@@ -1468,7 +1552,7 @@ export default function AdminSchedules() {
                         Export{" "}
                         <span className="font-medium">
                           {exportLearnerCount === "all"
-                            ? `all ${activeLearners?.length || 0}`
+                            ? `all ${totalLearnersCount}`
                             : `latest ${exportLearnerCount}`}
                         </span>{" "}
                         learners with{" "}
@@ -1536,9 +1620,19 @@ export default function AdminSchedules() {
                         placeholder="Search..."
                         className="h-8 pl-8 text-sm"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                        }}
                       />
                     </div>
+                  </div>
+                  {/* Total count display */}
+                  <div className="mt-2 text-xs text-gray-600">
+                    {isLoadingActiveLearners ? (
+                      "Loading..."
+                    ) : (
+                      `Showing ${allLearners.length} of ${totalLearnersCount} learners`
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
@@ -1550,19 +1644,11 @@ export default function AdminSchedules() {
                       </div>
                     ) : activeOnlyLearners?.length === 0 ? (
                       <div className="flex items-center justify-center py-10 text-sm text-gray-500">
-                        No learners found matching "{searchTerm}"
+                        No learners found
                       </div>
                     ) : (
                       activeOnlyLearners
-                        // Filter learners locally if an instructor is selected
-                        ?.filter((learner) => {
-                          if (!selectedFilterInstructorId) return true;
-                          // Assumes learner object has a schedule join or instructor_id reference
-                          return learner.schedules?.some(
-                            (s) =>
-                              s.instructor_id === selectedFilterInstructorId,
-                          );
-                        })
+                        // Instructor filtering is now handled by RPC
                         .map((learner) => (
                           <div key={learner.id} className="mb-2">
                             <div className="relative">
@@ -1598,6 +1684,13 @@ export default function AdminSchedules() {
                           </div>
                         ))
                     )}
+                    {/* Infinite scroll sentinel */}
+                    {hasNextLearnersPage && (
+                      <div ref={learnersSentinelRef} className="py-4 text-center">
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
+
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1649,9 +1742,19 @@ export default function AdminSchedules() {
                         placeholder="Search..."
                         className="h-8 pl-8 text-sm"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                        }}
                       />
                     </div>
+                  </div>
+                  {/* Total count display */}
+                  <div className="mt-2 text-xs text-gray-600">
+                    {isLoadingActiveLearners ? (
+                      "Loading..."
+                    ) : (
+                      `Showing ${allLearners.length} of ${totalLearnersCount} learners`
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
@@ -1690,6 +1793,13 @@ export default function AdminSchedules() {
                         </div>
                       ))
                     )}
+                    {/* Infinite scroll sentinel */}
+                    {hasNextLearnersPage && (
+                      <div ref={learnersSentinelRef} className="py-4 text-center">
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
+
                   </ScrollArea>
                 </CardContent>
               </Card>
