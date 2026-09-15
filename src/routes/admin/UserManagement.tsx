@@ -1,11 +1,12 @@
 import {
   Loader2,
   Plus,
+  Search,
   Shield,
   Trash2,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import {
   useCurrentAdmin,
@@ -34,11 +42,11 @@ import {
 } from "@/queries/adminPermissions";
 import {
   USER_PERMISSIONS,
+  USERS_PAGE_SIZE,
   UserWithPermissions,
-  useAdminUsers,
-  useAllUsers,
   useCreateUser,
   useDeleteUser,
+  usePaginatedUsers,
   useUpdateUserPermissions,
 } from "@/queries/userManagement";
 
@@ -46,18 +54,73 @@ export default function UserManagement() {
   const { toast } = useToast();
   const { data: currentAdmin, isLoading: currentAdminLoading } =
     useCurrentAdmin();
-  const { data: users, isLoading: usersLoading } = useAdminUsers();
-  const { data: allAdmins, isLoading: allAdminsLoading } = useAllAdmins();
-  const { data: allUsers, isLoading: allUsersLoading } = useAllUsers();
+  const isSuperAdmin = !!currentAdmin?.is_super_admin;
+  // Admin list is only needed by super admins (filter dropdown + "Created by" label)
+  const { data: allAdmins } = useAllAdmins();
   const createUser = useCreateUser();
   const updatePermissions = useUpdateUserPermissions();
   const deleteUser = useDeleteUser();
 
-  // For super admin, show all admins + all users created by any admin
-  // For regular admin, show only their created users
-  const displayUsers = currentAdmin?.is_super_admin ? 
-    [...(allAdmins || []), ...(allUsers || [])] : 
-    (users || []);
+  // Search / admin filter / pagination state
+  const [searchTerm, setSearchTerm] = useState("");
+  // "" = All Users (mirrors the instructor filter convention in schedules.tsx)
+  const [selectedAdminId, setSelectedAdminId] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Only regular admins (not super admins) can own users, so they are the
+  // only meaningful filter options.
+  const filterableAdmins = useMemo(
+    () => (allAdmins || []).filter((admin) => !admin.is_super_admin),
+    [allAdmins],
+  );
+  const adminNameById = useMemo(
+    () => new Map((allAdmins || []).map((admin) => [admin.id, admin.name])),
+    [allAdmins],
+  );
+
+  // Super admin: filter by the selected admin (or all users when none selected).
+  // Regular admin: always scoped to their own users (User.created_by_admin_id).
+  const effectiveAdminId = isSuperAdmin
+    ? selectedAdminId || null
+    : currentAdmin?.id ?? null;
+
+  // The list is only fetched once we know who the current admin is
+  const canViewUsers =
+    !!currentAdmin && (isSuperAdmin || !!currentAdmin.is_admin);
+
+  const {
+    data: usersPage,
+    isLoading: usersLoading,
+    isFetching: usersFetching,
+    isError: usersError,
+  } = usePaginatedUsers({
+    page: currentPage,
+    searchTerm,
+    adminId: effectiveAdminId,
+    enabled: canViewUsers,
+  });
+
+  const displayUsers = usersPage?.users ?? [];
+  const totalCount = usersPage?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / USERS_PAGE_SIZE));
+  const hasActiveFilters = searchTerm.trim() !== "" || selectedAdminId !== "";
+
+  // Reset to page 1 whenever search or admin filter changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+  const handleAdminFilterChange = (value: string) => {
+    setSelectedAdminId(value === "all" ? "" : value);
+    setCurrentPage(1);
+  };
+
+  // Clamp the page if the total shrinks (e.g. last user on the page was deleted)
+  useEffect(() => {
+    if (usersPage && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [usersPage, currentPage, totalPages]);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -93,7 +156,9 @@ export default function UserManagement() {
   };
 
   // Check if current user is admin
-  if (currentAdminLoading || usersLoading) {
+  // (the user list has its own inline loading state so the search/filter
+  // controls stay mounted while pages are fetched)
+  if (currentAdminLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -265,13 +330,63 @@ export default function UserManagement() {
           )}
         </div>
 
-        {!displayUsers || displayUsers.length === 0 ? (
+        {/* Search + Admin filter */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <Input
+              placeholder="Search"
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </div>
+          {isSuperAdmin && (
+            <Select
+              value={selectedAdminId || "all"}
+              onValueChange={handleAdminFilterChange}
+            >
+              <SelectTrigger className="w-full sm:w-[260px]">
+                <SelectValue placeholder="All Users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {filterableAdmins.map((admin) => (
+                  <SelectItem key={admin.id} value={admin.id}>
+                    {admin.name || admin.phone}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {usersLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-10 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" />
+              Loading users...
+            </CardContent>
+          </Card>
+        ) : usersError ? (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-red-600">
+                Failed to load users. Please try again.
+              </p>
+            </CardContent>
+          </Card>
+        ) : displayUsers.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center">
               <p className="text-muted-foreground">
-                {currentAdmin?.is_super_admin ? "No users to display." : "You haven't created any users yet."}
+                {hasActiveFilters
+                  ? "No users match your search or filter."
+                  : isSuperAdmin
+                    ? "No users to display."
+                    : "You haven't created any users yet."}
               </p>
-              {!currentAdmin?.is_super_admin && (
+              {!isSuperAdmin && !hasActiveFilters && (
                 <Button
                   className="mt-4"
                   onClick={() => setShowCreateDialog(true)}
@@ -283,7 +398,9 @@ export default function UserManagement() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div
+            className={`space-y-4 ${usersFetching ? "opacity-60 transition-opacity" : ""}`}
+          >
             {displayUsers.map((user) => (
               <Card key={user.id}>
                 <CardHeader className="pb-3">
@@ -294,7 +411,16 @@ export default function UserManagement() {
                       </div>
                       <div>
                         <CardTitle className="text-lg">{user.name}</CardTitle>
-                        <CardDescription>{user.phone}</CardDescription>
+                        <CardDescription>
+                          {user.phone}
+                          {isSuperAdmin &&
+                            adminNameById.get(user.created_by_admin_id) && (
+                              <>
+                                {" · Created by "}
+                                {adminNameById.get(user.created_by_admin_id)}
+                              </>
+                            )}
+                        </CardDescription>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -335,6 +461,41 @@ export default function UserManagement() {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Pagination Controls */}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing{" "}
+                {Math.min((currentPage - 1) * USERS_PAGE_SIZE + 1, totalCount)}{" "}
+                to {Math.min(currentPage * USERS_PAGE_SIZE, totalCount)} of{" "}
+                {totalCount} users
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1 || usersFetching}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage >= totalPages || usersFetching}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
