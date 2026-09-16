@@ -1,0 +1,73 @@
+{
+  "hash": "fe5baa39",
+  "configHash": "d5048476",
+  "lockfileHash": "a0f8b82b",
+  "browserHash": "e4611c90",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/.pnpm/react@18.3.1/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "658475ba",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "53cb4d19",
+      "needsInterop": true
+    },
+    "sonner": {
+      "src": "../../node_modules/.pnpm/sonner@1.7.1_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/sonner/dist/index.mjs",
+      "file": "sonner.js",
+      "fileHash": "51e312ab",
+      "needsInterop": false
+    },
+    "@react-oauth/google": {
+      "src": "../../node_modules/.pnpm/@react-oauth+google@0.12.2__8f7216474539e37ae6ff7935f8f2e9a3/node_modules/@react-oauth/google/dist/index.esm.js",
+      "file": "@react-oauth_google.js",
+      "fileHash": "ef0b5d0f",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/.pnpm/@tanstack+react-query@5.55.0_react@18.3.1/node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "63ae9547",
+      "needsInterop": false
+    },
+    "@vis.gl/react-google-maps": {
+      "src": "../../node_modules/.pnpm/@vis.gl+react-google-maps@1_f82ba4e3ee92179be87336f3a0033186/node_modules/@vis.gl/react-google-maps/dist/index.modern.mjs",
+      "file": "@vis__gl_react-google-maps.js",
+      "fileHash": "a41448c6",
+      "needsInterop": false
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/.pnpm/react-router-dom@6.30.1_rea_32183f923d2f77881bbb08a88c6f2afc/node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "8a318eab",
+      "needsInterop": false
+    },
+    "date-fns": {
+      "src": "../../node_modules/.pnpm/date-fns@3.6.0/node_modules/date-fns/index.mjs",
+      "file": "date-fns.js",
+      "fileHash": "52a333e8",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/.pnpm/lucide-react@0.424.0_react@18.3.1/node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "0bbea7a5",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-TTZBCBHQ": {
+      "file": "chunk-TTZBCBHQ.js"
+    },
+    "chunk-5PPXNRMD": {
+      "file": "chunk-5PPXNRMD.js"
+    },
+    "chunk-TXPGJST7": {
+      "file": "chunk-TXPGJST7.js"
+    }
+  }
+}
