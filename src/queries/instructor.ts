@@ -612,6 +612,7 @@ export const useUpdateScheduleStatus = () => {
       queryClient.invalidateQueries({ queryKey: ["instructor"] });
       queryClient.invalidateQueries({ queryKey: ["verify-otp"] });
       queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-queue-counts"] });
       queryClient.invalidateQueries({ queryKey: ["my-ll-application"] });
     },
   });

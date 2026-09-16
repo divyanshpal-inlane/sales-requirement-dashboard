@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import {
   AlertTriangle,
@@ -11,7 +11,7 @@ import {
   Undo2,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import LLDocumentsReview from "@/components/admin/LLDocumentsReview";
@@ -53,17 +53,21 @@ import {
   llSegregationRouteChecklist,
   llSegregationRouteLabel,
   llStageLabel,
-  llStagePhase,
 } from "@/constants/llPipeline";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
+  DEFAULT_LL_PIPELINE_FILTERS,
   LLApplication,
   llDocumentUrl,
+  LLPipelineFilters,
+  LLPipelineQueryPage,
   useActiveLLApplication,
   useCreateLLApplication,
-  useLLApplications,
+  useLLApplicationsInfinite,
   useLLDocuments,
   useLLLearnerSearch,
   useLLPipelineEvents,
+  useLLQueueCounts,
   useRevertLLStatus,
   useUpdateLLFields,
   useUpdateLLStatus,
@@ -81,7 +85,6 @@ export default function LLPipeline() {
   const actorName = currentUser?.name ?? null;
   const actorId = currentUser?.id ?? null;
 
-  const { data: applications, isLoading } = useLLApplications();
   const [queue, setQueue] = useState<QueueKey>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -98,60 +101,58 @@ export default function LLPipeline() {
   const revertStatus = useRevertLLStatus();
   const updateFields = useUpdateLLFields();
 
-  const filtered = useMemo(() => {
-    let list = applications ?? [];
-    if (queue === "escalations") {
-      list = list.filter((a) => a.escalated || isLLFailureStatus(a.status));
-    } else if (queue !== "all") {
-      list = list.filter((a) => llStagePhase(a.status) === queue);
-    }
-    if (routeFilter !== "all") {
-      list = list.filter((a) => a.batch_code === routeFilter);
-    }
-    if (dateFrom) {
-      list = list.filter((a) => a[dateField].slice(0, 10) >= dateFrom);
-    }
-    if (dateTo) {
-      list = list.filter((a) => a[dateField].slice(0, 10) <= dateTo);
-    }
-    const term = searchTerm.trim().toLowerCase();
-    if (term) {
-      list = list.filter(
-        (a) =>
-          a.Learner?.name?.toLowerCase().includes(term) ||
-          a.Learner?.phone?.includes(term) ||
-          a.application_number?.toLowerCase().includes(term) ||
-          a.ll_number?.toLowerCase().includes(term) ||
-          a.batch_code?.toLowerCase().includes(term) ||
-          llSegregationRouteLabel(a.batch_code).toLowerCase().includes(term),
-      );
-    }
-    return list;
-  }, [
-    applications,
-    queue,
-    routeFilter,
-    searchTerm,
-    dateField,
-    dateFrom,
-    dateTo,
-  ]);
+  // Debounced search: each keystroke must not fire its own DB request.
+  const debouncedSearch = useDebouncedValue(searchTerm, 300);
 
-  const selected = filtered.find((a) => a.id === selectedId)
-    ? ((applications ?? []).find((a) => a.id === selectedId) ?? null)
-    : null;
+  // Queue/search/route/date filters are applied in the DB (PostgREST WHERE),
+  // never client-side. A change resets pagination via a fresh query key.
+  const filters = useMemo<LLPipelineFilters>(
+    () => ({
+      queue,
+      search: debouncedSearch,
+      route: routeFilter,
+      dateField,
+      dateFrom,
+      dateTo,
+    }),
+    [queue, debouncedSearch, routeFilter, dateField, dateFrom, dateTo],
+  );
 
-  const queueCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: applications?.length ?? 0 };
-    for (const p of LL_PHASES) counts[p.key] = 0;
-    counts.escalations = 0;
-    for (const a of applications ?? []) {
-      counts[llStagePhase(a.status)] =
-        (counts[llStagePhase(a.status)] ?? 0) + 1;
-      if (a.escalated || isLLFailureStatus(a.status)) counts.escalations += 1;
+  const pipeline = useLLApplicationsInfinite(filters);
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = pipeline;
+  const applications = useMemo(
+    () => pipeline.data?.pages.flatMap((p) => p.data) ?? [],
+    [pipeline.data],
+  );
+  const { data: queueCountsData } = useLLQueueCounts();
+  const queueCounts: Record<string, number> = queueCountsData ?? {};
+
+  const selected = applications.find((a) => a.id === selectedId) ?? null;
+
+  // Infinite scroll: fetch the next 10 rows when the list nears the bottom.
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
     }
-    return counts;
-  }, [applications]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const viewport = listScrollRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLElement | null;
+    if (!viewport) return;
+    const onScroll = () => {
+      if (
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <
+        240
+      ) {
+        loadMore();
+      }
+    };
+    viewport.addEventListener("scroll", onScroll);
+    return () => viewport.removeEventListener("scroll", onScroll);
+  }, [loadMore]);
 
   return (
     <div
@@ -186,14 +187,30 @@ export default function LLPipeline() {
             <NewApplicationButton
               actorName={actorName}
               onOpenApplication={(application) => {
-                queryClient.setQueryData<LLApplication[]>(
-                  ["ll-applications"],
-                  (current) => [
-                    application,
-                    ...(current ?? []).filter(
-                      (item) => item.id !== application.id,
-                    ),
-                  ],
+                // Prepend the freshly-created application into the default
+                // (unfiltered) list so it appears instantly at the top.
+                queryClient.setQueryData<InfiniteData<LLPipelineQueryPage>>(
+                  ["ll-applications", DEFAULT_LL_PIPELINE_FILTERS],
+                  (current) => {
+                    if (!current) return current;
+                    return {
+                      ...current,
+                      pages: current.pages.map((page, index) =>
+                        index === 0
+                          ? {
+                              ...page,
+                              data: [
+                                application,
+                                ...page.data.filter(
+                                  (item) => item.id !== application.id,
+                                ),
+                              ],
+                              total: Math.max(page.total + 1, page.data.length),
+                            }
+                          : page,
+                      ),
+                    };
+                  },
                 );
                 setQueue("all");
                 setRouteFilter("all");
@@ -301,17 +318,17 @@ export default function LLPipeline() {
             </div>
           </CardHeader>
           <CardContent className="p-3 pt-0">
-            <ScrollArea className="h-[calc(100vh-300px)]">
-              {isLoading ? (
+            <ScrollArea ref={listScrollRef} className="h-[calc(100vh-300px)]">
+              {pipeline.isLoading ? (
                 <div className="py-10 text-center text-sm text-gray-500">
                   Loading…
                 </div>
-              ) : filtered.length === 0 ? (
+              ) : applications.length === 0 ? (
                 <div className="py-10 text-center text-sm text-gray-500">
                   No applications in this queue.
                 </div>
               ) : (
-                filtered.map((a) => (
+                applications.map((a) => (
                   <button
                     key={a.id}
                     onClick={() => setSelectedId(a.id)}
@@ -341,6 +358,15 @@ export default function LLPipeline() {
                   </button>
                 ))
               )}
+              {pipeline.isFetchingNextPage ? (
+                <div className="py-4 text-center text-sm text-gray-400">
+                  Loading more…
+                </div>
+              ) : !pipeline.hasNextPage && applications.length > 0 ? (
+                <div className="py-4 text-center text-xs text-gray-400">
+                  End of list
+                </div>
+              ) : null}
             </ScrollArea>
           </CardContent>
         </Card>
@@ -686,7 +712,9 @@ function ApplicationDetail({
                   className="border-slate-400 text-slate-700 hover:bg-slate-50"
                   disabled={isBusy}
                   onClick={() => {
-                    setRevertTarget(revertTargets[revertTargets.length - 1] ?? "");
+                    setRevertTarget(
+                      revertTargets[revertTargets.length - 1] ?? "",
+                    );
                     setRevertReason("");
                     setRevertOpen(true);
                   }}
@@ -778,9 +806,7 @@ function ApplicationDetail({
                     Cancel
                   </Button>
                   <Button
-                    disabled={
-                      isBusy || !revertTarget || !revertReason.trim()
-                    }
+                    disabled={isBusy || !revertTarget || !revertReason.trim()}
                     onClick={() => {
                       onRevert(revertTarget, revertReason.trim());
                       setRevertOpen(false);
@@ -842,7 +868,10 @@ function ApplicationDetail({
                   onChange={(e) => setValue("application_date", e.target.value)}
                 />
               </Field>
-              <Field label="Segregation route" className="col-span-2 md:col-span-3">
+              <Field
+                label="Segregation route"
+                className="col-span-2 md:col-span-3"
+              >
                 <Select
                   value={
                     isLLSegregationRouteCode(value("batch_code"))

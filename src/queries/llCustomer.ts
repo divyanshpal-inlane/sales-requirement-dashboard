@@ -132,6 +132,7 @@ export function useCustomerLLStatusUpdate() {
         queryKey: ["my-ll-application", learnerId],
       });
       queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-queue-counts"] });
     },
   });
 }
@@ -227,6 +228,7 @@ export function useSelectDLTestDate() {
         queryKey: ["my-ll-application", learnerId],
       });
       queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-queue-counts"] });
     },
   });
 }
@@ -273,6 +275,7 @@ export function useRequestLLHelp() {
         queryKey: ["my-ll-application", learnerId],
       });
       queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-queue-counts"] });
     },
   });
 }
@@ -433,6 +436,7 @@ export function useSubmitLLApplication() {
       });
       queryClient.invalidateQueries({ queryKey: ["learner", phone] });
       queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["ll-queue-counts"] });
     },
   });
 }
