@@ -20,6 +20,115 @@ export interface UserWithPermissions extends User {
   permissions: PermissionKey[];
 }
 
+// Users shown per page in Super Admin → User Management
+export const USERS_PAGE_SIZE = 10;
+
+export interface PaginatedUsersResult {
+  users: UserWithPermissions[];
+  totalCount: number;
+}
+
+// Get a single page of users from the "User" table with database-level
+// filtering and pagination (used by Super Admin → User Management).
+// - adminId: restrict to users created by this admin via User.created_by_admin_id
+//            (null = every user visible to the caller under RLS)
+// - searchTerm: case-insensitive partial match on User.name OR User.phone
+export function usePaginatedUsers({
+  page,
+  pageSize = USERS_PAGE_SIZE,
+  searchTerm,
+  adminId,
+  enabled = true,
+}: {
+  page: number;
+  pageSize?: number;
+  searchTerm: string;
+  adminId: string | null;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: ["paginatedUsers", page, pageSize, searchTerm, adminId],
+    enabled,
+    queryFn: async (): Promise<PaginatedUsersResult> => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const trimmedSearch = searchTerm.trim();
+
+      const buildQuery = (head: boolean) => {
+        let query = supabase
+          .from("User" as any)
+          .select("*", { count: "exact", head }) as any;
+
+        if (adminId) {
+          query = query.eq("created_by_admin_id", adminId);
+        }
+        if (trimmedSearch) {
+          // Escape PostgREST filter delimiters so user input can't break the
+          // .or() expression, then match against name OR phone.
+          const safe = trimmedSearch.replace(/[,()]/g, " ");
+          query = query.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`);
+        }
+        return query;
+      };
+
+      const { data: users, error, count } = await buildQuery(false)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        // PGRST103 = requested range not satisfiable (page is past the end,
+        // e.g. the last user on the current page was just deleted). Return the
+        // real total so the UI can clamp back to a valid page.
+        if ((error as any).code === "PGRST103") {
+          const { count: actualCount, error: countError } =
+            await buildQuery(true);
+          if (countError) throw countError;
+          return { users: [], totalCount: actualCount ?? 0 };
+        }
+        throw error;
+      }
+
+      const userList = (users || []) as User[];
+      const userIds = userList.map((u) => u.id);
+
+      // Fetch permissions for the whole page in a single query
+      const permissionsByUser = new Map<string, PermissionKey[]>();
+      if (userIds.length > 0) {
+        const { data: permissionRows, error: permError } = await (
+          supabase
+            .from("user_permissions" as any)
+            .select("user_id, permission") as any
+        ).in("user_id", userIds);
+
+        if (permError) throw permError;
+
+        for (const row of (permissionRows || []) as {
+          user_id: string;
+          permission: string;
+        }[]) {
+          const list = permissionsByUser.get(row.user_id);
+          if (list) {
+            list.push(row.permission as PermissionKey);
+          } else {
+            permissionsByUser.set(row.user_id, [
+              row.permission as PermissionKey,
+            ]);
+          }
+        }
+      }
+
+      const usersWithPermissions: UserWithPermissions[] = userList.map(
+        (user) => ({
+          ...user,
+          permissions: permissionsByUser.get(user.id) ?? [],
+        }),
+      );
+
+      return { users: usersWithPermissions, totalCount: count ?? 0 };
+    },
+  });
+}
+
 // Get current user's info and permissions
 export function useCurrentUser() {
   return useQuery({
@@ -245,6 +354,7 @@ export function useCreateUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["paginatedUsers"] });
     },
   });
 }
@@ -340,6 +450,7 @@ export function useUpdateUserPermissions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["paginatedUsers"] });
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
   });
@@ -392,6 +503,7 @@ export function useDeleteUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["paginatedUsers"] });
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
   });

@@ -174,32 +174,14 @@ export default function AdminSchedules() {
     data: requestsData,
     isLoading,
     isRefetching,
-    error: requestsError,
     fetchNextPage: fetchNextRequestsPage,
     hasNextPage: hasNextRequestsPage,
     isFetchingNextPage: isFetchingNextRequestsPage,
   } = useInfiniteSchedulingRequests();
   
-  // Log any query errors
-  useEffect(() => {
-    if (requestsError) {
-      console.error('[Infinite Scroll] Requests error:', requestsError);
-    }
-  }, [requestsError]);
-
-  // Auto-fetch all scheduling request pages on mount (they're usually small - <100 total)
-  // This ensures we show accurate counts in tab headers
-  useEffect(() => {
-    if (hasNextRequestsPage && !isFetchingNextRequestsPage && !isLoading) {
-      fetchNextRequestsPage();
-    }
-  }, [hasNextRequestsPage, isFetchingNextRequestsPage, fetchNextRequestsPage, isLoading]);
-
   // Flatten all pages into a single array
-  // Each page is already an array of requests, so just flatMap them
   const requests = useMemo(() => {
-    if (!requestsData?.pages) return [];
-    return requestsData.pages.flatMap(page => Array.isArray(page) ? page : []);
+    return requestsData?.pages.flatMap(page => page) || [];
   }, [requestsData]);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
@@ -710,32 +692,30 @@ export default function AdminSchedules() {
   const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
   const [selectedFilterInstructorId, setSelectedFilterInstructorId] = useState<string>("");
   
-  // Active tab state
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage] = useState(20);
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
 
-  // Infinite query for active/completed learners
+  // Fetch learners with active enrollment using database-level pagination
   const {
-    data: learnersData,
+    data: activeLearners,
     isLoading: isLoadingActiveLearners,
-    error: learnersError,
     refetch: refetchActiveLearners,
-    fetchNextPage: fetchNextLearnersPage,
-    hasNextPage: hasNextLearnersPage,
-    isFetchingNextPage: isFetchingNextLearnersPage,
-  } = useInfiniteQuery({
+  } = useQuery({
     queryKey: [
-      "activeLearners-infinite",
+      "activeLearners",
+      currentPage,
       searchTerm,
       selectedFilterInstructorId,
       activeTab,
     ],
-    queryFn: async ({ pageParam = 0 }) => {
-      const PAGE_SIZE = 20;
+    queryFn: async () => {
       const { data, error } = await supabase.rpc(
         "get_active_learners_paginated",
         {
-          page_offset: pageParam * PAGE_SIZE,
-          page_size: PAGE_SIZE,
+          page_offset: currentPage * itemsPerPage,
+          page_size: itemsPerPage,
           search_term: searchTerm || null,
           instructor_filter: selectedFilterInstructorId || null,
           tab_filter: activeTab,
@@ -773,16 +753,14 @@ export default function AdminSchedules() {
       }));
 
       const totalCount = data[0]?.total_count || 0;
-      const hasMore = learners.length === PAGE_SIZE && (pageParam + 1) * PAGE_SIZE < totalCount;
 
       return {
         learners,
         totalCount,
-        nextPage: hasMore ? pageParam + 1 : undefined,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
       };
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextPage,
+    placeholderData: (previousData) => previousData, // React Query v5 replacement for keepPreviousData
     staleTime: 30 * 1000, // 30 seconds - avoid unnecessary refetches
   });
 
@@ -790,39 +768,13 @@ export default function AdminSchedules() {
   //console.log('Active Learners updated:', activeLearners);
   //}, [activeLearners]);
 
-  // Log any learners query errors
-  useEffect(() => {
-    if (learnersError) {
-      console.error('[Infinite Scroll] Learners error:', learnersError);
-    }
-  }, [learnersError]);
-
-  // Flatten all learner pages into a single array
-  const allLearners = useMemo(() => {
-    if (!learnersData?.pages) return [];
-    return learnersData.pages.flatMap(page => page?.learners || []);
-  }, [learnersData]);
-
-  const totalLearnersCount = learnersData?.pages?.[0]?.totalCount || 0;
-
-  // Create sentinel refs for infinite scroll
-  const requestsSentinelRef = useInfiniteScrollSentinel(
-    hasNextRequestsPage,
-    isFetchingNextRequestsPage,
-    fetchNextRequestsPage
-  );
-  const learnersSentinelRef = useInfiniteScrollSentinel(
-    hasNextLearnersPage,
-    isFetchingNextLearnersPage,
-    fetchNextLearnersPage
-  );
-
   const handleTabChange = (value: string) => {
     // Reset selectedRequest when changing tabs
     setSelectedRequest(null);
-    // Update active tab (infinite query will automatically reset)
+    // Update active tab and reset pagination
     if (value === "active" || value === "completed") {
       setActiveTab(value);
+      setCurrentPage(0);
     }
   };
 
@@ -832,10 +784,10 @@ export default function AdminSchedules() {
     setSelectedLearnerId(null); // Clear the right bar (Schedules)
     // The left bar (Learner List) will automatically filter based on this ID
   };
-  
-  // Use the flattened learners for both tabs
-  const activeOnlyLearners = allLearners;
-  const completedLearners = allLearners;
+  // Data is already filtered by RPC (search, instructor, active/completed tab)
+  // No client-side filtering needed
+  const activeOnlyLearners = activeLearners?.learners || [];
+  const completedLearners = activeLearners?.learners || [];
 
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -1096,10 +1048,10 @@ export default function AdminSchedules() {
               10th Lesson Requests {tenthLessonRequests?.length || 0}
             </TabsTrigger>
             <TabsTrigger value="active">
-              Active Learners {activeTab === "active" ? totalLearnersCount : ""}
+              Active Learners {activeTab === "active" ? (activeLearners?.totalCount || 0) : ""}
             </TabsTrigger>
             <TabsTrigger value="completed">
-              Completed Learners {activeTab === "completed" ? totalLearnersCount : ""}
+              Completed Learners {activeTab === "completed" ? (activeLearners?.totalCount || 0) : ""}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1193,12 +1145,6 @@ export default function AdminSchedules() {
                         </div>
                       );
                     })}
-                    {/* Infinite scroll sentinel */}
-                    {hasNextRequestsPage && (
-                      <div ref={requestsSentinelRef} className="py-4 text-center">
-                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
-                      </div>
-                    )}
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1285,13 +1231,6 @@ export default function AdminSchedules() {
                         />
                       </div>
                     ))}
-                    {/* Infinite scroll sentinel */}
-                    {hasNextRequestsPage && (
-                      <div ref={requestsSentinelRef} className="py-4 text-center">
-                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
-                      </div>
-                    )}
-
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1368,13 +1307,6 @@ export default function AdminSchedules() {
                         />
                       </div>
                     ))}
-                    {/* Infinite scroll sentinel */}
-                    {hasNextRequestsPage && (
-                      <div ref={requestsSentinelRef} className="py-4 text-center">
-                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
-                      </div>
-                    )}
-
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1421,6 +1353,7 @@ export default function AdminSchedules() {
                   onValueChange={(val) => {
                     setSelectedFilterInstructorId(val === "all" ? "" : val);
                     setSelectedRequest(null); // Clear right bar when instructor changes
+                    setCurrentPage(0); // Reset to first page
                   }}
                 >
                   <SelectTrigger className="w-[280px]">
@@ -1443,7 +1376,7 @@ export default function AdminSchedules() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowExportDialog(true)}
-                    disabled={totalLearnersCount === 0}
+                    disabled={!activeLearners || activeLearners.totalCount === 0}
                   >
                     <Download size={16} className="mr-2" />
                     Export CSV
@@ -1552,7 +1485,7 @@ export default function AdminSchedules() {
                         Export{" "}
                         <span className="font-medium">
                           {exportLearnerCount === "all"
-                            ? `all ${totalLearnersCount}`
+                            ? `all ${activeLearners?.length || 0}`
                             : `latest ${exportLearnerCount}`}
                         </span>{" "}
                         learners with{" "}
@@ -1622,17 +1555,50 @@ export default function AdminSchedules() {
                         value={searchTerm}
                         onChange={(e) => {
                           setSearchTerm(e.target.value);
+                          setCurrentPage(0); // Reset to first page on search
                         }}
                       />
                     </div>
                   </div>
-                  {/* Total count display */}
-                  <div className="mt-2 text-xs text-gray-600">
-                    {isLoadingActiveLearners ? (
-                      "Loading..."
-                    ) : (
-                      `Showing ${allLearners.length} of ${totalLearnersCount} learners`
-                    )}
+                  {/* Pagination Controls */}
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+                    <span>
+                      {isLoadingActiveLearners ? (
+                        "Loading..."
+                      ) : (
+                        <>
+                          Showing {activeLearners?.learners.length === 0 ? 0 : currentPage * itemsPerPage + 1}-
+                          {Math.min((currentPage + 1) * itemsPerPage, activeLearners?.totalCount || 0)} of{" "}
+                          {activeLearners?.totalCount || 0}
+                        </>
+                      )}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                        disabled={currentPage === 0 || isLoadingActiveLearners}
+                      >
+                        Previous
+                      </Button>
+                      <span className="flex items-center px-2 text-xs">
+                        Page {currentPage + 1} of {activeLearners?.totalPages || 1}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        disabled={
+                          currentPage >= (activeLearners?.totalPages || 1) - 1 ||
+                          isLoadingActiveLearners
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
@@ -1684,13 +1650,6 @@ export default function AdminSchedules() {
                           </div>
                         ))
                     )}
-                    {/* Infinite scroll sentinel */}
-                    {hasNextLearnersPage && (
-                      <div ref={learnersSentinelRef} className="py-4 text-center">
-                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
-                      </div>
-                    )}
-
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1744,17 +1703,50 @@ export default function AdminSchedules() {
                         value={searchTerm}
                         onChange={(e) => {
                           setSearchTerm(e.target.value);
+                          setCurrentPage(0); // Reset to first page on search
                         }}
                       />
                     </div>
                   </div>
-                  {/* Total count display */}
-                  <div className="mt-2 text-xs text-gray-600">
-                    {isLoadingActiveLearners ? (
-                      "Loading..."
-                    ) : (
-                      `Showing ${allLearners.length} of ${totalLearnersCount} learners`
-                    )}
+                  {/* Pagination Controls */}
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+                    <span>
+                      {isLoadingActiveLearners ? (
+                        "Loading..."
+                      ) : (
+                        <>
+                          Showing {activeLearners?.learners.length === 0 ? 0 : currentPage * itemsPerPage + 1}-
+                          {Math.min((currentPage + 1) * itemsPerPage, activeLearners?.totalCount || 0)} of{" "}
+                          {activeLearners?.totalCount || 0}
+                        </>
+                      )}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                        disabled={currentPage === 0 || isLoadingActiveLearners}
+                      >
+                        Previous
+                      </Button>
+                      <span className="flex items-center px-2 text-xs">
+                        Page {currentPage + 1} of {activeLearners?.totalPages || 1}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        disabled={
+                          currentPage >= (activeLearners?.totalPages || 1) - 1 ||
+                          isLoadingActiveLearners
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
@@ -1793,13 +1785,6 @@ export default function AdminSchedules() {
                         </div>
                       ))
                     )}
-                    {/* Infinite scroll sentinel */}
-                    {hasNextLearnersPage && (
-                      <div ref={learnersSentinelRef} className="py-4 text-center">
-                        <Loader2 className="mx-auto h-4 w-4 animate-spin text-gray-400" />
-                      </div>
-                    )}
-
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -1963,8 +1948,6 @@ const [pauseType, setPauseType] =
   const [upgradeInstallment1, setUpgradeInstallment1] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [topupTotalClasses, setTopupTotalClasses] = useState(1);
-  // Per-lesson cost for topup — editable by admin, defaults to 599 (DEMO_COURSE.price equivalent)
-  const [topupPerLessonCost, setTopupPerLessonCost] = useState(599);
   const completeRescheduleRequestMutation =
     useMutationCompleteRescheduleRequest();
   const [topupSlots, setTopupSlots] = useState<
@@ -2837,18 +2820,18 @@ const { error } = await supabase
       if (error) throw error;
 
       // Send payment link to learner. Demo uses ?type=demo (1hr @ ₹599);
-      // topup uses ?type=topup&hours=N so PaymentPage prefills the right flow.
-      // Use topupTotalClasses (admin-selected count) as the canonical number of
-      // classes/hours for payment calculation and WhatsApp message.
-      const totalHours = topupTotalClasses;
-      // Calculate the correct payment amount:
-      // - Demo: ₹1 (fixed)
-      // - Topup: perLessonCost × totalClasses (admin-editable)
-      const paymentAmount = isDemo ? 1 : topupPerLessonCost * topupTotalClasses;
+      // topup uses ?type=topup&hours=N (N × ₹599) so PaymentPage prefills
+      // the right flow instead of showing the generic course selector.
+      const totalHours = topupSlots.reduce((sum, slot) => {
+        const start = parseInt(slot.start_time.split(":")[0]);
+        const end = parseInt(slot.end_time.split(":")[0]);
+        return sum + (end - start);
+      }, 0);
       if (learner.phone) {
         const paymentLink = isDemo
           ? `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=demo`
-          : `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=topup&hours=${topupTotalClasses}&amount=${paymentAmount}`;
+          : `https://inlane-web-app.vercel.app/payment?phone=${learner.phone}&type=topup&hours=${totalHours}`;
+        const paymentAmount = isDemo ? 1 : 1 * totalHours;
         try {
           await supabase.functions.invoke("send-message", {
             body: {
@@ -2872,9 +2855,10 @@ const { error } = await supabase
       // invalidate it here too. Otherwise the new topup/demo schedule
       // wouldn't appear under the learner's card until the cache expired.
       queryClient.invalidateQueries({ queryKey: ["activeLearners"] });
+      const topupPrice = isDemo ? 1 : 1 * totalHours;
       toast({
         title: isDemo ? "Demo Scheduled" : "Topup Added",
-        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹${paymentAmount}) sent to ${learner.name}.`,
+        description: `${topupTotalClasses} class(es) scheduled. Payment link (₹${topupPrice}) sent to ${learner.name}.`,
       });
     } catch (error: any) {
       toast({
@@ -2986,7 +2970,6 @@ const { error } = await supabase
                     },
                   ]);
                   setTopupLessonId("");
-                  setTopupPerLessonCost(599); // Reset to default when opening dialog
                   setIsTopupDialogOpen(true);
                 }}
               >
@@ -3619,35 +3602,6 @@ const { error } = await supabase
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
-
-            {/* Per-lesson cost — hidden for demo */}
-            {!isDemo && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-gray-700">
-                    Per lesson cost (₹):
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={topupPerLessonCost}
-                    onChange={(e) =>
-                      setTopupPerLessonCost(Math.max(1, Number(e.target.value) || 0))
-                    }
-                    className="w-[120px]"
-                    disabled={isProcessing}
-                  />
-                </div>
-                <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
-                  <span className="font-medium">Total Payment:</span>{" "}
-                  ₹{topupPerLessonCost * topupTotalClasses}{" "}
-                  <span className="text-green-600">
-                    ({topupTotalClasses} class{topupTotalClasses > 1 ? "es" : ""} × ₹{topupPerLessonCost})
-                  </span>
-                </div>
               </div>
             )}
 
