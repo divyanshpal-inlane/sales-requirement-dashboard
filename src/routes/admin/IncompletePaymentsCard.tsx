@@ -67,19 +67,19 @@ const PREDEFINED_COURSES: { id: string; name: string; duration: number }[] = [
 type EditPlan = "full" | "half" | "custom";
 
 export function IncompletePaymentsCard() {
-  const [incompletePayments, setIncompletePayments] = useState([]);
+  const [incompletePayments, setIncompletePayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sendingPaymentLink, setSendingPaymentLink] = useState({});
-  const [deleteLearnerRequests, setDeleteLearnerRequests] = useState({});
-  const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState(
+  const [sendingPaymentLink, setSendingPaymentLink] = useState<Record<string, boolean>>({});
+  const [deleteLearnerRequests, setDeleteLearnerRequests] = useState<Record<string, boolean>>({});
+  const [deleteLearnerConfirmedList, setDeleteLearnerConfirmedList] = useState<Record<string, boolean>>(
     {},
   );
   const [deleteLearnerProcessingList, setDeleteLearnerProcessingList] =
-    useState({});
-  const [updatingPaidInfo, setUpdatingPaidInfo] = useState({});
-  const [addingPaidInfo, setAddingPaidInfo] = useState({});
+    useState<Record<string, boolean>>({});
+  const [updatingPaidInfo, setUpdatingPaidInfo] = useState<Record<string, boolean>>({});
+  const [addingPaidInfo, setAddingPaidInfo] = useState<Record<string, boolean>>({});
   const [paidInfoDialogOpen, setPaidInfoDialogOpen] = useState(false);
-  const [paidInfoDialogData, setPaidInfoDialogData] = useState(null);
+  const [paidInfoDialogData, setPaidInfoDialogData] = useState<any>(null);
   const [manualAmount, setManualAmount] = useState<number>(0);
   const [manualInstallment1, setManualInstallment1] = useState<number | null>(
     null,
@@ -89,7 +89,26 @@ export function IncompletePaymentsCard() {
   );
   // const installmentType = manualInstallment1 && manualInstallment2 ? "full"
 
+  // Search and pagination state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 20;
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
+
+  // Reset to page 1 when search query changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Fetch data when page or search changes
+  React.useEffect(() => {
+    fetchIncompletePayments();
+  }, [currentPage, searchQuery]);
+
   // --- Edit plan + regenerate link (matches the "Plan & Link" editor, inline) ---
+
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editDialogData, setEditDialogData] = useState<any>(null);
   const [editCourseId, setEditCourseId] = useState<string>("");
@@ -104,8 +123,10 @@ export function IncompletePaymentsCard() {
   const fetchIncompletePayments = async () => {
     setLoading(true);
     try {
-      // Query to get enrollments with incomplete payments
-      const { data, error } = await supabase
+      // Build the base query with database-level filter for NULL payment_id (most incomplete payments)
+      // Note: This captures payments that haven't been created yet. 
+      // Failed payments (payment exists but status != completed) will need separate handling if needed.
+      let query = supabase
         .from("enrollment")
         .select(
           `
@@ -119,7 +140,7 @@ export function IncompletePaymentsCard() {
           payment_id,
           learner_id,
           course_id,
-          Learner (
+          Learner!inner (
             id,
             name,
             phone,
@@ -141,24 +162,28 @@ export function IncompletePaymentsCard() {
             payment_type
           )
         `,
+          { count: 'exact' }
         )
-        .order("created_at", { ascending: false });
+        .is('payment_id', null);  // Filter for enrollments without payment record
+
+      // Apply search filter at database level if search query exists
+      if (searchQuery.trim()) {
+        // Search by Learner name only
+        const searchPattern = `%${searchQuery}%`;
+        query = query.ilike('Learner.name', searchPattern);
+      }
+
+      // Apply pagination at database level
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      const { data, error, count } = await query
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
-      // Filter for enrollments with incomplete payments
-      let incomplete = data.filter((enrollment) => {
-        // Skip if enrollment already has a successful payment
-        if (enrollment.payment && enrollment.payment.status === "completed") {
-          return false;
-        }
-
-        // Show if payment_id is null (pending) or payment status is not success (failed)
-        return (
-          enrollment.payment_id === null ||
-          (enrollment.payment && enrollment.payment.status !== "completed")
-        );
-      });
+      let incomplete = data || [];
 
       // For second_half installments, find the date of first_half payment completion
       const secondHalfEnrollments = incomplete.filter(
@@ -208,6 +233,7 @@ export function IncompletePaymentsCard() {
       }
 
       setIncompletePayments(incomplete);
+      setTotalCount(count || 0);
     } catch (err) {
       console.error("Error fetching incomplete payments:", err);
       toast({
@@ -219,10 +245,6 @@ export function IncompletePaymentsCard() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchIncompletePayments();
-  }, []);
 
   // Helper function to get course name - handles demo/custom enrollments
   const getCourseName = (enrollment) => {
@@ -833,9 +855,16 @@ export function IncompletePaymentsCard() {
 
   return (
     <Card className="mt-6 transition-all hover:shadow-lg">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
+      <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-1">
           <CardTitle className="text-xl">Incomplete Payments</CardTitle>
+          <Input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-md"
+          />
         </div>
         <Button
           variant="outline"
@@ -852,7 +881,14 @@ export function IncompletePaymentsCard() {
             {loading ? "Loading payments..." : "No incomplete payments found"}
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {incompletePayments.length === 0 ? (
+              <p className="py-4 text-center text-muted-foreground">
+                No payments found matching your search.
+              </p>
+            ) : (
+              <>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
@@ -1062,6 +1098,38 @@ export function IncompletePaymentsCard() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalCount)} to{" "}
+              {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+          </>
+            )}
+          </>
         )}
         <Dialog open={paidInfoDialogOpen} onOpenChange={setPaidInfoDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">

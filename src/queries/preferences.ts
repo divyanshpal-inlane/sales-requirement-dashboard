@@ -1,5 +1,6 @@
 import {
   skipToken,
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -175,6 +176,101 @@ export function useSchedulingRequests() {
 
       return filteredLearners;
     },
+    staleTime: 30 * 1000,
+  });
+}
+
+// Infinite scroll version of useSchedulingRequests
+// Fetches requests in batches of 25 for incremental loading
+export function useInfiniteSchedulingRequests() {
+  return useInfiniteQuery({
+    queryKey: ["scheduling-requests-infinite"],
+    queryFn: async ({ pageParam = 0 }) => {
+      const BATCH_SIZE = 25;
+      const from = pageParam;
+      const to = from + BATCH_SIZE - 1;
+
+      // Get learners who need scheduling - fetch in batches
+      const { data: learners, error: learnersError } = await supabase
+        .from("reschedule_requests")
+        .select(
+          `id, learner_id, type, status, lesson_ids, amount, created_at,
+          Learner(id, name, phone, email, area, pick_up_location, address_lat, address_lng,
+            preferred_start_date, preferred_completion_days, prefers_two_hour_classes,
+            two_hour_days, DL_test_date, pincode, signed_up, created_at)`,
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (learnersError) throw learnersError;
+      if (!learners || learners.length === 0) return [];
+
+      // Apply the same schedule-checking logic as the original query
+      const learnerIds = learners
+        .map((r) => r.learner_id)
+        .filter((id): id is string => !!id);
+
+      if (learnerIds.length === 0) return [];
+
+      // Check which learners already have schedules
+      const { data: existingSchedules, error: scheduleError } = await supabase
+        .from("Schedule")
+        .select("learner_id, created_at")
+        .in("learner_id", learnerIds)
+        .neq("status", "paused");
+
+      if (scheduleError) {
+        console.error("Error checking existing schedules:", scheduleError);
+        return learners;
+      }
+
+      // Group each learner's non-paused schedule creation times
+      const scheduleTimesByLearner = new Map<string, number[]>();
+      for (const s of existingSchedules || []) {
+        if (!s.learner_id || !s.created_at) continue;
+        const createdAt = new Date(s.created_at).getTime();
+        const list = scheduleTimesByLearner.get(s.learner_id);
+        if (list) list.push(createdAt);
+        else scheduleTimesByLearner.set(s.learner_id, [createdAt]);
+      }
+
+      const FULFILL_BACKDATE_MS = 24 * 60 * 60 * 1000;
+
+      // Filter out learners who have already been scheduled
+      const filteredLearners = learners.filter((request) => {
+        const isRescheduleOrLesson10 =
+          request.type === "reschedule" || request.type === "lesson10";
+        if (isRescheduleOrLesson10) return true;
+
+        const scheduleTimes =
+          scheduleTimesByLearner.get(request.learner_id) ?? [];
+
+        if (scheduleTimes.length === 0) return true;
+        if (!request.created_at) return false;
+
+        const reqAt = new Date(request.created_at).getTime();
+        const windowStart = reqAt - FULFILL_BACKDATE_MS;
+        const fulfillingCount = scheduleTimes.filter(
+          (t) => t >= windowStart,
+        ).length;
+        const lessonsNeeded = Array.isArray(request.lesson_ids)
+          ? request.lesson_ids.length
+          : 1;
+
+        return fulfillingCount < Math.max(1, lessonsNeeded);
+      });
+
+      return filteredLearners;
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const BATCH_SIZE = 25;
+      // If last page has fewer records than batch size, no more pages
+      if (!lastPage || lastPage.length < BATCH_SIZE) return undefined;
+      // Next offset is number of pages * batch size
+      return allPages.length * BATCH_SIZE;
+    },
+    initialPageParam: 0,
     staleTime: 30 * 1000,
   });
 }
