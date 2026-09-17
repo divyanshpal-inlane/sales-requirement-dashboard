@@ -788,34 +788,18 @@ export default function InstructorsManagement() {
     },
   });
 
-  // Status selection and list opening are deliberately separate. Selecting a
-  // chip never enables the instructor query; the user must click one of the
-  // selected count controls to start a fresh paginated list session.
-  const [statusFilter, setStatusFilter] = useState<InstructorStatus[]>([]);
-  const [isInstructorListOpen, setIsInstructorListOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<InstructorStatus>("active");
   const [listSession, setListSession] = useState(0);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  const toggleStatusFilter = (status: InstructorStatus) => {
+  const selectStatusFilter = (status: InstructorStatus) => {
     queryClient.cancelQueries({ queryKey: ["instructors", "list"] });
-    setIsInstructorListOpen(false);
-    setStatusFilter((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status],
-    );
+    setStatusFilter(status);
+    setListSession((session) => session + 1);
   };
 
   const clearStatusFilter = () => {
-    queryClient.cancelQueries({ queryKey: ["instructors", "list"] });
-    setIsInstructorListOpen(false);
-    setStatusFilter([]);
-  };
-
-  const openInstructorList = () => {
-    if (statusFilter.length === 0) return;
-    setListSession((session) => session + 1);
-    setIsInstructorListOpen(true);
+    selectStatusFilter("active");
   };
 
   useEffect(() => {
@@ -922,14 +906,6 @@ export default function InstructorsManagement() {
     [debouncedSearchTerm],
   );
 
-  const selectedStatuses = useMemo(
-    () =>
-      INSTRUCTOR_STATUSES.map((status) => status.value).filter((status) =>
-        statusFilter.includes(status),
-      ),
-    [statusFilter],
-  );
-
   // Counts are independent HEAD requests: Postgres returns only each exact
   // count, never the instructor rows used by the card list.
   const {
@@ -937,17 +913,14 @@ export default function InstructorsManagement() {
     isLoading: areStatusCountsLoading,
     isError: areStatusCountsError,
   } = useQuery({
-    queryKey: ["instructors", "status-counts", debouncedSearchTerm],
-    enabled: selectedStatuses.length > 0,
+    queryKey: ["instructors", "status-counts"],
     queryFn: async () => {
       const entries = await Promise.all(
         INSTRUCTOR_STATUSES.map(async ({ value }) => {
-          let query = supabase
+          const query = supabase
             .from("Instructor")
             .select("id_instructor", { count: "exact", head: true })
             .eq("status", value);
-
-          if (searchFilter) query = query.or(searchFilter);
 
           const { count, error } = await query;
           if (error) throw error;
@@ -971,22 +944,22 @@ export default function InstructorsManagement() {
     queryKey: [
       "instructors",
       "list",
-      selectedStatuses,
+      statusFilter,
       debouncedSearchTerm,
       listSession,
     ],
-    enabled: isInstructorListOpen && selectedStatuses.length > 0,
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       // Fetch one extra row so we can detect another page without running an
       // additional count query for the card list.
       let query = supabase
         .from("Instructor")
         .select("*")
-        .in("status", selectedStatuses)
+        .eq("status", statusFilter)
         .order("name")
         .order("id_instructor")
-        .range(pageParam, pageParam + INSTRUCTOR_PAGE_SIZE);
+        .range(pageParam, pageParam + INSTRUCTOR_PAGE_SIZE)
+        .abortSignal(signal);
 
       if (searchFilter) query = query.or(searchFilter);
 
@@ -1020,7 +993,7 @@ export default function InstructorsManagement() {
 
   useEffect(() => {
     const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel || !isInstructorListOpen || !hasNextPage) return;
+    if (!sentinel || !hasNextPage) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -1033,7 +1006,7 @@ export default function InstructorsManagement() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isInstructorListOpen]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // Add or update an instructor
   const mutation = useMutation({
@@ -1329,14 +1302,13 @@ export default function InstructorsManagement() {
         </div>
       </div>
 
-      {/* Step 1 selects one or more statuses. Step 2 is an explicit click on
-          a selected count, which is the only action that opens the list. */}
+      {/* Each status opens its own paginated instructor list. */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground">
           Status:
         </span>
         {INSTRUCTOR_STATUSES.map((s) => {
-          const selected = statusFilter.includes(s.value);
+          const selected = statusFilter === s.value;
           const displayedCount = areStatusCountsLoading
             ? "…"
             : areStatusCountsError
@@ -1356,7 +1328,7 @@ export default function InstructorsManagement() {
               <button
                 type="button"
                 aria-pressed={selected}
-                onClick={() => toggleStatusFilter(s.value)}
+                onClick={() => selectStatusFilter(s.value)}
                 className={cn(
                   "flex items-center gap-2 py-1 pl-3 pr-2 transition-colors",
                   !selected && "hover:bg-muted",
@@ -1366,33 +1338,29 @@ export default function InstructorsManagement() {
                 <span className={cn("h-2 w-2 rounded-full", s.dotClass)} />
                 {s.label}
               </button>
-              {selected && (
-                <button
-                  type="button"
-                  disabled={areStatusCountsLoading}
-                  onClick={openInstructorList}
-                  aria-label={`Load instructors for the selected statuses (${s.label}: ${displayedCount})`}
-                  title="Load instructors for all selected statuses"
-                  className="hover:ring-current/20 mr-1 cursor-pointer rounded-full bg-white/60 px-1.5 text-xs font-semibold transition-shadow hover:ring-2 disabled:cursor-wait"
-                >
-                  {displayedCount}
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={areStatusCountsLoading}
+                onClick={() => selectStatusFilter(s.value)}
+                aria-label={`Load ${s.label} instructors (${displayedCount})`}
+                title={`Load ${s.label} instructors`}
+                className="hover:ring-current/20 mr-1 cursor-pointer rounded-full bg-white/60 px-1.5 text-xs font-semibold transition-shadow hover:ring-2 disabled:cursor-wait"
+              >
+                {displayedCount}
+              </button>
             </div>
           );
         })}
-        {statusFilter.length > 0 && (
-          <button
-            type="button"
-            onClick={clearStatusFilter}
-            className="flex items-center gap-1 text-sm text-muted-foreground underline-offset-2 hover:underline"
-          >
-            <X className="h-3.5 w-3.5" />
-            Clear filter
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={clearStatusFilter}
+          className="flex items-center gap-1 text-sm text-muted-foreground underline-offset-2 hover:underline"
+        >
+          <X className="h-3.5 w-3.5" />
+          Clear filter
+        </button>
       </div>
-      {!isInstructorListOpen ? null : isInstructorListLoading ? (
+      {isInstructorListLoading ? (
         <div className="flex h-64 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent">
             <ChevronsUpDown> </ChevronsUpDown>
@@ -1406,7 +1374,7 @@ export default function InstructorsManagement() {
         </div>
       ) : instructors.length === 0 ? (
         <div className="flex h-48 items-center justify-center rounded-lg border border-dashed bg-white/70 px-6 text-center text-sm text-muted-foreground">
-          No instructors match the selected statuses and search.
+          No instructors match the selected status and search.
         </div>
       ) : (
         <>
