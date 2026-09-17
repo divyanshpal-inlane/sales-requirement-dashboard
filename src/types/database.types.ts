@@ -1245,6 +1245,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      get_learners_with_issues: {
+        Args: { search_term: string; issue_filter: string };
+        Returns: Database["public"]["Tables"]["Learner"]["Row"][];
+      };
       record_learning_session: {
         Args: {
           p_session_id: string;
