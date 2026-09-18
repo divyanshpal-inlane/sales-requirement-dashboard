@@ -2022,19 +2022,113 @@ export default function SalesDashboard() {
                 <ul>
                   <li>Columns are 30-minute slots; rows are instructors.</li>
                   <li>
-                    Green means the slot is free: no class, no time off, and
+                    <strong>🟢 Green</strong> = free: no class, no time off,
                     enough travel time.
                   </li>
                   <li>
-                    Click any slot to open details: Free, Booked class, Payment
-                    pending, Paused, Unavailable or Busy.
+                    <strong>🟡 Yellow</strong> = tentative (created from this
+                    dashboard) — unpaid, half paid, or full paid.
                   </li>
                   <li>
-                    Booked slots show the learner, area and course when known.
+                    <strong>🟣 Purple</strong> = booked, completed, or a real
+                    learner booking mid-payment — a confirmed class, never
+                    editable from here.
+                  </li>
+                  <li>
+                    Plain/unshaded = paused, unavailable, or a travel-gap buffer
+                    around another slot.
+                  </li>
+                  <li>
+                    <strong>Hover</strong> any slot for full details: status,
+                    time, instructor, and — for a booked class — learner, area,
+                    and course when known.
                   </li>
                   <li>
                     A {config.instructor_gap_minutes}-minute travel gap around
                     classes is applied, so green slots are safe to assign.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="help-section">
+                <h3>Create a tentative booking</h3>
+                <ul>
+                  <li>
+                    <strong>Double-click</strong> any green (free) slot to open
+                    the booking form for that 1-hour block.
+                  </li>
+                  <li>
+                    Fill in the customer&apos;s name, phone, sales agent,
+                    payment status, address, and course, then submit.
+                  </li>
+                  <li>
+                    This always creates a <strong>tentative</strong> hold (shown
+                    yellow) — it is never a confirmed/booked class. Operations
+                    verifies the customer and converts valid tentative slots to
+                    confirmed bookings separately.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="help-section">
+                <h3>Book multiple classes in one go</h3>
+                <ul>
+                  <li>
+                    While the booking form is open, click{" "}
+                    <strong>+ Add another class</strong> instead of submitting —
+                    useful for a customer buying a course of several classes at
+                    once.
+                  </li>
+                  <li>
+                    The form hides and the grid gets a pulsing yellow border:{" "}
+                    <strong>double-click the next free slot</strong> (any
+                    date/instructor) to add it. The form reopens with that class
+                    added — your name/phone/agent/course entries are kept,
+                    nothing is lost.
+                  </li>
+                  <li>
+                    Repeat for as many classes as needed. Each one appears in a
+                    &quot;Selected Slots&quot; list with a × to remove it (the
+                    last remaining slot can&apos;t be removed — use Cancel
+                    instead).
+                  </li>
+                  <li>
+                    Submitting creates all selected classes together as
+                    tentative holds. If any one of them is no longer available
+                    by the time you submit, the form tells you exactly which
+                    class and creates none of them — so you never end up with a
+                    half-created batch.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="help-section">
+                <h3>Override an unpaid tentative slot</h3>
+                <ul>
+                  <li>
+                    Hover a <strong>yellow</strong> slot. If its payment status
+                    is <strong>unpaid</strong>, the popover shows{" "}
+                    <strong>🟡 Tentative (Unpaid)</strong> with an{" "}
+                    <strong>Override Slot</strong> button.
+                  </li>
+                  <li>
+                    Half-paid and full-paid tentative slots show plainly as{" "}
+                    <strong>Tentative</strong> with no override option — once
+                    any payment has been collected, Sales can no longer move or
+                    replace that slot from this dashboard.
+                  </li>
+                  <li>
+                    Click <strong>Override Slot</strong>, then — same as adding
+                    a class — double-click the new free slot on the highlighted
+                    grid. The old tentative hold is released and a new one is
+                    created at the new time for the same customer, still
+                    tentative and still unpaid.
+                  </li>
+                  <li>
+                    This is re-checked on the server, not just here — if the
+                    slot was paid or changed by someone else in the meantime, or
+                    the new time is no longer free, the override is rejected and
+                    the original booking stays exactly as it was.
                   </li>
                 </ul>
               </div>
