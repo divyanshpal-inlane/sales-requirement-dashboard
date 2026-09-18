@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import { minutesToTime, timeToMinutes } from "@/lib/sales-dashboard/validation";
 import { isValidPhone, normalizePhone } from "@/lib/sales-dashboard/validation";
@@ -18,21 +18,57 @@ export interface TentativeBookingData {
   course: string;
 }
 
+// One selected class in the batch. Task 19 (multiple-class booking): a
+// single customer form can carry N of these — one Schedule row gets
+// created per slot, all sharing the same tentative_details.
+export interface SlotPick {
+  instructorId: string;
+  instructorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface CustomerFormValues {
+  customerName: string;
+  customerPhone: string;
+  salesAgent: string;
+  paymentStatus: "unpaid" | "half_paid" | "full_paid";
+  customerAddress: string;
+  course: string;
+}
+
+export const DEFAULT_CUSTOMER_FORM = (
+  currentUserName = "",
+): CustomerFormValues => ({
+  customerName: "",
+  customerPhone: "",
+  salesAgent: currentUserName,
+  paymentStatus: "unpaid",
+  customerAddress: "",
+  course: "demo",
+});
+
 interface TentativeBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  data: {
-    instructorId: string;
-    date: string;
-    startTime: string;
-    endTime: string;
-  } | null;
-  currentUserName?: string;
+  // 1..N slots. The modal renders nothing if this is empty while open —
+  // the parent owns exactly when that can happen.
+  slots: SlotPick[];
+  onRemoveSlot: (index: number) => void;
+  // Hides the modal (without losing formData/slots — both live in the
+  // parent) and arms "pick another slot" mode on the grid.
+  onAddAnotherSlot: () => void;
+  // Fresh re-check of one slot's availability at submit time — the grid
+  // could have changed since it was added to the batch.
+  validateSlot: (slot: SlotPick) => boolean;
+  formData: CustomerFormValues;
+  onFormDataChange: (data: CustomerFormValues) => void;
   // Present only when this submission should replace an existing unpaid
-  // tentative slot rather than create a fresh one. blockId identifies the
-  // old Schedule row to release; tentativeDetails pre-fills the form with
-  // the same customer info (still editable) so Sales doesn't re-type it.
+  // tentative slot rather than create fresh ones. blockId identifies the
+  // old Schedule row to release. Override is always exactly one slot —
+  // the "add another class" / multi-slot list UI is hidden in this mode.
   overrideContext?: {
     blockId: number;
     tentativeDetails: Record<string, unknown> | null;
@@ -52,51 +88,32 @@ const COURSES = [
   { id: "course_20", label: "20-Class Course" },
 ];
 
+function formatSlotTime(startTime: string, endTime: string): string {
+  try {
+    return `${minutesToTime(timeToMinutes(startTime))}–${minutesToTime(timeToMinutes(endTime))}`;
+  } catch {
+    return `${startTime}–${endTime}`;
+  }
+}
+
 export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  data,
-  currentUserName = "",
+  slots,
+  onRemoveSlot,
+  onAddAnotherSlot,
+  validateSlot,
+  formData,
+  onFormDataChange,
   overrideContext = null,
 }) => {
-  const [formData, setFormData] = useState({
-    customerName: "",
-    customerPhone: "",
-    salesAgent: currentUserName,
-    paymentStatus: "unpaid" as "unpaid" | "half_paid" | "full_paid",
-    customerAddress: "",
-    course: "demo",
-  });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
 
-  // This component stays mounted the whole time (isOpen just toggles
-  // visibility), so formData needs to be (re)synced explicitly whenever it
-  // opens — otherwise a previous slot's leftover values, or a stale
-  // override pre-fill, would carry into the next open.
-  useEffect(() => {
-    if (!isOpen) return;
-    const td = overrideContext?.tentativeDetails ?? null;
-    setFormData({
-      customerName: typeof td?.name === "string" ? td.name : "",
-      customerPhone: typeof td?.phone === "string" ? td.phone : "",
-      salesAgent:
-        typeof td?.sales_agent === "string" ? td.sales_agent : currentUserName,
-      // Always "unpaid" here on purpose: overriding is only ever offered
-      // for an unpaid tentative slot in the first place, and the new slot
-      // it moves to must start out unpaid too — nothing has been paid.
-      paymentStatus: "unpaid",
-      customerAddress: typeof td?.address === "string" ? td.address : "",
-      course: typeof td?.course === "string" ? td.course : "demo",
-    });
-    setErrors({});
-  }, [isOpen, overrideContext, currentUserName]);
-
   const createTentativeMutation = useMutation({
     mutationFn: async () => {
-      if (!data) throw new Error("No slot data provided");
+      if (slots.length === 0) throw new Error("No slot selected");
 
       const normalizedPhone = normalizePhone(formData.customerPhone);
       if (!normalizedPhone) {
@@ -114,59 +131,74 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       };
 
       if (overrideContext) {
-        // Server-side re-validation happens inside this function, not
-        // here — it re-checks (fresh, not trusting anything the client
-        // already believes) that the old slot still exists, is still
-        // unpaid, and that deleting it + inserting the new one succeeds
-        // atomically. See the override_tentative_slot SQL migration.
+        // Always exactly one slot in override mode. Server-side
+        // re-validation happens inside this function, not here — it
+        // re-checks (fresh, not trusting anything the client already
+        // believes) that the old slot still exists, is still unpaid, and
+        // that deleting it + inserting the new one succeeds atomically.
+        // See the override_tentative_slot SQL migration.
+        const slot = slots[0];
         const { error } = await sb.rpc("override_tentative_slot", {
           p_old_schedule_id: overrideContext.blockId,
-          p_new_instructor_id: data.instructorId,
-          p_new_date: data.date,
-          p_new_start_time: data.startTime,
-          p_new_end_time: data.endTime,
+          p_new_instructor_id: slot.instructorId,
+          p_new_date: slot.date,
+          p_new_start_time: slot.startTime,
+          p_new_end_time: slot.endTime,
           p_new_tentative_details: tentativeDetails,
         });
         if (error) throw error;
         return;
       }
 
-      const { error } = await sb.from("Schedule").insert([
-        {
-          instructor_id: data.instructorId,
-          date: data.date,
-          start_time: data.startTime,
-          end_time: data.endTime,
-          status: "hold",
-          isTentative: true,
-          tentative_details: tentativeDetails,
-          learner_id: null,
-          course_id: null,
-          lesson_id: null,
-        },
-      ]);
+      // Re-validate every slot fresh — the grid could have changed since
+      // any of them were added to the batch. Fail on the FIRST conflict
+      // found, naming exactly which class it is, and don't attempt any
+      // insert at all: partial creation would leave a confusing mix of
+      // real and missing classes for a batch the user thinks either all
+      // happened or none did.
+      for (let i = 0; i < slots.length; i++) {
+        if (!validateSlot(slots[i])) {
+          const s = slots[i];
+          throw new Error(
+            `Class ${i + 1} (${s.date} • ${formatSlotTime(s.startTime, s.endTime)} • ${s.instructorName}) is no longer available. Remove or change it and try again.`,
+          );
+        }
+      }
 
+      const rows = slots.map((s) => ({
+        instructor_id: s.instructorId,
+        date: s.date,
+        start_time: s.startTime,
+        end_time: s.endTime,
+        status: "hold",
+        isTentative: true,
+        tentative_details: tentativeDetails,
+        learner_id: null,
+        course_id: null,
+        lesson_id: null,
+      }));
+
+      // A single multi-row insert is one Postgres statement — if any row
+      // conflicts (e.g. a race with another sales agent since we
+      // validated above), the exclusion constraint rejects the whole
+      // statement and NONE of the rows are created. That's what gives
+      // this batch "all or nothing" behavior using nothing more than the
+      // existing single-row insert path, just called with N rows.
+      const { error } = await sb.from("Schedule").insert(rows);
       if (error) throw error;
     },
     onSuccess: () => {
       setSuccessMessage(
         overrideContext
           ? "Tentative slot moved successfully!"
-          : "Tentative slot booked successfully!",
+          : slots.length > 1
+            ? `${slots.length} tentative classes booked successfully!`
+            : "Tentative slot booked successfully!",
       );
       setTimeout(() => {
-        setFormData({
-          customerName: "",
-          customerPhone: "",
-          salesAgent: currentUserName,
-          paymentStatus: "unpaid",
-          customerAddress: "",
-          course: "demo",
-        });
         setErrors({});
         setSuccessMessage("");
         onSuccess();
-        onClose();
       }, 1500);
     },
     onError: (error: Error) => {
@@ -199,6 +231,9 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
     if (!formData.course) {
       newErrors.course = "Course selection is required";
     }
+    if (slots.length === 0) {
+      newErrors.submit = "Select at least one slot";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -211,17 +246,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
     }
   };
 
-  if (!isOpen || !data) return null;
+  if (!isOpen || slots.length === 0) return null;
 
-  let startTime = "";
-  let endTime = "";
-  try {
-    startTime = minutesToTime(timeToMinutes(data.startTime));
-    endTime = minutesToTime(timeToMinutes(data.endTime));
-  } catch (e) {
-    console.error("Error parsing slot times:", e);
-    return null;
-  }
+  const set = <K extends keyof CustomerFormValues>(
+    key: K,
+    value: CustomerFormValues[K],
+  ) => onFormDataChange({ ...formData, [key]: value });
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -257,16 +287,53 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Slot Info (Read-only) */}
-          <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+          {/* Selected Slots */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
             {overrideContext && (
               <p className="mb-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 Moving unpaid tentative booking to a new slot:
               </p>
             )}
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Slot: {data.date} • {startTime}–{endTime}
-            </p>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {overrideContext
+                  ? "Replacement Slot"
+                  : `Selected Slots (${slots.length})`}
+              </span>
+              {!overrideContext && (
+                <button
+                  type="button"
+                  className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+                  onClick={onAddAnotherSlot}
+                >
+                  + Add another class
+                </button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {slots.map((s, i) => (
+                <div
+                  key={`${s.instructorId}-${s.date}-${s.startTime}`}
+                  className="flex items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5 text-sm text-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                >
+                  <span>
+                    Class {i + 1}: {s.date} •{" "}
+                    {formatSlotTime(s.startTime, s.endTime)} •{" "}
+                    {s.instructorName}
+                  </span>
+                  {!overrideContext && slots.length > 1 && (
+                    <button
+                      type="button"
+                      className="flex-none rounded-full px-1.5 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900"
+                      aria-label={`Remove class ${i + 1}`}
+                      onClick={() => onRemoveSlot(i)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Customer Name */}
@@ -281,9 +348,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               id="customerName"
               type="text"
               value={formData.customerName}
-              onChange={(e) =>
-                setFormData({ ...formData, customerName: e.target.value })
-              }
+              onChange={(e) => set("customerName", e.target.value)}
               placeholder="Enter customer name"
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
                 errors.customerName ? "border-red-500" : "border-gray-300"
@@ -308,9 +373,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               id="customerPhone"
               type="tel"
               value={formData.customerPhone}
-              onChange={(e) =>
-                setFormData({ ...formData, customerPhone: e.target.value })
-              }
+              onChange={(e) => set("customerPhone", e.target.value)}
               placeholder="10-digit phone number"
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
                 errors.customerPhone ? "border-red-500" : "border-gray-300"
@@ -335,9 +398,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               id="salesAgent"
               type="text"
               value={formData.salesAgent}
-              onChange={(e) =>
-                setFormData({ ...formData, salesAgent: e.target.value })
-              }
+              onChange={(e) => set("salesAgent", e.target.value)}
               placeholder="Sales agent name"
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
                 errors.salesAgent ? "border-red-500" : "border-gray-300"
@@ -361,16 +422,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             <select
               id="paymentStatus"
               value={formData.paymentStatus}
-              onChange={(e) => {
-                const value = e.target.value as
-                  | "unpaid"
-                  | "half_paid"
-                  | "full_paid";
-                setFormData({
-                  ...formData,
-                  paymentStatus: value,
-                });
-              }}
+              onChange={(e) =>
+                set(
+                  "paymentStatus",
+                  e.target.value as "unpaid" | "half_paid" | "full_paid",
+                )
+              }
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
             >
               <option value="unpaid">Unpaid</option>
@@ -390,9 +447,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             <textarea
               id="customerAddress"
               value={formData.customerAddress}
-              onChange={(e) =>
-                setFormData({ ...formData, customerAddress: e.target.value })
-              }
+              onChange={(e) => set("customerAddress", e.target.value)}
               placeholder="Enter full address"
               rows={3}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
@@ -417,9 +472,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             <select
               id="course"
               value={formData.course}
-              onChange={(e) =>
-                setFormData({ ...formData, course: e.target.value })
-              }
+              onChange={(e) => set("course", e.target.value)}
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
                 errors.course ? "border-red-500" : "border-gray-300"
               }`}
@@ -458,7 +511,9 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
                   : "Booking..."
                 : overrideContext
                   ? "Confirm Override"
-                  : "Create Tentative Block"}
+                  : slots.length > 1
+                    ? `Create ${slots.length} Tentative Blocks`
+                    : "Create Tentative Block"}
             </button>
           </div>
         </form>

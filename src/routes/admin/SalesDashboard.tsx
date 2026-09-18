@@ -15,7 +15,14 @@ import {
 } from "react";
 
 import type { LocateStatus } from "@/components/admin/sales-dashboard/LocationSearch";
-import { TentativeBookingModal } from "@/components/admin/sales-dashboard/TentativeBookingModal";
+import type {
+  CustomerFormValues,
+  SlotPick,
+} from "@/components/admin/sales-dashboard/TentativeBookingModal";
+import {
+  DEFAULT_CUSTOMER_FORM,
+  TentativeBookingModal,
+} from "@/components/admin/sales-dashboard/TentativeBookingModal";
 import type {
   BlockDetail,
   InstructorRow,
@@ -36,6 +43,7 @@ import {
 import {
   dateToWeekdayLower,
   minutesToTime,
+  timeToMinutes,
 } from "@/lib/sales-dashboard/validation";
 
 const LocationSearch = lazy(
@@ -678,12 +686,18 @@ export default function SalesDashboard() {
     label: string;
   } | null>(null);
   const [tentativeModalOpen, setTentativeModalOpen] = useState(false);
-  const [tentativeSlotData, setTentativeSlotData] = useState<{
-    instructorId: string;
-    date: string;
-    startTime: string;
-    endTime: string;
-  } | null>(null);
+  // Task 19 (multiple-class booking): one customer form can carry N
+  // slots. Both live here, not inside the modal, specifically so they
+  // survive the modal hiding/reopening while Sales picks each additional
+  // class on the grid (see handleAddAnotherSlot / addingSlotMode below).
+  const [pendingSlots, setPendingSlots] = useState<SlotPick[]>([]);
+  const [customerFormData, setCustomerFormData] = useState<CustomerFormValues>(
+    () => DEFAULT_CUSTOMER_FORM(),
+  );
+  // True while Sales has clicked "+ Add another class" and is picking
+  // the next slot for the SAME in-progress batch. Distinct from
+  // overrideSource below — the two modes are mutually exclusive.
+  const [addingSlotMode, setAddingSlotMode] = useState(false);
   // Set while Sales has clicked "Override Slot" on an unpaid tentative
   // block and is now picking a replacement slot elsewhere on the grid.
   // Consumed (and cleared) the moment they double-click a new free slot —
@@ -719,6 +733,41 @@ export default function SalesDashboard() {
 
   const cancelOverride = useCallback(() => setOverrideSource(null), []);
 
+  // Hides the modal (formData/pendingSlots stay exactly as they are —
+  // both live in this component, not the modal) and arms "pick another
+  // slot" mode. handleSlotDoubleClick appends the next double-clicked
+  // free slot to pendingSlots and reopens the modal.
+  const handleAddAnotherSlot = useCallback(() => {
+    setTentativeModalOpen(false);
+    setAddingSlotMode(true);
+  }, []);
+
+  const cancelAddingSlot = useCallback(() => {
+    setAddingSlotMode(false);
+    setTentativeModalOpen(true);
+  }, []);
+
+  const handleRemoveSlot = useCallback((index: number) => {
+    setPendingSlots((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleCloseTentativeModal = useCallback(() => {
+    setTentativeModalOpen(false);
+    setPendingSlots([]);
+    setCustomerFormData(DEFAULT_CUSTOMER_FORM());
+    setOverrideContext(null);
+    setAddingSlotMode(false);
+  }, []);
+
+  const handleTentativeSuccess = useCallback(() => {
+    setTentativeModalOpen(false);
+    setPendingSlots([]);
+    setCustomerFormData(DEFAULT_CUSTOMER_FORM());
+    setOverrideContext(null);
+    setAddingSlotMode(false);
+    reload();
+  }, [reload]);
+
   useEffect(() => {
     if (!overrideSource) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -727,6 +776,18 @@ export default function SalesDashboard() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [overrideSource]);
+
+  useEffect(() => {
+    if (!addingSlotMode) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setAddingSlotMode(false);
+        setTentativeModalOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [addingSlotMode]);
 
   useEffect(() => {
     return () => {
@@ -1135,21 +1196,58 @@ export default function SalesDashboard() {
         return;
       }
 
-      // Set modal data and open — in override mode if Sales previously
-      // clicked "Override Slot" on an unpaid tentative block and this
-      // double-click is them picking its replacement.
       const startTime = minutesToTime(minute);
       const endTime = minutesToTime(minute + 60);
-      setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
+      const newSlot: SlotPick = {
+        instructorId: instrId,
+        instructorName: instr.name,
+        date,
+        startTime,
+        endTime,
+      };
+
       if (overrideSource) {
+        // Picking the replacement for an overridden slot — always
+        // exactly one slot, never mixed with the multi-class batch flow.
         setOverrideContext({
           blockId: overrideSource.blockId,
           tentativeDetails: overrideSource.tentativeDetails,
         });
         setOverrideSource(null);
-      } else {
-        setOverrideContext(null);
+        setPendingSlots([newSlot]);
+        setTentativeModalOpen(true);
+        return;
       }
+
+      if (addingSlotMode) {
+        // Task 19: adding another class to the SAME in-progress batch.
+        // customerFormData is untouched — it's owned here, not by the
+        // modal, so it survived the modal being hidden while this slot
+        // was picked.
+        const alreadyInBatch = pendingSlots.some(
+          (s) =>
+            s.instructorId === instrId &&
+            s.date === date &&
+            s.startTime === startTime,
+        );
+        if (alreadyInBatch) {
+          showSlotNotice("That slot is already in this booking.");
+          setAddingSlotMode(false);
+          setTentativeModalOpen(true);
+          return;
+        }
+        setPendingSlots((prev) => [...prev, newSlot]);
+        setAddingSlotMode(false);
+        setTentativeModalOpen(true);
+        return;
+      }
+
+      // Fresh booking — reset to a clean single-slot batch and blank
+      // customer form (currentUserName, if ever wired up, would seed
+      // salesAgent here).
+      setOverrideContext(null);
+      setPendingSlots([newSlot]);
+      setCustomerFormData(DEFAULT_CUSTOMER_FORM());
       setTentativeModalOpen(true);
     },
     [
@@ -1158,7 +1256,25 @@ export default function SalesDashboard() {
       instructorsById,
       blocksIndex,
       overrideSource,
+      addingSlotMode,
+      pendingSlots,
     ],
+  );
+
+  // Fresh re-check of a single pending slot's 1-hour availability, run
+  // again right before submit (the grid may have changed since it was
+  // added to the batch, possibly minutes ago).
+  const validateSlotFresh = useCallback(
+    (slot: SlotPick): boolean => {
+      const minute = timeToMinutes(slot.startTime);
+      return validateOneHourBlock(
+        slot.instructorId,
+        slot.date,
+        minute,
+        data?.freeGrid ?? null,
+      );
+    },
+    [data?.freeGrid],
   );
 
   const resolveInfo = useMemo(() => {
@@ -1933,16 +2049,14 @@ export default function SalesDashboard() {
       {/* Tentative Booking Modal */}
       <TentativeBookingModal
         isOpen={tentativeModalOpen}
-        onClose={() => {
-          setTentativeModalOpen(false);
-          setTentativeSlotData(null);
-          setOverrideContext(null);
-        }}
-        onSuccess={() => {
-          setOverrideContext(null);
-          reload();
-        }}
-        data={tentativeSlotData}
+        onClose={handleCloseTentativeModal}
+        onSuccess={handleTentativeSuccess}
+        slots={pendingSlots}
+        onRemoveSlot={handleRemoveSlot}
+        onAddAnotherSlot={handleAddAnotherSlot}
+        validateSlot={validateSlotFresh}
+        formData={customerFormData}
+        onFormDataChange={setCustomerFormData}
         overrideContext={overrideContext}
       />
 
@@ -1964,6 +2078,30 @@ export default function SalesDashboard() {
             className="slot-toast-close"
             aria-label="Cancel override"
             onClick={cancelOverride}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Persistent banner while picking an additional class for an
+          in-progress multi-class booking (Task 19) — the modal is
+          hidden (not closed: pendingSlots/customerFormData are untouched)
+          until a new slot is double-clicked or this is cancelled. */}
+      {addingSlotMode && (
+        <div className="slot-toast slot-toast-info" role="status">
+          <span className="slot-toast-icon" aria-hidden="true">
+            ➕
+          </span>
+          <span className="slot-toast-msg">
+            Adding a class: double-click a new free 1-hour slot to add it to
+            this booking.
+          </span>
+          <button
+            type="button"
+            className="slot-toast-close"
+            aria-label="Cancel adding another class"
+            onClick={cancelAddingSlot}
           >
             ×
           </button>
