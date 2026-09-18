@@ -50,6 +50,7 @@ import UserManagement from "@/routes/admin/UserManagement";
 import InstructorEarnings from "@/routes/admin/InstructorEarnings";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
 import InstructorMatrix from "@/routes/admin/InstructorMatrix";
+import SalesDashboard from "@/routes/admin/SalesDashboard";
 import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
@@ -334,6 +335,10 @@ export default function App() {
                 <Route
                   path="instructor-matrix"
                   element={<InstructorMatrix />}
+                />
+                <Route
+                  path="sales-dashboard"
+                  element={<SalesDashboard />}
                 />
                 <Route
                   path="instructor-earnings"

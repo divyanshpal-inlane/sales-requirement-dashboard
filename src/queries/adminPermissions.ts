@@ -209,6 +209,13 @@ export const ADMIN_PERMISSIONS = {
         "Live KPIs, today's operations and exception dashboard in one place",
       route: "/admin/control-tower",
     },
+    sales_dashboard: {
+      key: "sales_dashboard",
+      label: "Sales Availability Dashboard",
+      description:
+        "Search instructors by name or location and see live 30-min free-slot availability",
+      route: "/admin/sales-dashboard",
+    },
   } as const;
 
 export type PermissionKey = keyof typeof ADMIN_PERMISSIONS;

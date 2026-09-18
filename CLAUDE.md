@@ -445,6 +445,252 @@ Sales Dashboard Grid (30-min slots)
 - Success toast auto-closes after 1.5s
 - Grid refresh ensures UI stays in sync with database
 
+## Tentative Slot Selection & Booking Feature
+
+**Status**: ✅ FULLY IMPLEMENTED & PRODUCTION-READY (Fixed white screen issue)
+
+### Feature Overview
+Sales agents can now double-click on FREE instructor availability slots in the Sales Dashboard calendar to create tentative lesson bookings. The feature seamlessly integrates with the existing availability grid while maintaining all original single-click functionality.
+
+### User Workflow
+1. **View availability**: Sales Dashboard displays instructor schedule in 30-minute slots
+2. **Single-click** (existing): Shows slot details popup (instructor name, learner, course, status)
+3. **Double-click** (new): Opens TentativeBookingModal if slot is free and 1-hour block available
+4. **Fill form**: Enter customer name, phone, sales agent, payment status, address, course
+5. **Submit**: Creates Schedule row with `isTentative=true` and customer details in `tentative_details` JSON
+6. **Confirmation**: Success toast displays for 1.5s, dashboard refreshes, slot shows as tentative/orange
+
+### Component Architecture
+
+**Component Tree & Prop Flow:**
+```
+SalesDashboard (defines handleSlotDoubleClick via useCallback)
+  ↓ passes onDoubleClick={handleSlotDoubleClick}
+  ├→ AvailabilityGrid (GridProps.onDoubleClick)
+  │   ↓ extracts from props, passes to children
+  │   ├→ InstructorRowGroup (InstructorRowGroupProps.onDoubleClick)
+  │   │   ↓ extracts from props, passes to children
+  │   │   ├→ SlotCell (renders main grid cells)
+  │   │   │   ↓ calls onDoubleClick(instrId, date, minute) on double-click
+  │   │   │
+  │   │   └→ MiniRow (MiniRowProps.onDoubleClick, renders expanded schedule)
+  │   │       ↓ extracts from props, passes to children
+  │   │       └→ SlotCell (renders mini schedule cells)
+  │   │           ↓ calls onDoubleClick(instrId, date, minute) on double-click
+  │
+  └→ TentativeBookingModal (isOpen, onClose, onSuccess, data props)
+      ↓ accepts slot details passed from handler
+      └→ renders form for customer & booking details
+```
+
+### Key Interfaces & Type Definitions
+
+**GridProps** (`src/routes/admin/SalesDashboard.tsx:143`)
+```typescript
+interface GridProps {
+  // ... existing props ...
+  onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  // Called when user double-clicks a slot cell
+}
+```
+
+**InstructorRowGroupProps** (`src/routes/admin/SalesDashboard.tsx:315`)
+```typescript
+interface InstructorRowGroupProps {
+  // ... existing props ...
+  onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  // Passed through from AvailabilityGrid to child SlotCell/MiniRow components
+}
+```
+
+**MiniRowProps** (`src/routes/admin/SalesDashboard.tsx:239`)
+```typescript
+interface MiniRowProps {
+  // ... existing props ...
+  onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  // Passed through from InstructorRowGroup to SlotCell in expanded schedule
+}
+```
+
+**SlotCellProps** (`src/routes/admin/SalesDashboard.tsx:168`)
+```typescript
+interface SlotCellProps {
+  // ... existing props ...
+  onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  // Called via: onDoubleClick?.({instrId}, {date}, {minute}) when double-click detected
+}
+```
+
+### Handler Implementation
+
+**handleSlotDoubleClick** (`src/routes/admin/SalesDashboard.tsx:786`)
+```typescript
+const handleSlotDoubleClick = useCallback(
+  (instrId: string, date: string, minute: number) => {
+    // 1. Validate 1-hour block availability
+    const freeGrid = data?.freeGrid ?? null;
+    if (!validateOneHourBlock(instrId, date, minute, freeGrid)) {
+      alert("This 1-hour slot is not fully available. Please select a different time.");
+      return;
+    }
+
+    // 2. Calculate start/end times
+    const startTime = minutesToTime(minute);
+    const endTime = minutesToTime(minute + 60);
+    
+    // 3. Set modal state with slot data
+    setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
+    setTentativeModalOpen(true);
+  },
+  [data?.freeGrid],
+);
+```
+
+**Validation: validateOneHourBlock()** (`src/lib/sales-dashboard/availability.ts`)
+```typescript
+export function validateOneHourBlock(
+  instructorId: string,
+  date: string,
+  startMinute: number,
+  freeGrid: Map<string, Map<string, number[]>> | null,
+): boolean {
+  if (!freeGrid) return false;
+  
+  const instructorGrid = freeGrid.get(instructorId);
+  if (!instructorGrid) return false;
+  
+  const dayFree = instructorGrid.get(date);
+  if (!dayFree) return false;
+  
+  // Check if both 30-minute slots [start, start+30] are free
+  return dayFree.includes(startMinute) && dayFree.includes(startMinute + 30);
+}
+```
+
+### Modal Component
+
+**TentativeBookingModal** (`src/components/admin/sales-dashboard/TentativeBookingModal.tsx:47`)
+- **Props**:
+  - `isOpen`: boolean — controls modal visibility
+  - `onClose`: () => void — dismiss without saving
+  - `onSuccess`: () => void — called after successful booking (triggers reload)
+  - `data`: { instructorId, date, startTime, endTime } | null — slot details
+  - `currentUserName`: string — pre-fills sales agent field
+
+- **Form Fields**:
+  - Customer Name (required, text input)
+  - Phone Number (required, tel input, auto-normalized via `normalizePhone()`)
+  - Sales Agent (required, text input, defaults to current user)
+  - Payment Status (dropdown: unpaid / half_paid / full_paid)
+  - Customer Address (required, textarea)
+  - Course (required, dropdown: demo, 4-6-10-15-20 class courses)
+
+- **Submission**:
+  - Validates all required fields before submit
+  - Creates Supabase Schedule row with:
+    ```typescript
+    {
+      instructor_id: instrId,
+      date: date,
+      start_time: startTime,
+      end_time: endTime,
+      status: "hold",
+      isTentative: true,
+      tentative_details: {
+        name: customerName,
+        phone: normalizedPhone,
+        sales_agent: salesAgent,
+        payment_status: paymentStatus,
+        address: customerAddress,
+        course: courseId,
+        created_at: ISO8601 timestamp
+      }
+    }
+    ```
+  - Shows success toast for 1.5s
+  - Calls `onSuccess()` to reload dashboard
+  - Closes modal automatically
+
+- **Styling**:
+  - Uses `.modal-backdrop` and `.modal` CSS classes from `sales-dashboard.css`
+  - Proper dark mode support via `data-theme` attribute
+  - Click-outside-to-dismiss functionality
+  - Responsive sizing: `width: min(680px, 92vw); max-height: 84vh`
+
+### Database Schema
+
+**Schedule Table (existing)**
+```sql
+-- New/modified columns for tentative bookings:
+isTentative: boolean (default false)
+tentative_details: JSON nullable = {
+  name: string,           -- customer name
+  phone: string,          -- normalized phone (10 digits or +91...)
+  sales_agent: string,    -- admin/user who created booking
+  payment_status: enum,   -- "unpaid" | "half_paid" | "full_paid"
+  address: string,        -- customer delivery/location address
+  course: string,         -- course ID (demo, course_4, course_5, etc.)
+  created_at: ISO8601     -- timestamp of tentative booking creation
+}
+```
+
+### Integration Points
+
+- **No new API endpoints**: Uses existing Supabase direct insert (client-side)
+- **No new database tables**: Leverages existing Schedule table with isTentative flag
+- **Reuses existing patterns**:
+  - Phone normalization: `normalizePhone()` utility
+  - Availability calculation: existing `buildInstructorFreeGrid()` and `freeGrid` Map
+  - Form validation: field-level error messages
+  - Toast notifications: success message pattern
+  - Modal styling: consistent with dashboard help modal
+
+### Performance Characteristics
+
+- **Modal rendering**: Only renders when `isOpen={true}` (zero cost when closed)
+- **Double-click handler**: Memoized via `useCallback([data?.freeGrid])` to prevent re-renders
+- **Validation**: O(1) lookup via Map.has() and array includes()
+- **Form submission**: Single async mutation via TanStack Query
+- **Grid refresh**: Calls dashboard `reload()` which fetches latest Schedule data
+
+### Known Limitations & Future Enhancements
+
+- **Modal only**: Bookings created via modal, not directly in grid (intentional UX design)
+- **No batch creation**: One slot at a time (future: bulk import/copy across dates)
+- **No drag-to-create**: Double-click only (future: click-and-drag time range)
+- **Manual phone entry**: No phone book lookup (future: autocomplete from CRM)
+- **No conflict detection**: Doesn't warn if customer already has competing tentative slots
+
+### Bug Fixes Applied (Latest)
+
+**Issue**: White screen appears when selecting instructor name or entering location
+**Root Cause**: `ReferenceError: handleSlotDoubleClick is not defined` — handler not passed through component prop chain
+**Solution**: 
+- Added `onDoubleClick` prop to all component interfaces (GridProps, InstructorRowGroupProps, MiniRowProps, SlotCellProps)
+- Extracted `onDoubleClick` from props in each component
+- Passed handler through full chain from SalesDashboard → AvailabilityGrid → InstructorRowGroup → MiniRow → SlotCell
+- Fixed TypeScript type assertions for payment status union type
+- Added null coalescing for optional freeGrid parameter
+- Added error handling to LocationSearch Google Maps initialization
+
+### Testing Checklist
+
+- [x] Build succeeds with no new TypeScript errors
+- [x] ESLint passes (zero errors)
+- [x] Type checking passes
+- [x] Modal renders only when isOpen={true}
+- [x] Form validation prevents empty submissions
+- [x] Phone normalization works correctly
+- [x] Payment status dropdown accepts all three values
+- [x] Success toast auto-closes after 1.5s
+- [x] Dashboard reloads after successful booking
+- [x] Slot displays as tentative after booking creation
+- [x] Click-outside-to-dismiss works
+- [x] Dark mode styling applied correctly
+- [x] Double-click only works on free slots
+- [x] 1-hour block validation prevents partial-hour bookings
+- [x] White screen error fixed (prop chain complete)
+
 ## Additional Resources
 
 - `README.md` — Quick start

@@ -20,6 +20,7 @@ import {
   MessageSquare,
   PhoneCall,
   Radar,
+  Search,
   Settings,
   ShieldCheck,
   Siren,
@@ -297,6 +298,14 @@ const featureConfig: Record<
     icon: ClipboardList,
     link: "/admin/compliance-forms",
     color: "text-indigo-500",
+  },
+  sales_dashboard: {
+    title: "Sales Availability Dashboard",
+    description:
+      "Search instructors by name or location and see live 30-min free-slot availability",
+    icon: Search,
+    link: "/admin/sales-dashboard",
+    color: "text-cyan-500",
   },
  } as const;
 
