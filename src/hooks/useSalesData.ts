@@ -56,17 +56,30 @@ export interface ScheduleRow {
   learner_id: string | null;
   course_id: string | null;
   leadName: string | null;
+  isTentative: boolean | null;
   tentative_details: Record<string, unknown> | null;
   pause_reason: string | null;
   pause_notes: string | null;
 }
 
 export interface BlockDetail {
+  id: number;
   instructorId: string;
   date: string;
   startMinute: number;
   endMinute: number;
   status: string;
+  isTentative: boolean;
+  // Only meaningful when isTentative is true — the sales-side hold's
+  // payment_status ("unpaid" | "half_paid" | "full_paid"), read straight
+  // from tentative_details so the UI can gate the override action without
+  // a second round trip.
+  paymentStatus: string | null;
+  // Full raw tentative_details JSON, kept as-is (not just the extracted
+  // learnerName/area/courseName below) so the slot-override flow can
+  // carry the customer's name/phone/sales_agent/address/course forward to
+  // the replacement tentative block without a second fetch.
+  rawTentativeDetails: Record<string, unknown> | null;
   learnerName: string;
   area: string;
   courseName: string;
@@ -111,7 +124,7 @@ async function fetchScheduleWindow(
       let query = sb
         .from("Schedule")
         .select(
-          "id, instructor_id, date, start_time, end_time, status, learner_id, course_id, leadName, tentative_details, pause_reason, pause_notes",
+          "id, instructor_id, date, start_time, end_time, status, learner_id, course_id, leadName, isTentative, tentative_details, pause_reason, pause_notes",
         )
         .gte("date", dateFrom)
         .lte("date", dateTo);
@@ -359,11 +372,16 @@ export function useSalesData() {
               ? str(r.pause_reason) || str(r.pause_notes)
               : "";
           return {
+            id: r.id,
             instructorId: r.instructor_id,
             date: r.date,
             startMinute: timeToMinutes(r.start_time),
             endMinute: timeToMinutes(r.end_time),
             status: r.status,
+            isTentative: r.isTentative === true,
+            paymentStatus:
+              typeof td.payment_status === "string" ? td.payment_status : null,
+            rawTentativeDetails: r.tentative_details ?? null,
             learnerName,
             area,
             courseName,

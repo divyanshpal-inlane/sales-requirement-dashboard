@@ -45,6 +45,22 @@ const LocationSearch = lazy(
 interface SlotInfo {
   title: string;
   detail: string[];
+  // Drives cell background color. "tentative" = yellow (any payment
+  // status), "booked" = purple (booked/completed/pending_payment — i.e.
+  // a real class, never overridable from Sales). Buffer zones and
+  // everything else stay "default" (existing plain appearance).
+  kind: "free" | "tentative" | "booked" | "default";
+  // Set only for a non-buffer, unpaid tentative slot — the one case Sales
+  // is allowed to override. Carries what the override action needs
+  // without a second lookup.
+  override: {
+    blockId: number;
+    instrId: string;
+    date: string;
+    startMinute: number;
+    endMinute: number;
+    tentativeDetails: Record<string, unknown> | null;
+  } | null;
 }
 
 type SortKey = "freeDesc" | "freeAsc" | "alpha";
@@ -159,6 +175,7 @@ interface GridProps {
   onToggleSelectRow: (id: string) => void;
   onRemove?: (id: string) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -176,6 +193,7 @@ interface SlotCellProps {
   timeLabel: string;
   canBook1Hour?: boolean;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -193,19 +211,25 @@ function SlotCellInner({
   timeLabel,
   canBook1Hour,
   onDoubleClick,
+  onOverrideClick,
   resolveInfo,
 }: SlotCellProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const info = isHovered ? resolveInfo(instrId, date, minute, free) : null;
-  const cls = [
-    free
-      ? canBook1Hour === false
-        ? "cell cell-free cell-half"
-        : "cell cell-free"
-      : band
-        ? "cell cell-band"
-        : "cell",
-  ];
+  // Computed on every render, not just while hovered — kind drives the
+  // cell's background color (yellow tentative / purple booked), which
+  // must be visible at a glance, not only on hover.
+  const info = resolveInfo(instrId, date, minute, free);
+  const cls = ["cell"];
+  if (free) {
+    cls.push("cell-free");
+    if (canBook1Hour === false) cls.push("cell-half");
+  } else if (info.kind === "tentative") {
+    cls.push("cell-tentative");
+  } else if (info.kind === "booked") {
+    cls.push("cell-booked");
+  } else if (band) {
+    cls.push("cell-band");
+  }
   if (isHovered) cls.push("cell-hovered");
   return (
     <td
@@ -225,7 +249,7 @@ function SlotCellInner({
         }
       }}
     >
-      {info && (
+      {isHovered && (
         <div className="slot-pop">
           <div className={free ? "pop-title free" : "pop-title busy"}>
             {info.title}
@@ -235,6 +259,18 @@ function SlotCellInner({
               {line}
             </div>
           ))}
+          {info.override && (
+            <button
+              type="button"
+              className="slot-pop-override-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOverrideClick?.(info.override!);
+              }}
+            >
+              Override Slot
+            </button>
+          )}
         </div>
       )}
     </td>
@@ -256,6 +292,7 @@ interface MiniRowProps {
   gridMinutes: number;
   freeGrid: Map<string, Map<string, number[]>>;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -273,6 +310,7 @@ function MiniRowInner({
   gridMinutes,
   freeGrid,
   onDoubleClick,
+  onOverrideClick,
   resolveInfo,
 }: MiniRowProps) {
   // Computed here (inside the memoized row), not in the parent's map loop —
@@ -306,6 +344,7 @@ function MiniRowInner({
             timeLabel={`${t}–${minutesToTime(m + gridMinutes)}`}
             canBook1Hour={canBook1Hour}
             onDoubleClick={onDoubleClick}
+            onOverrideClick={onOverrideClick}
             resolveInfo={resolveInfo}
           />
         );
@@ -337,6 +376,7 @@ interface InstructorRowGroupProps {
   onToggleSelectRow: (id: string) => void;
   onRemove?: (id: string) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
+  onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -358,6 +398,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
     dates,
     selectedDate,
     onDoubleClick,
+    onOverrideClick,
     gridMinutes,
     freeGrid,
     onToggleExpand,
@@ -454,6 +495,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
               timeLabel={`${t}–${minutesToTime(m + gridMinutes)}`}
               canBook1Hour={canBook1Hour}
               onDoubleClick={onDoubleClick}
+              onOverrideClick={onOverrideClick}
               resolveInfo={resolveInfo}
             />
           );
@@ -511,6 +553,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
                       gridMinutes={gridMinutes}
                       freeGrid={freeGrid}
                       onDoubleClick={onDoubleClick}
+                      onOverrideClick={onOverrideClick}
                       resolveInfo={resolveInfo}
                     />
                   ))}
@@ -552,6 +595,7 @@ function AvailabilityGridInner(props: GridProps) {
     onToggleSelectRow,
     onRemove,
     onDoubleClick,
+    onOverrideClick,
     resolveInfo,
   } = props;
 
@@ -587,6 +631,7 @@ function AvailabilityGridInner(props: GridProps) {
             onToggleSelectRow={onToggleSelectRow}
             onRemove={onRemove}
             onDoubleClick={onDoubleClick}
+            onOverrideClick={onOverrideClick}
             resolveInfo={resolveInfo}
           />
         ))}
@@ -639,6 +684,18 @@ export default function SalesDashboard() {
     startTime: string;
     endTime: string;
   } | null>(null);
+  // Set while Sales has clicked "Override Slot" on an unpaid tentative
+  // block and is now picking a replacement slot elsewhere on the grid.
+  // Consumed (and cleared) the moment they double-click a new free slot —
+  // handleSlotDoubleClick then opens the modal in override mode instead
+  // of create mode.
+  const [overrideSource, setOverrideSource] = useState<NonNullable<
+    SlotInfo["override"]
+  > | null>(null);
+  const [overrideContext, setOverrideContext] = useState<{
+    blockId: number;
+    tentativeDetails: Record<string, unknown> | null;
+  } | null>(null);
   const [slotNotice, setSlotNotice] = useState<string | null>(null);
   const slotNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -647,6 +704,27 @@ export default function SalesDashboard() {
     setSlotNotice(message);
     slotNoticeTimerRef.current = setTimeout(() => setSlotNotice(null), 4000);
   }, []);
+
+  const handleOverrideClick = useCallback(
+    (override: NonNullable<SlotInfo["override"]>) => {
+      setOverrideSource(override);
+      showSlotNotice(
+        "Override mode: double-click a new free 1-hour slot to move this booking, or click Cancel below.",
+      );
+    },
+    [showSlotNotice],
+  );
+
+  const cancelOverride = useCallback(() => setOverrideSource(null), []);
+
+  useEffect(() => {
+    if (!overrideSource) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setOverrideSource(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overrideSource]);
 
   useEffect(() => {
     return () => {
@@ -1032,14 +1110,15 @@ export default function SalesDashboard() {
       }
 
       // Check for existing tentative block on this slot. Tentative blocks
-      // are identified by status === "hold" (see resolveInfo's own
-      // "hold" -> "Tentative" label above) — BlockDetail has no
-      // `isTentative` field, so checking b.isTentative here was always
-      // undefined/falsy, silently making this check a no-op.
+      // are status === "hold" AND isTentative === true (see resolveInfo's
+      // own "hold" -> "Tentative" classification above).
       const existingTentative = blocksIndex
         .get(instrId)
         ?.get(date)
-        ?.some((b) => b.status === "hold" && b.startMinute === minute);
+        ?.some(
+          (b) =>
+            b.status === "hold" && b.isTentative && b.startMinute === minute,
+        );
       if (existingTentative) {
         showSlotNotice("Tentative block already exists for this slot.");
         return;
@@ -1054,13 +1133,30 @@ export default function SalesDashboard() {
         return;
       }
 
-      // Set modal data and open
+      // Set modal data and open — in override mode if Sales previously
+      // clicked "Override Slot" on an unpaid tentative block and this
+      // double-click is them picking its replacement.
       const startTime = minutesToTime(minute);
       const endTime = minutesToTime(minute + 60);
       setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
+      if (overrideSource) {
+        setOverrideContext({
+          blockId: overrideSource.blockId,
+          tentativeDetails: overrideSource.tentativeDetails,
+        });
+        setOverrideSource(null);
+      } else {
+        setOverrideContext(null);
+      }
       setTentativeModalOpen(true);
     },
-    [data?.freeGrid, showSlotNotice, instructorsById, blocksIndex],
+    [
+      data?.freeGrid,
+      showSlotNotice,
+      instructorsById,
+      blocksIndex,
+      overrideSource,
+    ],
   );
 
   const resolveInfo = useMemo(() => {
@@ -1097,6 +1193,8 @@ export default function SalesDashboard() {
         return {
           title: "Free",
           detail: [timeLabel, `Instructor: ${name}`],
+          kind: "free",
+          override: null,
         };
       }
 
@@ -1140,20 +1238,68 @@ export default function SalesDashboard() {
                 ? "Booked class"
                 : "Completed class",
             detail,
+            kind: isBuffer ? "default" : "booked",
+            override: null,
           };
         }
         if (cover.status === "pending_payment" || cover.status === "hold") {
-          const label =
-            cover.status === "hold" ? "Tentative" : "Pending Payment";
+          // "hold" + isTentative === true is a genuine Sales tentative
+          // block. "pending_payment" (and a "hold" that somehow isn't
+          // flagged isTentative) is a real learner-side booking mid
+          // payment — not something Sales created, never overridable here,
+          // and shown as "booked" (purple), not "tentative" (yellow).
+          const isSalesTentative = cover.status === "hold" && cover.isTentative;
+          if (!isSalesTentative) {
+            return {
+              title: isBuffer
+                ? "Buffer for Pending Payment slot"
+                : "Payment pending",
+              detail: isBuffer
+                ? [blockTime, `Instructor: ${name}`]
+                : [
+                    blockTime,
+                    `Instructor: ${name}`,
+                    "Slot is on hold until payment completes.",
+                  ],
+              kind: isBuffer ? "default" : "booked",
+              override: null,
+            };
+          }
+          if (isBuffer) {
+            return {
+              title: "Buffer for Tentative slot",
+              detail: [blockTime, `Instructor: ${name}`],
+              kind: "default",
+              override: null,
+            };
+          }
+          // The actual tentative slot itself (not its buffer). Payment
+          // status gates both the label and whether override is offered —
+          // default to "unpaid" only if the field is missing entirely
+          // (shouldn't happen for a real tentative row, but favors
+          // showing the override option over silently hiding it).
+          const paymentStatus = cover.paymentStatus ?? "unpaid";
+          const isUnpaid = paymentStatus === "unpaid";
           return {
-            title: isBuffer ? `Buffer for ${label} slot` : "Payment pending",
-            detail: isBuffer
-              ? [blockTime, `Instructor: ${name}`]
-              : [
+            title: isUnpaid ? "🟡 Tentative (Unpaid)" : "Tentative",
+            detail: isUnpaid
+              ? [
                   blockTime,
                   `Instructor: ${name}`,
-                  "Slot is on hold until payment completes.",
-                ],
+                  "Unpaid — can be overridden with a new slot.",
+                ]
+              : [blockTime, `Instructor: ${name}`],
+            kind: "tentative",
+            override: isUnpaid
+              ? {
+                  blockId: cover.id,
+                  instrId,
+                  date,
+                  startMinute: cover.startMinute,
+                  endMinute: cover.endMinute,
+                  tentativeDetails: cover.rawTentativeDetails,
+                }
+              : null,
           };
         }
         if (cover.status === "paused") {
@@ -1164,11 +1310,15 @@ export default function SalesDashboard() {
               `Instructor: ${name}`,
               ...(cover.notes ? [`Reason: ${cover.notes}`] : []),
             ],
+            kind: "default",
+            override: null,
           };
         }
         return {
           title: cap(cover.status),
           detail: [blockTime, `Instructor: ${name}`],
+          kind: "default",
+          override: null,
         };
       }
 
@@ -1182,10 +1332,17 @@ export default function SalesDashboard() {
               ? [`Reason: ${unavailReason()}`]
               : ["Instructor marked this time unavailable."]),
           ],
+          kind: "default",
+          override: null,
         };
       }
 
-      return { title: "Busy", detail: [timeLabel, `Instructor: ${name}`] };
+      return {
+        title: "Busy",
+        detail: [timeLabel, `Instructor: ${name}`],
+        kind: "default",
+        override: null,
+      };
     };
   }, [config, instructorsById, blocksIndex]);
 
@@ -1563,6 +1720,7 @@ export default function SalesDashboard() {
             onToggleSelectRow={toggleSelectRow}
             onRemove={inSelectionMode ? removeFromCompare : removeInstructor}
             onDoubleClick={handleSlotDoubleClick}
+            onOverrideClick={handleOverrideClick}
             resolveInfo={resolveInfo}
           />
           {gridRows.length === 0 && !locSearch && (
@@ -1585,7 +1743,14 @@ export default function SalesDashboard() {
             travel gap)
           </span>
           <span>
-            <i className="swatch busy" /> Busy / booked
+            <i className="swatch tentative" /> 🟡 Tentative (unpaid can be
+            overridden)
+          </span>
+          <span>
+            <i className="swatch booked" /> 🟣 Booked
+          </span>
+          <span>
+            <i className="swatch busy" /> Busy / other
           </span>
           <button
             type="button"
@@ -1769,12 +1934,39 @@ export default function SalesDashboard() {
         onClose={() => {
           setTentativeModalOpen(false);
           setTentativeSlotData(null);
+          setOverrideContext(null);
         }}
         onSuccess={() => {
+          setOverrideContext(null);
           reload();
         }}
         data={tentativeSlotData}
+        overrideContext={overrideContext}
       />
+
+      {/* Persistent banner while picking a replacement slot for an
+          overridden tentative booking — stays up until a new slot is
+          double-clicked (handleSlotDoubleClick consumes overrideSource)
+          or Cancel/Escape clears it directly. */}
+      {overrideSource && (
+        <div className="slot-toast slot-toast-info" role="status">
+          <span className="slot-toast-icon" aria-hidden="true">
+            🟡
+          </span>
+          <span className="slot-toast-msg">
+            Override mode: double-click a new free 1-hour slot to move this
+            tentative booking.
+          </span>
+          <button
+            type="button"
+            className="slot-toast-close"
+            aria-label="Cancel override"
+            onClick={cancelOverride}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Themed in-app notice, replaces the native browser alert() for
           slot-validation feedback (e.g. "not fully available"). */}

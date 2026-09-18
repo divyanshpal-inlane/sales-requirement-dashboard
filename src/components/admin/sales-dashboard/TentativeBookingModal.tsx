@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { minutesToTime, timeToMinutes } from "@/lib/sales-dashboard/validation";
 import { isValidPhone, normalizePhone } from "@/lib/sales-dashboard/validation";
@@ -29,6 +29,14 @@ interface TentativeBookingModalProps {
     endTime: string;
   } | null;
   currentUserName?: string;
+  // Present only when this submission should replace an existing unpaid
+  // tentative slot rather than create a fresh one. blockId identifies the
+  // old Schedule row to release; tentativeDetails pre-fills the form with
+  // the same customer info (still editable) so Sales doesn't re-type it.
+  overrideContext?: {
+    blockId: number;
+    tentativeDetails: Record<string, unknown> | null;
+  } | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,6 +58,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
   onSuccess,
   data,
   currentUserName = "",
+  overrideContext = null,
 }) => {
   const [formData, setFormData] = useState({
     customerName: "",
@@ -62,6 +71,28 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
+
+  // This component stays mounted the whole time (isOpen just toggles
+  // visibility), so formData needs to be (re)synced explicitly whenever it
+  // opens — otherwise a previous slot's leftover values, or a stale
+  // override pre-fill, would carry into the next open.
+  useEffect(() => {
+    if (!isOpen) return;
+    const td = overrideContext?.tentativeDetails ?? null;
+    setFormData({
+      customerName: typeof td?.name === "string" ? td.name : "",
+      customerPhone: typeof td?.phone === "string" ? td.phone : "",
+      salesAgent:
+        typeof td?.sales_agent === "string" ? td.sales_agent : currentUserName,
+      // Always "unpaid" here on purpose: overriding is only ever offered
+      // for an unpaid tentative slot in the first place, and the new slot
+      // it moves to must start out unpaid too — nothing has been paid.
+      paymentStatus: "unpaid",
+      customerAddress: typeof td?.address === "string" ? td.address : "",
+      course: typeof td?.course === "string" ? td.course : "demo",
+    });
+    setErrors({});
+  }, [isOpen, overrideContext, currentUserName]);
 
   const createTentativeMutation = useMutation({
     mutationFn: async () => {
@@ -82,6 +113,24 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
         created_at: new Date().toISOString(),
       };
 
+      if (overrideContext) {
+        // Server-side re-validation happens inside this function, not
+        // here — it re-checks (fresh, not trusting anything the client
+        // already believes) that the old slot still exists, is still
+        // unpaid, and that deleting it + inserting the new one succeeds
+        // atomically. See the override_tentative_slot SQL migration.
+        const { error } = await sb.rpc("override_tentative_slot", {
+          p_old_schedule_id: overrideContext.blockId,
+          p_new_instructor_id: data.instructorId,
+          p_new_date: data.date,
+          p_new_start_time: data.startTime,
+          p_new_end_time: data.endTime,
+          p_new_tentative_details: tentativeDetails,
+        });
+        if (error) throw error;
+        return;
+      }
+
       const { error } = await sb.from("Schedule").insert([
         {
           instructor_id: data.instructorId,
@@ -100,7 +149,11 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       if (error) throw error;
     },
     onSuccess: () => {
-      setSuccessMessage("Tentative slot booked successfully!");
+      setSuccessMessage(
+        overrideContext
+          ? "Tentative slot moved successfully!"
+          : "Tentative slot booked successfully!",
+      );
       setTimeout(() => {
         setFormData({
           customerName: "",
@@ -176,7 +229,11 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Create Tentative Slot Booking</h2>
+          <h2>
+            {overrideContext
+              ? "Override Tentative Slot"
+              : "Create Tentative Slot Booking"}
+          </h2>
           <button
             type="button"
             className="modal-close"
@@ -202,6 +259,11 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Slot Info (Read-only) */}
           <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+            {overrideContext && (
+              <p className="mb-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                Moving unpaid tentative booking to a new slot:
+              </p>
+            )}
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Slot: {data.date} • {startTime}–{endTime}
             </p>
@@ -391,8 +453,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {createTentativeMutation.isPending
-                ? "Booking..."
-                : "Create Tentative Block"}
+                ? overrideContext
+                  ? "Overriding..."
+                  : "Booking..."
+                : overrideContext
+                  ? "Confirm Override"
+                  : "Create Tentative Block"}
             </button>
           </div>
         </form>
