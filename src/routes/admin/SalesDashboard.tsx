@@ -1554,6 +1554,28 @@ export default function SalesDashboard() {
         };
       }
 
+      // The grid's visible columns span the full 24-hour day, but the
+      // actual free/busy computation only ever runs within the shared
+      // booking_flow config's slotStart/slotEnd — outside that window,
+      // nothing is ever evaluated as "free", so every such cell falls
+      // through to here regardless of whether anything is really
+      // scheduled. Label it honestly as outside business hours rather
+      // than generic "Busy", which reads as an actual conflict.
+      const winStart = timeToMinutes(config?.slotStart ?? "00:00");
+      const winEnd = timeToMinutes(config?.slotEnd ?? "24:00");
+      if (minute < winStart || minute >= winEnd) {
+        return {
+          title: "Outside business hours",
+          detail: [
+            timeLabel,
+            `Instructor: ${name}`,
+            `Availability is only tracked ${config?.slotStart}–${config?.slotEnd}.`,
+          ],
+          kind: "default",
+          override: null,
+        };
+      }
+
       return {
         title: "Busy",
         detail: [timeLabel, `Instructor: ${name}`],
