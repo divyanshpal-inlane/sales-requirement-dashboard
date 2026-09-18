@@ -620,7 +620,7 @@
 /* Slot cell - matches time column width exactly (44px) */
 .cell {
   position: relative;
-  min-width: 38px;
+  min-width: 48px;
   height: 26px;
   padding: 0 !important;
   cursor: pointer;
@@ -857,7 +857,7 @@
 }
 
 .mini .cell {
-  min-width: 36px;
+  min-width: 40px;
   height: 20px;
 }
 
