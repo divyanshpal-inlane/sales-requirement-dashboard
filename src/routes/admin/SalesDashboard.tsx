@@ -1355,16 +1355,23 @@ export default function SalesDashboard() {
       const sameInstrDate = pendingSlots.filter(
         (s) => s.instructorId === instrId && s.date === date,
       );
-      const exactPendingIndex = pendingSlots.findIndex(
+      // Matches BOTH 30-minute grid cells inside the pending slot's full
+      // 1-hour span [startMinute, endMinute) — not just the cell exactly
+      // at its start minute. That was the earlier bug: only the first
+      // half-hour of a selected class showed blue, since the check
+      // required minute === startTime instead of "falls within the
+      // range".
+      const pendingIndex = pendingSlots.findIndex(
         (s) =>
           s.instructorId === instrId &&
           s.date === date &&
-          timeToMinutes(s.startTime) === minute,
+          minute >= timeToMinutes(s.startTime) &&
+          minute < timeToMinutes(s.endTime),
       );
-      if (exactPendingIndex !== -1) {
-        const s = pendingSlots[exactPendingIndex];
+      if (pendingIndex !== -1) {
+        const s = pendingSlots[pendingIndex];
         return {
-          title: `Selected — Class ${exactPendingIndex + 1}`,
+          title: `Selected — Class ${pendingIndex + 1}`,
           detail: [
             `${minutesToTime(timeToMinutes(s.startTime))}–${minutesToTime(timeToMinutes(s.endTime))}`,
             `Instructor: ${name}`,
