@@ -695,17 +695,14 @@ export default function SalesDashboard() {
     () => DEFAULT_CUSTOMER_FORM(),
   );
   // True while Sales has clicked "+ Add another class" and is picking
-  // the next slot for the SAME in-progress batch. Distinct from
-  // overrideSource below — the two modes are mutually exclusive.
+  // the next slot for the SAME in-progress batch.
   const [addingSlotMode, setAddingSlotMode] = useState(false);
-  // Set while Sales has clicked "Override Slot" on an unpaid tentative
-  // block and is now picking a replacement slot elsewhere on the grid.
-  // Consumed (and cleared) the moment they double-click a new free slot —
-  // handleSlotDoubleClick then opens the modal in override mode instead
-  // of create mode.
-  const [overrideSource, setOverrideSource] = useState<NonNullable<
-    SlotInfo["override"]
-  > | null>(null);
+  // Set while an override is in progress. Unlike the multi-class flow,
+  // overriding never needs Sales to pick a slot on the grid — it always
+  // replaces the SAME slot the unpaid tentative hold already occupies,
+  // for a different (paying) learner. tentativeDetails here is the OLD
+  // customer's info, kept only for on-screen reference — the form itself
+  // starts blank, since this is a new learner, not the same one moving.
   const [overrideContext, setOverrideContext] = useState<{
     blockId: number;
     tentativeDetails: Record<string, unknown> | null;
@@ -718,20 +715,6 @@ export default function SalesDashboard() {
     setSlotNotice(message);
     slotNoticeTimerRef.current = setTimeout(() => setSlotNotice(null), 4000);
   }, []);
-
-  // Arms overrideSource, which alone drives the persistent yellow
-  // ".slot-toast-info" banner below — no separate showSlotNotice() call
-  // needed here. (Both used to fire: the auto-dismissing red slot-toast
-  // AND the persistent yellow banner stacked at the same fixed position,
-  // which is why it looked like the message flashed red then yellow.)
-  const handleOverrideClick = useCallback(
-    (override: NonNullable<SlotInfo["override"]>) => {
-      setOverrideSource(override);
-    },
-    [],
-  );
-
-  const cancelOverride = useCallback(() => setOverrideSource(null), []);
 
   // Hides the modal (formData/pendingSlots stay exactly as they are —
   // both live in this component, not the modal) and arms "pick another
@@ -767,15 +750,6 @@ export default function SalesDashboard() {
     setAddingSlotMode(false);
     reload();
   }, [reload]);
-
-  useEffect(() => {
-    if (!overrideSource) return;
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setOverrideSource(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [overrideSource]);
 
   useEffect(() => {
     if (!addingSlotMode) return;
@@ -850,20 +824,22 @@ export default function SalesDashboard() {
     localStorage.setItem("lane-sales-dashboard-theme", theme);
   }, [theme]);
 
-  // Entering "pick a slot on the grid" mode (override, or add-another-class)
-  // is easy to miss if the grid is scrolled out of view or the user doesn't
-  // notice the modal closed — scroll the grid into view and give it a
-  // visible highlighted border for as long as picking mode is active, so
-  // it's unmistakable where to click next.
+  // Entering "pick a slot on the grid" mode (add-another-class) is easy to
+  // miss if the grid is scrolled out of view or the user doesn't notice the
+  // modal closed — scroll the grid into view and give it a visible
+  // highlighted border for as long as picking mode is active, so it's
+  // unmistakable where to click next. (Override no longer needs this — it
+  // always reuses the same slot the unpaid hold already occupies, so the
+  // modal opens directly with no grid interaction required.)
   const gridWrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (addingSlotMode || overrideSource) {
+    if (addingSlotMode) {
       gridWrapRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }
-  }, [addingSlotMode, overrideSource]);
+  }, [addingSlotMode]);
 
   useEffect(() => {
     let active = true;
@@ -1221,19 +1197,6 @@ export default function SalesDashboard() {
         endTime,
       };
 
-      if (overrideSource) {
-        // Picking the replacement for an overridden slot — always
-        // exactly one slot, never mixed with the multi-class batch flow.
-        setOverrideContext({
-          blockId: overrideSource.blockId,
-          tentativeDetails: overrideSource.tentativeDetails,
-        });
-        setOverrideSource(null);
-        setPendingSlots([newSlot]);
-        setTentativeModalOpen(true);
-        return;
-      }
-
       if (addingSlotMode) {
         // Task 19: adding another class to the SAME in-progress batch.
         // customerFormData is untouched — it's owned here, not by the
@@ -1270,7 +1233,6 @@ export default function SalesDashboard() {
       showSlotNotice,
       instructorsById,
       blocksIndex,
-      overrideSource,
       addingSlotMode,
       pendingSlots,
     ],
@@ -1290,6 +1252,38 @@ export default function SalesDashboard() {
       );
     },
     [data?.freeGrid],
+  );
+
+  // Override always replaces the SAME slot the unpaid tentative hold
+  // already occupies — for a different, paying learner. No grid picking
+  // needed: open the modal immediately for that exact instructor/date/time,
+  // with a blank form (this is a new learner, not the same one moving) and
+  // paymentStatus pre-set to "half_paid" as a sensible starting point,
+  // since the form won't accept "unpaid" in this mode (enforced in
+  // TentativeBookingModal, and again server-side in the RPC).
+  const handleOverrideClick = useCallback(
+    (override: NonNullable<SlotInfo["override"]>) => {
+      const instr = instructorsById.get(override.instrId);
+      setOverrideContext({
+        blockId: override.blockId,
+        tentativeDetails: override.tentativeDetails,
+      });
+      setPendingSlots([
+        {
+          instructorId: override.instrId,
+          instructorName: instr?.name ?? "",
+          date: override.date,
+          startTime: minutesToTime(override.startMinute),
+          endTime: minutesToTime(override.endMinute),
+        },
+      ]);
+      setCustomerFormData({
+        ...DEFAULT_CUSTOMER_FORM(),
+        paymentStatus: "half_paid",
+      });
+      setTentativeModalOpen(true);
+    },
+    [instructorsById],
   );
 
   const resolveInfo = useMemo(() => {
@@ -1836,9 +1830,7 @@ export default function SalesDashboard() {
 
         <div
           className={
-            addingSlotMode || overrideSource
-              ? "grid-wrap grid-wrap-picking"
-              : "grid-wrap"
+            addingSlotMode ? "grid-wrap grid-wrap-picking" : "grid-wrap"
           }
           ref={gridWrapRef}
         >
@@ -2114,21 +2106,30 @@ export default function SalesDashboard() {
                   <li>
                     Half-paid and full-paid tentative slots show plainly as{" "}
                     <strong>Tentative</strong> with no override option — once
-                    any payment has been collected, Sales can no longer move or
-                    replace that slot from this dashboard.
+                    any payment has been collected, that slot is protected and
+                    can&apos;t be taken from this dashboard.
                   </li>
                   <li>
-                    Click <strong>Override Slot</strong>, then — same as adding
-                    a class — double-click the new free slot on the highlighted
-                    grid. The old tentative hold is released and a new one is
-                    created at the new time for the same customer, still
-                    tentative and still unpaid.
+                    Clicking <strong>Override Slot</strong> opens the booking
+                    form immediately for that <strong>same</strong> slot — no
+                    need to pick a different time. This is for handing an unpaid
+                    hold to a new, paying learner, not moving the existing
+                    customer elsewhere.
                   </li>
                   <li>
-                    This is re-checked on the server, not just here — if the
-                    slot was paid or changed by someone else in the meantime, or
-                    the new time is no longer free, the override is rejected and
-                    the original booking stays exactly as it was.
+                    Fill in the <strong>new</strong> learner&apos;s details.
+                    Payment Status only offers <strong>Half Paid</strong> or{" "}
+                    <strong>Full Paid</strong> — a new unpaid hold can&apos;t
+                    override an existing one, so &quot;Unpaid&quot; isn&apos;t
+                    an option here.
+                  </li>
+                  <li>
+                    Submitting releases the old unpaid hold and creates a new
+                    tentative slot (still tentative, never directly booked) for
+                    the new learner at the same time. This is re-checked on the
+                    server, not just here — if the old slot was paid or changed
+                    by someone else in the meantime, the override is rejected
+                    and the original booking stays exactly as it was.
                   </li>
                 </ul>
               </div>
@@ -2175,31 +2176,6 @@ export default function SalesDashboard() {
         onFormDataChange={setCustomerFormData}
         overrideContext={overrideContext}
       />
-
-      {/* Persistent banner while picking a replacement slot for an
-          overridden tentative booking — stays up until a new slot is
-          double-clicked (handleSlotDoubleClick consumes overrideSource)
-          or Cancel/Escape clears it directly. */}
-      {overrideSource && (
-        <div className="slot-toast slot-toast-info" role="status">
-          <span className="slot-toast-icon" aria-hidden="true">
-            🟡
-          </span>
-          <span className="slot-toast-msg">
-            <strong>👉 Pick the new slot now:</strong> double-click any green
-            (free) cell on the highlighted grid below to move this tentative
-            booking there.
-          </span>
-          <button
-            type="button"
-            className="slot-toast-close"
-            aria-label="Cancel override"
-            onClick={cancelOverride}
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       {/* Persistent banner while picking an additional class for an
           in-progress multi-class booking (Task 19) — the modal is

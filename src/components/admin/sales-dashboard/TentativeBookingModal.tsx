@@ -131,19 +131,29 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       };
 
       if (overrideContext) {
-        // Always exactly one slot in override mode. Server-side
-        // re-validation happens inside this function, not here — it
-        // re-checks (fresh, not trusting anything the client already
-        // believes) that the old slot still exists, is still unpaid, and
-        // that deleting it + inserting the new one succeeds atomically.
-        // See the override_tentative_slot SQL migration.
-        const slot = slots[0];
+        // An override must go to a paying learner — that's the entire
+        // point of taking the slot away from an unpaid hold. Checked here
+        // for a fast, clear message, and re-checked server-side too (see
+        // the RPC) since this must not be enforceable by the frontend
+        // alone.
+        if (formData.paymentStatus === "unpaid") {
+          throw new Error(
+            "An override must be Half Paid or Full Paid — the new learner is taking this slot because they're paying, unlike the unpaid hold being replaced.",
+          );
+        }
+        // Always exactly one slot in override mode, and always the SAME
+        // slot the old unpaid hold already occupies — the RPC derives the
+        // instructor/date/time from the old row itself, not from anything
+        // passed here, so there's no way for the client to redirect an
+        // override to a different slot. Server-side re-validation happens
+        // inside this function, not here — it re-checks (fresh, not
+        // trusting anything the client already believes) that the old
+        // slot still exists, is still unpaid, and that the payment status
+        // being submitted is actually half/full paid, then deletes the
+        // old row and inserts the new one atomically. See the
+        // override_tentative_slot SQL migration.
         const { error } = await sb.rpc("override_tentative_slot", {
           p_old_schedule_id: overrideContext.blockId,
-          p_new_instructor_id: slot.instructorId,
-          p_new_date: slot.date,
-          p_new_start_time: slot.startTime,
-          p_new_end_time: slot.endTime,
           p_new_tentative_details: tentativeDetails,
         });
         if (error) throw error;
@@ -190,7 +200,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
     onSuccess: () => {
       setSuccessMessage(
         overrideContext
-          ? "Tentative slot moved successfully!"
+          ? "Slot handed to the new learner successfully!"
           : slots.length > 1
             ? `${slots.length} tentative classes booked successfully!`
             : "Tentative slot booked successfully!",
@@ -291,13 +301,20 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
             {overrideContext && (
               <p className="mb-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                Moving unpaid tentative booking to a new slot:
+                Replacing an unpaid tentative hold
+                {typeof overrideContext.tentativeDetails?.name === "string" &&
+                overrideContext.tentativeDetails.name
+                  ? ` (previously held for ${overrideContext.tentativeDetails.name})`
+                  : ""}{" "}
+                with a booking for a new, paying learner. Enter the new
+                learner&apos;s details below — Payment Status must be Half Paid
+                or Full Paid.
               </p>
             )}
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {overrideContext
-                  ? "Replacement Slot"
+                  ? "Slot Being Taken Over"
                   : `Selected Slots (${slots.length})`}
               </span>
               {!overrideContext && (
@@ -417,7 +434,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               htmlFor="paymentStatus"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Payment Status
+              Payment Status {overrideContext && "*"}
             </label>
             <select
               id="paymentStatus"
@@ -430,10 +447,22 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               }
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
             >
-              <option value="unpaid">Unpaid</option>
+              {/* "Unpaid" isn't offered at all in override mode — a paying
+                  learner is the entire reason Sales can take this slot
+                  from an unpaid hold in the first place. Disallowed here
+                  as well as on submit (and again server-side) so there's
+                  no dead end where a valid-looking option turns into a
+                  rejection later. */}
+              {!overrideContext && <option value="unpaid">Unpaid</option>}
               <option value="half_paid">Half Paid</option>
               <option value="full_paid">Full Paid</option>
             </select>
+            {overrideContext && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Must be Half Paid or Full Paid to override an unpaid tentative
+                slot.
+              </p>
+            )}
           </div>
 
           {/* Address */}
