@@ -476,14 +476,12 @@
   padding: 0 2px;
 }
 
-/* Instructor column header - sticky during scroll.
-   min-width is wider than the reference's 280px per explicit request for
-   more breathing room around the row-select dot, Schedule button, and name. */
+/* Instructor column header - sticky during scroll. */
 .col-instructor {
   position: sticky;
   left: 0;
   z-index: 2;
-  min-width: 420px;
+  min-width: 280px;
   text-align: left !important;
   background: var(--gc-surface) !important;
 }
@@ -500,10 +498,10 @@
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 420px;
+  gap: 8px;
+  min-width: 280px;
   height: 100%;
-  padding: 10px 16px !important;
+  padding: 10px 12px !important;
 }
 
 .instructor-name {
@@ -822,12 +820,6 @@
   border-bottom: 1px solid var(--gc-border);
   padding: 5px 7px;
   font-size: 12px;
-  box-sizing: border-box;
-}
-
-.mini th.mini-time,
-.mini td.cell {
-  padding: 0;
 }
 
 .mini th {
