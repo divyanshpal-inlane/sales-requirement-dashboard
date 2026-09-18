@@ -8,6 +8,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1124,6 +1125,31 @@ export default function SalesDashboard() {
     if (compareIds.length === 0) return rows;
     return sortRoster(compareInstructors);
   }, [compareIds, compareInstructors, rows, sortRoster]);
+
+  // Guarantees the timeline (06:00 column onward) always starts exactly
+  // where the Instructor column ends, for any name length. The table's own
+  // auto column-sizing can't be trusted here: .instructor-cell is a <td>
+  // with display: flex (needed for the row-select/Schedule-button/name
+  // layout), and browsers don't reliably feed a flex box's true content
+  // width back into the table's intrinsic-width algorithm the way they do
+  // for a plain table-cell — so a sufficiently long name can render wider
+  // than the column the browser decided to allocate, spilling into the
+  // first time column. Measuring the actual rendered content width
+  // (scrollWidth, which reports the true extent even when it overflows the
+  // box) and handing the table an explicit min-width sidesteps that
+  // unreliable inference entirely.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const cells = root.querySelectorAll<HTMLElement>(".instructor-cell");
+    let widest = 0;
+    cells.forEach((cell) => {
+      if (cell.scrollWidth > widest) widest = cell.scrollWidth;
+    });
+    if (widest > 0) {
+      root.style.setProperty("--instr-col-width", `${widest}px`);
+    }
+  }, [gridRows]);
 
   const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && searchResults.length > 0)

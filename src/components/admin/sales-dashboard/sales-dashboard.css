@@ -476,12 +476,20 @@
   padding: 0 2px;
 }
 
-/* Instructor column header - sticky during scroll. */
+/* Instructor column header - sticky during scroll.
+   min-width reads a CSS variable (set from JS in SalesDashboard.tsx via a
+   useLayoutEffect that measures the widest rendered .instructor-cell's
+   scrollWidth) so the column is always exactly as wide as the longest
+   instructor name actually needs — 280px is only the pre-measurement
+   fallback. box-sizing: border-box so this value (which already includes
+   the cell's own padding, since it comes from scrollWidth) isn't
+   double-counted with padding added on top. */
 .col-instructor {
   position: sticky;
   left: 0;
   z-index: 2;
-  min-width: 280px;
+  box-sizing: border-box;
+  min-width: var(--instr-col-width, 280px);
   text-align: left !important;
   background: var(--gc-surface) !important;
 }
@@ -494,12 +502,13 @@
   position: sticky;
   left: 0;
   z-index: 1;
+  box-sizing: border-box;
   background: var(--gc-bg);
   text-align: left;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 280px;
+  min-width: var(--instr-col-width, 280px);
   height: 100%;
   padding: 10px 12px !important;
 }
