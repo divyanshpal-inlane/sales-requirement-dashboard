@@ -55,9 +55,19 @@ interface SlotInfo {
   detail: string[];
   // Drives cell background color. "tentative" = yellow (any payment
   // status), "booked" = purple (booked/completed/pending_payment — i.e.
-  // a real class, never overridable from Sales). Buffer zones and
-  // everything else stay "default" (existing plain appearance).
-  kind: "free" | "tentative" | "booked" | "default";
+  // a real class, never overridable from Sales). "pending" = blue, a
+  // slot already added to the in-progress multi-class batch (Task 19).
+  // "pending-blocked" = grey/disabled, a free slot that would overlap a
+  // class already in that same batch — can't be added on top of it.
+  // Buffer zones and everything else stay "default" (existing plain
+  // appearance).
+  kind:
+    | "free"
+    | "tentative"
+    | "booked"
+    | "pending"
+    | "pending-blocked"
+    | "default";
   // Set only for a non-buffer, unpaid tentative slot — the one case Sales
   // is allowed to override. Carries what the override action needs
   // without a second lookup.
@@ -228,7 +238,14 @@ function SlotCellInner({
   // must be visible at a glance, not only on hover.
   const info = resolveInfo(instrId, date, minute, free);
   const cls = ["cell"];
-  if (free) {
+  // info.kind's pending states take priority over the plain free/busy
+  // look — they reflect the in-progress multi-class batch (Task 19),
+  // which the DB-derived `free` flag has no way to know about.
+  if (info.kind === "pending") {
+    cls.push("cell-pending");
+  } else if (info.kind === "pending-blocked") {
+    cls.push("cell-pending-blocked");
+  } else if (free) {
     cls.push("cell-free");
     if (canBook1Hour === false) cls.push("cell-half");
   } else if (info.kind === "tentative") {
@@ -243,11 +260,15 @@ function SlotCellInner({
     <td
       className={cls.join(" ")}
       title={
-        free
-          ? canBook1Hour === false
-            ? `Free ${timeLabel} — adjacent slot booked, can't book 1hr`
-            : `Free ${timeLabel} — double-click to book 1hr`
-          : "Hover for details"
+        info.kind === "pending"
+          ? info.title
+          : info.kind === "pending-blocked"
+            ? "Overlaps a class already in this booking — can't be selected"
+            : free
+              ? canBook1Hour === false
+                ? `Free ${timeLabel} — adjacent slot booked, can't book 1hr`
+                : `Free ${timeLabel} — double-click to book 1hr`
+              : "Hover for details"
       }
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -1202,14 +1223,23 @@ export default function SalesDashboard() {
         // customerFormData is untouched — it's owned here, not by the
         // modal, so it survived the modal being hidden while this slot
         // was picked.
-        const alreadyInBatch = pendingSlots.some(
-          (s) =>
-            s.instructorId === instrId &&
-            s.date === date &&
-            s.startTime === startTime,
-        );
-        if (alreadyInBatch) {
-          showSlotNotice("That slot is already in this booking.");
+        // Overlap check, not just an exact-start-time match — e.g. an
+        // already-selected 7:00-8:00 class must also block 7:30-8:30 for
+        // the same instructor/date, even though their start times
+        // differ. An exact-match-only check let both through, since
+        // neither the freeGrid (unaware of anything not yet saved to the
+        // DB) nor the old check caught the overlap.
+        const newEnd = minute + 60;
+        const overlapsExisting = pendingSlots.some((s) => {
+          if (s.instructorId !== instrId || s.date !== date) return false;
+          const sStart = timeToMinutes(s.startTime);
+          const sEnd = timeToMinutes(s.endTime);
+          return minute < sEnd && sStart < newEnd;
+        });
+        if (overlapsExisting) {
+          showSlotNotice(
+            "That slot overlaps with a class already in this booking.",
+          );
           setAddingSlotMode(false);
           setTentativeModalOpen(true);
           return;
@@ -1315,6 +1345,52 @@ export default function SalesDashboard() {
         }
         return "";
       };
+
+      // Task 19 multi-class batch state (pendingSlots) lives in this
+      // component, not the DB — the grid otherwise has zero visibility
+      // into slots the user has already picked for the in-progress
+      // booking but not yet submitted. Checked ahead of everything else
+      // below so it takes priority over whatever the DB-derived
+      // free/busy state says.
+      const sameInstrDate = pendingSlots.filter(
+        (s) => s.instructorId === instrId && s.date === date,
+      );
+      const exactPendingIndex = pendingSlots.findIndex(
+        (s) =>
+          s.instructorId === instrId &&
+          s.date === date &&
+          timeToMinutes(s.startTime) === minute,
+      );
+      if (exactPendingIndex !== -1) {
+        const s = pendingSlots[exactPendingIndex];
+        return {
+          title: `Selected — Class ${exactPendingIndex + 1}`,
+          detail: [
+            `${minutesToTime(timeToMinutes(s.startTime))}–${minutesToTime(timeToMinutes(s.endTime))}`,
+            `Instructor: ${name}`,
+            "Already added to this booking.",
+          ],
+          kind: "pending",
+          override: null,
+        };
+      }
+      if (addingSlotMode && free) {
+        const newStart = minute;
+        const newEnd = minute + 60;
+        const overlapsPending = sameInstrDate.some((s) => {
+          const sStart = timeToMinutes(s.startTime);
+          const sEnd = timeToMinutes(s.endTime);
+          return newStart < sEnd && sStart < newEnd;
+        });
+        if (overlapsPending) {
+          return {
+            title: "Overlaps a class already in this booking",
+            detail: [timeLabel, `Instructor: ${name}`],
+            kind: "pending-blocked",
+            override: null,
+          };
+        }
+      }
 
       if (free) {
         return {
@@ -1471,7 +1547,7 @@ export default function SalesDashboard() {
         override: null,
       };
     };
-  }, [config, instructorsById, blocksIndex]);
+  }, [config, instructorsById, blocksIndex, pendingSlots, addingSlotMode]);
 
   const gridRows = useMemo(() => {
     if (compareIds.length === 0) return rows;
@@ -1882,6 +1958,9 @@ export default function SalesDashboard() {
             <i className="swatch booked" /> 🟣 Booked
           </span>
           <span>
+            <i className="swatch pending" /> 🔵 Selected for this booking
+          </span>
+          <span>
             <i className="swatch busy" /> Busy / other
           </span>
           <button
@@ -2077,6 +2156,18 @@ export default function SalesDashboard() {
                     date/instructor) to add it. The form reopens with that class
                     added — your name/phone/agent/course entries are kept,
                     nothing is lost.
+                  </li>
+                  <li>
+                    Every class you&apos;ve already picked shows{" "}
+                    <strong>🔵 blue</strong> on the grid while you&apos;re
+                    picking the next one, so it&apos;s always clear what
+                    you&apos;ve selected so far.
+                  </li>
+                  <li>
+                    Any free slot that would <strong>overlap</strong> a class
+                    already in this booking is greyed out and can&apos;t be
+                    selected — e.g. picking 7:00–8:00 disables 7:30–8:30 for
+                    that same instructor.
                   </li>
                   <li>
                     Repeat for as many classes as needed. Each one appears in a
