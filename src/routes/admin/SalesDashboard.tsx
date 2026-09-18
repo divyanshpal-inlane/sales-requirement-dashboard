@@ -705,14 +705,16 @@ export default function SalesDashboard() {
     slotNoticeTimerRef.current = setTimeout(() => setSlotNotice(null), 4000);
   }, []);
 
+  // Arms overrideSource, which alone drives the persistent yellow
+  // ".slot-toast-info" banner below — no separate showSlotNotice() call
+  // needed here. (Both used to fire: the auto-dismissing red slot-toast
+  // AND the persistent yellow banner stacked at the same fixed position,
+  // which is why it looked like the message flashed red then yellow.)
   const handleOverrideClick = useCallback(
     (override: NonNullable<SlotInfo["override"]>) => {
       setOverrideSource(override);
-      showSlotNotice(
-        "Override mode: double-click a new free 1-hour slot to move this booking, or click Cancel below.",
-      );
     },
-    [showSlotNotice],
+    [],
   );
 
   const cancelOverride = useCallback(() => setOverrideSource(null), []);
