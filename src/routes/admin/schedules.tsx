@@ -132,15 +132,22 @@ const PREDEFINED_COURSES = [
 ];
 
 // Reusable hook for infinite scroll using IntersectionObserver
+// Uses callback ref pattern to properly detect when sentinel element changes (e.g., on tab switch)
 function useInfiniteScrollSentinel(
   hasNextPage: boolean | undefined,
   isFetchingNextPage: boolean,
   fetchNextPage: () => void
 ) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Use state to track the sentinel element - this triggers re-render when element changes
+  const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
+  
+  // Callback ref that updates state when the DOM element is attached/detached
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    setSentinelEl(node);
+  }, []);
 
   useEffect(() => {
-    if (!sentinelRef.current || !hasNextPage || isFetchingNextPage) return;
+    if (!sentinelEl || !hasNextPage || isFetchingNextPage) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -155,12 +162,12 @@ function useInfiniteScrollSentinel(
       }
     );
 
-    observer.observe(sentinelRef.current);
+    observer.observe(sentinelEl);
 
     return () => {
       observer.disconnect();
     };
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [sentinelEl, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return sentinelRef;
 }
