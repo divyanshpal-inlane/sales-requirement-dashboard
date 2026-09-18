@@ -196,10 +196,15 @@ export default function AdminSchedules() {
   }, [hasNextRequestsPage, isFetchingNextRequestsPage, fetchNextRequestsPage, isLoading]);
 
   // Flatten all pages into a single array
-  // Each page is already an array of requests, so just flatMap them
+  // Each page is now { data: [], hasMoreInDb: boolean }, so extract the data arrays
   const requests = useMemo(() => {
     if (!requestsData?.pages) return [];
-    return requestsData.pages.flatMap(page => Array.isArray(page) ? page : []);
+    return requestsData.pages.flatMap(page => {
+      // Handle both old format (array) and new format ({ data: array, hasMoreInDb: boolean })
+      if (Array.isArray(page)) return page;
+      if (page && Array.isArray(page.data)) return page.data;
+      return [];
+    });
   }, [requestsData]);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [isInstructorChangeModalOpen, setIsInstructorChangeModalOpen] =
@@ -744,8 +749,11 @@ export default function AdminSchedules() {
 
       if (error) throw error;
 
+      // Handle case where data is not an array (e.g., RPC error or unexpected response)
+      const dataArray = Array.isArray(data) ? data : [];
+      
       // Map snake_case to camelCase for compatibility with existing UI
-      const learners = (data || []).map((learner: any) => ({
+      const learners = dataArray.map((learner: any) => ({
         id: learner.id,
         name: learner.name,
         email: learner.email,
@@ -772,7 +780,8 @@ export default function AdminSchedules() {
         instructor_ids: learner.instructor_ids,
       }));
 
-      const totalCount = data[0]?.total_count || 0;
+      // Get total count from first record (RPC includes this in each row)
+      const totalCount = dataArray.length > 0 ? (dataArray[0]?.total_count || 0) : 0;
       const hasMore = learners.length === PAGE_SIZE && (pageParam + 1) * PAGE_SIZE < totalCount;
 
       return {
