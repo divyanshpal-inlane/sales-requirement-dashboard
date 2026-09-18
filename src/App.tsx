@@ -113,7 +113,10 @@ const Prep = React.lazy(() => import("@/routes/prep"));
 
 export default function App() {
   return (
-    <BrowserRouter>
+    // basename resolves to "/" everywhere except the GitHub Pages test
+    // deploy (built with VITE_BASE_PATH set), where it matches the
+    // sub-path the app is actually served from — see vite.config.ts.
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <PhoneVisibilityProvider>
