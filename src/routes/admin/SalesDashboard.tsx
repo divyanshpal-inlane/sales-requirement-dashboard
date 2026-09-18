@@ -544,10 +544,10 @@ function AvailabilityGridInner(props: GridProps) {
           can size independently of the header in some browsers, which is
           what caused the timeline to visually detach from the Instructor
           column. Widths here must stay in sync with .col-instructor /
-          .instructor-cell (320px) and .col-time-h / .cell (44px) in
+          .instructor-cell (420px) and .col-time-h / .cell (44px) in
           sales-dashboard.css. */}
       <colgroup>
-        <col style={{ width: 320 }} />
+        <col style={{ width: 420 }} />
         {timeCols.map((t) => (
           <col key={t} style={{ width: 44 }} />
         ))}
