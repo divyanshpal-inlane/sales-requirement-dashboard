@@ -1411,24 +1411,29 @@ export default function SalesDashboard() {
       const slotLen = config?.gridMinutes ?? 30;
       const blocks = blocksIndex.get(instrId)?.get(date) ?? [];
       let cover: BlockDetail | null = null;
+      let coverIsDirect = false;
       for (const b of blocks) {
         if (b.status === "cancelled" || b.status === "rejected") continue;
-        // Window-overlap check: does this slot's own span
-        // [minute, minute + slotLen) overlap the gap-extended booking
-        // window [b.startMinute - g, b.endMinute + g)? Comparing only the
-        // slot's start minute against a fixed point (the previous
-        // `minute + 1`) missed the slot immediately BEFORE a booking
-        // whenever the gap is smaller than one grid step — e.g. a 30-min
-        // slot ending right at the gap boundary would have its start
-        // minute fall just outside `b.startMinute - g`, even though the
-        // back half of that same slot is inside the gap and the grid's
-        // own free/busy computation (buildFreeGrid, which correctly checks
-        // the whole candidate window) already marks it non-free. That
-        // mismatch showed up as a buffer slot rendering as generic "Busy"
-        // instead of "Buffer for ...".
-        if (b.startMinute - g < minute + slotLen && minute < b.endMinute + g) {
+        // A "direct" match means `minute` literally falls inside this
+        // block's own [startMinute, endMinute) span — this is a real,
+        // unambiguous booking/paused/etc. A block only reachable via its
+        // gap gap-extended window (buffer reach) is a weaker, secondary
+        // match. When two blocks sit back-to-back (e.g. a paused class
+        // immediately followed by a real booking for the next hour), the
+        // second block's own direct start can fall inside the FIRST
+        // block's gap-extended reach — so taking whichever block matches
+        // first in array order (the old behavior) could show the second
+        // block's own real time as "buffer for [first block]" instead of
+        // its actual status. A direct match always wins over a
+        // buffer-only match, regardless of iteration order.
+        const isDirect = minute >= b.startMinute && minute < b.endMinute;
+        const isBufferReach =
+          b.startMinute - g < minute + slotLen && minute < b.endMinute + g;
+        if (!isDirect && !isBufferReach) continue;
+        if (cover && coverIsDirect) break; // already found the strongest possible match
+        if (!cover || isDirect) {
           cover = b;
-          break;
+          coverIsDirect = isDirect;
         }
       }
 
@@ -1514,12 +1519,14 @@ export default function SalesDashboard() {
         }
         if (cover.status === "paused") {
           return {
-            title: "Paused",
-            detail: [
-              blockTime,
-              `Instructor: ${name}`,
-              ...(cover.notes ? [`Reason: ${cover.notes}`] : []),
-            ],
+            title: isBuffer ? "Buffer for Paused class" : "Paused",
+            detail: isBuffer
+              ? [blockTime, `Instructor: ${name}`]
+              : [
+                  blockTime,
+                  `Instructor: ${name}`,
+                  ...(cover.notes ? [`Reason: ${cover.notes}`] : []),
+                ],
             kind: "default",
             override: null,
           };
