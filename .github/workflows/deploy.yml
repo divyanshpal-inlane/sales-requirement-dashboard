@@ -41,6 +41,17 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_GOOGLE_MAPS_API_KEY: ${{ vars.VITE_GOOGLE_MAPS_API_KEY }}
+          # NOT the real service-role key — deliberately a placeholder.
+          # src/context/auth-context.tsx does
+          # `createClient(supabaseUrl, import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY!)`
+          # at module top level, which throws synchronously (crashing the
+          # whole app before React can mount — a blank white page) if this
+          # is unset. The real key must never ship in a public static build;
+          # this placeholder only exists so that constructor call doesn't
+          # throw. Any admin/service-role Supabase call will correctly fail
+          # with an auth error here, same as every other backend-dependent
+          # flow on this static test deploy.
+          VITE_SUPABASE_SERVICE_ROLE_KEY: "not-a-real-key-placeholder-for-static-test-deploy"
         run: pnpm run build
       - name: SPA fallback for client-side routing
         # GitHub Pages has no server-side rewrite rules, so a direct link or
