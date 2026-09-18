@@ -297,7 +297,10 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               id="paymentStatus"
               value={formData.paymentStatus}
               onChange={(e) => {
-                const value = e.target.value as "unpaid" | "half_paid" | "full_paid";
+                const value = e.target.value as
+                  | "unpaid"
+                  | "half_paid"
+                  | "full_paid";
                 setFormData({
                   ...formData,
                   paymentStatus: value,

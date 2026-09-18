@@ -11,16 +11,16 @@ import {
   Routes,
 } from "react-router-dom";
 
-import Instructor from "@/app/instructor/Instructor";
 import EarningsComparison from "@/app/instructor/earnings/EarningsComparison";
 import EarningsHome from "@/app/instructor/earnings/EarningsHome";
+import MoreWaysToEarn from "@/app/instructor/earnings/MoreWaysToEarn";
+import Instructor from "@/app/instructor/Instructor";
+import InstructorProfile from "@/app/instructor/InstructorProfile";
 import LeaveHome from "@/app/instructor/leave/LeaveHome";
 import ReportNoShow from "@/app/instructor/no-show/ReportNoShow";
+import OTP from "@/app/instructor/OTP";
 import SafetyHome from "@/app/instructor/safety/SafetyHome";
 import SupportHome from "@/app/instructor/support/SupportHome";
-import MoreWaysToEarn from "@/app/instructor/earnings/MoreWaysToEarn";
-import InstructorProfile from "@/app/instructor/InstructorProfile";
-import OTP from "@/app/instructor/OTP";
 import LessonReview from "@/app/LessonReview";
 import LL_test_booking_1 from "@/app/LL_test_booking_1";
 import LL_test_booking_2 from "@/app/LL_test_booking_2";
@@ -43,14 +43,12 @@ import { PhoneVisibilityProvider } from "@/context/phone-visibility-context";
 import AdminHome from "@/routes/admin/AdminHome";
 import AdminManagement from "@/routes/admin/AdminManagement";
 import ComplianceForms from "@/routes/admin/ComplianceForms";
-import GameAnalytics from "@/routes/admin/GameAnalytics";
 import DLTestDates from "@/routes/admin/DLTestDates";
 import DLTestSlots from "@/routes/admin/DLTestSlots";
-import UserManagement from "@/routes/admin/UserManagement";
-import InstructorEarnings from "@/routes/admin/InstructorEarnings";
+import GameAnalytics from "@/routes/admin/GameAnalytics";
 import InstructorOnboardingPage from "@/routes/admin/instructor-onboarding";
+import InstructorEarnings from "@/routes/admin/InstructorEarnings";
 import InstructorMatrix from "@/routes/admin/InstructorMatrix";
-import SalesDashboard from "@/routes/admin/SalesDashboard";
 import InstructorsManagement, {
   InstructorSchedulePage,
 } from "@/routes/admin/instructors";
@@ -61,11 +59,13 @@ import LearnerIssueFixer from "@/routes/admin/LearnerIssueFixer";
 import LearnerLLDetails from "@/routes/admin/LearnerLLDetails";
 import LearnerManagement from "@/routes/admin/LearnerManagement";
 import LearnerMigration from "@/routes/admin/LearnerMigration";
+import LessonsDashboard from "@/routes/admin/LessonsDashboard";
 import LLCustomerMigration from "@/routes/admin/LLCustomerMigration";
 import LLPipeline from "@/routes/admin/LLPipeline";
-import LessonsDashboard from "@/routes/admin/LessonsDashboard";
+import SalesDashboard from "@/routes/admin/SalesDashboard";
 import AdminSchedules from "@/routes/admin/schedules";
 import AdminSettings from "@/routes/admin/Settings";
+import UserManagement from "@/routes/admin/UserManagement";
 import AdminLogin from "@/routes/admin-login";
 import ScheduleDetails from "@/routes/createSchedule/details";
 import UploadLL from "@/routes/createSchedule/uploadLL";
@@ -85,16 +85,16 @@ import StartLesson from "@/routes/startLesson";
 
 import BugReportsManagement from "./routes/admin/BugReportsManagement";
 import CarCommerceLeads from "./routes/admin/CarCommerceLeads";
-import FeedbackManagement from "./routes/admin/FeedbackManagement";
 import ControlTower from "./routes/admin/ControlTower";
+import FeedbackManagement from "./routes/admin/FeedbackManagement";
+import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import InstructorPerformance from "./routes/admin/InstructorPerformance";
 import LeaveManagement from "./routes/admin/LeaveManagement";
 import NoShowManagement from "./routes/admin/NoShowManagement";
-import SafetyMonitoring from "./routes/admin/SafetyMonitoring";
-import SupportTickets from "./routes/admin/SupportTickets";
-import InstructorLessonLog from "./routes/admin/InstructorLessonLog";
 import NotificationManagement from "./routes/admin/NotificationManagement";
 import PaymentTracker from "./routes/admin/PaymentTracker";
+import SafetyMonitoring from "./routes/admin/SafetyMonitoring";
+import SupportTickets from "./routes/admin/SupportTickets";
 import TentativeSchedules2 from "./routes/admin/TentativeManagement";
 import OnboardingQuestions from "./routes/createSchedule/onboardingQuestions";
 import HelpSupport from "./routes/help";
@@ -336,10 +336,7 @@ export default function App() {
                   path="instructor-matrix"
                   element={<InstructorMatrix />}
                 />
-                <Route
-                  path="sales-dashboard"
-                  element={<SalesDashboard />}
-                />
+                <Route path="sales-dashboard" element={<SalesDashboard />} />
                 <Route
                   path="instructor-earnings"
                   element={<InstructorEarnings />}

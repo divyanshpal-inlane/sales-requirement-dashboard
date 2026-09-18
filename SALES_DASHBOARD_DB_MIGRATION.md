@@ -24,10 +24,10 @@ incomplete in app_settings (enabled:false).
 
 Two separate Supabase projects are involved in this app's history:
 
-| | Project ref | Used by |
-|---|---|---|
-| **Production** | `csnzgfzxnscumvjefpon` | `inlane-web-app` has always pointed here (real learners, instructors, schedules) |
-| **Testing** | `rcfztyzmokacinuhnuih` | Used while building/testing the standalone `Lane-sales-requirement` dashboard repo |
+|                | Project ref            | Used by                                                                            |
+| -------------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| **Production** | `csnzgfzxnscumvjefpon` | `inlane-web-app` has always pointed here (real learners, instructors, schedules)   |
+| **Testing**    | `rcfztyzmokacinuhnuih` | Used while building/testing the standalone `Lane-sales-requirement` dashboard repo |
 
 The `app_settings.booking_flow` row already exists (complete) in **Testing**,
 because it was set up there during that dashboard's own development. It has
@@ -79,17 +79,17 @@ Every column the dashboard's Supabase queries select was checked
 column-by-column against **Production**'s actual schema (via the service-role
 key, read-only):
 
-| Table | Columns the dashboard selects | Present in Production? |
-|---|---|---|
-| `Instructor` | `id_instructor, name, areas, unavailability, status, enabled` | ✅ all present |
-| `Instructor` (original, pre-fix) | ...`gender` | ❌ **not present** — removed from the query, see above |
-| `Schedule` | `id, instructor_id, date, start_time, end_time, status, learner_id, course_id, leadName, tentative_details, pause_reason, pause_notes` | ✅ all present |
-| `Learner` | `id, name, area` | ✅ all present |
-| `Courses` | `id, name` | ✅ all present |
-| `app_settings` | `key, value` | ✅ table exists; the `booking_flow` **row** does not exist yet (data, not schema) |
+| Table                            | Columns the dashboard selects                                                                                                          | Present in Production?                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `Instructor`                     | `id_instructor, name, areas, unavailability, status, enabled`                                                                          | ✅ all present                                                                    |
+| `Instructor` (original, pre-fix) | ...`gender`                                                                                                                            | ❌ **not present** — removed from the query, see above                            |
+| `Schedule`                       | `id, instructor_id, date, start_time, end_time, status, learner_id, course_id, leadName, tentative_details, pause_reason, pause_notes` | ✅ all present                                                                    |
+| `Learner`                        | `id, name, area`                                                                                                                       | ✅ all present                                                                    |
+| `Courses`                        | `id, name`                                                                                                                             | ✅ all present                                                                    |
+| `app_settings`                   | `key, value`                                                                                                                           | ✅ table exists; the `booking_flow` **row** does not exist yet (data, not schema) |
 
 **Conclusion: no production schema/migration is required.** The only gap is
-a missing *data row*, not a missing *column or table*.
+a missing _data row_, not a missing _column or table_.
 
 ## Migration checklist: Testing → Production
 
@@ -130,7 +130,7 @@ Adjust `slot_start`/`slot_end`/`slot_grid_minutes`/`instructor_gap_minutes`
 if the real desired working hours/grid differ — these are the only fields
 this dashboard actually reads (see next section). `gateway`,
 `hold_minutes`, `max_slots_per_booking`, `female_instructor_mode`,
-`installment_modes` only matter to the *other* (direct-booking) feature —
+`installment_modes` only matter to the _other_ (direct-booking) feature —
 any valid placeholder value satisfies this dashboard's completeness check
 without affecting it.
 

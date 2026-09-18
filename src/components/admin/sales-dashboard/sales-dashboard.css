@@ -19,8 +19,10 @@
   --gc-red-bg: #fce8e6;
   --gc-red-hover: #fad2cf;
   --gc-shadow: 0 1px 2px rgba(60, 64, 67, 0.1), 0 2px 6px rgba(60, 64, 67, 0.1);
-  --gc-pop-shadow: 0 1px 3px rgba(60, 64, 67, 0.24), 0 4px 8px rgba(60, 64, 67, 0.24);
-  --gc-suggest-shadow: 0 2px 6px rgba(60, 64, 67, 0.15), 0 8px 20px rgba(60, 64, 67, 0.2);
+  --gc-pop-shadow: 0 1px 3px rgba(60, 64, 67, 0.24),
+    0 4px 8px rgba(60, 64, 67, 0.24);
+  --gc-suggest-shadow: 0 2px 6px rgba(60, 64, 67, 0.15),
+    0 8px 20px rgba(60, 64, 67, 0.2);
 }
 
 .sales-dashboard-root[data-theme="dark"] {
@@ -43,7 +45,8 @@
   --gc-red-hover: #512624;
   --gc-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35);
   --gc-pop-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.5);
-  --gc-suggest-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.6);
+  --gc-suggest-shadow: 0 2px 6px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.6);
 }
 
 .shell {
@@ -105,7 +108,9 @@
   border: 1px solid var(--gc-border);
   border-radius: 18px;
   padding: 7px 12px;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .cal-btn:hover:not(:disabled) {
@@ -406,70 +411,106 @@
   box-shadow: var(--gc-shadow);
 }
 
+/* Grid Table Layout - Optimized for perfect column alignment */
 .grid {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   min-width: 100%;
+  table-layout: fixed;
 }
 
 .grid th,
 .grid td {
   border-right: 1px solid var(--gc-border);
   border-bottom: 1px solid var(--gc-border);
-  padding: 6px 8px;
+  padding: 0;
   text-align: center;
   font-size: 12px;
-  height: 30px;
+  height: 44px;
   color: var(--gc-text);
+  box-sizing: border-box;
 }
 
-.grid tr.row td {
-  border-top: 1px solid var(--gc-border);
+/* Instructor column header */
+.grid th.col-instructor {
+  width: 320px;
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--gc-text);
+  background: var(--gc-surface);
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  border-right: 2px solid var(--gc-border);
+  height: 44px;
 }
 
-.grid thead th {
+/* Time column headers - consistent width for perfect alignment */
+.grid th.col-time-h {
+  width: 44px;
+  padding: 6px 0;
+  font-variant-numeric: tabular-nums;
+  background: var(--gc-surface);
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--gc-surface);
+  border-right: 1px solid var(--gc-border);
   border-bottom: 1px solid var(--gc-border);
+}
+
+.grid thead th {
   font-weight: 500;
   color: var(--gc-text-2);
   font-size: 11px;
-  height: 40px;
 }
 
-.col-time-h {
-  position: relative;
-  min-width: 48px;
-  font-variant-numeric: tabular-nums;
-}
-
-.mini-time {
-  position: relative;
-  min-width: 40px;
-  font-variant-numeric: tabular-nums;
-}
-
+/* Time label positioning - aligned with cell center */
 .time-label {
   position: absolute;
   top: 50%;
-  left: 0;
+  left: 50%;
   transform: translate(-50%, -50%);
   white-space: nowrap;
   pointer-events: none;
-  background: inherit;
-  padding: 0 2px;
+  background: transparent;
+  padding: 0;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--gc-text-2);
+  font-variant-numeric: tabular-nums;
 }
 
+/* Instructor column header - sticky during scroll */
 .col-instructor {
   position: sticky;
   left: 0;
-  z-index: 2;
-  min-width: 280px;
+  z-index: 3;
+  width: 320px;
   text-align: left !important;
   background: var(--gc-surface) !important;
+  border-right: 2px solid var(--gc-border);
+  padding: 0 !important;
 }
 
+/* Time column header */
+.col-time-h {
+  position: relative;
+  width: 44px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+/* Mini schedule time column */
+.mini-time {
+  position: relative;
+  width: 44px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+/* Instructor cell - sticky left column */
 .instructor-cell {
   position: sticky;
   left: 0;
@@ -478,10 +519,12 @@
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 280px;
+  gap: 10px;
+  width: 320px;
   height: 100%;
-  padding: 10px 12px !important;
+  padding: 8px 12px !important;
+  border-right: 2px solid var(--gc-border);
+  flex-wrap: nowrap;
 }
 
 .instructor-name {
@@ -529,8 +572,13 @@
   box-shadow: inset 0 0 0 2px var(--gc-blue);
 }
 
+/* Row separator - provides visual separation between instructor rows */
+.row-gap {
+  height: 8px;
+}
+
 .row-gap td {
-  height: 12px;
+  height: 8px;
   padding: 0 !important;
   border: none;
   background: var(--gc-bg);
@@ -579,7 +627,10 @@
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .expand .expand-chev {
@@ -594,19 +645,22 @@
   color: var(--gc-blue);
 }
 
+/* Slot cell - matches time column width exactly (44px) */
 .cell {
   position: relative;
-  /* Must match .col-time-h's min-width — otherwise the header time labels
-     and the slot cells below them are sized independently and drift out of
-     alignment across the row as the table scrolls horizontally. */
-  min-width: 48px;
-  height: 26px;
+  width: 44px;
+  height: 44px;
   padding: 0 !important;
   cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.cell-selected {
-  box-shadow: inset 0 0 0 2px var(--gc-blue);
+.cell-hovered {
+  z-index: 50;
 }
 
 .slot-pop {
@@ -624,6 +678,18 @@
   padding: 10px 13px;
   text-align: left;
   white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+}
+
+.cell-hovered .slot-pop {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .slot-pop::after {
@@ -787,6 +853,12 @@
   border-bottom: 1px solid var(--gc-border);
   padding: 5px 7px;
   font-size: 12px;
+  box-sizing: border-box;
+}
+
+.mini th.mini-time,
+.mini td.cell {
+  padding: 0;
 }
 
 .mini th {
@@ -824,9 +896,7 @@
 }
 
 .mini .cell {
-  /* Must match .mini-time's min-width — same header/cell drift issue as the
-     main grid's .col-time-h / .cell pair. */
-  min-width: 40px;
+  width: 40px;
   height: 20px;
 }
 

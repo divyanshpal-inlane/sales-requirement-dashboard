@@ -173,12 +173,6 @@ interface SlotCellProps {
   free: boolean;
   band: boolean;
   timeLabel: string;
-  isOpen: boolean;
-  // Stable (useCallback'd) references, not per-cell closures — this is what
-  // lets React.memo below actually skip re-rendering the thousands of
-  // unaffected cells when only one popover opens/closes. A fresh inline
-  // arrow function per cell would defeat memo on every render.
-  onOpenPop: (instrId: string, date: string, minute: number) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   resolveInfo: (
     instrId: string,
@@ -195,20 +189,19 @@ function SlotCellInner({
   free,
   band,
   timeLabel,
-  isOpen,
-  onOpenPop,
   onDoubleClick,
   resolveInfo,
 }: SlotCellProps) {
-  const info = isOpen ? resolveInfo(instrId, date, minute, free) : null;
+  const [isHovered, setIsHovered] = useState(false);
+  const info = isHovered ? resolveInfo(instrId, date, minute, free) : null;
   const cls = [free ? "cell cell-free" : band ? "cell cell-band" : "cell"];
-  if (isOpen) cls.push("cell-selected");
+  if (isHovered) cls.push("cell-hovered");
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- table cell is the grid's click target by design; each slot's state/detail is exposed via title + the opened popover text
     <td
       className={cls.join(" ")}
-      title={free ? `Free ${timeLabel}` : "Click for details"}
-      onClick={() => onOpenPop(instrId, date, minute)}
+      title={free ? `Free ${timeLabel}` : "Hover for details"}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onDoubleClick={() => {
         if (free && onDoubleClick) {
           onDoubleClick(instrId, date, minute);
@@ -245,10 +238,6 @@ interface MiniRowProps {
   timeStarts: number[];
   gridMinutes: number;
   freeGrid: Map<string, Map<string, number[]>>;
-  // null unless the currently-open popover's date is THIS row's date — see
-  // the comment on InstructorRowGroup for why this narrowing matters.
-  openMinute: number | null;
-  onOpenPop: (instrId: string, date: string, minute: number) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   resolveInfo: (
     instrId: string,
@@ -266,8 +255,6 @@ function MiniRowInner({
   timeStarts,
   gridMinutes,
   freeGrid,
-  openMinute,
-  onOpenPop,
   onDoubleClick,
   resolveInfo,
 }: MiniRowProps) {
@@ -298,8 +285,6 @@ function MiniRowInner({
             band={band}
             minute={m}
             timeLabel={`${t}–${minutesToTime(m + gridMinutes)}`}
-            isOpen={openMinute === m}
-            onOpenPop={onOpenPop}
             onDoubleClick={onDoubleClick}
             resolveInfo={resolveInfo}
           />
@@ -328,18 +313,9 @@ interface InstructorRowGroupProps {
   selectedDate: string;
   gridMinutes: number;
   freeGrid: Map<string, Map<string, number[]>>;
-  // null unless the currently-open popover belongs to THIS instructor. This
-  // narrowing (done once, in the parent's map loop) is what lets React.memo
-  // bail out entirely for every OTHER instructor's row group when a popover
-  // opens/closes — for them, openPop is `null` both before and after (a
-  // referentially stable value), so memo's shallow comparison sees no change
-  // and skips re-rendering (and re-computing) that instructor's row and,
-  // critically, its whole 400-day mini-table if expanded.
-  openPop: { date: string; minute: number } | null;
   onToggleExpand: (id: string) => void;
   onToggleSelectRow: (id: string) => void;
   onRemove?: (id: string) => void;
-  onOpenPop: (instrId: string, date: string, minute: number) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   resolveInfo: (
     instrId: string,
@@ -364,16 +340,12 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
     onDoubleClick,
     gridMinutes,
     freeGrid,
-    openPop,
     onToggleExpand,
     onToggleSelectRow,
     onRemove,
-    onOpenPop,
     resolveInfo,
   } = props;
   const detailTitle = showDetailTitle(instr, windowTotal, dates.length);
-  const mainOpenMinute =
-    openPop && openPop.date === selectedDate ? openPop.minute : null;
 
   return (
     <Fragment>
@@ -458,8 +430,6 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
               band={band}
               minute={m}
               timeLabel={`${t}–${minutesToTime(m + gridMinutes)}`}
-              isOpen={mainOpenMinute === m}
-              onOpenPop={onOpenPop}
               onDoubleClick={onDoubleClick}
               resolveInfo={resolveInfo}
             />
@@ -566,27 +536,6 @@ function AvailabilityGridInner(props: GridProps) {
     resolveInfo,
   } = props;
 
-  const [pop, setPop] = useState<{
-    instrId: string;
-    date: string;
-    minute: number;
-  } | null>(null);
-  // Stable identity (empty deps — setPop itself never changes) so it can be
-  // passed straight through to every SlotCell without breaking memo().
-  const onOpenPop = useCallback(
-    (instrId: string, date: string, minute: number) => {
-      setPop((prev) =>
-        prev &&
-        prev.instrId === instrId &&
-        prev.date === date &&
-        prev.minute === minute
-          ? null
-          : { instrId, date, minute },
-      );
-    },
-    [],
-  );
-
   return (
     <table className="roster grid">
       <thead>
@@ -600,36 +549,28 @@ function AvailabilityGridInner(props: GridProps) {
         </tr>
       </thead>
       <tbody>
-        {instructors.map((instr) => {
-          const openPop =
-            pop && pop.instrId === instr.id
-              ? { date: pop.date, minute: pop.minute }
-              : null;
-          return (
-            <InstructorRowGroup
-              key={instr.id}
-              instr={instr}
-              freeSet={freeSets.get(instr.id)}
-              windowTotal={windowTotals.get(instr.id) ?? 0}
-              isExpanded={expanded.has(instr.id)}
-              isSelected={selectedRows.has(instr.id)}
-              rowColor={rowColors.get(instr.id)}
-              timeCols={timeCols}
-              timeStarts={timeStarts}
-              dates={dates}
-              selectedDate={selectedDate}
-              gridMinutes={gridMinutes}
-              freeGrid={freeGrid}
-              openPop={openPop}
-              onToggleExpand={onToggleExpand}
-              onToggleSelectRow={onToggleSelectRow}
-              onRemove={onRemove}
-              onOpenPop={onOpenPop}
-              onDoubleClick={onDoubleClick}
-              resolveInfo={resolveInfo}
-            />
-          );
-        })}
+        {instructors.map((instr) => (
+          <InstructorRowGroup
+            key={instr.id}
+            instr={instr}
+            freeSet={freeSets.get(instr.id)}
+            windowTotal={windowTotals.get(instr.id) ?? 0}
+            isExpanded={expanded.has(instr.id)}
+            isSelected={selectedRows.has(instr.id)}
+            rowColor={rowColors.get(instr.id)}
+            timeCols={timeCols}
+            timeStarts={timeStarts}
+            dates={dates}
+            selectedDate={selectedDate}
+            gridMinutes={gridMinutes}
+            freeGrid={freeGrid}
+            onToggleExpand={onToggleExpand}
+            onToggleSelectRow={onToggleSelectRow}
+            onRemove={onRemove}
+            onDoubleClick={onDoubleClick}
+            resolveInfo={resolveInfo}
+          />
+        ))}
         {loadingRows.map((li) => (
           <tr key={li.id} className="row row-loading">
             <td className="instructor-cell">{li.name}</td>

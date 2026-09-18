@@ -96,20 +96,20 @@ export default function LocationSearch({
       const ac = new maps.places.Autocomplete(inputRef.current, {
         fields: ["name", "formatted_address", "geometry"],
       });
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      const loc = place?.geometry?.location;
-      if (!loc) return;
-      selectedPlaceRef.current = {
-        lat: loc.lat(),
-        lng: loc.lng(),
-        label:
-          place.formatted_address ||
-          place.name ||
-          inputRef.current?.value ||
-          "",
-      };
-    });
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        const loc = place?.geometry?.location;
+        if (!loc) return;
+        selectedPlaceRef.current = {
+          lat: loc.lat(),
+          lng: loc.lng(),
+          label:
+            place.formatted_address ||
+            place.name ||
+            inputRef.current?.value ||
+            "",
+        };
+      });
       autoRef.current = ac;
       return () => {
         ac.unbindAll();
