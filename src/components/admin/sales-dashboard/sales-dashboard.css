@@ -723,6 +723,28 @@
   background: var(--gc-green-hover);
 }
 
+.cell-half {
+  background: linear-gradient(
+    45deg,
+    var(--gc-green-fill) 25%,
+    transparent 25%,
+    transparent 75%,
+    var(--gc-green-fill) 75%
+  ) !important;
+  background-size: 8px 8px;
+}
+
+.cell-half:hover {
+  background: linear-gradient(
+    45deg,
+    var(--gc-green-hover) 25%,
+    transparent 25%,
+    transparent 75%,
+    var(--gc-green-hover) 75%
+  ) !important;
+  background-size: 8px 8px;
+}
+
 .cell-band {
   background: transparent;
 }

@@ -509,7 +509,9 @@ Sales Dashboard Grid (30-min slots)
 The instructor availability grid is built with precise column sizing and sticky positioning to match modern calendar UI patterns.
 
 **Column Widths**:
+
 - **Instructor Column**: 320px (sticky left)
+
   - Contains: checkbox/icon, "Schedule" button, instructor name, status badges
   - Sticky during horizontal scroll (z-index: 1)
   - Clear 2px right border separator
@@ -521,12 +523,15 @@ The instructor availability grid is built with precise column sizing and sticky 
   - Consistent across all rows
 
 **Row Heights**:
+
 - **Header Row**: 44px (sticky top, z-index: 2)
+
   - Time labels aligned center
   - Light gray background (--gc-surface)
   - Font size: 10px, monospace (tabular-nums)
 
 - **Instructor Rows**: 44px
+
   - Instructor cell: 320px width, left-sticky
   - Time slot cells: 44px width each
   - 1px border right between columns
@@ -537,6 +542,7 @@ The instructor availability grid is built with precise column sizing and sticky 
   - Maintains visual hierarchy
 
 **Grid Alignment**:
+
 ```
 Header Row (44px height)
 ├─ Instructor Label (320px) ────────┬──────┬──────┬──────┐
@@ -560,35 +566,36 @@ Instructor Row 2 (44px)
 /* Table base - perfect alignment */
 .grid {
   border-collapse: separate;
-  border-spacing: 0;  /* No spacing between cells */
-  table-layout: fixed;  /* Fixed width columns */
+  border-spacing: 0; /* No spacing between cells */
+  table-layout: fixed; /* Fixed width columns */
 }
 
 /* All cells - consistent sizing */
-.grid th, .grid td {
-  height: 44px;  /* Square proportions */
+.grid th,
+.grid td {
+  height: 44px; /* Square proportions */
   border-right: 1px solid var(--gc-border);
   border-bottom: 1px solid var(--gc-border);
-  padding: 0;  /* No padding - use full cell for content */
+  padding: 0; /* No padding - use full cell for content */
   box-sizing: border-box;
 }
 
 /* Instructor column header */
 .col-instructor {
-  width: 320px;  /* Fixed wider column */
+  width: 320px; /* Fixed wider column */
   position: sticky;
   left: 0;
-  z-index: 3;  /* Highest z-index */
-  border-right: 2px solid var(--gc-border);  /* Emphasized separator */
+  z-index: 3; /* Highest z-index */
+  border-right: 2px solid var(--gc-border); /* Emphasized separator */
 }
 
 /* Time column header */
 .col-time-h {
-  width: 44px;  /* Matches cell width */
+  width: 44px; /* Matches cell width */
   position: sticky;
   top: 0;
   z-index: 2;
-  font-variant-numeric: tabular-nums;  /* Monospace numbers */
+  font-variant-numeric: tabular-nums; /* Monospace numbers */
 }
 
 /* Slot cells - 44x44 perfect squares */
@@ -621,17 +628,20 @@ Instructor Row 2 (44px)
 ### Scrolling Behavior
 
 **Horizontal Scroll**:
+
 - Instructor column (320px) remains visible
 - Time slots scroll left/right
 - Sticky instructor column prevents text cutoff
 
 **Vertical Scroll**:
+
 - Header row stays visible (sticky top)
 - Instructors scroll up/down
 - Scrollbar appears on right side
 - All rows maintain consistent height
 
 **Nested Scroll** (expanded detail view):
+
 - Expanded schedule row contains mini-grid
 - Mini-grid scrolls independently
 - Main grid scrolling unaffected
@@ -639,20 +649,23 @@ Instructor Row 2 (44px)
 ### Color & Visual Hierarchy
 
 **Backgrounds**:
+
 - **Header**: `var(--gc-surface)` - light gray
 - **Instructor Cell**: `var(--gc-bg)` - white/theme bg
-- **Time Cells**: 
+- **Time Cells**:
   - Free: `var(--gc-green-fill)` - light green (#d3ebd9)
   - Hover: `var(--gc-green-hover)` - darker green (#c0ebce)
   - Busy: `var(--gc-bg)` - default background
   - Band: alternating subtle shade for visual rhythm
 
 **Borders**:
+
 - **Cell Borders**: 1px `var(--gc-border)` - light gray
 - **Column Separator**: 2px `var(--gc-border)` - emphasized
 - **Row Separator**: none (gap provides separation)
 
 **Typography**:
+
 - **Header Time**: 10px, weight 500, monospace, gray-600
 - **Instructor Name**: 13px, weight 400-600, dark text
 - **Free Count**: 12px, weight 600, green text
@@ -661,17 +674,20 @@ Instructor Row 2 (44px)
 ### Performance Optimizations
 
 **Rendering**:
+
 - `table-layout: fixed` - predictable column widths (no layout shift)
 - `border-collapse: separate` - cleaner borders without double-sizing
 - Sticky positioning via native CSS (no JavaScript)
 - Fixed cell dimensions prevent reflow
 
 **Memory**:
+
 - Single table for all instructors (no virtual scrolling needed for < 100 rows)
 - CSS Grid cells reuse styles (minimal CSSOM)
 - Memoized instructor rows prevent unnecessary re-renders
 
 **UX**:
+
 - Sticky header/column visible during scroll
 - Column alignment prevents misalignment during horizontal scroll
 - Consistent row height prevents layout jank
@@ -680,12 +696,14 @@ Instructor Row 2 (44px)
 ### Browser Compatibility
 
 **CSS Features Used**:
+
 - `position: sticky` - IE11+ (with fallback to scroll)
 - `table-layout: fixed` - all browsers
 - `border-collapse: separate` - all browsers
 - CSS Grid variables (`var(--gc-*)`) - fallback to default colors
 
 **Testing Notes**:
+
 - Tested in Chrome 120+, Firefox 121+, Safari 17+
 - Horizontal scroll smooth on all browsers
 - Sticky positioning works in dark mode

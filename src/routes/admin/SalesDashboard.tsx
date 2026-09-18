@@ -174,6 +174,7 @@ interface SlotCellProps {
   free: boolean;
   band: boolean;
   timeLabel: string;
+  canBook1Hour?: boolean;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   resolveInfo: (
     instrId: string,
@@ -190,17 +191,32 @@ function SlotCellInner({
   free,
   band,
   timeLabel,
+  canBook1Hour,
   onDoubleClick,
   resolveInfo,
 }: SlotCellProps) {
   const [isHovered, setIsHovered] = useState(false);
   const info = isHovered ? resolveInfo(instrId, date, minute, free) : null;
-  const cls = [free ? "cell cell-free" : band ? "cell cell-band" : "cell"];
+  const cls = [
+    free
+      ? canBook1Hour === false
+        ? "cell cell-free cell-half"
+        : "cell cell-free"
+      : band
+        ? "cell cell-band"
+        : "cell",
+  ];
   if (isHovered) cls.push("cell-hovered");
   return (
     <td
       className={cls.join(" ")}
-      title={free ? `Free ${timeLabel}` : "Hover for details"}
+      title={
+        free
+          ? canBook1Hour === false
+            ? `Free ${timeLabel} — adjacent slot booked, can't book 1hr`
+            : `Free ${timeLabel} — double-click to book 1hr`
+          : "Hover for details"
+      }
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onDoubleClick={() => {
@@ -277,6 +293,8 @@ function MiniRowInner({
         const m = timeStarts[ti];
         const free = dayFree.has(m);
         const band = Math.floor(ti / 2) % 2 === 1;
+        const canBook1Hour =
+          free && validateOneHourBlock(instrId, d, m, freeGrid);
         return (
           <SlotCell
             key={t}
@@ -286,6 +304,7 @@ function MiniRowInner({
             band={band}
             minute={m}
             timeLabel={`${t}–${minutesToTime(m + gridMinutes)}`}
+            canBook1Hour={canBook1Hour}
             onDoubleClick={onDoubleClick}
             resolveInfo={resolveInfo}
           />
@@ -422,6 +441,8 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
           const m = timeStarts[ti];
           const free = freeSet?.has(m) ?? false;
           const band = Math.floor(ti / 2) % 2 === 1;
+          const canBook1Hour =
+            free && validateOneHourBlock(instr.id, selectedDate, m, freeGrid);
           return (
             <SlotCell
               key={t}
@@ -431,6 +452,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
               band={band}
               minute={m}
               timeLabel={`${t}–${minutesToTime(m + gridMinutes)}`}
+              canBook1Hour={canBook1Hour}
               onDoubleClick={onDoubleClick}
               resolveInfo={resolveInfo}
             />
@@ -742,9 +764,32 @@ export default function SalesDashboard() {
     else loadInstructors([id]);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSlotDoubleClick = useCallback(
     (instrId: string, date: string, minute: number) => {
+      // Re-verify instructor is still available
+      const instr = instructorsById.get(instrId);
+      if (
+        !instr ||
+        instr.enabled === false ||
+        (instr.status ?? "active") !== "active"
+      ) {
+        showSlotNotice("Instructor no longer available.");
+        return;
+      }
+
+      // Check for existing tentative block on this slot
+      const existingTentative = blocksIndex
+        .get(instrId)
+        ?.get(date)
+        ?.some(
+          (b) =>
+            b.status === "hold" && b.isTentative && b.startMinute === minute,
+        );
+      if (existingTentative) {
+        showSlotNotice("Tentative block already exists for this slot.");
+        return;
+      }
+
       // Validate 1-hour block availability
       const freeGrid = data?.freeGrid ?? null;
       if (!validateOneHourBlock(instrId, date, minute, freeGrid)) {
@@ -760,7 +805,7 @@ export default function SalesDashboard() {
       setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
       setTentativeModalOpen(true);
     },
-    [data?.freeGrid, showSlotNotice],
+    [data?.freeGrid, showSlotNotice, instructorsById, blocksIndex],
   );
 
   const clearLocation = () => {

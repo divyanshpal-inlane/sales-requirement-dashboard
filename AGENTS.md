@@ -123,6 +123,7 @@ Key functions: `create-razorpay-order`, `verify-razorpay-payment`, `process-paym
 ### Implementation Details (Slot Booking + Tentative Blocks)
 
 **Data Layer** (`src/hooks/useSalesData.ts`):
+
 - `useSalesData()` hook manages all dashboard state: config, dates, instructors, blocks, free grids
 - Fast startup (~450-900ms): loads only `app_settings` (key=`booking_flow`) + light instructor index (`id, name, status, enabled`)
 - On-demand `loadInstructors(ids)` fetches full `Instructor` rows + `Schedule` rows (paginated 1000-row chunks, 60 IDs per batch)
@@ -131,6 +132,7 @@ Key functions: `create-razorpay-order`, `verify-razorpay-payment`, `process-paym
 - `displayGrid` used for UI rendering (30-min granularity), `freeGrid` for booking validation (60-min)
 
 **Availability Engine** (`src/lib/sales-dashboard/availability.ts`):
+
 - Pure TypeScript port of Supabase edge function `_shared/availability.ts`
 - `validateOneHourBlock(instructorId, date, startMinute, freeGrid)` — O(1) check that both 30-min slots are free
 - `isTimeUnavailable()` handles instructor unavailability JSON (all-day, recurring, date-range, time-specific)
@@ -139,10 +141,12 @@ Key functions: `create-razorpay-order`, `verify-razorpay-payment`, `process-paym
 - `candidateStartMinutes()` generates time grid from config
 
 **Slot Interaction**:
+
 - Single-click: hover → `SlotCell` shows `slot-pop` with `resolveInfo()` details (free/booked/unavailable/buffer)
 - Double-click: `handleSlotDoubleClick` → validates 1-hour block → opens `TentativeBookingModal`
 
 **Tentative Booking Modal** (`src/components/admin/sales-dashboard/TentativeBookingModal.tsx`):
+
 - Form fields: customer name, phone (normalized), sales agent, payment status (unpaid/half_paid/full_paid), address, course
 - Courses: demo, 4/5/6/10/15/20-class courses
 - On submit: inserts into `Schedule` table with `isTentative=true`, `status='hold'`, `tentative_details` JSON
@@ -151,11 +155,13 @@ Key functions: `create-razorpay-order`, `verify-razorpay-payment`, `process-paym
 - TanStack Query `useMutation` for insert, auto-closes on success, triggers dashboard `reload()`
 
 **Existing Tentative Schedule Reuse**:
+
 - `Schedule.isTentative` boolean + `tentative_details` JSON already used by `TentativeManagement` (`src/routes/admin/TentativeManagement.tsx`)
 - `TentativeScheduleCard` (`src/components/admin/TentativeScheduleCard.tsx`) handles add/update/delete
 - Sales Dashboard creates blocks with same schema — Operations verifies LL/DL/location/course then confirms
 
 **Location/Instructor Matching**:
+
 - `LocationSearch` lazy-loaded (`React.lazy`) — Google Maps Places autocomplete + geocoding
 - KML zones from `public/instructors.kml` (polygons + points) — `matchLocation()` does ray-casting + 3km Haversine fallback
 - `KML_ALIASES` maps KML names to DB `Instructor.name` (spelling variants)
