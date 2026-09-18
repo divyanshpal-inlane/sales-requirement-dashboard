@@ -932,6 +932,21 @@ export function computeFeasibleFirstSlots(
 // Sales Dashboard: Tentative Block Validator
 // ---------------------------------------------------------------------------
 
+// `freeGrid` here is built by buildInstructorFreeGrid(), which checks each
+// candidate start minute against a full slotDurationMinutes-long window
+// (60 min — a full class length), not a 30-min window. So
+// freeSlotsForDate.includes(startMinute) already means "a full 60-minute
+// class starting at startMinute is completely unblocked" — that's the
+// entire check needed.
+//
+// A previous version of this function additionally required
+// freeSlotsForDate.includes(startMinute + 30), which checks a DIFFERENT,
+// later 60-minute window ([startMinute+30, startMinute+90)) — e.g. for a
+// 07:00 booking it would also demand 07:30-08:30 be free, which is
+// unrelated to the actual 07:00-08:00 slot being booked. Any unrelated
+// booking/gap-buffer sitting in that later window caused this to reject
+// slots that were genuinely fully free, matching the "shows green in the
+// grid but double-click says not available" reports.
 export function validateOneHourBlock(
   instructorId: string,
   date: string,
@@ -946,9 +961,5 @@ export function validateOneHourBlock(
   const freeSlotsForDate = instructorGrid.get(date);
   if (!freeSlotsForDate) return false;
 
-  // Check if both 30-minute slots are free: [start, start+30]
-  const has30minStart = freeSlotsForDate.includes(startMinute);
-  const has30minEnd = freeSlotsForDate.includes(startMinute + 30);
-
-  return has30minStart && has30minEnd;
+  return freeSlotsForDate.includes(startMinute);
 }

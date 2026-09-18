@@ -616,6 +616,20 @@ export default function SalesDashboard() {
     startTime: string;
     endTime: string;
   } | null>(null);
+  const [slotNotice, setSlotNotice] = useState<string | null>(null);
+  const slotNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSlotNotice = useCallback((message: string) => {
+    if (slotNoticeTimerRef.current) clearTimeout(slotNoticeTimerRef.current);
+    setSlotNotice(message);
+    slotNoticeTimerRef.current = setTimeout(() => setSlotNotice(null), 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (slotNoticeTimerRef.current) clearTimeout(slotNoticeTimerRef.current);
+    };
+  }, []);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const config = data?.config ?? null;
@@ -733,7 +747,7 @@ export default function SalesDashboard() {
       // Validate 1-hour block availability
       const freeGrid = data?.freeGrid ?? null;
       if (!validateOneHourBlock(instrId, date, minute, freeGrid)) {
-        alert(
+        showSlotNotice(
           "This 1-hour slot is not fully available. Please select a different time.",
         );
         return;
@@ -745,7 +759,7 @@ export default function SalesDashboard() {
       setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
       setTentativeModalOpen(true);
     },
-    [data?.freeGrid],
+    [data?.freeGrid, showSlotNotice],
   );
 
   const clearLocation = () => {
@@ -1667,6 +1681,29 @@ export default function SalesDashboard() {
         }}
         data={tentativeSlotData}
       />
+
+      {/* Themed in-app notice, replaces the native browser alert() for
+          slot-validation feedback (e.g. "not fully available"). */}
+      {slotNotice && (
+        <div className="slot-toast" role="alert">
+          <span className="slot-toast-icon" aria-hidden="true">
+            ⚠
+          </span>
+          <span className="slot-toast-msg">{slotNotice}</span>
+          <button
+            type="button"
+            className="slot-toast-close"
+            aria-label="Dismiss notice"
+            onClick={() => {
+              if (slotNoticeTimerRef.current)
+                clearTimeout(slotNoticeTimerRef.current);
+              setSlotNotice(null);
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

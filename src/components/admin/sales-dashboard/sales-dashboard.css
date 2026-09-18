@@ -1266,3 +1266,67 @@
   background: var(--gc-green-fill);
   border-color: var(--gc-green-hover);
 }
+
+/* In-app toast for slot-validation feedback (double-click on a slot that
+   turns out not to be fully bookable) — replaces the native browser
+   alert() so it matches the dashboard's own theme/typography instead of
+   an unstyled OS dialog. */
+@keyframes slot-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.slot-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 92vw;
+  background: var(--gc-red-bg);
+  color: var(--gc-red-text);
+  border: 1px solid var(--gc-red-hover);
+  border-radius: 12px;
+  box-shadow: var(--gc-pop-shadow);
+  padding: 12px 14px 12px 16px;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 13px;
+  animation: slot-toast-in 0.18s ease-out;
+}
+
+.slot-toast-icon {
+  flex: none;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.slot-toast-msg {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.slot-toast-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--gc-red-text);
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.slot-toast-close:hover {
+  background: var(--gc-red-hover);
+}
