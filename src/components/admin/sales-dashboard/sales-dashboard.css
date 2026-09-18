@@ -504,9 +504,14 @@
   padding: 10px 12px !important;
 }
 
+/* No flex-shrink/ellipsis truncation here on purpose: this button's natural
+   (single-line) content width is what the table's auto layout uses to size
+   the whole Instructor column, so the column — and therefore where the
+   timeline starts — always grows to fit the longest instructor name rather
+   than clipping it. white-space: nowrap keeps it on one line so row height
+   stays exactly as-is even for long names. */
 .instructor-name {
-  flex: 1;
-  min-width: 0;
+  flex: none;
   border: none;
   background: transparent;
   padding: 0;
@@ -516,8 +521,6 @@
   font-size: 13px;
   color: var(--gc-text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .instructor-name:hover {
