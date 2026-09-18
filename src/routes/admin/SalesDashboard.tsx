@@ -764,50 +764,6 @@ export default function SalesDashboard() {
     else loadInstructors([id]);
   };
 
-  const handleSlotDoubleClick = useCallback(
-    (instrId: string, date: string, minute: number) => {
-      // Re-verify instructor is still available
-      const instr = instructorsById.get(instrId);
-      if (
-        !instr ||
-        instr.enabled === false ||
-        (instr.status ?? "active") !== "active"
-      ) {
-        showSlotNotice("Instructor no longer available.");
-        return;
-      }
-
-      // Check for existing tentative block on this slot
-      const existingTentative = blocksIndex
-        .get(instrId)
-        ?.get(date)
-        ?.some(
-          (b) =>
-            b.status === "hold" && b.isTentative && b.startMinute === minute,
-        );
-      if (existingTentative) {
-        showSlotNotice("Tentative block already exists for this slot.");
-        return;
-      }
-
-      // Validate 1-hour block availability
-      const freeGrid = data?.freeGrid ?? null;
-      if (!validateOneHourBlock(instrId, date, minute, freeGrid)) {
-        showSlotNotice(
-          "This 1-hour slot is not fully available. Please select a different time.",
-        );
-        return;
-      }
-
-      // Set modal data and open
-      const startTime = minutesToTime(minute);
-      const endTime = minutesToTime(minute + 60);
-      setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
-      setTentativeModalOpen(true);
-    },
-    [data?.freeGrid, showSlotNotice, instructorsById, blocksIndex],
-  );
-
   const clearLocation = () => {
     setLocSearch(null);
   };
@@ -1058,6 +1014,55 @@ export default function SalesDashboard() {
     return map;
   }, [data]);
 
+  // Declared here (after instructorsById/blocksIndex, not before) — this
+  // needs both in its dependency array, and referencing a const before its
+  // own declaration executes throws a ReferenceError (temporal dead zone),
+  // not just a lint nit.
+  const handleSlotDoubleClick = useCallback(
+    (instrId: string, date: string, minute: number) => {
+      // Re-verify instructor is still available
+      const instr = instructorsById.get(instrId);
+      if (
+        !instr ||
+        instr.enabled === false ||
+        (instr.status ?? "active") !== "active"
+      ) {
+        showSlotNotice("Instructor no longer available.");
+        return;
+      }
+
+      // Check for existing tentative block on this slot. Tentative blocks
+      // are identified by status === "hold" (see resolveInfo's own
+      // "hold" -> "Tentative" label above) — BlockDetail has no
+      // `isTentative` field, so checking b.isTentative here was always
+      // undefined/falsy, silently making this check a no-op.
+      const existingTentative = blocksIndex
+        .get(instrId)
+        ?.get(date)
+        ?.some((b) => b.status === "hold" && b.startMinute === minute);
+      if (existingTentative) {
+        showSlotNotice("Tentative block already exists for this slot.");
+        return;
+      }
+
+      // Validate 1-hour block availability
+      const freeGrid = data?.freeGrid ?? null;
+      if (!validateOneHourBlock(instrId, date, minute, freeGrid)) {
+        showSlotNotice(
+          "This 1-hour slot is not fully available. Please select a different time.",
+        );
+        return;
+      }
+
+      // Set modal data and open
+      const startTime = minutesToTime(minute);
+      const endTime = minutesToTime(minute + 60);
+      setTentativeSlotData({ instructorId: instrId, date, startTime, endTime });
+      setTentativeModalOpen(true);
+    },
+    [data?.freeGrid, showSlotNotice, instructorsById, blocksIndex],
+  );
+
   const resolveInfo = useMemo(() => {
     const gap = config?.instructor_gap_minutes ?? 0;
     const g = Math.max(0, Math.floor(gap));
@@ -1095,11 +1100,25 @@ export default function SalesDashboard() {
         };
       }
 
+      const slotLen = config?.gridMinutes ?? 30;
       const blocks = blocksIndex.get(instrId)?.get(date) ?? [];
       let cover: BlockDetail | null = null;
       for (const b of blocks) {
         if (b.status === "cancelled" || b.status === "rejected") continue;
-        if (b.startMinute - g < minute + 1 && minute < b.endMinute + g) {
+        // Window-overlap check: does this slot's own span
+        // [minute, minute + slotLen) overlap the gap-extended booking
+        // window [b.startMinute - g, b.endMinute + g)? Comparing only the
+        // slot's start minute against a fixed point (the previous
+        // `minute + 1`) missed the slot immediately BEFORE a booking
+        // whenever the gap is smaller than one grid step — e.g. a 30-min
+        // slot ending right at the gap boundary would have its start
+        // minute fall just outside `b.startMinute - g`, even though the
+        // back half of that same slot is inside the gap and the grid's
+        // own free/busy computation (buildFreeGrid, which correctly checks
+        // the whole candidate window) already marks it non-free. That
+        // mismatch showed up as a buffer slot rendering as generic "Busy"
+        // instead of "Buffer for ...".
+        if (b.startMinute - g < minute + slotLen && minute < b.endMinute + g) {
           cover = b;
           break;
         }
@@ -1124,13 +1143,17 @@ export default function SalesDashboard() {
           };
         }
         if (cover.status === "pending_payment" || cover.status === "hold") {
+          const label =
+            cover.status === "hold" ? "Tentative" : "Pending Payment";
           return {
-            title: "Payment pending",
-            detail: [
-              blockTime,
-              `Instructor: ${name}`,
-              "Slot is on hold until payment completes.",
-            ],
+            title: isBuffer ? `Buffer for ${label} slot` : "Payment pending",
+            detail: isBuffer
+              ? [blockTime, `Instructor: ${name}`]
+              : [
+                  blockTime,
+                  `Instructor: ${name}`,
+                  "Slot is on hold until payment completes.",
+                ],
           };
         }
         if (cover.status === "paused") {
