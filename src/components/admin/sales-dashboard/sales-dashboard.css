@@ -423,6 +423,28 @@
   border-radius: 12px;
   background: var(--gc-bg);
   box-shadow: var(--gc-shadow);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Visually ties the "pick a slot now" banner (override / add-another-class
+   mode) to WHERE that click should happen — otherwise the banner and the
+   grid can read as two unrelated things, especially right after the modal
+   closes. */
+@keyframes grid-wrap-picking-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--gc-yellow-hover);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--gc-yellow-fill);
+  }
+}
+
+.grid-wrap-picking {
+  border-color: var(--gc-yellow-hover);
+  animation: grid-wrap-picking-pulse 1.6s ease-in-out infinite;
 }
 
 /* Grid table layout — ported as-is from the standalone reference dashboard

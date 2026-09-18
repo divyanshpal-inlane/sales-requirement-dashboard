@@ -850,6 +850,21 @@ export default function SalesDashboard() {
     localStorage.setItem("lane-sales-dashboard-theme", theme);
   }, [theme]);
 
+  // Entering "pick a slot on the grid" mode (override, or add-another-class)
+  // is easy to miss if the grid is scrolled out of view or the user doesn't
+  // notice the modal closed — scroll the grid into view and give it a
+  // visible highlighted border for as long as picking mode is active, so
+  // it's unmistakable where to click next.
+  const gridWrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (addingSlotMode || overrideSource) {
+      gridWrapRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [addingSlotMode, overrideSource]);
+
   useEffect(() => {
     let active = true;
     void Promise.all([fetchKmlData(), loadInstructorIndex()])
@@ -1819,7 +1834,14 @@ export default function SalesDashboard() {
           })}
         </nav>
 
-        <div className="grid-wrap">
+        <div
+          className={
+            addingSlotMode || overrideSource
+              ? "grid-wrap grid-wrap-picking"
+              : "grid-wrap"
+          }
+          ref={gridWrapRef}
+        >
           <AvailabilityGrid
             instructors={gridRows}
             freeGrid={displayGrid}
@@ -2070,8 +2092,9 @@ export default function SalesDashboard() {
             🟡
           </span>
           <span className="slot-toast-msg">
-            Override mode: double-click a new free 1-hour slot to move this
-            tentative booking.
+            <strong>👉 Pick the new slot now:</strong> double-click any green
+            (free) cell on the highlighted grid below to move this tentative
+            booking there.
           </span>
           <button
             type="button"
@@ -2094,8 +2117,10 @@ export default function SalesDashboard() {
             ➕
           </span>
           <span className="slot-toast-msg">
-            Adding a class: double-click a new free 1-hour slot to add it to
-            this booking.
+            <strong>👉 Pick the next class now:</strong> double-click any green
+            (free) cell on the highlighted grid below to add it to this booking.
+            The form isn&apos;t closed — it will reopen with your selection
+            added.
           </span>
           <button
             type="button"
