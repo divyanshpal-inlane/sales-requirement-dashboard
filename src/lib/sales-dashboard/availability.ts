@@ -619,7 +619,26 @@ function buildFreeGrid(
           ),
         );
         if (blocked) continue;
-        if (isTimeUnavailable(instr.unavailability, date, day, m)) continue;
+        // isTimeUnavailable() only tests a single instant, not a range —
+        // so for a `duration` longer than one grid step (e.g. checking a
+        // 60-min class-length window while the grid steps by 30 min), a
+        // candidate starting right before an unavailability window began
+        // would pass this check even though the second half of the class
+        // would run into it. Sample every grid step across the whole
+        // [m, m + duration) window so any unavailability starting partway
+        // through is caught, not just one exactly at m.
+        const step = Math.max(
+          1,
+          Math.min(input.slotConfig.gridMinutes, duration),
+        );
+        let unavailableSomewhere = false;
+        for (let t = m; t < m + duration; t += step) {
+          if (isTimeUnavailable(instr.unavailability, date, day, t)) {
+            unavailableSomewhere = true;
+            break;
+          }
+        }
+        if (unavailableSomewhere) continue;
         free.push(m);
       }
       perDate.set(date, free);
