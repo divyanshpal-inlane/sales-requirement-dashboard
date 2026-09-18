@@ -351,73 +351,71 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
     <Fragment>
       <tr className={isSelected ? "row row-selected" : "row"}>
         <td className="instructor-cell" title={detailTitle}>
-          <div className="instructor-cell-inner">
-            <button
-              type="button"
-              className="row-select"
-              aria-label={
-                isSelected
-                  ? `Un-highlight ${instr.name}'s row`
-                  : `Highlight ${instr.name}'s row`
-              }
-              title="Highlight this row"
-              onClick={() => onToggleSelectRow(instr.id)}
-            >
-              {isSelected ? "●" : "○"}
-            </button>
-            {rowColor && (
-              <span
-                className="loc-swatch"
-                style={{ background: rowColor }}
-                title={`${instr.name}’s zone colour on the map`}
-              />
+          <button
+            type="button"
+            className="row-select"
+            aria-label={
+              isSelected
+                ? `Un-highlight ${instr.name}'s row`
+                : `Highlight ${instr.name}'s row`
+            }
+            title="Highlight this row"
+            onClick={() => onToggleSelectRow(instr.id)}
+          >
+            {isSelected ? "●" : "○"}
+          </button>
+          {rowColor && (
+            <span
+              className="loc-swatch"
+              style={{ background: rowColor }}
+              title={`${instr.name}’s zone colour on the map`}
+            />
+          )}
+          <button
+            type="button"
+            className={isExpanded ? "expand open" : "expand"}
+            aria-expanded={isExpanded}
+            aria-label={
+              isExpanded
+                ? `Hide ${instr.name}'s full timetable`
+                : `Show ${instr.name}'s full timetable`
+            }
+            title={
+              isExpanded
+                ? "Hide this instructor's full timetable"
+                : "Show this instructor's full schedule across all dates"
+            }
+            onClick={() => onToggleExpand(instr.id)}
+          >
+            <span className="expand-chev" aria-hidden="true">
+              {isExpanded ? "▲" : "▼"}
+            </span>
+            <span className="expand-label">
+              {isExpanded ? "Hide schedule" : "Schedule"}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="instructor-name"
+            title={detailTitle}
+            onClick={() => onToggleExpand(instr.id)}
+          >
+            {instr.name}
+            {statusNote(instr) && (
+              <span className="break-badge">{statusNote(instr)}</span>
             )}
+          </button>
+          {onRemove && (
             <button
               type="button"
-              className={isExpanded ? "expand open" : "expand"}
-              aria-expanded={isExpanded}
-              aria-label={
-                isExpanded
-                  ? `Hide ${instr.name}'s full timetable`
-                  : `Show ${instr.name}'s full timetable`
-              }
-              title={
-                isExpanded
-                  ? "Hide this instructor's full timetable"
-                  : "Show this instructor's full schedule across all dates"
-              }
-              onClick={() => onToggleExpand(instr.id)}
+              className="remove-instr"
+              title={`Remove ${instr.name} from the grid`}
+              aria-label={`Remove ${instr.name} from the grid`}
+              onClick={() => onRemove(instr.id)}
             >
-              <span className="expand-chev" aria-hidden="true">
-                {isExpanded ? "▲" : "▼"}
-              </span>
-              <span className="expand-label">
-                {isExpanded ? "Hide schedule" : "Schedule"}
-              </span>
+              ×
             </button>
-            <button
-              type="button"
-              className="instructor-name"
-              title={detailTitle}
-              onClick={() => onToggleExpand(instr.id)}
-            >
-              {instr.name}
-              {statusNote(instr) && (
-                <span className="break-badge">{statusNote(instr)}</span>
-              )}
-            </button>
-            {onRemove && (
-              <button
-                type="button"
-                className="remove-instr"
-                title={`Remove ${instr.name} from the grid`}
-                aria-label={`Remove ${instr.name} from the grid`}
-                onClick={() => onRemove(instr.id)}
-              >
-                ×
-              </button>
-            )}
-          </div>
+          )}
         </td>
         {timeCols.map((t, ti) => {
           const m = timeStarts[ti];
@@ -536,22 +534,6 @@ function AvailabilityGridInner(props: GridProps) {
 
   return (
     <table className="roster grid">
-      {/* Explicit <colgroup> is what actually locks every row (header, each
-          instructor row, loading rows) to identical column widths under
-          table-layout: fixed. Relying on the header row's cell widths alone
-          is spec-legal but fragile in practice — a body cell whose display
-          gets overridden (e.g. flex, for the instructor name/button row)
-          can size independently of the header in some browsers, which is
-          what caused the timeline to visually detach from the Instructor
-          column. Widths here must stay in sync with .col-instructor /
-          .instructor-cell (420px) and .col-time-h / .cell (44px) in
-          sales-dashboard.css. */}
-      <colgroup>
-        <col style={{ width: 420 }} />
-        {timeCols.map((t) => (
-          <col key={t} style={{ width: 44 }} />
-        ))}
-      </colgroup>
       <thead>
         <tr>
           <th className="col-instructor">Instructor</th>
