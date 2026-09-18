@@ -974,6 +974,61 @@ tentative_details: JSON nullable = {
 - [x] 1-hour block validation prevents partial-hour bookings
 - [x] White screen error fixed (prop chain complete)
 
+## Sales Dashboard — Multi-Class Booking, Override, and Grid Accuracy Fixes
+
+**Status**: ✅ IMPLEMENTED & PRODUCTION-READY. Supersedes/extends the "Tentative Slot Selection & Booking Feature" and "Sales Dashboard Layout & Design" sections above — those describe the original single-slot booking; this section covers everything added afterward.
+
+### Grid color legend (current, authoritative)
+
+| Color | Meaning | CSS class |
+|---|---|---|
+| 🟢 Green | Free — bookable | `.cell-free` |
+| 🟡 Yellow | Tentative (any payment status — unpaid/half/full paid look the same) | `.cell-tentative` |
+| 🟣 Purple | Booked / completed / a real learner booking mid-payment (`pending_payment`) — never overridable from Sales | `.cell-booked` |
+| 🔵 Blue | Already added to the in-progress multi-class batch, not yet submitted | `.cell-pending` |
+| Grey / hatched | Free, but would overlap a class already in the in-progress batch — disabled, `cursor: not-allowed` | `.cell-pending-blocked` |
+| Plain/default | Paused, unavailable, a travel-gap buffer, or outside configured business hours | (no color class) |
+
+### Multi-class booking (one customer, several classes in one flow)
+
+A single customer form now carries a batch of 1..N slots instead of forcing Sales to restart the form for every class in a course package.
+
+- **State lives in `SalesDashboard.tsx`, not the modal**: `pendingSlots: SlotPick[]` and `customerFormData: CustomerFormValues` (from `TentativeBookingModal.tsx`) are owned by the parent. This is required, not just tidier — the modal has to *hide* (not unmount, not reset) while Sales double-clicks each additional class on the grid behind it, and state owned by the modal wouldn't survive that.
+- **"+ Add another class"** (`handleAddAnotherSlot`) hides the modal, arms `addingSlotMode`, shows a persistent banner, scrolls the grid into view, and gives `.grid-wrap` a pulsing yellow border (`.grid-wrap-picking`) so it's obvious where to click next.
+- The next double-clicked free slot is appended to `pendingSlots` (after an **overlap check** — not just exact-start-time dedup — against every slot already in the batch for the same instructor/date) and the modal reopens with the same form values intact.
+- Already-selected classes show **blue** (`.cell-pending`) across their *full* 1-hour span (both 30-min grid cells) — `resolveInfo` checks `pendingSlots` for a range match (`minute >= startTime && minute < endTime`), not just an exact-start match (an earlier bug only highlighted the first half-hour).
+- Any free slot that would **overlap** an already-picked class shows **grey/hatched** (`.cell-pending-blocked`) and is rejected with a clear message if double-clicked anyway (`handleSlotDoubleClick`'s `addingSlotMode` branch does a real interval-overlap test: `minute < sEnd && sStart < newEnd`).
+- Each slot row in the modal shows date/time/instructor with a × to remove it (hidden once only one slot remains — Cancel instead).
+- **Submit is all-or-nothing**: every slot is re-validated fresh via `validateSlotFresh` (the grid may have changed since any slot was added, possibly minutes earlier); if any one fails, the error names exactly which class and **no insert is attempted at all**. On success, all slots are created via a **single multi-row `.insert([...])` call** — one Postgres statement, so a race-condition conflict on any row (caught by the `schedule_no_overlap_new_rows` exclusion constraint) atomically rolls back the whole batch. This gets true all-or-nothing behavior for free from the existing insert path — no new backend code needed for this one.
+- Every row is still `isTentative: true` / `status: "hold"` — never booked, regardless of batch size.
+
+### Override an unpaid tentative slot (hand it to a paying learner)
+
+**Correct business rule** (an earlier implementation had this backwards — see git history around commit `ae9ac19` for the correction): override does **not** move an unpaid tentative customer to a different slot. It replaces the customer **at the same slot** — an unpaid tentative hold gets handed to a **new, paying** learner (half or full paid only, never unpaid).
+
+- Hovering an unpaid 🟡 tentative slot shows **"🟡 Tentative (Unpaid)"** with an **Override Slot** button. Half/full-paid tentative slots show plain "Tentative" with no override option — once any payment is collected, that slot is protected.
+- Clicking **Override Slot** (`handleOverrideClick`) opens the booking modal **immediately for that same instructor/date/time** — no grid picking needed, since there's no "new slot" to choose. The form starts **blank** (new learner, not the same one moving) with Payment Status defaulted to **Half Paid**; **"Unpaid" is not offered as an option at all** in this mode (removed from the `<select>`, not just rejected on submit).
+- **Enforcement is server-side, not just frontend**: `sql/override_tentative_slot.sql` (must be run manually in the Supabase SQL editor — no DDL access via the app's anon key) defines `override_tentative_slot(p_old_schedule_id bigint, p_new_tentative_details jsonb)`. It re-reads the old row fresh (`FOR UPDATE`), re-checks it's still an unpaid tentative hold, re-checks the new `tentative_details` actually says `half_paid`/`full_paid`, then deletes the old row and inserts the replacement **at the old row's own instructor_id/date/start_time/end_time** (never anything the client passes in — a client can't redirect an override to a different slot even by tampering with the request) — all in one transaction, so any failure leaves the original untouched.
+- After editing this function's signature, **you must run `NOTIFY pgrst, 'reload schema';`** (or wait ~30-60s) for Supabase's PostgREST layer to pick up the change — a stale schema cache produces `Could not find the function public.override_tentative_slot(...)` even after successfully creating it.
+- Does **not** modify `schedule_no_overlap_new_rows` — that constraint is relied on as-is.
+
+### Grid accuracy fixes (found via live tester bug reports, verified against real DB rows before fixing)
+
+- **Adjacent-block priority**: `resolveInfo`'s status lookup used to take whichever DB row matched *first* in array order when scanning for what covers a given minute, without distinguishing a genuine direct match (`minute` literally inside that block's own `[startMinute, endMinute)`) from a match only reached via gap-buffer extension from a **different**, earlier block. When one real block sits immediately before another (e.g. a paused class followed by a booked one with no gap), the first block's buffer reach could cover the second block's own actual start — showing it as "Buffer for [wrong thing]" instead of its real status. Fixed: a direct match always wins over a buffer-only match, regardless of iteration order.
+- **Paused buffer labeling**: the "paused" status branch was the one status that never checked `isBuffer` (unlike booked/completed/hold, which already did) — always said plain "Paused" even for its own travel-gap buffer. Now says "Buffer for Paused class" when appropriate.
+- **Display range vs. bookable range**: the grid's *visible* time columns now span the full 24-hour day (00:00–23:30, set in `useSalesData.ts`'s `timeStartsRef`), independent of the shared `booking_flow` config's `slot_start`/`slot_end` (06:00–22:00 by default) — Sales needs to see whatever's actually scheduled, even outside business hours. This is **display-only**: the actual free/busy computation (`slotConfig` passed to `buildInstructorFreeGrid`/`buildDisplayFreeGrid`) still uses the real configured window, since that config is shared with the real learner-facing direct-booking engine — widening it would let real learners book at 2am too. Slots outside the configured window show as **"Outside business hours"** (not misleadingly generic "Busy") whenever nothing is actually scheduled there.
+- Several tester-reported claims didn't match current DB data on re-verification (e.g. a status reported as "paused" was actually "booked" by the time it was checked) — always re-query the actual `Schedule` row before assuming a display bug; the underlying data may have changed between report and investigation.
+
+### Standalone GitHub Pages test deployment
+
+A separate, **test-only** static deploy of the full `inlane-web-app` (not just the dashboard) exists for external testers, pushed to `github.com/divyanshpal-inlane/sales-requirement-dashboard` and built via `.github/workflows/deploy.yml` in that repo → live at `https://divyanshpal-inlane.github.io/sales-requirement-dashboard/`.
+
+- This is **not** the production deployment (that's still Vercel, auto-deployed from `main` — see `DEPLOYMENT.md`).
+- `vite.config.ts`'s `base` reads `process.env.VITE_BASE_PATH` (only set in that repo's workflow); `src/App.tsx`'s `<BrowserRouter basename={import.meta.env.BASE_URL}>` follows it. Both are no-ops everywhere else (local dev, Vercel), since the env var is unset there.
+- **GitHub Pages has no backend** — anything depending on the Go API (`/go-api/*`: most auth, payments, scheduling) will not work there. Only flows that talk to Supabase directly from the client have a chance of working.
+- The workflow injects `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`/`VITE_GOOGLE_MAPS_API_KEY` from that repo's GitHub Actions **variables** (not secrets — none of these three are sensitive) plus a **placeholder** (never the real value) for `VITE_SUPABASE_SERVICE_ROLE_KEY`, purely so `src/context/auth-context.tsx`'s module-top-level `createClient(supabaseUrl, supabaseServiceKey)` doesn't throw and blank the whole app on load.
+- ⚠️ **Separately discovered, unrelated to this deployment**: `VITE_SUPABASE_SERVICE_ROLE_KEY` (a real secret — full DB access, bypasses RLS) is read via `import.meta.env` in `auth-context.tsx`, meaning Vite bundles the **real** key into the client-side JS on **every** build, including the production Vercel one. This is a pre-existing vulnerability, not something introduced by the test deploy, and still needs its own fix (move whatever `supabaseAdmin` is used for behind a real backend call).
+
 ## Additional Resources
 
 - `README.md` — Quick start
