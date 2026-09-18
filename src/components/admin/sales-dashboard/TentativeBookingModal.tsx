@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import React, { useState } from "react";
 
 import { minutesToTime, timeToMinutes } from "@/lib/sales-dashboard/validation";
-import { normalizePhone } from "@/lib/sales-dashboard/validation";
+import { isValidPhone, normalizePhone } from "@/lib/sales-dashboard/validation";
 import { supabase } from "@/lib/supabaseClient";
 
 export interface TentativeBookingData {
@@ -131,7 +131,10 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
     }
     if (!formData.customerPhone.trim()) {
       newErrors.customerPhone = "Phone number is required";
-    } else if (!normalizePhone(formData.customerPhone)) {
+    } else if (!isValidPhone(formData.customerPhone)) {
+      // normalizePhone() alone would accept e.g. "0987654321" — 10 digits,
+      // but not a real Indian mobile number (can't start with 0).
+      // isValidPhone() additionally rejects that case.
       newErrors.customerPhone = "Invalid phone number";
     }
     if (!formData.salesAgent.trim()) {
