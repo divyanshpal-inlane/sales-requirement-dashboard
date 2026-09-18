@@ -510,21 +510,37 @@
   box-sizing: border-box;
 }
 
-/* Instructor cell - sticky left column */
+/* Instructor cell - sticky left column.
+   IMPORTANT: this stays a plain table-cell (no display override) so its
+   width is governed purely by the table's column-sizing algorithm (locked
+   via <colgroup> — see the .grid <table>) and stays byte-identical to the
+   header's .col-instructor <th> column in every browser. Overriding this
+   box's display to flex/grid previously caused the sticky column to size
+   independently of the header, visually detaching the timeline from it. */
 .instructor-cell {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--gc-bg);
   text-align: left;
+  width: 320px;
+  height: 100%;
+  padding: 0 !important;
+  border-right: 2px solid var(--gc-border);
+  box-sizing: border-box;
+}
+
+/* Flex row layout lives on an inner wrapper, never on the <td> itself. */
+.instructor-cell-inner {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 320px;
+  width: 100%;
   height: 100%;
-  padding: 8px 12px !important;
-  border-right: 2px solid var(--gc-border);
+  padding: 8px 12px;
+  box-sizing: border-box;
   flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .instructor-name {
@@ -587,6 +603,7 @@
 .row-loading .instructor-cell {
   color: var(--gc-text-2);
   font-style: italic;
+  padding: 8px 12px !important;
 }
 
 .row-loading-msg {
@@ -653,9 +670,6 @@
   padding: 0 !important;
   cursor: pointer;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
 }
 
