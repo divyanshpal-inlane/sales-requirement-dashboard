@@ -769,6 +769,24 @@
   background: var(--gc-yellow-hover);
 }
 
+.slot-pop-delete-btn {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--gc-red-hover);
+  background: var(--gc-red-bg);
+  color: var(--gc-red-text);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slot-pop-delete-btn:hover {
+  background: var(--gc-red-hover);
+}
+
 .cell-free {
   background: var(--gc-green-fill);
 }

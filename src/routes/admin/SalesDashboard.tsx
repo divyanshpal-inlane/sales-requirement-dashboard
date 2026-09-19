@@ -45,6 +45,7 @@ import {
   minutesToTime,
   timeToMinutes,
 } from "@/lib/sales-dashboard/validation";
+import { supabase } from "@/lib/supabaseClient";
 
 const LocationSearch = lazy(
   () => import("@/components/admin/sales-dashboard/LocationSearch"),
@@ -78,6 +79,14 @@ interface SlotInfo {
     startMinute: number;
     endMinute: number;
     tentativeDetails: Record<string, unknown> | null;
+  } | null;
+  // Set for any non-buffer tentative slot regardless of payment status --
+  // unlike override (unpaid only), a wrong entry can be deleted no matter
+  // who's already paid something toward it.
+  deleteAction: {
+    blockId: number;
+    instrId: string;
+    customerName: string;
   } | null;
 }
 
@@ -203,6 +212,7 @@ interface GridProps {
   onRemove?: (id: string) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
+  onDeleteTentative?: (action: NonNullable<SlotInfo["deleteAction"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -221,6 +231,7 @@ interface SlotCellProps {
   canBook1Hour?: boolean;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
+  onDeleteTentative?: (action: NonNullable<SlotInfo["deleteAction"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -239,6 +250,7 @@ function SlotCellInner({
   canBook1Hour,
   onDoubleClick,
   onOverrideClick,
+  onDeleteTentative,
   resolveInfo,
 }: SlotCellProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -309,6 +321,18 @@ function SlotCellInner({
               Override Slot
             </button>
           )}
+          {info.deleteAction && (
+            <button
+              type="button"
+              className="slot-pop-delete-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteTentative?.(info.deleteAction!);
+              }}
+            >
+              Delete Slot
+            </button>
+          )}
         </div>
       )}
     </td>
@@ -331,6 +355,7 @@ interface MiniRowProps {
   freeGrid: Map<string, Map<string, number[]>>;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
+  onDeleteTentative?: (action: NonNullable<SlotInfo["deleteAction"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -349,6 +374,7 @@ function MiniRowInner({
   freeGrid,
   onDoubleClick,
   onOverrideClick,
+  onDeleteTentative,
   resolveInfo,
 }: MiniRowProps) {
   // Computed here (inside the memoized row), not in the parent's map loop —
@@ -383,6 +409,7 @@ function MiniRowInner({
             canBook1Hour={canBook1Hour}
             onDoubleClick={onDoubleClick}
             onOverrideClick={onOverrideClick}
+            onDeleteTentative={onDeleteTentative}
             resolveInfo={resolveInfo}
           />
         );
@@ -415,6 +442,7 @@ interface InstructorRowGroupProps {
   onRemove?: (id: string) => void;
   onDoubleClick?: (instrId: string, date: string, minute: number) => void;
   onOverrideClick?: (override: NonNullable<SlotInfo["override"]>) => void;
+  onDeleteTentative?: (action: NonNullable<SlotInfo["deleteAction"]>) => void;
   resolveInfo: (
     instrId: string,
     date: string,
@@ -437,6 +465,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
     selectedDate,
     onDoubleClick,
     onOverrideClick,
+    onDeleteTentative,
     gridMinutes,
     freeGrid,
     onToggleExpand,
@@ -534,6 +563,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
               canBook1Hour={canBook1Hour}
               onDoubleClick={onDoubleClick}
               onOverrideClick={onOverrideClick}
+              onDeleteTentative={onDeleteTentative}
               resolveInfo={resolveInfo}
             />
           );
@@ -592,6 +622,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
                       freeGrid={freeGrid}
                       onDoubleClick={onDoubleClick}
                       onOverrideClick={onOverrideClick}
+                      onDeleteTentative={onDeleteTentative}
                       resolveInfo={resolveInfo}
                     />
                   ))}
@@ -634,6 +665,7 @@ function AvailabilityGridInner(props: GridProps) {
     onRemove,
     onDoubleClick,
     onOverrideClick,
+    onDeleteTentative,
     resolveInfo,
   } = props;
 
@@ -670,6 +702,7 @@ function AvailabilityGridInner(props: GridProps) {
             onRemove={onRemove}
             onDoubleClick={onDoubleClick}
             onOverrideClick={onOverrideClick}
+            onDeleteTentative={onDeleteTentative}
             resolveInfo={resolveInfo}
           />
         ))}
@@ -1464,6 +1497,36 @@ export default function SalesDashboard() {
     [instructorsById],
   );
 
+  // Lets Sales fix a wrong entry (e.g. a typo'd name/phone or a slot picked
+  // by mistake) without needing Operations or Instructor Management —
+  // unlike override, this works regardless of payment status, since it's
+  // just removing a mistaken hold rather than handing the slot to someone
+  // else.
+  const handleDeleteTentative = useCallback(
+    (action: NonNullable<SlotInfo["deleteAction"]>) => {
+      if (
+        !window.confirm(
+          `Delete the tentative slot for ${action.customerName}? This can't be undone.`,
+        )
+      ) {
+        return;
+      }
+      void supabase
+        .from("Schedule")
+        .delete()
+        .eq("id", action.blockId)
+        .then(({ error }) => {
+          if (error) {
+            showSlotNotice(`Couldn't delete slot: ${error.message}`);
+            return;
+          }
+          showSuccessNotice("Tentative slot deleted.");
+          refreshInstructors([action.instrId]);
+        });
+    },
+    [refreshInstructors, showSlotNotice, showSuccessNotice],
+  );
+
   const resolveInfo = useMemo(() => {
     const gap = config?.instructor_gap_minutes ?? 0;
     const g = Math.max(0, Math.floor(gap));
@@ -1527,6 +1590,7 @@ export default function SalesDashboard() {
           ],
           kind: "pending",
           override: null,
+          deleteAction: null,
         };
       }
       if (addingSlotMode && free) {
@@ -1543,6 +1607,7 @@ export default function SalesDashboard() {
             detail: [timeLabel, `Instructor: ${name}`],
             kind: "pending-blocked",
             override: null,
+            deleteAction: null,
           };
         }
       }
@@ -1553,6 +1618,7 @@ export default function SalesDashboard() {
           detail: [timeLabel, `Instructor: ${name}`],
           kind: "free",
           override: null,
+          deleteAction: null,
         };
       }
 
@@ -1603,6 +1669,7 @@ export default function SalesDashboard() {
             detail,
             kind: isBuffer ? "default" : "booked",
             override: null,
+            deleteAction: null,
           };
         }
         if (cover.status === "pending_payment" || cover.status === "hold") {
@@ -1626,6 +1693,7 @@ export default function SalesDashboard() {
                   ],
               kind: isBuffer ? "default" : "booked",
               override: null,
+              deleteAction: null,
             };
           }
           if (isBuffer) {
@@ -1634,6 +1702,7 @@ export default function SalesDashboard() {
               detail: [blockTime, `Instructor: ${name}`],
               kind: "default",
               override: null,
+              deleteAction: null,
             };
           }
           // The actual tentative slot itself (not its buffer). Payment
@@ -1663,6 +1732,15 @@ export default function SalesDashboard() {
                   tentativeDetails: cover.rawTentativeDetails,
                 }
               : null,
+            deleteAction: {
+              blockId: cover.id,
+              instrId,
+              customerName:
+                typeof cover.rawTentativeDetails?.name === "string" &&
+                cover.rawTentativeDetails.name
+                  ? cover.rawTentativeDetails.name
+                  : "this customer",
+            },
           };
         }
         if (cover.status === "paused") {
@@ -1677,6 +1755,7 @@ export default function SalesDashboard() {
                 ],
             kind: "default",
             override: null,
+            deleteAction: null,
           };
         }
         return {
@@ -1684,6 +1763,7 @@ export default function SalesDashboard() {
           detail: [blockTime, `Instructor: ${name}`],
           kind: "default",
           override: null,
+          deleteAction: null,
         };
       }
 
@@ -1699,6 +1779,7 @@ export default function SalesDashboard() {
           ],
           kind: "default",
           override: null,
+          deleteAction: null,
         };
       }
 
@@ -1732,6 +1813,7 @@ export default function SalesDashboard() {
           ],
           kind: "default",
           override: null,
+          deleteAction: null,
         };
       }
 
@@ -1740,6 +1822,7 @@ export default function SalesDashboard() {
         detail: [timeLabel, `Instructor: ${name}`],
         kind: "default",
         override: null,
+        deleteAction: null,
       };
     };
   }, [config, instructorsById, blocksIndex, pendingSlots, addingSlotMode]);
@@ -2124,6 +2207,7 @@ export default function SalesDashboard() {
             onRemove={inSelectionMode ? removeFromCompare : removeInstructor}
             onDoubleClick={handleSlotDoubleClick}
             onOverrideClick={handleOverrideClick}
+            onDeleteTentative={handleDeleteTentative}
             resolveInfo={resolveInfo}
           />
           {gridRows.length === 0 && !locSearch && (

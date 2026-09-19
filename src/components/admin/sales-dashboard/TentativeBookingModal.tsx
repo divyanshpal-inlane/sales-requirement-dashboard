@@ -404,8 +404,15 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             <input
               id="customerPhone"
               type="tel"
+              inputMode="numeric"
+              maxLength={10}
               value={formData.customerPhone}
-              onChange={(e) => set("customerPhone", e.target.value)}
+              onChange={(e) =>
+                set(
+                  "customerPhone",
+                  e.target.value.replace(/\D/g, "").slice(0, 10),
+                )
+              }
               placeholder="10-digit phone number"
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
                 errors.customerPhone ? "border-red-500" : "border-gray-300"
