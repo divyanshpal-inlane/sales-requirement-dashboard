@@ -248,7 +248,8 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       newErrors.customerPhone = "Invalid phone number";
     }
     if (!formData.salesAgent.trim()) {
-      newErrors.salesAgent = "Sales agent name is required";
+      newErrors.salesAgent =
+        "Couldn't identify your account yet — wait a moment and try again.";
     }
     if (!formData.customerAddress.trim()) {
       newErrors.customerAddress = "Address is required";
@@ -425,21 +426,25 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             )}
           </div>
 
-          {/* Sales Agent */}
+          {/* Sales Agent -- read-only, set to whoever is actually logged in
+              (see currentUserName in SalesDashboard.tsx). This used to be
+              free text nobody was required to fill in accurately, so there
+              was no reliable way to trace who created a given booking;
+              locking it to the real account closes that gap. */}
           <div>
             <label
               htmlFor="salesAgent"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Sales Agent *
+              Sales Agent
             </label>
             <input
               id="salesAgent"
               type="text"
+              readOnly
               value={formData.salesAgent}
-              onChange={(e) => set("salesAgent", e.target.value)}
-              placeholder="Sales agent name"
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
+              placeholder="Loading…"
+              className={`mt-1 w-full rounded-lg border bg-gray-100 px-3 py-2 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400 ${
                 errors.salesAgent ? "border-red-500" : "border-gray-300"
               }`}
             />

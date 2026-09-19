@@ -46,6 +46,8 @@ import {
   timeToMinutes,
 } from "@/lib/sales-dashboard/validation";
 import { supabase } from "@/lib/supabaseClient";
+import { useCurrentAdmin } from "@/queries/adminPermissions";
+import { useCurrentUser } from "@/queries/userManagement";
 
 const LocationSearch = lazy(
   () => import("@/components/admin/sales-dashboard/LocationSearch"),
@@ -735,6 +737,15 @@ export default function SalesDashboard() {
     loadInstructorIndex,
     refreshInstructors,
   } = useSalesData();
+  // Real, authenticated identity for the "Sales Agent" field on a tentative
+  // booking -- previously a free-text field nobody was required to fill in
+  // accurately, so there was no reliable way to trace who actually created
+  // a given slot. Prefers the admin record (direct query) and falls back
+  // to the team-member "user" record (same pattern instructors.tsx uses),
+  // since ProtectedAdminRoute allows both roles onto this page.
+  const { data: currentAdmin } = useCurrentAdmin();
+  const { data: currentUser } = useCurrentUser();
+  const currentUserName = currentAdmin?.name || currentUser?.name || "";
   const [filter, setFilter] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [dateIndex, setDateIndex] = useState(0);
@@ -759,8 +770,24 @@ export default function SalesDashboard() {
   // class on the grid (see handleAddAnotherSlot / addingSlotMode below).
   const [pendingSlots, setPendingSlots] = useState<SlotPick[]>([]);
   const [customerFormData, setCustomerFormData] = useState<CustomerFormValues>(
-    () => DEFAULT_CUSTOMER_FORM(),
+    () => DEFAULT_CUSTOMER_FORM(currentUserName),
   );
+  // currentUserName resolves asynchronously (a real DB/edge-function call),
+  // so it's almost always still empty at the lazy-init above -- keep
+  // salesAgent synced to it as soon as it resolves, and again if it ever
+  // changes (e.g. a different admin logs in without a full page reload).
+  // Combined with the field being read-only in the modal, this is what
+  // actually makes "Sales Agent" trustworthy for tracing who booked a
+  // slot, instead of a free-text field nobody was required to fill in
+  // accurately.
+  useEffect(() => {
+    if (!currentUserName) return;
+    setCustomerFormData((prev) =>
+      prev.salesAgent === currentUserName
+        ? prev
+        : { ...prev, salesAgent: currentUserName },
+    );
+  }, [currentUserName]);
   // True while Sales has clicked "+ Add another class" and is picking
   // the next slot for the SAME in-progress batch.
   const [addingSlotMode, setAddingSlotMode] = useState(false);
@@ -822,10 +849,10 @@ export default function SalesDashboard() {
   const handleCloseTentativeModal = useCallback(() => {
     setTentativeModalOpen(false);
     setPendingSlots([]);
-    setCustomerFormData(DEFAULT_CUSTOMER_FORM());
+    setCustomerFormData(DEFAULT_CUSTOMER_FORM(currentUserName));
     setOverrideContext(null);
     setAddingSlotMode(false);
-  }, []);
+  }, [currentUserName]);
 
   const handleTentativeSuccess = useCallback(() => {
     showSuccessNotice(
@@ -844,11 +871,17 @@ export default function SalesDashboard() {
     const affectedIds = [...new Set(pendingSlots.map((s) => s.instructorId))];
     setTentativeModalOpen(false);
     setPendingSlots([]);
-    setCustomerFormData(DEFAULT_CUSTOMER_FORM());
+    setCustomerFormData(DEFAULT_CUSTOMER_FORM(currentUserName));
     setOverrideContext(null);
     setAddingSlotMode(false);
     refreshInstructors(affectedIds);
-  }, [refreshInstructors, overrideContext, pendingSlots, showSuccessNotice]);
+  }, [
+    refreshInstructors,
+    overrideContext,
+    pendingSlots,
+    showSuccessNotice,
+    currentUserName,
+  ]);
 
   useEffect(() => {
     if (!addingSlotMode) return;
@@ -1452,11 +1485,10 @@ export default function SalesDashboard() {
       }
 
       // Fresh booking — reset to a clean single-slot batch and blank
-      // customer form (currentUserName, if ever wired up, would seed
-      // salesAgent here).
+      // customer form.
       setOverrideContext(null);
       setPendingSlots([newSlot]);
-      setCustomerFormData(DEFAULT_CUSTOMER_FORM());
+      setCustomerFormData(DEFAULT_CUSTOMER_FORM(currentUserName));
       setTentativeModalOpen(true);
     },
     [
@@ -1466,6 +1498,7 @@ export default function SalesDashboard() {
       blocksIndex,
       addingSlotMode,
       pendingSlots,
+      currentUserName,
     ],
   );
 
@@ -1509,12 +1542,12 @@ export default function SalesDashboard() {
         },
       ]);
       setCustomerFormData({
-        ...DEFAULT_CUSTOMER_FORM(),
+        ...DEFAULT_CUSTOMER_FORM(currentUserName),
         paymentStatus: "half_paid",
       });
       setTentativeModalOpen(true);
     },
-    [instructorsById],
+    [instructorsById, currentUserName],
   );
 
   // Lets Sales fix a wrong entry (e.g. a typo'd name/phone or a slot picked
