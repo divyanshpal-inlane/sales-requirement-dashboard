@@ -1576,6 +1576,31 @@ export default function SalesDashboard() {
         }
       }
 
+      // classifySlotConflict only ever looks at OTHER bookings
+      // (blocksIndex) -- it has no idea about the instructor's own
+      // Instructor.unavailability data, so a slot that's free of any
+      // conflicting booking but still doesn't have a genuine free hour
+      // because it runs into the instructor's own unavailability (or its
+      // travel-gap buffer) fell all the way through as conflict.kind ===
+      // "free" and got booked for real. The strict freeGrid (the same one
+      // canBook1Hour/cell-half already uses for coloring) DOES account
+      // for unavailability, so cross-check against it here too. Unlike a
+      // buffer against another customer's booking, unavailability can
+      // never be waived by anyone, so this is an unconditional block.
+      if (
+        conflict.kind === "free" &&
+        !validateOneHourBlock(instrId, date, minute, data?.freeGrid ?? null)
+      ) {
+        showSlotNotice(
+          "This slot doesn't have a full free hour available for this instructor. Please select a different time.",
+        );
+        if (addingSlotMode) {
+          setAddingSlotMode(false);
+          setTentativeModalOpen(true);
+        }
+        return;
+      }
+
       const startTime = minutesToTime(minute);
       const endTime = minutesToTime(minute + 60);
       const newSlot: SlotPick = {
@@ -1634,6 +1659,7 @@ export default function SalesDashboard() {
       pendingSlots,
       currentUserName,
       customerFormData.customerPhone,
+      data?.freeGrid,
     ],
   );
 
@@ -1662,7 +1688,32 @@ export default function SalesDashboard() {
         conflict,
         customerFormData.customerPhone,
       );
-      if (ok) return { ok: true };
+      if (ok) {
+        // classifySlotConflict only ever compares against OTHER bookings
+        // (blocksIndex) -- it has no idea about the instructor's own
+        // Instructor.unavailability data. A slot that's clear of any
+        // conflicting booking can still fail to have a genuine free hour
+        // because it runs into the instructor's own unavailability (or
+        // its travel-gap buffer), which only the strict freeGrid (the
+        // same one canBook1Hour/cell-half coloring already uses) knows
+        // about. Without this cross-check a "half free, half on the
+        // instructor's own break" slot silently created a real Schedule
+        // row instead of being rejected.
+        if (
+          validateOneHourBlock(
+            slot.instructorId,
+            slot.date,
+            minute,
+            data?.freeGrid ?? null,
+          )
+        ) {
+          return { ok: true };
+        }
+        return {
+          ok: false,
+          reason: "not fully available for this instructor",
+        };
+      }
       // Distinguishes *why* for the error message a sales agent actually
       // sees -- "no longer available" alone reads the same for a genuine
       // double-booking as for a buffer-only conflict with someone else's
@@ -1678,6 +1729,7 @@ export default function SalesDashboard() {
       config?.instructor_gap_minutes,
       blocksIndex,
       customerFormData.customerPhone,
+      data?.freeGrid,
     ],
   );
 
