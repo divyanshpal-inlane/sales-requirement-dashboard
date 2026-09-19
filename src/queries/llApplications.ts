@@ -107,6 +107,8 @@ export type LLPipelineQueueKey = "all" | LLPhaseKey | "escalations";
 
 export interface LLPipelineFilters {
   queue: LLPipelineQueueKey;
+  /** Exact board stage ("all" = every stage in the selected queue). */
+  stage: string;
   /** Matches learner name/phone/email, application no., LL no., batch/route. */
   search: string;
   /** Segregation route ("all" = no filter). */
@@ -118,6 +120,7 @@ export interface LLPipelineFilters {
 
 export const DEFAULT_LL_PIPELINE_FILTERS: LLPipelineFilters = {
   queue: "all",
+  stage: "all",
   search: "",
   route: "all",
   dateField: "updated_at",
@@ -137,6 +140,29 @@ function llStatusesInPhase(phase: LLPhaseKey): string[] {
     if (llStagePhase(key) === phase) statuses.add(key);
   }
   return [...statuses];
+}
+
+const ALL_LL_PIPELINE_STATUSES = [
+  ...LL_STAGES.map((stage) => stage.key),
+  ...Object.keys(LL_FAILURE_STAGES),
+];
+
+function llStatusesForQueue(queue: LLPipelineQueueKey): string[] {
+  if (queue !== "all" && queue !== "escalations") {
+    return llStatusesInPhase(queue);
+  }
+  return ALL_LL_PIPELINE_STATUSES;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyLLQueueFilter(query: any, queue: LLPipelineQueueKey) {
+  if (queue === "escalations") {
+    return query.or(
+      `escalated.is.true,status.in.(${Object.keys(LL_FAILURE_STAGES).join(",")})`,
+    );
+  }
+  if (queue !== "all") return query.in("status", llStatusesInPhase(queue));
+  return query;
 }
 
 /**
@@ -199,13 +225,8 @@ async function fetchLLApplicationsPage(opts: {
     .order("id", { ascending: false })
     .range(from, from + limit - 1);
 
-  if (filters.queue === "escalations") {
-    q = q.or(
-      `escalated.is.true,status.in.(${Object.keys(LL_FAILURE_STAGES).join(",")})`,
-    );
-  } else if (filters.queue !== "all") {
-    q = q.in("status", llStatusesInPhase(filters.queue));
-  }
+  q = applyLLQueueFilter(q, filters.queue);
+  if (filters.stage !== "all") q = q.eq("status", filters.stage);
   if (filters.route !== "all") {
     q = q.eq("batch_code", filters.route);
   }
@@ -338,10 +359,34 @@ export function useLLQueueCounts() {
   });
 }
 
+/** Exact counts for every stage shown in the selected pipeline queue. */
+export function useLLStageCounts(queue: LLPipelineQueueKey) {
+  return useQuery({
+    queryKey: ["ll-stage-counts", queue],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const rows = await Promise.all(
+        llStatusesForQueue(queue).map(async (status) => {
+          let q = sb.from("ll_applications").select("id", {
+            count: "exact",
+            head: true,
+          });
+          q = applyLLQueueFilter(q, queue).eq("status", status);
+          const { error, count } = await q;
+          if (error) throw error;
+          return [status, count ?? 0] as const;
+        }),
+      );
+      return Object.fromEntries(rows);
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
 /** Refresh the pipeline lists + tab counts after any LL application change. */
 function invalidateLLPipeline(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ["ll-applications"] });
   queryClient.invalidateQueries({ queryKey: ["ll-queue-counts"] });
+  queryClient.invalidateQueries({ queryKey: ["ll-stage-counts"] });
 }
 
 export function useLLPipelineEvents(applicationId: string | null) {
