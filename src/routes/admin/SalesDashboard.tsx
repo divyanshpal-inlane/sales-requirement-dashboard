@@ -694,6 +694,7 @@ export default function SalesDashboard() {
     loadInstructors,
     removeInstructor,
     loadInstructorIndex,
+    refreshInstructors,
   } = useSalesData();
   const [filter, setFilter] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -795,13 +796,20 @@ export default function SalesDashboard() {
           ? `✅ ${pendingSlots.length} tentative classes booked successfully.`
           : "✅ Tentative slot booked successfully.",
     );
+    // Only the instructor(s) just booked actually changed -- a full
+    // reload() would reset phase to "loading" and re-fetch every OTHER
+    // instructor in the roster too, showing a disruptive full-page loading
+    // screen (which would also hide the success toast above) for no
+    // reason. Targeted refresh keeps this to a brief per-row skeleton on
+    // just the affected instructor(s).
+    const affectedIds = [...new Set(pendingSlots.map((s) => s.instructorId))];
     setTentativeModalOpen(false);
     setPendingSlots([]);
     setCustomerFormData(DEFAULT_CUSTOMER_FORM());
     setOverrideContext(null);
     setAddingSlotMode(false);
-    reload();
-  }, [reload, overrideContext, pendingSlots.length, showSuccessNotice]);
+    refreshInstructors(affectedIds);
+  }, [refreshInstructors, overrideContext, pendingSlots, showSuccessNotice]);
 
   useEffect(() => {
     if (!addingSlotMode) return;

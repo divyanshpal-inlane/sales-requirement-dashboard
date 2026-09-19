@@ -574,6 +574,30 @@ export function useSalesData() {
     };
   }, [loadSession, commit]);
 
+  // Silently re-fetch specific instructors' Schedule/Instructor data without
+  // touching `phase` -- unlike reload(), this doesn't reset the whole store,
+  // re-fetch app_settings, or re-fetch every OTHER already-loaded
+  // instructor, so it never triggers the full-page loading screen. Used
+  // after a booking/override completes (only the affected instructor(s)
+  // changed) and by the realtime subscription below (only the instructor
+  // named in the changed row needs refreshing). Silently ignores any id not
+  // currently in the roster -- nothing to refresh for those.
+  const refreshInstructors = useCallback(
+    (ids: string[]) => {
+      const s = storeRef.current;
+      const present = ids.filter((id) => s.instructors.has(id));
+      if (present.length === 0) return;
+      // Deleting first makes doLoad treat these as "not yet loaded" so it
+      // re-fetches fresh data instead of skipping them as already-present.
+      // This briefly shows the same per-row "Loading schedule..." skeleton
+      // used when an instructor is first added.
+      for (const id of present) s.instructors.delete(id);
+      commit();
+      void doLoad(present);
+    },
+    [commit, doLoad],
+  );
+
   // Realtime sync: when a Schedule row changes anywhere (e.g. a new
   // tentative/booked class created from another module), silently re-fetch
   // just that instructor's Schedule window if they're currently loaded into
@@ -596,24 +620,14 @@ export function useSalesData() {
           const instrId =
             payload.new?.instructor_id ?? payload.old?.instructor_id;
           if (!instrId) return;
-          const s = storeRef.current;
-          // Not currently loaded into the grid -- nothing to refresh.
-          if (!s.instructors.has(instrId)) return;
-          // Deleting first makes doLoad treat this instructor as
-          // "not yet loaded" so it re-fetches fresh data instead of skipping
-          // it as already-present. This briefly shows the same per-row
-          // "Loading schedule..." skeleton used when an instructor is first
-          // added, rather than the full-page loading screen reload() causes.
-          s.instructors.delete(instrId);
-          commit();
-          void doLoad([instrId]);
+          refreshInstructors([instrId]);
         },
       )
       .subscribe();
     return () => {
       void sb.removeChannel(channel);
     };
-  }, [commit, doLoad]);
+  }, [refreshInstructors]);
 
   return {
     phase,
@@ -623,5 +637,6 @@ export function useSalesData() {
     loadInstructors,
     removeInstructor,
     loadInstructorIndex,
+    refreshInstructors,
   };
 }
