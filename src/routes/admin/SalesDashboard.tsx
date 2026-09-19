@@ -1397,6 +1397,15 @@ export default function SalesDashboard() {
   }, [data, compareIds]);
   const inSelectionMode = compareIds.length > 0;
 
+  // displayGrid on purpose, unlike windowTotals/dateTotals below -- this
+  // feeds cell coloring (freeSet in AvailabilityGridInner -> free =
+  // freeSet.has(m)), where a 30-min-only opening still needs to render as
+  // free (canBook1Hour separately downgrades it to the striped .cell-half
+  // look rather than solid green). Collapsing this to freeGrid would make
+  // that half-free/half-buffer distinction impossible to render at all --
+  // see bookableCounts below for the freeGrid-based version used for the
+  // "X free" counts/sort order, which is a different requirement from
+  // what this feeds.
   const freeSets = useMemo(() => {
     const map = new Map<string, Set<number>>();
     if (!selectedDate || !data) return map;
@@ -1410,18 +1419,47 @@ export default function SalesDashboard() {
     return map;
   }, [data, selectedDate, workingOnMap, displayGrid]);
 
+  // The freeGrid-based (bookable full-hour) counterpart to freeSets above,
+  // used anywhere a NUMBER is shown ("X free") or slots are sorted by it --
+  // so those always agree with the strict, actually-bookable count
+  // windowTotals/dateTotals and the expanded mini-row use, rather than
+  // freeSets' more lenient half-hour-opening count.
+  const bookableCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!selectedDate || !data) return map;
+    for (const instr of data.instructors) {
+      if (!isBookable(instr) && !workingOnMap.has(instr.id)) continue;
+      map.set(
+        instr.id,
+        data.freeGrid.get(instr.id)?.get(selectedDate)?.length ?? 0,
+      );
+    }
+    return map;
+  }, [data, selectedDate, workingOnMap]);
+
+  // freeGrid, not displayGrid: these are the collapsed-row/date-tab summary
+  // counts, and they need to agree with what the expanded view's own count
+  // and green cells show (both driven by freeGrid, the strict "a full
+  // 1-hour class actually fits here" grid -- see MiniRowInner's dayFree
+  // below). displayGrid only requires a 30-min gridMinutes-long opening,
+  // which is right for coloring buffer-vs-free half-hour cells but counts
+  // scattered half-hour gaps that can't fit an actual class -- e.g. an
+  // instructor with classes back-to-back except for a 30-min gap every
+  // hour would show as "7 free" in the summary while the expanded view,
+  // correctly, shows zero bookable hours. Using the same grid everywhere
+  // means the summary number always matches what expanding it shows.
   const windowTotals = useMemo(() => {
     const map = new Map<string, number>();
     if (!data) return map;
     for (const instr of data.instructors) {
       if (!isBookable(instr) && !workingOnMap.has(instr.id)) continue;
-      const instrDates = displayGrid.get(instr.id);
+      const instrDates = data.freeGrid.get(instr.id);
       let total = 0;
       for (const d of data.dates) total += instrDates?.get(d)?.length ?? 0;
       map.set(instr.id, total);
     }
     return map;
-  }, [data, workingOnMap, displayGrid]);
+  }, [data, workingOnMap]);
 
   const dateTotals = useMemo(() => {
     const map = new Map<string, number>();
@@ -1430,16 +1468,16 @@ export default function SalesDashboard() {
       let total = 0;
       for (const instr of data.instructors) {
         if (!isBookable(instr) && !workingOnMap.has(instr.id)) continue;
-        total += displayGrid.get(instr.id)?.get(d)?.length ?? 0;
+        total += data.freeGrid.get(instr.id)?.get(d)?.length ?? 0;
       }
       map.set(d, total);
     }
     return map;
-  }, [data, workingOnMap, displayGrid]);
+  }, [data, workingOnMap]);
 
   const sortRoster = useCallback(
     (list: InstructorRow[]): InstructorRow[] => {
-      const freeCount = (i: InstructorRow) => freeSets.get(i.id)?.size ?? 0;
+      const freeCount = (i: InstructorRow) => bookableCounts.get(i.id) ?? 0;
       switch (sort) {
         case "alpha":
           return [...list].sort((a, b) => a.name.localeCompare(b.name));
@@ -1455,7 +1493,7 @@ export default function SalesDashboard() {
           );
       }
     },
-    [sort, freeSets],
+    [sort, bookableCounts],
   );
 
   const rows = useMemo(() => {
@@ -2273,7 +2311,7 @@ export default function SalesDashboard() {
                           }}
                           title={`${instr.name}’s zone colour on the map`}
                         />
-                        {`${instr.name} · ${freeSets.get(instr.id)?.size ?? 0} free`}
+                        {`${instr.name} · ${bookableCounts.get(instr.id) ?? 0} free`}
                         {statusNote(instr) && (
                           <span className="break-badge">
                             {statusNote(instr)}
