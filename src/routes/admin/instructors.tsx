@@ -5913,7 +5913,10 @@ export const InstructorSchedulePage = () => {
       const date = parse(i.toString(), "H", new Date());
       slots.push({
         hour24: i.toString().padStart(2, "0"),
-        display: format(date, "h a"),
+        // 24-hour, matching Sales Dashboard and this file's own
+        // WeeklyScheduleView, which both already use "HH:mm" -- this page
+        // was the odd one out with 12-hour AM/PM labels.
+        display: format(date, "HH:mm"),
       });
     }
     return slots;
@@ -6907,7 +6910,7 @@ export const InstructorSchedulePage = () => {
                                       "HH:mm:ss",
                                       new Date(),
                                     ),
-                                    "h:mm a",
+                                    "HH:mm",
                                   )}{" "}
                                   -{" "}
                                   {format(
@@ -6916,7 +6919,7 @@ export const InstructorSchedulePage = () => {
                                       "HH:mm:ss",
                                       new Date(),
                                     ),
-                                    "h:mm a",
+                                    "HH:mm",
                                   )}
                                 </div>
                               </div>
@@ -6968,14 +6971,14 @@ export const InstructorSchedulePage = () => {
                                     <Clock className="h-1.5 w-1.5" />
                                     {format(
                                       new Date(event.start.dateTime),
-                                      "h:mm a",
+                                      "HH:mm",
                                     )}
                                     {event.end?.dateTime && (
                                       <>
                                         {" - "}
                                         {format(
                                           new Date(event.end.dateTime),
-                                          "h:mm a",
+                                          "HH:mm",
                                         )}
                                       </>
                                     )}
