@@ -2623,6 +2623,12 @@ function WeeklyScheduleView({
               end_time: tentativeSchedule.end_time,
               enabled: tentativeSchedule.enabled,
               isTentative: tentativeSchedule.isTentative,
+              // Every tentative row must carry status "hold" -- the Sales
+              // Dashboard (and this table's own "hold"+isTentative
+              // convention, see sql/override_tentative_slot.sql) treats
+              // isTentative rows without it as real bookings, since the
+              // Schedule.status column otherwise defaults to "booked".
+              status: "hold",
               instructor_id: instructorId,
               tentative_details: {
                 name: tentativeSchedule.tentative_details.name,
@@ -2654,6 +2660,7 @@ function WeeklyScheduleView({
             end_time: tentativeSchedule.end_time,
             enabled: tentativeSchedule.enabled,
             isTentative: tentativeSchedule.isTentative,
+            status: "hold",
             instructor_id: instructorId,
             tentative_details: {
               name: tentativeSchedule.tentative_details.name,
@@ -3175,6 +3182,7 @@ function WeeklyScheduleView({
             end_time: tentativeScheduleCopy.end_time,
             enabled: true,
             isTentative: true,
+            status: "hold",
             instructor_id: instructorId,
             tentative_details: {
               name: tentativeScheduleCopy.tentative_details.name,
@@ -4731,6 +4739,7 @@ export const AddTentativeSchedule = ({
         end_time: slot.end_time,
         instructor_id: instructorId,
         isTentative: true,
+        status: "hold",
         course_id:
           tentativeDetails.course_id === "none" ||
           tentativeDetails.course_id === "topup"
