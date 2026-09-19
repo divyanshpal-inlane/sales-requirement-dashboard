@@ -1,5 +1,13 @@
 /* Scoped to .sales-dashboard-root (not :root/html) so this theme never
    leaks into the rest of the admin app. */
+/* Tokens below are pulled from the app's own design system (src/index.css's
+   shadcn/Tailwind CSS variables -- --background, --card, --border,
+   --foreground, --muted-foreground, --primary, plus the standard Tailwind
+   emerald/amber/violet/red/blue palettes for status colors) converted to
+   hex, rather than the Google Calendar-inspired palette this file used
+   before. Keeps the same --gc-* variable names/structure (every other rule
+   in this file already reads through these, so no other rule needed to
+   change) -- only the values move to match the rest of the app. */
 .sales-dashboard-root {
   background: var(--gc-bg);
   color: var(--gc-text);
@@ -8,64 +16,64 @@
     color 0.15s ease;
   color-scheme: light;
   --gc-bg: #ffffff;
-  --gc-surface: #f8f9fa;
-  --gc-hover: #f1f3f4;
-  --gc-detail: #fbfbfc;
-  --gc-border: #cdd0d4;
-  --gc-text: #202124;
-  --gc-text-2: #5f6368;
-  --gc-blue: #1a73e8;
-  --gc-blue-bg: #e8f0fe;
+  --gc-surface: #f4f4f5;
+  --gc-hover: #e4e4e7;
+  --gc-detail: #fafafa;
+  --gc-border: #e4e4e7;
+  --gc-text: #0a0a0b;
+  --gc-text-2: #71717a;
+  --gc-blue: #2563eb;
+  --gc-blue-bg: #dbeafe;
   --gc-blue-contrast: #ffffff;
-  --gc-green-fill: #d3ebd9;
-  --gc-green-hover: #c0ebce;
-  --gc-green-text: #137333;
-  --gc-red-text: #d93025;
-  --gc-red-bg: #fce8e6;
-  --gc-red-hover: #fad2cf;
+  --gc-green-fill: #d1fae5;
+  --gc-green-hover: #a7f3d0;
+  --gc-green-text: #047857;
+  --gc-red-text: #b91c1c;
+  --gc-red-bg: #fee2e2;
+  --gc-red-hover: #fecaca;
   /* Status palette: yellow = tentative, purple = booked (see TASK 20 —
      tentative slot override/replacement). */
   --gc-yellow-fill: #fef3c7;
   --gc-yellow-hover: #fde68a;
-  --gc-yellow-text: #92620a;
-  --gc-purple-fill: #ede7f6;
-  --gc-purple-hover: #d1c4e9;
-  --gc-purple-text: #5e35b1;
-  --gc-shadow: 0 1px 2px rgba(60, 64, 67, 0.1), 0 2px 6px rgba(60, 64, 67, 0.1);
-  --gc-pop-shadow: 0 1px 3px rgba(60, 64, 67, 0.24),
-    0 4px 8px rgba(60, 64, 67, 0.24);
-  --gc-suggest-shadow: 0 2px 6px rgba(60, 64, 67, 0.15),
-    0 8px 20px rgba(60, 64, 67, 0.2);
+  --gc-yellow-text: #92400e;
+  --gc-purple-fill: #ede9fe;
+  --gc-purple-hover: #ddd6fe;
+  --gc-purple-text: #6d28d9;
+  --gc-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --gc-pop-shadow: 0 4px 6px rgba(0, 0, 0, 0.1),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+  --gc-suggest-shadow: 0 10px 15px rgba(0, 0, 0, 0.1),
+    0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .sales-dashboard-root[data-theme="dark"] {
   color-scheme: dark;
-  --gc-bg: #202124;
-  --gc-surface: #292a2d;
-  --gc-hover: #333538;
-  --gc-detail: #26272a;
-  --gc-border: #3c4043;
-  --gc-text: #e8eaed;
-  --gc-text-2: #9aa0a6;
-  --gc-blue: #8ab4f8;
-  --gc-blue-bg: #223047;
-  --gc-blue-contrast: #131314;
-  --gc-green-fill: #1a3a26;
-  --gc-green-hover: #234d31;
-  --gc-green-text: #81c995;
-  --gc-red-text: #f28b82;
-  --gc-red-bg: #3c1f1e;
-  --gc-red-hover: #512624;
-  --gc-yellow-fill: #4a3c14;
-  --gc-yellow-hover: #5f4d1a;
-  --gc-yellow-text: #fbd971;
-  --gc-purple-fill: #33294d;
-  --gc-purple-hover: #453a63;
-  --gc-purple-text: #c5b3f0;
-  --gc-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --gc-pop-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.5);
-  --gc-suggest-shadow: 0 2px 6px rgba(0, 0, 0, 0.4),
-    0 8px 24px rgba(0, 0, 0, 0.6);
+  --gc-bg: #1c1917;
+  --gc-surface: #262626;
+  --gc-hover: #3f3f46;
+  --gc-detail: #221f1d;
+  --gc-border: #27272a;
+  --gc-text: #f2f2f2;
+  --gc-text-2: #a1a1aa;
+  --gc-blue: #60a5fa;
+  --gc-blue-bg: #1e3a5f;
+  --gc-blue-contrast: #0a0a0b;
+  --gc-green-fill: #022c22;
+  --gc-green-hover: #064e3b;
+  --gc-green-text: #6ee7b7;
+  --gc-red-text: #fca5a5;
+  --gc-red-bg: #450a0a;
+  --gc-red-hover: #7f1d1d;
+  --gc-yellow-fill: #451a03;
+  --gc-yellow-hover: #78350f;
+  --gc-yellow-text: #fcd34d;
+  --gc-purple-fill: #2e1065;
+  --gc-purple-hover: #4c1d95;
+  --gc-purple-text: #c4b5fd;
+  --gc-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --gc-pop-shadow: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --gc-suggest-shadow: 0 10px 15px rgba(0, 0, 0, 0.4),
+    0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .shell {
@@ -94,7 +102,7 @@
 
 .brand h1 {
   margin: 0;
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 21px;
   font-weight: 500;
   letter-spacing: -0.3px;
@@ -108,7 +116,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1a73e8 0%, #4285f4 60%, #34a853 100%);
+  background: #00cc81;
   border: 3px solid var(--gc-bg);
   box-shadow: 0 0 0 1px var(--gc-border);
 }
@@ -120,12 +128,12 @@
 }
 
 .cal-btn {
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 13px;
   color: var(--gc-text);
   background: var(--gc-bg);
   border: 1px solid var(--gc-border);
-  border-radius: 18px;
+  border-radius: 10px;
   padding: 7px 12px;
   transition:
     background 0.15s ease,
@@ -134,7 +142,7 @@
 
 .cal-btn:hover:not(:disabled) {
   background: var(--gc-surface);
-  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.2);
+  box-shadow: var(--gc-shadow);
 }
 
 .cal-btn:disabled {
@@ -146,7 +154,7 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 10px;
   font-size: 19px;
   line-height: 1;
   display: flex;
@@ -158,7 +166,7 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 10px;
   font-size: 16px;
   line-height: 1;
   display: flex;
@@ -169,7 +177,7 @@
 .cal-month {
   min-width: 210px;
   text-align: center;
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 21px;
   font-weight: 400;
   letter-spacing: -0.2px;
@@ -195,9 +203,9 @@
 .sort-select {
   padding: 7px 12px;
   border: 1px solid var(--gc-border);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   background: var(--gc-bg);
   color: var(--gc-text);
   cursor: pointer;
@@ -216,9 +224,9 @@
   width: 100%;
   padding: 8px 14px;
   border: 1px solid var(--gc-border);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13.5px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   background: var(--gc-bg);
   color: var(--gc-text);
   outline: none;
@@ -319,7 +327,7 @@
   color: var(--gc-blue);
   font-size: 12px;
   font-weight: 500;
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 2px 12px;
 }
 
@@ -376,7 +384,7 @@
   border: none;
   border-radius: 10px;
   font-size: 11.5px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   color: var(--gc-text);
   cursor: pointer;
 }
@@ -391,7 +399,7 @@
 }
 
 .tab strong {
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--gc-text);
@@ -566,7 +574,7 @@
   background: transparent;
   padding: 0;
   text-align: left;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-weight: 500;
   font-size: 13px;
   color: var(--gc-text);
@@ -624,9 +632,9 @@
   border: 1px solid var(--gc-border);
   background: var(--gc-red-bg);
   color: var(--gc-red-text);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -647,8 +655,8 @@
   border: 1px solid var(--gc-border);
   background: var(--gc-bg);
   color: var(--gc-text-2);
-  border-radius: 999px;
-  font-family: Roboto, Arial, sans-serif;
+  border-radius: 10px;
+  font-family: "Glancyr", sans-serif;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -912,7 +920,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 14px;
   font-weight: 500;
   color: var(--gc-text);
@@ -962,7 +970,7 @@
   background: var(--gc-bg);
   color: var(--gc-text-2);
   border-radius: 14px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -1096,9 +1104,9 @@
   padding: 7px 16px;
   border: 1px solid var(--gc-border);
   background: var(--gc-bg);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
 }
 
 .reload:hover {
@@ -1120,9 +1128,9 @@
   padding: 8px 18px;
   border: 1px solid var(--gc-border);
   background: var(--gc-bg);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
 }
 
 .modal-backdrop {
@@ -1157,7 +1165,7 @@
 
 .modal-header h2 {
   margin: 0;
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 19px;
   font-weight: 500;
   letter-spacing: -0.2px;
@@ -1190,7 +1198,7 @@
 
 .help-section h3 {
   margin: 0 0 6px;
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--gc-blue);
@@ -1241,7 +1249,7 @@
   border: 1px solid var(--gc-border);
   background: var(--gc-bg);
   color: var(--gc-text-2);
-  border-radius: 50%;
+  border-radius: 8px;
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -1260,7 +1268,7 @@
 }
 
 .loc-title {
-  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: var(--gc-text);
@@ -1272,9 +1280,9 @@
   min-width: 240px;
   padding: 8px 14px;
   border: 1px solid var(--gc-border);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13.5px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   background: var(--gc-bg);
   color: var(--gc-text);
   outline: none;
@@ -1291,9 +1299,9 @@
   border: 1px solid var(--gc-blue);
   background: var(--gc-blue);
   color: var(--gc-blue-contrast);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1312,9 +1320,9 @@
   border: 1px solid var(--gc-border);
   background: var(--gc-bg);
   color: var(--gc-text-2);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
 }
 
 .loc-manual-btn:hover {
@@ -1326,9 +1334,9 @@
   border: 1px solid var(--gc-border);
   background: var(--gc-red-bg);
   color: var(--gc-red-text);
-  border-radius: 18px;
+  border-radius: 10px;
   font-size: 13px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-weight: 500;
 }
 
@@ -1370,9 +1378,9 @@
   width: 160px;
   padding: 7px 12px;
   border: 1px solid var(--gc-border);
-  border-radius: 16px;
+  border-radius: 10px;
   font-size: 12.5px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   background: var(--gc-bg);
   color: var(--gc-text);
   outline: none;
@@ -1434,9 +1442,9 @@
   border: 1px solid var(--gc-border);
   background: var(--gc-bg);
   color: var(--gc-blue);
-  border-radius: 16px;
+  border-radius: 10px;
   font-size: 12px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-weight: 500;
 }
 
@@ -1487,7 +1495,7 @@
   border-radius: 12px;
   box-shadow: var(--gc-pop-shadow);
   padding: 12px 14px 12px 16px;
-  font-family: Roboto, Arial, sans-serif;
+  font-family: "Glancyr", sans-serif;
   font-size: 13px;
   animation: slot-toast-in 0.18s ease-out;
 }

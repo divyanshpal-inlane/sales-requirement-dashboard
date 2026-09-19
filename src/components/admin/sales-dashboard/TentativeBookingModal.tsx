@@ -328,7 +328,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Selected Slots */}
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+          <div className="rounded-lg border border-border bg-muted p-3">
             {overrideContext && (
               <p className="mb-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 Replacing an unpaid tentative hold
@@ -342,7 +342,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               </p>
             )}
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-medium text-foreground">
                 {overrideContext
                   ? "Slot Being Taken Over"
                   : `Selected Slots (${slots.length})`}
@@ -361,7 +361,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               {slots.map((s, i) => (
                 <div
                   key={`${s.instructorId}-${s.date}-${s.startTime}`}
-                  className="flex items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5 text-sm text-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                  className="flex items-center justify-between gap-2 rounded-md bg-background px-2 py-1.5 text-sm text-foreground"
                 >
                   <span>
                     Class {i + 1}: {s.date} •{" "}
@@ -387,7 +387,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div>
             <label
               htmlFor="customerName"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Customer Name *
             </label>
@@ -397,12 +397,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               value={formData.customerName}
               onChange={(e) => set("customerName", e.target.value)}
               placeholder="Enter customer name"
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
-                errors.customerName ? "border-red-500" : "border-gray-300"
+              className={`mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                errors.customerName ? "border-destructive" : "border-input"
               }`}
             />
             {errors.customerName && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-destructive">
                 {errors.customerName}
               </p>
             )}
@@ -412,7 +412,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div>
             <label
               htmlFor="customerPhone"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Phone Number *
             </label>
@@ -429,12 +429,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
                 )
               }
               placeholder="10-digit phone number"
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
-                errors.customerPhone ? "border-red-500" : "border-gray-300"
+              className={`mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                errors.customerPhone ? "border-destructive" : "border-input"
               }`}
             />
             {errors.customerPhone && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-destructive">
                 {errors.customerPhone}
               </p>
             )}
@@ -448,7 +448,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div>
             <label
               htmlFor="salesAgent"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Sales Agent
             </label>
@@ -458,12 +458,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               readOnly
               value={formData.salesAgent}
               placeholder="Loading…"
-              className={`mt-1 w-full rounded-lg border bg-gray-100 px-3 py-2 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400 ${
-                errors.salesAgent ? "border-red-500" : "border-gray-300"
+              className={`mt-1 w-full rounded-lg border border-input bg-muted px-3 py-2 text-sm text-muted-foreground ${
+                errors.salesAgent ? "border-destructive" : "border-input"
               }`}
             />
             {errors.salesAgent && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-destructive">
                 {errors.salesAgent}
               </p>
             )}
@@ -473,7 +473,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div>
             <label
               htmlFor="paymentStatus"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Payment Status {overrideContext && "*"}
             </label>
@@ -486,7 +486,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
                   e.target.value as "unpaid" | "half_paid" | "full_paid",
                 )
               }
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {/* "Unpaid" isn't offered at all in override mode — a paying
                   learner is the entire reason Sales can take this slot
@@ -499,7 +499,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               <option value="full_paid">Full Paid</option>
             </select>
             {overrideContext && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Must be Half Paid or Full Paid to override an unpaid tentative
                 slot.
               </p>
@@ -510,7 +510,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div>
             <label
               htmlFor="customerAddress"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Customer Address *
             </label>
@@ -520,12 +520,12 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               onChange={(e) => set("customerAddress", e.target.value)}
               placeholder="Enter full address"
               rows={3}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
-                errors.customerAddress ? "border-red-500" : "border-gray-300"
+              className={`mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                errors.customerAddress ? "border-destructive" : "border-input"
               }`}
             />
             {errors.customerAddress && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-destructive">
                 {errors.customerAddress}
               </p>
             )}
@@ -535,7 +535,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
           <div>
             <label
               htmlFor="course"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-foreground"
             >
               Course *
             </label>
@@ -543,8 +543,8 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               id="course"
               value={formData.course}
               onChange={(e) => set("course", e.target.value)}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:bg-gray-800 dark:text-white ${
-                errors.course ? "border-red-500" : "border-gray-300"
+              className={`mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                errors.course ? "border-destructive" : "border-input"
               }`}
             >
               {COURSES.map((c) => (
@@ -554,9 +554,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               ))}
             </select>
             {errors.course && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {errors.course}
-              </p>
+              <p className="mt-1 text-xs text-destructive">{errors.course}</p>
             )}
           </div>
 
@@ -566,14 +564,14 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={createTentativeMutation.isPending}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="flex-1 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={createTentativeMutation.isPending}
-              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {createTentativeMutation.isPending
                 ? overrideContext
