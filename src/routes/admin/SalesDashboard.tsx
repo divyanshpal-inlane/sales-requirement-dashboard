@@ -2077,10 +2077,7 @@ export default function SalesDashboard() {
 
   if (!config) return null;
 
-  const selectedTotal = dateTotals.get(selectedDate) ?? 0;
-
   const fromLabel = shortDate(dates[0]);
-  const toLabel = shortDate(dates[dates.length - 1]);
   const timeCols = timeStarts.map((m) => minutesToTime(m));
 
   return (
@@ -2317,30 +2314,15 @@ export default function SalesDashboard() {
             </div>
           )}
           {inSelectionMode ? (
-            <>
-              Comparing <strong>{gridRows.length}</strong> instructor
-              {gridRows.length === 1 ? "" : "s"} ·{" "}
-              <strong>{selectedTotal}</strong> free slots on {fromLabel.weekday}{" "}
-              {fromLabel.date}
-              <button
-                type="button"
-                className="clear-select"
-                onClick={() => setCompareIds([])}
-              >
-                Clear selection
-              </button>
-            </>
-          ) : rows.length === 0 ? (
-            <>
-              No instructors loaded yet — search by name above or use{" "}
-              <strong>Search by location</strong> to load them.
-            </>
+            <button
+              type="button"
+              className="clear-select"
+              onClick={() => setCompareIds([])}
+            >
+              Clear selection
+            </button>
           ) : (
-            <>
-              <strong>{rows.length}</strong> instructor
-              {rows.length === 1 ? "" : "s"} shown ·{" "}
-              <strong>{selectedTotal}</strong> free slots · {fromLabel.weekday}{" "}
-              {fromLabel.date} → {toLabel.weekday} {toLabel.date} window
+            rows.length > 0 && (
               <button
                 type="button"
                 className="clear-select"
@@ -2348,7 +2330,7 @@ export default function SalesDashboard() {
               >
                 Clear all
               </button>
-            </>
+            )
           )}
         </div>
 
