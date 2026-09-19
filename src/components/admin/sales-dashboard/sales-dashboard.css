@@ -1,6 +1,11 @@
 /* Scoped to .sales-dashboard-root (not :root/html) so this theme never
    leaks into the rest of the admin app. */
 .sales-dashboard-root {
+  background: var(--gc-bg);
+  color: var(--gc-text);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   color-scheme: light;
   --gc-bg: #ffffff;
   --gc-surface: #f8f9fa;

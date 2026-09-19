@@ -992,7 +992,13 @@ export default function SalesDashboard() {
 
   // Theme is scoped to this component's own wrapper (.sales-dashboard-root),
   // NOT document.documentElement — toggling it must never reskin the rest of
-  // the admin app.
+  // the admin app. The wrapper also gets a literal "dark" class (alongside
+  // data-theme, which the --gc-* CSS variables key off) purely so
+  // Tailwind's darkMode: ["class"] config activates the dark: variants
+  // already used inside sales-dashboard components (e.g.
+  // TentativeBookingModal) -- those never had a real trigger before, since
+  // Tailwind's dark: only ever responds to an ancestor .dark class, not a
+  // data-theme attribute.
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     rootRef.current?.setAttribute("data-theme", theme);
@@ -2093,7 +2099,13 @@ export default function SalesDashboard() {
 
   if (phase === "loading") {
     return (
-      <div className="sales-dashboard-root" data-theme={theme} ref={rootRef}>
+      <div
+        className={["sales-dashboard-root", theme === "dark" && "dark"]
+          .filter(Boolean)
+          .join(" ")}
+        data-theme={theme}
+        ref={rootRef}
+      >
         <main className="shell">
           <p className="state">Loading availability from the database…</p>
         </main>
@@ -2103,7 +2115,13 @@ export default function SalesDashboard() {
 
   if (phase === "error" || !data) {
     return (
-      <div className="sales-dashboard-root" data-theme={theme} ref={rootRef}>
+      <div
+        className={["sales-dashboard-root", theme === "dark" && "dark"]
+          .filter(Boolean)
+          .join(" ")}
+        data-theme={theme}
+        ref={rootRef}
+      >
         <main className="shell">
           <div className="state error">
             <p>
@@ -2124,7 +2142,13 @@ export default function SalesDashboard() {
   const timeCols = timeStarts.map((m) => minutesToTime(m));
 
   return (
-    <div className="sales-dashboard-root" data-theme={theme} ref={rootRef}>
+    <div
+      className={["sales-dashboard-root", theme === "dark" && "dark"]
+        .filter(Boolean)
+        .join(" ")}
+      data-theme={theme}
+      ref={rootRef}
+    >
       <main className="shell">
         <header className="topbar">
           <div className="brand">
@@ -2289,6 +2313,7 @@ export default function SalesDashboard() {
             onClear={clearLocation}
             collapsed={locCollapsed}
             onToggleCollapsed={toggleLocCollapsed}
+            theme={theme}
           />
         </Suspense>
 
