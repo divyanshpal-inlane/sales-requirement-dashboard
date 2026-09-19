@@ -22,3 +22,6 @@ tests/playwright/.auth/
 # Playwright's own run artifacts
 /test-results/
 /playwright-report/
+
+# Local-only working notes, not meant to be pushed
+SALES_DASHBOARD_ACCESS_CONTROL.md
