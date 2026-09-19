@@ -288,6 +288,155 @@ export function isTimeUnavailable(
   });
 }
 
+/**
+ * Same entry shapes as isTimeUnavailable(), but returns the concrete
+ * [start, end) minute intervals (0-1440) that apply on this specific date,
+ * instead of a single point-in-time boolean.
+ *
+ * isTimeUnavailable() is a point check, so buildFreeGrid() used to sample it
+ * at a handful of grid-aligned minutes (e.g. every 30) across a candidate's
+ * duration. That missed real unavailability windows whose boundary falls on
+ * a non-grid-aligned minute (this data has plenty: 12:18, 16:16, 20:30 is
+ * fine but 03:30 lines up, real examples include ranges ending at :16, :18,
+ * :51) -- a class could straddle the boundary and get sampled only at points
+ * on the free side of it, showing as bookable when it genuinely overlaps.
+ * Returning real intervals lets the caller do exact interval-overlap math
+ * instead of point sampling, and also lets it apply the same instructor
+ * travel-gap buffer already given to real Schedule blocks (see
+ * blockCoversCandidate) to unavailability windows too.
+ */
+export function unavailabilityIntervalsForDate(
+  unavailability: unknown[] | null | undefined,
+  dateIso: string,
+  dayOfWeekLower: string,
+): Array<{ start: number; end: number }> {
+  if (!unavailability || !Array.isArray(unavailability)) return [];
+  const DAY_START = 0;
+  const DAY_END = 24 * 60;
+  const out: Array<{ start: number; end: number }> = [];
+
+  for (const raw of unavailability) {
+    const u = (raw ?? {}) as Record<string, unknown>;
+
+    if (u.booked_date && u.all_day) {
+      if (dateIso === u.booked_date)
+        out.push({ start: DAY_START, end: DAY_END });
+      continue;
+    }
+
+    if (
+      u.booked_date &&
+      !u.all_day &&
+      !u.booked_start_time &&
+      !u.booked_end_time
+    ) {
+      if (dateIso === u.booked_date)
+        out.push({ start: DAY_START, end: DAY_END });
+      continue;
+    }
+
+    if (
+      u.booked_date &&
+      u.booked_start_time &&
+      u.booked_end_time &&
+      !u.all_day
+    ) {
+      if (dateIso === u.booked_date) {
+        out.push({
+          start: timeToMinutes(String(u.booked_start_time)),
+          end: timeToMinutes(String(u.booked_end_time)),
+        });
+      }
+      continue;
+    }
+
+    if (u.day_of_week && u.all_day) {
+      if (u.day_of_week === dayOfWeekLower)
+        out.push({ start: DAY_START, end: DAY_END });
+      continue;
+    }
+
+    if (
+      u.day_of_week &&
+      u.booked_start_time &&
+      u.booked_end_time &&
+      !u.all_day
+    ) {
+      if (u.day_of_week === dayOfWeekLower) {
+        out.push({
+          start: timeToMinutes(String(u.booked_start_time)),
+          end: timeToMinutes(String(u.booked_end_time)),
+        });
+      }
+      continue;
+    }
+
+    if (Array.isArray(u.days_of_week) && u.days_of_week.length > 0) {
+      if (
+        !u.days_of_week.some((d) => String(d).toLowerCase() === dayOfWeekLower)
+      )
+        continue;
+      if (u.all_day) {
+        out.push({ start: DAY_START, end: DAY_END });
+      } else if (u.booked_start_time && u.booked_end_time) {
+        out.push({
+          start: timeToMinutes(String(u.booked_start_time)),
+          end: timeToMinutes(String(u.booked_end_time)),
+        });
+      } else {
+        out.push({ start: DAY_START, end: DAY_END });
+      }
+      continue;
+    }
+
+    if (u.start_date && u.end_date && u.range_all_day) {
+      if (dateIso >= String(u.start_date) && dateIso <= String(u.end_date))
+        out.push({ start: DAY_START, end: DAY_END });
+      continue;
+    }
+
+    if (
+      u.start_date &&
+      u.end_date &&
+      !u.range_all_day &&
+      u.range_start_time &&
+      u.range_end_time
+    ) {
+      if (dateIso >= String(u.start_date) && dateIso <= String(u.end_date)) {
+        out.push({
+          start: timeToMinutes(String(u.range_start_time)),
+          end: timeToMinutes(String(u.range_end_time)),
+        });
+      }
+      continue;
+    }
+
+    if (
+      u.start_date &&
+      u.end_date &&
+      !u.range_all_day &&
+      u.range_start_time &&
+      !u.range_end_time
+    ) {
+      if (dateIso >= String(u.start_date) && dateIso <= String(u.end_date)) {
+        out.push({
+          start: timeToMinutes(String(u.range_start_time)),
+          end: DAY_END,
+        });
+      }
+      continue;
+    }
+
+    if (u.start_date && u.end_date && !u.range_all_day && !u.range_start_time) {
+      if (dateIso >= String(u.start_date) && dateIso <= String(u.end_date))
+        out.push({ start: DAY_START, end: DAY_END });
+      continue;
+    }
+  }
+
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Blocking (schedule overlaps, treating expired pending holds as free)
 // ---------------------------------------------------------------------------
@@ -603,6 +752,17 @@ function buildFreeGrid(
     const perDate = new Map<string, number[]>();
     for (const date of dates) {
       const day = dateToWeekdayLower(date);
+      // Computed once per instructor/date, not per candidate: exact
+      // [start, end) windows instead of isTimeUnavailable()'s point-in-time
+      // check, so a candidate straddling a window's boundary (which often
+      // isn't grid-aligned -- e.g. 12:18, 16:16, 20:51 in real data) is
+      // caught by real interval overlap instead of being missed by sampling
+      // only at grid-step offsets from the candidate's own start.
+      const unavailableWindows = unavailabilityIntervalsForDate(
+        instr.unavailability,
+        date,
+        day,
+      );
       const free: number[] = [];
       for (const m of starts) {
         const blocked = blocks.some((b) =>
@@ -619,26 +779,19 @@ function buildFreeGrid(
           ),
         );
         if (blocked) continue;
-        // isTimeUnavailable() only tests a single instant, not a range —
-        // so for a `duration` longer than one grid step (e.g. checking a
-        // 60-min class-length window while the grid steps by 30 min), a
-        // candidate starting right before an unavailability window began
-        // would pass this check even though the second half of the class
-        // would run into it. Sample every grid step across the whole
-        // [m, m + duration) window so any unavailability starting partway
-        // through is caught, not just one exactly at m.
-        const step = Math.max(
-          1,
-          Math.min(input.slotConfig.gridMinutes, duration),
+        // Unavailability gets the same instructor travel-gap buffer as a
+        // real Schedule block already does above (gapMinutes on both
+        // sides) -- a class shouldn't start the instant an unavailability
+        // window ends, or end the instant one begins, any more than it
+        // should for a real booked class. Overlapping buffer zones from
+        // adjacent blocks/unavailability aren't double-counted since this
+        // is just an OR across all blocking sources, so "there's already a
+        // buffer from something else" falls out for free -- no special
+        // case needed.
+        const hitsUnavailability = unavailableWindows.some(
+          (w) => m - gapMinutes < w.end && w.start < m + duration + gapMinutes,
         );
-        let unavailableSomewhere = false;
-        for (let t = m; t < m + duration; t += step) {
-          if (isTimeUnavailable(instr.unavailability, date, day, t)) {
-            unavailableSomewhere = true;
-            break;
-          }
-        }
-        if (unavailableSomewhere) continue;
+        if (hitsUnavailability) continue;
         free.push(m);
       }
       perDate.set(date, free);
