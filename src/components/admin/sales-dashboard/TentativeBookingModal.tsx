@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { minutesToTime, timeToMinutes } from "@/lib/sales-dashboard/validation";
 import { isValidPhone, normalizePhone } from "@/lib/sales-dashboard/validation";
@@ -61,8 +61,10 @@ interface TentativeBookingModalProps {
   // parent) and arms "pick another slot" mode on the grid.
   onAddAnotherSlot: () => void;
   // Fresh re-check of one slot's availability at submit time — the grid
-  // could have changed since it was added to the batch.
-  validateSlot: (slot: SlotPick) => boolean;
+  // could have changed since it was added to the batch. `reason` is only
+  // present when `ok` is false, and explains *why* (e.g. a buffer
+  // conflict vs. a genuine double-booking) for the error message.
+  validateSlot: (slot: SlotPick) => { ok: boolean; reason?: string };
   formData: CustomerFormValues;
   onFormDataChange: (data: CustomerFormValues) => void;
   // Present only when this submission should replace an existing unpaid
@@ -128,6 +130,17 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
 
+  // This component never unmounts between bookings -- it just renders null
+  // while isOpen is false (see the early return below) -- so without this,
+  // an error from a PREVIOUS failed attempt (e.g. "Class 1 (9:00-10:00,
+  // Instructor X) is no longer available") stayed on screen the next time
+  // the modal opened for a completely unrelated slot, until the user
+  // happened to submit again and overwrite it. Opening fresh should always
+  // start from a clean slate.
+  useEffect(() => {
+    if (isOpen) setErrors({});
+  }, [isOpen]);
+
   const createTentativeMutation = useMutation({
     mutationFn: async () => {
       if (slots.length === 0) throw new Error("No slot selected");
@@ -184,10 +197,11 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       // real and missing classes for a batch the user thinks either all
       // happened or none did.
       for (let i = 0; i < slots.length; i++) {
-        if (!validateSlot(slots[i])) {
+        const result = validateSlot(slots[i]);
+        if (!result.ok) {
           const s = slots[i];
           throw new Error(
-            `Class ${i + 1} (${s.date} • ${formatSlotTime(s.startTime, s.endTime)} • ${s.instructorName}) is no longer available. Remove or change it and try again.`,
+            `Class ${i + 1} (${s.date} • ${formatSlotTime(s.startTime, s.endTime)} • ${s.instructorName}) is ${result.reason ?? "no longer available"}. Remove or change it and try again.`,
           );
         }
       }

@@ -1585,7 +1585,7 @@ export default function SalesDashboard() {
   // conflicting block is a Sales tentative hold for this same phone,
   // rejected otherwise.
   const validateSlotFresh = useCallback(
-    (slot: SlotPick): boolean => {
+    (slot: SlotPick): { ok: boolean; reason?: string } => {
       const minute = timeToMinutes(slot.startTime);
       const gapMinutes = Math.max(
         0,
@@ -1598,7 +1598,21 @@ export default function SalesDashboard() {
         gapMinutes,
         blocksIndex,
       );
-      return bufferWaivedForCustomer(conflict, customerFormData.customerPhone);
+      const ok = bufferWaivedForCustomer(
+        conflict,
+        customerFormData.customerPhone,
+      );
+      if (ok) return { ok: true };
+      // Distinguishes *why* for the error message a sales agent actually
+      // sees -- "no longer available" alone reads the same for a genuine
+      // double-booking as for a buffer-only conflict with someone else's
+      // booking, when only the latter is about the instructor needing
+      // travel time, not the slot itself being taken.
+      const reason =
+        conflict.kind === "buffer"
+          ? `within the instructor's ${gapMinutes}-minute travel-gap buffer around another booking`
+          : "already booked";
+      return { ok: false, reason };
     },
     [
       config?.instructor_gap_minutes,
