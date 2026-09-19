@@ -2353,7 +2353,16 @@ export default function SalesDashboard() {
         >
           <AvailabilityGrid
             instructors={gridRows}
-            freeGrid={displayGrid}
+            // The strict, full-60-min grid -- canBook1Hour (in both the
+            // main row and MiniRow) validates against this prop, so it
+            // must NOT be displayGrid (30-min duration check), or
+            // validateOneHourBlock trivially agrees with `free` itself and
+            // the cell-half downgrade never fires. Cell color/coloring
+            // still gets the lenient displayGrid separately via freeSets
+            // below.
+            freeGrid={
+              data?.freeGrid ?? new Map<string, Map<string, number[]>>()
+            }
             freeSets={freeSets}
             windowTotals={windowTotals}
             timeCols={timeCols}
