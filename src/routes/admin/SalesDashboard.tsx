@@ -1969,7 +1969,24 @@ export default function SalesDashboard() {
         const blockTime = `${minutesToTime(cover.startMinute)}–${minutesToTime(cover.endMinute)}`;
         const isBuffer =
           minute < cover.startMinute || minute >= cover.endMinute;
-        if (cover.status === "booked" || cover.status === "completed") {
+        // A "booked" row can still be a tentative hold: Instructor
+        // Management's own tentative-booking feature (and some legacy
+        // data) writes status:"booked" + isTentative:true instead of the
+        // Sales Dashboard's status:"hold" + isTentative:true — same
+        // meaning (a hold, not a real confirmed class), different status
+        // value. isTentative is the authoritative flag regardless of which
+        // flow created the row, so it takes priority over the status
+        // string for BOTH "booked" and "hold"; "completed" is excluded on
+        // purpose (a class that already happened is real regardless of any
+        // leftover isTentative flag).
+        const isSalesTentative =
+          cover.isTentative === true &&
+          (cover.status === "hold" || cover.status === "booked");
+
+        if (
+          (cover.status === "booked" && !isSalesTentative) ||
+          cover.status === "completed"
+        ) {
           const detail = [blockTime, `Instructor: ${name}`];
           if (cover.learnerName) detail.push(`Learner: ${cover.learnerName}`);
           if (cover.area) detail.push(`Area: ${cover.area}`);
@@ -1986,13 +2003,16 @@ export default function SalesDashboard() {
             deleteAction: null,
           };
         }
-        if (cover.status === "pending_payment" || cover.status === "hold") {
-          // "hold" + isTentative === true is a genuine Sales tentative
-          // block. "pending_payment" (and a "hold" that somehow isn't
-          // flagged isTentative) is a real learner-side booking mid
-          // payment — not something Sales created, never overridable here,
-          // and shown as "booked" (purple), not "tentative" (yellow).
-          const isSalesTentative = cover.status === "hold" && cover.isTentative;
+        if (
+          cover.status === "pending_payment" ||
+          cover.status === "hold" ||
+          isSalesTentative
+        ) {
+          // pending_payment (and a "hold"/"booked" row that isn't flagged
+          // isTentative) is a real learner-side booking mid payment — not
+          // something Sales/Instructor-Management created as a hold, never
+          // overridable here, and shown as "booked" (purple), not
+          // "tentative" (yellow).
           if (!isSalesTentative) {
             return {
               title: isBuffer
@@ -2026,17 +2046,60 @@ export default function SalesDashboard() {
           // showing the override option over silently hiding it).
           const paymentStatus = cover.paymentStatus ?? "unpaid";
           const isUnpaid = paymentStatus === "unpaid";
+          // Same fields (and the same cover.learnerName/area/courseName
+          // already computed from tentative_details) the "booked" branch
+          // above shows — a tentative hold has a real customer attached
+          // too, and a sales agent hovering it needs to see who, not just
+          // that a slot is taken.
+          const tentativeDetail = [blockTime, `Instructor: ${name}`];
+          if (cover.learnerName)
+            tentativeDetail.push(`Learner: ${cover.learnerName}`);
+          if (cover.area) tentativeDetail.push(`Area: ${cover.area}`);
+          if (cover.courseName)
+            tentativeDetail.push(`Course: ${cover.courseName}`);
+          // Override is only offered for status:"hold" rows (Sales
+          // Dashboard's own tentative format) — the override_tentative_slot
+          // RPC hard-requires v_old.status = 'hold' server-side (see
+          // sql/override_tentative_slot.sql) and rejects anything else, so
+          // showing this button for an unpaid status:"booked" tentative
+          // row (Instructor Management's format) would offer an action
+          // that fails server-side. Deleting isn't restricted this way —
+          // it's a plain row delete, not gated by status.
+          const canOverride = isUnpaid && cover.status === "hold";
+          // Only the sales agent who created a tentative hold can delete
+          // it — matched against tentative_details.sales_agent, the same
+          // field the "Sales Agent" form field is locked to (see
+          // currentUserName above), trimmed/case-insensitive so a stray
+          // space or capitalization difference doesn't wrongly block the
+          // actual creator. Rows with no recorded sales_agent at all
+          // (e.g. some Instructor-Management-created rows never set this
+          // field) have no known creator to check against, so deletion
+          // stays allowed for those rather than being newly blocked for
+          // data this restriction can't actually evaluate.
+          const creatorName =
+            typeof cover.rawTentativeDetails?.sales_agent === "string"
+              ? cover.rawTentativeDetails.sales_agent.trim()
+              : "";
+          const canDelete =
+            !creatorName ||
+            creatorName.toLowerCase() === currentUserName.trim().toLowerCase();
+          if (isUnpaid) {
+            tentativeDetail.push(
+              canOverride
+                ? "Unpaid — can be overridden with a new slot."
+                : "Unpaid.",
+            );
+          }
+          if (creatorName && !canDelete) {
+            tentativeDetail.push(
+              `Created by ${creatorName} — only they can delete this.`,
+            );
+          }
           return {
             title: isUnpaid ? "🟡 Tentative (Unpaid)" : "Tentative",
-            detail: isUnpaid
-              ? [
-                  blockTime,
-                  `Instructor: ${name}`,
-                  "Unpaid — can be overridden with a new slot.",
-                ]
-              : [blockTime, `Instructor: ${name}`],
+            detail: tentativeDetail,
             kind: "tentative",
-            override: isUnpaid
+            override: canOverride
               ? {
                   blockId: cover.id,
                   instrId,
@@ -2046,15 +2109,17 @@ export default function SalesDashboard() {
                   tentativeDetails: cover.rawTentativeDetails,
                 }
               : null,
-            deleteAction: {
-              blockId: cover.id,
-              instrId,
-              customerName:
-                typeof cover.rawTentativeDetails?.name === "string" &&
-                cover.rawTentativeDetails.name
-                  ? cover.rawTentativeDetails.name
-                  : "this customer",
-            },
+            deleteAction: canDelete
+              ? {
+                  blockId: cover.id,
+                  instrId,
+                  customerName:
+                    typeof cover.rawTentativeDetails?.name === "string" &&
+                    cover.rawTentativeDetails.name
+                      ? cover.rawTentativeDetails.name
+                      : "this customer",
+                }
+              : null,
           };
         }
         if (cover.status === "paused") {
@@ -2105,7 +2170,14 @@ export default function SalesDashboard() {
         deleteAction: null,
       };
     };
-  }, [config, instructorsById, blocksIndex, pendingSlots, addingSlotMode]);
+  }, [
+    config,
+    instructorsById,
+    blocksIndex,
+    pendingSlots,
+    addingSlotMode,
+    currentUserName,
+  ]);
 
   const gridRows = useMemo(() => {
     if (compareIds.length === 0) return rows;

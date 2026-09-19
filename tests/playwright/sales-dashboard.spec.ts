@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
-
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
 // Cleans up via the same anon-key Supabase client / pattern used by
@@ -12,6 +10,7 @@ const sb = createClient(
 );
 const TEST_DP_ID = "34239456-159b-42a0-8184-a0e11954cfd0"; // "test_dp"
 const TEST_MARKER = "PW-SUITE-TEST-BOOKING";
+const PAID_INFO_MARKER = "PW-SUITE-PAID-INFO-BOOKING";
 
 test.afterEach(async () => {
   // Belt-and-braces cleanup: remove anything this suite created, matched
@@ -23,7 +22,11 @@ test.afterEach(async () => {
     .eq("instructor_id", TEST_DP_ID)
     .eq("isTentative", true);
   const toDelete = (data ?? [])
-    .filter((r) => r.tentative_details?.name === TEST_MARKER)
+    .filter(
+      (r) =>
+        r.tentative_details?.name === TEST_MARKER ||
+        r.tentative_details?.name === PAID_INFO_MARKER,
+    )
     .map((r) => r.id);
   if (toDelete.length > 0) {
     await sb.from("Schedule").delete().in("id", toDelete);
@@ -41,7 +44,10 @@ test.describe("Sales Dashboard — layout", () => {
     await expect(
       page.getByPlaceholder("Search or compare instructors…"),
     ).toBeVisible();
-    await expect(page.getByLabel("Select month")).toBeVisible();
+    // Month navigation is chevrons + a plain label, not a select (the
+    // dropdown was intentionally removed as redundant with the chevrons).
+    await expect(page.getByLabel("Previous month")).toBeVisible();
+    await expect(page.getByLabel("Next month")).toBeVisible();
     await expect(page.getByLabel("Sort instructors")).toBeVisible();
     await expect(page.getByLabel("Toggle dark theme")).toBeVisible();
     await expect(page.getByLabel("Help")).toBeVisible();
@@ -109,12 +115,11 @@ test.describe("Sales Dashboard — search, roster, and persistence", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("Clear all removes every instructor from the roster", async ({
-    page,
-  }) => {
+  test("Reset removes every instructor from the roster", async ({ page }) => {
+    // "Clear all" was folded into Reset (no separate button, no confirm
+    // prompt — both later, intentional refactors of the original feature).
     await searchAndAdd(page, "test_dp");
-    page.once("dialog", (d) => d.accept());
-    await page.getByRole("button", { name: "Clear all" }).click();
+    await page.getByRole("button", { name: "Reset dashboard" }).click();
     await expect(
       page.locator(".instructor-cell", { hasText: "test_dp" }),
     ).not.toBeVisible();
@@ -228,5 +233,92 @@ test.describe("Sales Dashboard — tentative booking flow", () => {
     await phoneInput.pressSequentially("abc123def4567890");
     await expect(phoneInput).toHaveValue("1234567890");
     await page.getByRole("button", { name: "Cancel" }).click();
+  });
+});
+
+test.describe("Sales Dashboard — status:booked tentative rows (Instructor Management format)", () => {
+  // Regression test for a real production mismatch: Instructor Management's
+  // own tentative-booking feature writes status:"booked" + isTentative:true
+  // + tentative_details.paid_info (e.g. "Half paid"), instead of the Sales
+  // Dashboard's own status:"hold" + tentative_details.payment_status
+  // ("half_paid"). Before the fix, resolveInfo() in SalesDashboard.tsx only
+  // checked isTentative when status was "hold", so these rows rendered as
+  // plain purple "Booked class" instead of yellow "Tentative" -- and
+  // separately, paymentStatus extraction in useSalesData.ts only read
+  // payment_status, so even once classified as tentative such a row would
+  // default to "unpaid" (wrongly offering Override on an already-paid
+  // slot). Seeds a synthetic row far in the future rather than depending on
+  // any specific real production row.
+  const SEED_DATE = "2027-05-06";
+  const SEED_START = "14:00:00";
+
+  test.afterEach(async () => {
+    await sb
+      .from("Schedule")
+      .delete()
+      .eq("instructor_id", TEST_DP_ID)
+      .eq("date", SEED_DATE)
+      .eq("start_time", SEED_START);
+  });
+
+  test("a status:booked + isTentative:true + paid_info row shows as yellow Tentative, not purple Booked, and offers no Override (already paid)", async ({
+    page,
+  }) => {
+    const { error } = await sb.from("Schedule").insert({
+      instructor_id: TEST_DP_ID,
+      date: SEED_DATE,
+      start_time: SEED_START,
+      end_time: "15:00:00",
+      status: "booked",
+      isTentative: true,
+      tentative_details: {
+        name: PAID_INFO_MARKER,
+        phone: "9123450099",
+        paid_info: "Half paid",
+        pickup_location: "Regression test address",
+        description: "Regression test course",
+      },
+      learner_id: null,
+      course_id: null,
+      lesson_id: null,
+    });
+    expect(error).toBeNull();
+
+    await searchAndAdd(page, "test_dp");
+    const row = page.locator(".row", { hasText: "test_dp" }).first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+
+    // Navigate to May 2027.
+    for (let i = 0; i < 10; i++) {
+      const label = await page.locator(".cal-month").innerText();
+      if (label.includes("May") && label.includes("2027")) break;
+      await page.getByLabel("Next month").click();
+      await page.waitForTimeout(150);
+    }
+    await page
+      .locator(".tab")
+      .filter({ has: page.locator("strong", { hasText: /^6$/ }) })
+      .first()
+      .click();
+    await page.waitForTimeout(500);
+
+    const timeLabels = await page
+      .locator("thead th.col-time-h")
+      .allInnerTexts();
+    const idx = timeLabels.findIndex((t) => t.includes("14:00"));
+    const cell = row.locator("td.cell").nth(idx);
+
+    await expect(cell).toHaveClass(/cell-tentative/);
+    await expect(cell).not.toHaveClass(/cell-booked/);
+
+    await cell.hover();
+    const popover = page.locator(".slot-pop");
+    // Title text content is "Tentative" -- CSS text-transform: uppercase
+    // only changes how it's rendered, not toContainText()'s raw match.
+    await expect(popover).toContainText("Tentative");
+    await expect(popover).toContainText(PAID_INFO_MARKER);
+    await expect(
+      popover.getByRole("button", { name: /Override Slot/i }),
+    ).toHaveCount(0);
   });
 });
