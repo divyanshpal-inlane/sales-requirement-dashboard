@@ -13,6 +13,7 @@ import {
   classifyLLStatusTransition,
   fieldsToClearOnLLRevert,
   isLLSegregationRouteCode,
+  LL_ESCALATION_STATUSES,
   LL_FAILURE_STAGES,
   LL_PHASES,
   LL_SEGREGATION_ROUTES,
@@ -158,7 +159,7 @@ function llStatusesForQueue(queue: LLPipelineQueueKey): string[] {
 function applyLLQueueFilter(query: any, queue: LLPipelineQueueKey) {
   if (queue === "escalations") {
     return query.or(
-      `escalated.is.true,status.in.(${Object.keys(LL_FAILURE_STAGES).join(",")})`,
+      `escalated.is.true,status.in.(${LL_ESCALATION_STATUSES.join(",")})`,
     );
   }
   if (queue !== "all") return query.in("status", llStatusesInPhase(queue));
@@ -323,7 +324,6 @@ export function useLLQueueCounts() {
   return useQuery({
     queryKey: ["ll-queue-counts"],
     queryFn: async (): Promise<Record<LLPipelineQueueKey, number>> => {
-      const failureStatuses = Object.keys(LL_FAILURE_STAGES);
       const tabs: { key: LLPipelineQueueKey; statuses: string[] | null }[] = [
         { key: "all", statuses: null },
         ...LL_PHASES.map((p) => ({
@@ -340,7 +340,7 @@ export function useLLQueueCounts() {
           });
           if (key === "escalations") {
             q = q.or(
-              `escalated.is.true,status.in.(${failureStatuses.join(",")})`,
+              `escalated.is.true,status.in.(${LL_ESCALATION_STATUSES.join(",")})`,
             );
           } else if (statuses) {
             q = q.in("status", statuses);
