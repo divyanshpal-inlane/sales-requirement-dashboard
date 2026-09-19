@@ -96,6 +96,23 @@ function formatSlotTime(startTime: string, endTime: string): string {
   }
 }
 
+// Translates the raw Postgres error from a losing race against the
+// schedule_no_overlap_new_rows exclusion constraint (code 23P01 -- fires on
+// exact duplicates, partial overlaps, and concurrent inserts for the same
+// slot alike) into a message a sales agent can actually act on, instead of
+// surfacing "conflicting key value violates exclusion constraint...".
+function friendlyBookingError(error: unknown): string {
+  const code = (error as { code?: string } | null)?.code;
+  if (code === "23P01" || code === "23505") {
+    return "This slot was just booked by another sales agent. Please close this and pick a different time.";
+  }
+  // Duck-typed, not `instanceof Error` -- the object thrown from a failed
+  // Supabase/Postgrest call isn't necessarily a real Error instance, but
+  // does carry a .message.
+  const message = (error as { message?: string } | null)?.message;
+  return message || "Failed to create tentative booking";
+}
+
 export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
   isOpen,
   onClose,
@@ -212,9 +229,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
       }, 1500);
     },
     onError: (error: Error) => {
-      setErrors({
-        submit: error.message || "Failed to create tentative booking",
-      });
+      setErrors({ submit: friendlyBookingError(error) });
     },
   });
 
