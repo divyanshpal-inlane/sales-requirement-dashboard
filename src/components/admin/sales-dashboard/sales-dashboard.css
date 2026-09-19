@@ -25,20 +25,26 @@
   --gc-blue: #2563eb;
   --gc-blue-bg: #dbeafe;
   --gc-blue-contrast: #ffffff;
-  --gc-green-fill: #d1fae5;
-  --gc-green-hover: #a7f3d0;
-  --gc-green-text: #047857;
+  /* Free: plain grey (not sourced from elsewhere -- Instructor Management's
+     View Schedule has no "Free" state of its own to copy). Named
+     --gc-green-* for historical reasons; still just the "free slot" token. */
+  --gc-green-fill: #e5e7eb;
+  --gc-green-hover: #d1d5db;
+  --gc-green-text: #374151;
   --gc-red-text: #b91c1c;
   --gc-red-bg: #fee2e2;
   --gc-red-hover: #fecaca;
-  /* Status palette: yellow = tentative, purple = booked (see TASK 20 —
-     tentative slot override/replacement). */
-  --gc-yellow-fill: #fef3c7;
-  --gc-yellow-hover: #fde68a;
-  --gc-yellow-text: #92400e;
-  --gc-purple-fill: #ede9fe;
-  --gc-purple-hover: #ddd6fe;
-  --gc-purple-text: #6d28d9;
+  /* Tentative and Booked are copied exactly from Instructor Management's
+     "View Schedule" page (InstructorSchedulePage's getScheduleColors()):
+     tentative = border-amber-600 bg-amber-400 text-amber-950, default/
+     booked = border-indigo-700 bg-indigo-500 text-white -- same hex values,
+     not just the same hue family. */
+  --gc-yellow-fill: #fbbf24;
+  --gc-yellow-hover: #f59e0b;
+  --gc-yellow-text: #451a03;
+  --gc-purple-fill: #6366f1;
+  --gc-purple-hover: #4f46e5;
+  --gc-purple-text: #ffffff;
   --gc-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
   --gc-pop-shadow: 0 4px 6px rgba(0, 0, 0, 0.1),
     0 2px 4px rgba(0, 0, 0, 0.06);
@@ -58,18 +64,21 @@
   --gc-blue: #60a5fa;
   --gc-blue-bg: #1e3a5f;
   --gc-blue-contrast: #0a0a0b;
-  --gc-green-fill: #022c22;
-  --gc-green-hover: #064e3b;
-  --gc-green-text: #6ee7b7;
+  --gc-green-fill: #3f3f46;
+  --gc-green-hover: #52525b;
+  --gc-green-text: #d4d4d8;
   --gc-red-text: #fca5a5;
   --gc-red-bg: #450a0a;
   --gc-red-hover: #7f1d1d;
-  --gc-yellow-fill: #451a03;
-  --gc-yellow-hover: #78350f;
-  --gc-yellow-text: #fcd34d;
-  --gc-purple-fill: #2e1065;
-  --gc-purple-hover: #4c1d95;
-  --gc-purple-text: #c4b5fd;
+  /* Same exact Tentative/Booked colors as light mode -- View Schedule has
+     no dark-mode variant of its own to copy, and these are saturated
+     enough to still read clearly on a dark background. */
+  --gc-yellow-fill: #fbbf24;
+  --gc-yellow-hover: #f59e0b;
+  --gc-yellow-text: #451a03;
+  --gc-purple-fill: #6366f1;
+  --gc-purple-hover: #4f46e5;
+  --gc-purple-text: #ffffff;
   --gc-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --gc-pop-shadow: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
   --gc-suggest-shadow: 0 10px 15px rgba(0, 0, 0, 0.4),
