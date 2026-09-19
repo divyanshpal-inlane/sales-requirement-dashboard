@@ -43,6 +43,7 @@ import {
 import {
   dateToWeekdayLower,
   minutesToTime,
+  normalizePhone,
   timeToMinutes,
 } from "@/lib/sales-dashboard/validation";
 import { supabase } from "@/lib/supabaseClient";
@@ -108,6 +109,64 @@ const LOCATION_COLORS = [
   "#00695c",
   "#ad1457",
 ] as const;
+
+// Distinguishes a genuine double-booking (any overlap) from a slot that's
+// only unavailable because it falls within another booking's instructor
+// travel-gap buffer -- the latter should be waivable when every
+// buffer-only conflict belongs to the SAME customer (booking two
+// back-to-back classes for one learner shouldn't need a gap between them,
+// same as within a single multi-slot batch), but never for a genuine
+// overlap or a buffer conflict with someone else's booking.
+type SlotConflict =
+  | { kind: "free" }
+  | { kind: "direct" }
+  | { kind: "buffer"; phones: (string | null)[] };
+
+function classifySlotConflict(
+  instrId: string,
+  date: string,
+  startMinute: number,
+  gapMinutes: number,
+  blocksIndex: Map<string, Map<string, BlockDetail[]>>,
+): SlotConflict {
+  const endMinute = startMinute + 60;
+  const blocks = blocksIndex.get(instrId)?.get(date) ?? [];
+  const bufferPhones: (string | null)[] = [];
+  for (const b of blocks) {
+    if (b.status === "cancelled" || b.status === "rejected") continue;
+    const direct = b.startMinute < endMinute && startMinute < b.endMinute;
+    if (direct) return { kind: "direct" };
+    const buffered =
+      b.startMinute - gapMinutes < endMinute &&
+      startMinute < b.endMinute + gapMinutes;
+    if (!buffered) continue;
+    // Only a Sales-created tentative hold's phone can waive the buffer --
+    // a real learner booking or payment-pending slot never should, even
+    // if (coincidentally) it's the same phone, since that's a confirmed
+    // class, not a hold Sales can freely stack around.
+    const isSalesTentative = b.status === "hold" && b.isTentative;
+    const phone =
+      isSalesTentative && typeof b.rawTentativeDetails?.phone === "string"
+        ? normalizePhone(b.rawTentativeDetails.phone)
+        : null;
+    bufferPhones.push(phone);
+  }
+  if (bufferPhones.length === 0) return { kind: "free" };
+  return { kind: "buffer", phones: bufferPhones };
+}
+
+// A buffer-only conflict is waivable when every conflicting block's phone
+// matches the customer currently being booked (and none are null, i.e.
+// none are a real/non-Sales booking that never waives).
+function bufferWaivedForCustomer(
+  conflict: SlotConflict,
+  customerPhone: string,
+): boolean {
+  if (conflict.kind !== "buffer") return conflict.kind === "free";
+  const normalized = normalizePhone(customerPhone);
+  if (!normalized) return false;
+  return conflict.phones.every((p) => p === normalized);
+}
 
 function isBookable(
   instructor: Pick<InstructorRow, "status" | "enabled">,
@@ -1451,9 +1510,24 @@ export default function SalesDashboard() {
         return;
       }
 
-      // Validate 1-hour block availability
-      const freeGrid = data?.freeGrid ?? null;
-      if (!validateOneHourBlock(instrId, date, minute, freeGrid)) {
+      // Validate 1-hour block availability. A genuine overlap always
+      // blocks here; a buffer-only conflict is let through so the modal
+      // can open -- whether it's actually waivable depends on the
+      // customer's phone, which isn't known yet at double-click time (the
+      // form hasn't been filled in). That's re-checked for real in
+      // validateSlotFresh right before submit.
+      const gapMinutes = Math.max(
+        0,
+        Math.floor(config?.instructor_gap_minutes ?? 0),
+      );
+      const conflict = classifySlotConflict(
+        instrId,
+        date,
+        minute,
+        gapMinutes,
+        blocksIndex,
+      );
+      if (conflict.kind === "direct") {
         showSlotNotice(
           "This 1-hour slot is not fully available. Please select a different time.",
         );
@@ -1510,7 +1584,7 @@ export default function SalesDashboard() {
       setTentativeModalOpen(true);
     },
     [
-      data?.freeGrid,
+      config?.instructor_gap_minutes,
       showSlotNotice,
       instructorsById,
       blocksIndex,
@@ -1522,18 +1596,32 @@ export default function SalesDashboard() {
 
   // Fresh re-check of a single pending slot's 1-hour availability, run
   // again right before submit (the grid may have changed since it was
-  // added to the batch, possibly minutes ago).
+  // added to the batch, possibly minutes ago). Unlike the double-click
+  // gate, the customer's phone is known here (it's in the form by now),
+  // so a buffer-only conflict can be resolved for real: waived if every
+  // conflicting block is a Sales tentative hold for this same phone,
+  // rejected otherwise.
   const validateSlotFresh = useCallback(
     (slot: SlotPick): boolean => {
       const minute = timeToMinutes(slot.startTime);
-      return validateOneHourBlock(
+      const gapMinutes = Math.max(
+        0,
+        Math.floor(config?.instructor_gap_minutes ?? 0),
+      );
+      const conflict = classifySlotConflict(
         slot.instructorId,
         slot.date,
         minute,
-        data?.freeGrid ?? null,
+        gapMinutes,
+        blocksIndex,
       );
+      return bufferWaivedForCustomer(conflict, customerFormData.customerPhone);
     },
-    [data?.freeGrid],
+    [
+      config?.instructor_gap_minutes,
+      blocksIndex,
+      customerFormData.customerPhone,
+    ],
   );
 
   // Override always replaces the SAME slot the unpaid tentative hold
