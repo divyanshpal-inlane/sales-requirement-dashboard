@@ -1,11 +1,20 @@
-# Backend Test Suite — Sales Dashboard & Instructor Management
+# Test Suite — Sales Dashboard & Instructor Management
 
 **Scope:** the tentative-booking system shared between the Sales Dashboard
 (`src/routes/admin/SalesDashboard.tsx`, `src/hooks/useSalesData.ts`,
 `src/lib/sales-dashboard/*`) and Instructor Management
-(`src/routes/admin/instructors.tsx`). Backend/API only — no Playwright, no
-UI clicking (per explicit decision). Front-end verification is done
-separately by the user.
+(`src/routes/admin/instructors.tsx`) — not the entire `inlane-web-app`.
+
+Two layers:
+
+- **Backend** (section A onward below): `tests/backend-suite.mjs`, a plain
+  Node script against the Supabase anon key. No login needed.
+- **Frontend**: `tests/playwright/*.spec.ts`, real browser tests via
+  Playwright, driving the actual admin UI end to end (search, add
+  instructor, book a tentative slot, etc.). Needs a login — see
+  "Frontend (Playwright)" section below for setup.
+
+## Backend
 
 **How this works:**
 
@@ -124,7 +133,7 @@ copy or a documentation placeholder.
 
 ---
 
-## Last run
+## Backend — last run
 
 - **Date:** 2026-09-20
 - **Command:** `node tests/backend-suite.mjs`
@@ -148,10 +157,84 @@ copy or a documentation placeholder.
     verified with a full `vite build` afterward to confirm the extraction
     didn't break the app.
 
+---
+
+## Frontend (Playwright)
+
+Real browser tests driving the actual admin UI — `tests/playwright/*.spec.ts`,
+config in `playwright.config.ts`.
+
+### Setup (one-time, per machine)
+
+1. Install browsers: `npx playwright install chromium`
+2. Create `tests/playwright-credentials.local.json` (gitignored — real
+   account credentials, never commit):
+   ```json
+   {
+     "phone": "<login phone number>",
+     "password": "<login password>",
+     "loginPath": "/admin-byser-secu7"
+   }
+   ```
+   The login path is a special admin-bypass route — the normal `/login`
+   page errors out for this account.
+
+### Running
+
+```bash
+npx playwright test
+```
+
+This builds the app (`pnpm run build`) and serves it with `vite preview`
+(port 4173) if nothing is already running there, logs in once via
+`auth.setup.ts` (saved to the gitignored `tests/playwright/.auth/`), then
+runs every spec reusing that session.
+
+**Why a production build, not `pnpm run dev`:** `main.tsx` wraps the app in
+`React.StrictMode`, which deliberately double-invokes effects in
+development only (never in production) specifically to help surface
+missing-cleanup bugs. The first time this suite ran against the dev server,
+the roster/search persistence test failed — but the exact same flow passed
+cleanly against a production build. Confirmed this was a dev-only
+StrictMode artifact (a `useRef` guard set by one effect and read by a
+sibling effect doesn't reset between StrictMode's phantom
+mount → cleanup → remount cycle the same way two genuinely separate mounts
+would), not a real bug — so the suite targets what's actually shipped
+rather than chasing dev-only false positives.
+
+### Test data safety
+
+Every spec that creates a real `Schedule` row (the booking-flow test) tags
+it with a recognizable marker in `tentative_details.name` and deletes it
+in an `afterEach` via the same anon-key Supabase client the backend suite
+uses — verified zero leftover rows after a full run. Tests only ever touch
+the `test_dp` fixture instructor, never a real one.
+
+| File                            | Covers                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.setup.ts`                 | Logs in via the admin-bypass route, saves session state for reuse                                                                                                                                                                                                                                                                                     |
+| `sales-dashboard.spec.ts`       | Header/controls render; theme toggle + persistence; help modal; search & add instructor to roster; roster + search text persistence across reload; Clear all; location panel collapse + persistence; double-click a free slot → fill form → submit → success; phone input digit/length restriction; Sales Agent field is read-only and auto-populated |
+| `instructor-management.spec.ts` | Header/search/status-filter/card render; search filters cards; status filter toggle; View Schedule dialog opens with 24-hour time labels (regression check)                                                                                                                                                                                           |
+
+### Frontend — last run
+
+- **Date:** 2026-09-20
+- **Command:** `npx playwright test` (against a `pnpm run build` + `vite preview` server)
+- **Result:** 14/14 passed
+- **Note:** the first run (against `pnpm run dev`) showed 6 failures. Five
+  were this suite's own selector mistakes (wrong placeholder text, a
+  strict-mode-ambiguous text selector, and `.fill()` on the phone input
+  interacting oddly with its native `maxLength` attribute — fixed by using
+  `pressSequentially()` to simulate real per-keystroke typing). The sixth
+  (roster/search persistence) was the StrictMode dev-only artifact
+  described above, confirmed by re-running the identical flow against a
+  production build, where it passed immediately.
+
 ## Adding a new check
 
-Append a row to the relevant section (or a new section) with a short,
-specific, testable behavior statement — not a vague goal. Good: "A slot
-adjacent to the same customer's tentative slot is allowed." Bad: "Buffer
-logic works." Then ask for `tests.md` to be checked — the suite will be
-extended to cover it and run for real against the live database.
+Append a row to the relevant backend section (or a new one), or a new test
+to the appropriate Playwright spec, with a short, specific, testable
+behavior statement — not a vague goal. Good: "A slot adjacent to the same
+customer's tentative slot is allowed." Bad: "Buffer logic works." Then ask
+for `tests.md` to be checked — the suite will be extended to cover it and
+run for real.
