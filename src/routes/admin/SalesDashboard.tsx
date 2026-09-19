@@ -1324,15 +1324,16 @@ export default function SalesDashboard() {
     return set;
   }, [locSearch, locResult, data]);
 
+  // The search bar is only ever for FINDING an instructor to add (via
+  // searchResults below) -- it must never also filter what the grid shows,
+  // or typing a new name to add hides every already-added instructor that
+  // doesn't happen to match, making them look removed.
   const visibleInstructors = useMemo(() => {
-    const q = filter.trim().toLowerCase();
     const roster = locSearch
       ? (locResult?.instrs ?? [])
       : (data?.instructors ?? []);
-    return roster
-      .filter((i) => isBookable(i) || workingOnMap.has(i.id))
-      .filter((i) => (q ? i.name.toLowerCase().includes(q) : true));
-  }, [data, filter, locSearch, locResult, workingOnMap]);
+    return roster.filter((i) => isBookable(i) || workingOnMap.has(i.id));
+  }, [data, locSearch, locResult, workingOnMap]);
 
   const searchResults = useMemo(() => {
     const q = filter.trim().toLowerCase();
