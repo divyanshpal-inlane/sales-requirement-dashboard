@@ -98,6 +98,7 @@
 .brand {
   display: flex;
   align-items: center;
+  gap: 6px;
 }
 
 .brand h1 {
@@ -107,18 +108,6 @@
   font-weight: 500;
   letter-spacing: -0.3px;
   color: var(--gc-text);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #00cc81;
-  border: 3px solid var(--gc-bg);
-  box-shadow: 0 0 0 1px var(--gc-border);
 }
 
 .cal-nav {
@@ -987,6 +976,32 @@
   background: var(--gc-bg);
   border: 1px solid var(--gc-border);
   border-radius: 12px;
+}
+
+.detail-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+  font-size: 13px;
+  color: var(--gc-text-2);
+}
+
+.detail-loading::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--gc-border);
+  border-top-color: var(--gc-blue);
+  animation: detail-loading-spin 0.7s linear infinite;
+}
+
+@keyframes detail-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .mini {

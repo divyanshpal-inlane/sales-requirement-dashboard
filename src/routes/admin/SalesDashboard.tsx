@@ -1,5 +1,6 @@
 import "@/components/admin/sales-dashboard/sales-dashboard.css";
 
+import { ArrowLeft } from "lucide-react";
 import type { KeyboardEvent, RefObject } from "react";
 import {
   Fragment,
@@ -12,7 +13,9 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 import type { LocateStatus } from "@/components/admin/sales-dashboard/LocationSearch";
 import type {
@@ -23,6 +26,7 @@ import {
   DEFAULT_CUSTOMER_FORM,
   TentativeBookingModal,
 } from "@/components/admin/sales-dashboard/TentativeBookingModal";
+import { Button } from "@/components/ui/button";
 import type {
   BlockDetail,
   InstructorRow,
@@ -233,6 +237,9 @@ interface GridProps {
   slotStart: string;
   slotEnd: string;
   expanded: Set<string>;
+  // The one row (if any) whose expand/collapse toggle is still being
+  // applied via startTransition -- see toggleExpand/isExpandPending.
+  pendingExpandId: string | null;
   selectedRows: Set<string>;
   rowColors: ReadonlyMap<string, string>;
   loadingRows: LightInstructor[];
@@ -458,6 +465,10 @@ interface InstructorRowGroupProps {
   freeSet: Set<number> | undefined;
   windowTotal: number;
   isExpanded: boolean;
+  // True only while THIS row's own expand/collapse is the one still being
+  // applied via startTransition (see toggleExpand) -- not a general
+  // "something else is loading" flag for other rows.
+  isExpandPending: boolean;
   isSelected: boolean;
   rowColor: string | undefined;
   timeCols: string[];
@@ -488,6 +499,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
     freeSet,
     windowTotal,
     isExpanded,
+    isExpandPending,
     isSelected,
     rowColor,
     timeCols,
@@ -613,7 +625,7 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
           );
         })}
       </tr>
-      {isExpanded && (
+      {(isExpanded || isExpandPending) && (
         <tr className="detail-row">
           <td colSpan={timeCols.length + 1}>
             <div className="detail">
@@ -642,36 +654,51 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
                   Hide schedule ▲
                 </button>
               </div>
-              <table className="mini">
-                <thead>
-                  <tr>
-                    <th className="mini-date">Date</th>
-                    {timeCols.map((t) => (
-                      <th key={t} className="mini-time">
-                        <span className="time-label">{t}</span>
-                      </th>
+              {isExpandPending ? (
+                // Rendering all `dates.length` (up to 400) MiniRows is
+                // genuinely expensive -- without this, clicking "Schedule"
+                // visibly froze the page for a moment with no feedback,
+                // reading as "nothing happened". toggleExpand wraps the
+                // state update in startTransition so this heavy render
+                // never blocks the browser from painting this loading row
+                // first; isExpandPending is that transition's own pending
+                // flag, so it's already true on the very next paint after
+                // the click.
+                <div className="detail-loading" role="status">
+                  Loading {instr.name}&apos;s full schedule…
+                </div>
+              ) : (
+                <table className="mini">
+                  <thead>
+                    <tr>
+                      <th className="mini-date">Date</th>
+                      {timeCols.map((t) => (
+                        <th key={t} className="mini-time">
+                          <span className="time-label">{t}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dates.map((d) => (
+                      <MiniRow
+                        key={d}
+                        instrId={instr.id}
+                        d={d}
+                        isCurrent={d === selectedDate}
+                        timeCols={timeCols}
+                        timeStarts={timeStarts}
+                        gridMinutes={gridMinutes}
+                        freeGrid={freeGrid}
+                        onDoubleClick={onDoubleClick}
+                        onOverrideClick={onOverrideClick}
+                        onDeleteTentative={onDeleteTentative}
+                        resolveInfo={resolveInfo}
+                      />
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {dates.map((d) => (
-                    <MiniRow
-                      key={d}
-                      instrId={instr.id}
-                      d={d}
-                      isCurrent={d === selectedDate}
-                      timeCols={timeCols}
-                      timeStarts={timeStarts}
-                      gridMinutes={gridMinutes}
-                      freeGrid={freeGrid}
-                      onDoubleClick={onDoubleClick}
-                      onOverrideClick={onOverrideClick}
-                      onDeleteTentative={onDeleteTentative}
-                      resolveInfo={resolveInfo}
-                    />
-                  ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              )}
             </div>
           </td>
         </tr>
@@ -703,6 +730,7 @@ function AvailabilityGridInner(props: GridProps) {
     slotStart,
     slotEnd,
     expanded,
+    pendingExpandId,
     selectedRows,
     rowColors,
     loadingRows,
@@ -737,6 +765,7 @@ function AvailabilityGridInner(props: GridProps) {
             freeSet={freeSets.get(instr.id)}
             windowTotal={windowTotals.get(instr.id) ?? 0}
             isExpanded={expanded.has(instr.id)}
+            isExpandPending={pendingExpandId === instr.id}
             isSelected={selectedRows.has(instr.id)}
             rowColor={rowColors.get(instr.id)}
             timeCols={timeCols}
@@ -770,6 +799,7 @@ function AvailabilityGridInner(props: GridProps) {
 const AvailabilityGrid = memo(AvailabilityGridInner);
 
 export default function SalesDashboard() {
+  const navigate = useNavigate();
   const {
     phase,
     errorMsg,
@@ -793,6 +823,13 @@ export default function SalesDashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [dateIndex, setDateIndex] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Expanding a row renders up to 400 MiniRows (one per visible date) --
+  // genuinely expensive, and without this the click visibly froze the page
+  // for a moment with no feedback. startTransition keeps that heavy render
+  // from blocking the browser's next paint, and isPending (renamed here)
+  // drives an immediate "Loading..." row instead (see InstructorRowGroup).
+  const [isExpandTransitionPending, startExpandTransition] = useTransition();
+  const [pendingExpandId, setPendingExpandId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("freeDesc");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -1160,13 +1197,25 @@ export default function SalesDashboard() {
   }, [helpOpen]);
 
   const toggleExpand = useCallback((id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    setPendingExpandId(id);
+    startExpandTransition(() => {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
     });
   }, []);
+
+  // Clears the stale row id once its transition actually settles, so a
+  // later render can't misread a leftover pendingExpandId as "still
+  // pending" for some other reason.
+  useEffect(() => {
+    if (!isExpandTransitionPending) setPendingExpandId(null);
+  }, [isExpandTransitionPending]);
+
+  const pendingExpandRowId = isExpandTransitionPending ? pendingExpandId : null;
 
   const addToCompare = (id: string) => {
     loadInstructors([id]);
@@ -2152,9 +2201,15 @@ export default function SalesDashboard() {
       <main className="shell">
         <header className="topbar">
           <div className="brand">
-            <h1>
-              <span className="brand-dot" /> Instructor availability
-            </h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/admin")}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <h1>Instructor availability</h1>
           </div>
 
           <div className="cal-nav">
@@ -2439,6 +2494,7 @@ export default function SalesDashboard() {
             slotStart={config.slotStart}
             slotEnd={config.slotEnd}
             expanded={expanded}
+            pendingExpandId={pendingExpandRowId}
             selectedRows={selectedRows}
             rowColors={rowColors}
             loadingRows={data?.loading ?? []}
