@@ -902,6 +902,149 @@ export function useReviewLLDocument() {
   });
 }
 
+/** RTO team replaces a rejected customer document collected offline. */
+export function useAdminReplaceLLDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      application,
+      doc,
+      file,
+      actorName,
+      docLabel,
+    }: {
+      application: LLApplication;
+      doc: LLDocument;
+      file: File;
+      actorName?: string | null;
+      docLabel: string;
+    }) => {
+      if (doc.status !== "rejected") {
+        throw new Error("Only rejected documents can be replaced here.");
+      }
+
+      const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+      const slot = doc.doc_slot || "primary";
+      const path = `${application.learner_id}/${doc.doc_type}-${slot}-admin-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("ll-documents")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (uploadError) {
+        throw new Error(`Document upload failed: ${uploadError.message}`);
+      }
+
+      const { data: replaced, error: updateError } = await sb
+        .from("ll_documents")
+        .update({
+          storage_path: path,
+          file_name: file.name,
+          mime_type: file.type,
+          status: "pending",
+          rejection_reason: null,
+          reviewed_by: null,
+          reviewed_at: null,
+          created_at: new Date().toISOString(),
+        })
+        .eq("id", doc.id)
+        .eq("application_id", application.id)
+        .eq("status", "rejected")
+        .select("id")
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!replaced) {
+        throw new Error(
+          "This document is no longer rejected. Refresh and try again.",
+        );
+      }
+
+      await appendEvent({
+        application_id: application.id,
+        learner_id: application.learner_id,
+        event_type: "note",
+        actor_name: actorName,
+        note: `Document replaced by RTO team: ${docLabel} — ${file.name}`,
+      });
+
+      const { data: remainingRejected, error: remainingError } = await sb
+        .from("ll_documents")
+        .select("id")
+        .eq("application_id", application.id)
+        .eq("status", "rejected")
+        .limit(1);
+      if (remainingError) throw remainingError;
+
+      let returnedToReview = false;
+      if (
+        application.status === "docs_rejected" &&
+        (remainingRejected ?? []).length === 0
+      ) {
+        const { data: submitted, error: submitError } = await sb
+          .from("ll_applications")
+          .update({
+            status: "docs_submitted",
+            rejection_reason: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", application.id)
+          .eq("status", "docs_rejected")
+          .select("id")
+          .maybeSingle();
+        if (submitError) throw submitError;
+
+        if (submitted) {
+          await appendEvent({
+            application_id: application.id,
+            learner_id: application.learner_id,
+            event_type: "status_change",
+            from_status: "docs_rejected",
+            to_status: "docs_submitted",
+            actor_name: actorName,
+            note: "All rejected documents were replaced by the RTO team",
+          });
+
+          const { data: underReview, error: reviewError } = await sb
+            .from("ll_applications")
+            .update({
+              status: "docs_under_review",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", application.id)
+            .eq("status", "docs_submitted")
+            .select("id")
+            .maybeSingle();
+          if (reviewError) throw reviewError;
+          if (!underReview) {
+            throw new Error(
+              "The documents were replaced, but the application status changed at the same time. Refresh to see its current stage.",
+            );
+          }
+
+          returnedToReview = true;
+          await appendEvent({
+            application_id: application.id,
+            learner_id: application.learner_id,
+            event_type: "status_change",
+            from_status: "docs_submitted",
+            to_status: "docs_under_review",
+            actor_name: actorName,
+            note: "RTO team replacement submitted — documents returned to review",
+          });
+        }
+      }
+
+      return { returnedToReview };
+    },
+    onSuccess: (_result, { application }) => {
+      queryClient.invalidateQueries({ queryKey: ["ll-documents"] });
+      invalidateLLPipeline(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["ll-pipeline-events"] });
+      queryClient.invalidateQueries({
+        queryKey: ["my-ll-application", application.learner_id],
+      });
+    },
+  });
+}
+
 export function useUpdateLLFields() {
   const queryClient = useQueryClient();
   return useMutation({
