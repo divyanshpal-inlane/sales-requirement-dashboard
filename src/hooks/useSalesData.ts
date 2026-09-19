@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildDisplayFreeGrid,
   buildInstructorFreeGrid,
+  candidateStartMinutes,
   type InstructorLike,
   type ScheduleBlock,
 } from "@/lib/sales-dashboard/availability";
@@ -505,28 +506,20 @@ export function useSalesData() {
     const to = addDaysISO(from, viewDays - 1);
     datesRef.current = [];
     for (let d = from; d <= to; d = addDaysISO(d, 1)) datesRef.current.push(d);
-    // Display-only: the grid's visible time columns span the FULL day
-    // (00:00-23:30), independent of the shared booking_flow config's
-    // slotStart/slotEnd. Sales needs to see whatever actually exists on
-    // an instructor's schedule for the whole day, not just business
-    // hours — e.g. a booking or pause that happens to sit outside
-    // slotStart/slotEnd would otherwise never get a column to render in
-    // at all. This does NOT change what Sales can create a NEW tentative
-    // booking in: slotConfig below (used by buildInstructorFreeGrid for
-    // the actual free/busy + 1-hour-block validation) still uses the
-    // real config.slotStart/slotEnd, so double-click booking stays
-    // scoped to configured business hours exactly as before. Cells
-    // outside that window default to showing as busy/default rather than
-    // green/free unless something is actually scheduled there, since
-    // buildDisplayFreeGrid's own candidate range is likewise still
-    // bounded by the real config (see below) — deliberately: widening
-    // the visible range is a display change, not a decision to also
-    // allow booking classes at 2am.
-    const fullDayStep = Math.max(1, Math.floor(config.gridMinutes));
-    timeStartsRef.current = [];
-    for (let m = 0; m < 24 * 60; m += fullDayStep) {
-      timeStartsRef.current.push(m);
-    }
+    // The grid's visible time columns are bounded by the shared
+    // booking_flow config's slotStart/slotEnd/slotDurationMinutes -- the
+    // same window a new tentative booking can actually be created in, so
+    // there's no dead zone where a cell is shown but can never be
+    // free/bookable. Whether a given cell is actually free within this
+    // window is decided purely by the instructor's own
+    // Instructor.unavailability data plus real Schedule rows via
+    // buildFreeGrid, not a separate business-hours boundary.
+    timeStartsRef.current = candidateStartMinutes({
+      slotStart: config.slotStart,
+      slotEnd: config.slotEnd,
+      gridMinutes: config.gridMinutes,
+      slotDurationMinutes: config.slotDurationMinutes,
+    });
   }, []);
 
   const reload = useCallback(() => {
