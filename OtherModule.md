@@ -113,6 +113,41 @@ uses a separate unfiltered handler for DELETE specifically (its filtered
 INSERT/UPDATE handlers are unaffected). The full fix (`REPLICA IDENTITY
 FULL` on `Schedule`) is proposed in `REALTIME_DELETE_REPLICA_IDENTITY.md`.
 
+## Instructor Management — fixed row compression/overlap on short viewports (no scroll)
+
+**File changed:** `src/routes/admin/instructors.tsx` (`InstructorSchedulePage`)
+
+**Why:** Testing team reported "no scrolling option to easily navigate through
+the times" on the full per-instructor schedule page. Verified via direct DOM
+inspection (Playwright, 1280x500 viewport) before changing anything: the time
+axis and grid-cells columns both used `gridTemplateRows: repeat(N, 1fr)`,
+which compresses every row to whatever height evenly fits the container no
+matter how short it is, instead of scrolling. At 500px tall, rows shrank to
+~21px while a scheduled block's own absolutely-positioned content stayed at
+its real height, so blocks visually overflowed into neighboring rows —
+a real rendering bug, not just an inconvenience.
+
+**What changed:**
+
+- Added `timeAxisRef`/`gridCellsRef` and a `syncScroll(from)` handler that
+  mirrors one panel's `scrollTop` onto the other, so the time labels and the
+  grid cells scroll together (the "frozen column" pattern already used
+  elsewhere in the app for horizontal scroll, applied here vertically).
+- Wrapped the time-axis labels and the grid-cells panel each in their own
+  `overflow-y-auto` container with `onScroll={syncScroll(...)}`.
+- Changed both panels' `gridTemplateRows` from `repeat(N, 1fr)` to
+  `repeat(N, minmax(44px, 1fr))` — rows now never compress below 44px;
+  the container scrolls instead once content no longer fits.
+
+Verified with the same DOM-inspection probe post-fix: at 500px height, rows
+now stay at their real (43-44px) height with the containers reporting
+`overflow-y: auto` and no clipped/overflowing block content, and a
+scroll-sync check confirmed setting the grid panel's `scrollTop` moves the
+time-axis panel's `scrollTop` to match. `npx tsc --noEmit` and `npx eslint`
+before/after diffs confirmed zero new type errors and zero new lint errors
+(one run of `eslint --fix` was needed to reformat the new JSX indentation
+back to the project's Prettier style). No DB or other-module changes.
+
 ## Instructor Management — hover tooltips for unavailable slots
 
 **Files changed:** `src/routes/admin/instructors.tsx`

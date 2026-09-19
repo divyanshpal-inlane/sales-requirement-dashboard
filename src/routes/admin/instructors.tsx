@@ -52,6 +52,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import type { UIEvent } from "react";
 import {
   Fragment,
   memo,
@@ -5817,6 +5818,21 @@ export const InstructorSchedulePage = () => {
   // After a drag finalises we set this so the trailing onClick (which fires
   // after mouseup) doesn't overwrite our prefilled add-form state.
   const dragJustEndedRef = useRef(false);
+  // The time-axis (hour labels) and the grid cells are two separate scroll
+  // containers side by side -- kept in sync here so scrolling one moves
+  // the other by the same amount, the same "frozen column" pattern used
+  // for spreadsheet-like UIs. Needed once row heights have a real minimum
+  // (see minmax() below) instead of always compressing to fit: previously
+  // neither side ever actually had anything to scroll, since 1fr rows
+  // just shrank to whatever space was available, however small.
+  const timeAxisRef = useRef<HTMLDivElement>(null);
+  const gridCellsRef = useRef<HTMLDivElement>(null);
+  const syncScroll =
+    (from: "axis" | "grid") => (e: UIEvent<HTMLDivElement>) => {
+      const target =
+        from === "axis" ? gridCellsRef.current : timeAxisRef.current;
+      if (target) target.scrollTop = e.currentTarget.scrollTop;
+    };
   useEffect(() => {
     dragStartRef.current = dragStart;
   }, [dragStart]);
@@ -6621,37 +6637,49 @@ export const InstructorSchedulePage = () => {
           <div className="z-20 flex w-14 shrink-0 flex-col border-r bg-slate-50">
             <div className="h-10 border-b bg-white" />
             <div
-              className="grid flex-1"
-              style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}
+              ref={timeAxisRef}
+              onScroll={syncScroll("axis")}
+              className="min-h-0 flex-1 overflow-y-auto"
             >
-              {timeSlots.map((slot, idx) => {
-                const isRowHovered = hoveredHour === idx;
+              <div
+                className="grid"
+                style={{
+                  gridTemplateRows: `repeat(${timeSlots.length}, minmax(44px, 1fr))`,
+                }}
+              >
+                {timeSlots.map((slot, idx) => {
+                  const isRowHovered = hoveredHour === idx;
 
-                return (
-                  <div
-                    key={slot.hour24}
-                    className={cn(
-                      "flex items-start justify-end border-b border-slate-100 pr-2 pt-1 transition-colors",
-                      // Theme Update: White on Dark Grey
-                      isRowHovered ? "bg-slate-500" : "bg-white",
-                    )}
-                  >
-                    <span
+                  return (
+                    <div
+                      key={slot.hour24}
                       className={cn(
-                        "text-[9px] font-bold uppercase transition-colors",
-                        // Toggle text color based on hover
-                        isRowHovered ? "text-white" : "text-slate-400",
+                        "flex items-start justify-end border-b border-slate-100 pr-2 pt-1 transition-colors",
+                        // Theme Update: White on Dark Grey
+                        isRowHovered ? "bg-slate-500" : "bg-white",
                       )}
                     >
-                      {slot.display}
-                    </span>
-                  </div>
-                );
-              })}
+                      <span
+                        className={cn(
+                          "text-[9px] font-bold uppercase transition-colors",
+                          // Toggle text color based on hover
+                          isRowHovered ? "text-white" : "text-slate-400",
+                        )}
+                      >
+                        {slot.display}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+          <div
+            ref={gridCellsRef}
+            onScroll={syncScroll("grid")}
+            className="flex min-w-0 flex-1 flex-col overflow-y-auto"
+          >
             {/* GRID HEADERS */}
             <div className="sticky top-0 z-30 grid shrink-0 grid-cols-7 border-b bg-white">
               {weekDates.map((date, idx) => {
@@ -6710,7 +6738,9 @@ export const InstructorSchedulePage = () => {
             {/* GRID CELLS */}
             <div
               className="relative grid min-h-0 flex-1 grid-cols-7"
-              style={{ gridTemplateRows: `repeat(${timeSlots.length}, 1fr)` }}
+              style={{
+                gridTemplateRows: `repeat(${timeSlots.length}, minmax(44px, 1fr))`,
+              }}
             >
               {timeSlots.map((slot, rowIdx) => (
                 <Fragment key={slot.hour24}>
