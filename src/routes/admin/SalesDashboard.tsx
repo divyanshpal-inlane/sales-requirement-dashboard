@@ -1292,16 +1292,7 @@ export default function SalesDashboard() {
   // it's a genuine single "back to a clean slate" action.
   const resetDashboard = () => {
     const ids = data?.instructors.map((i) => i.id) ?? [];
-    if (ids.length > 0) {
-      if (
-        !window.confirm(
-          `Reset the dashboard? This removes all ${ids.length} instructor${ids.length === 1 ? "" : "s"} from the roster and clears filters, search, and selection.`,
-        )
-      ) {
-        return;
-      }
-      for (const id of ids) removeInstructor(id);
-    }
+    for (const id of ids) removeInstructor(id);
     setFilter("");
     setSearchOpen(false);
     setDateIndex(0);
