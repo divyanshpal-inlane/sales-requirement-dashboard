@@ -33,6 +33,10 @@ import {
   isTimeUnavailable,
   validateOneHourBlock,
 } from "@/lib/sales-dashboard/availability";
+import {
+  bufferWaivedForCustomer,
+  classifySlotConflict,
+} from "@/lib/sales-dashboard/conflict";
 import type { KmlZone } from "@/lib/sales-dashboard/kml";
 import {
   fetchKmlData,
@@ -43,7 +47,6 @@ import {
 import {
   dateToWeekdayLower,
   minutesToTime,
-  normalizePhone,
   timeToMinutes,
 } from "@/lib/sales-dashboard/validation";
 import { supabase } from "@/lib/supabaseClient";
@@ -109,64 +112,6 @@ const LOCATION_COLORS = [
   "#00695c",
   "#ad1457",
 ] as const;
-
-// Distinguishes a genuine double-booking (any overlap) from a slot that's
-// only unavailable because it falls within another booking's instructor
-// travel-gap buffer -- the latter should be waivable when every
-// buffer-only conflict belongs to the SAME customer (booking two
-// back-to-back classes for one learner shouldn't need a gap between them,
-// same as within a single multi-slot batch), but never for a genuine
-// overlap or a buffer conflict with someone else's booking.
-type SlotConflict =
-  | { kind: "free" }
-  | { kind: "direct" }
-  | { kind: "buffer"; phones: (string | null)[] };
-
-function classifySlotConflict(
-  instrId: string,
-  date: string,
-  startMinute: number,
-  gapMinutes: number,
-  blocksIndex: Map<string, Map<string, BlockDetail[]>>,
-): SlotConflict {
-  const endMinute = startMinute + 60;
-  const blocks = blocksIndex.get(instrId)?.get(date) ?? [];
-  const bufferPhones: (string | null)[] = [];
-  for (const b of blocks) {
-    if (b.status === "cancelled" || b.status === "rejected") continue;
-    const direct = b.startMinute < endMinute && startMinute < b.endMinute;
-    if (direct) return { kind: "direct" };
-    const buffered =
-      b.startMinute - gapMinutes < endMinute &&
-      startMinute < b.endMinute + gapMinutes;
-    if (!buffered) continue;
-    // Only a Sales-created tentative hold's phone can waive the buffer --
-    // a real learner booking or payment-pending slot never should, even
-    // if (coincidentally) it's the same phone, since that's a confirmed
-    // class, not a hold Sales can freely stack around.
-    const isSalesTentative = b.status === "hold" && b.isTentative;
-    const phone =
-      isSalesTentative && typeof b.rawTentativeDetails?.phone === "string"
-        ? normalizePhone(b.rawTentativeDetails.phone)
-        : null;
-    bufferPhones.push(phone);
-  }
-  if (bufferPhones.length === 0) return { kind: "free" };
-  return { kind: "buffer", phones: bufferPhones };
-}
-
-// A buffer-only conflict is waivable when every conflicting block's phone
-// matches the customer currently being booked (and none are null, i.e.
-// none are a real/non-Sales booking that never waives).
-function bufferWaivedForCustomer(
-  conflict: SlotConflict,
-  customerPhone: string,
-): boolean {
-  if (conflict.kind !== "buffer") return conflict.kind === "free";
-  const normalized = normalizePhone(customerPhone);
-  if (!normalized) return false;
-  return conflict.phones.every((p) => p === normalized);
-}
 
 function isBookable(
   instructor: Pick<InstructorRow, "status" | "enabled">,
