@@ -1177,24 +1177,6 @@ export default function SalesDashboard() {
     else loadInstructors([id]);
   };
 
-  // The roster persists across reloads (see ROSTER_STORAGE_KEY), so it can
-  // grow large over many sessions if instructors are never explicitly
-  // removed -- a reload then restores everything ever added, which reads as
-  // "all my past searches suddenly appeared" if it's been a while. This is
-  // the fast way back to a clean slate without removing them one by one.
-  const handleClearRoster = () => {
-    const ids = data?.instructors.map((i) => i.id) ?? [];
-    if (ids.length === 0) return;
-    if (
-      !window.confirm(
-        `Remove all ${ids.length} instructor${ids.length === 1 ? "" : "s"} from the dashboard?`,
-      )
-    ) {
-      return;
-    }
-    for (const id of ids) removeInstructor(id);
-  };
-
   const clearLocation = () => {
     setLocSearch(null);
   };
@@ -1302,7 +1284,24 @@ export default function SalesDashboard() {
     });
   }, []);
 
+  // The roster persists across reloads (see ROSTER_STORAGE_KEY), so it can
+  // grow large over many sessions if instructors are never explicitly
+  // removed -- a reload then restores everything ever added, which reads as
+  // "all my past searches suddenly appeared" if it's been a while. Reset
+  // clears the roster along with filters/search/selection/sort/location, so
+  // it's a genuine single "back to a clean slate" action.
   const resetDashboard = () => {
+    const ids = data?.instructors.map((i) => i.id) ?? [];
+    if (ids.length > 0) {
+      if (
+        !window.confirm(
+          `Reset the dashboard? This removes all ${ids.length} instructor${ids.length === 1 ? "" : "s"} from the roster and clears filters, search, and selection.`,
+        )
+      ) {
+        return;
+      }
+      for (const id of ids) removeInstructor(id);
+    }
     setFilter("");
     setSearchOpen(false);
     setDateIndex(0);
@@ -2365,7 +2364,7 @@ export default function SalesDashboard() {
               </button>
             </div>
           )}
-          {inSelectionMode ? (
+          {inSelectionMode && (
             <button
               type="button"
               className="clear-select"
@@ -2373,16 +2372,6 @@ export default function SalesDashboard() {
             >
               Clear selection
             </button>
-          ) : (
-            rows.length > 0 && (
-              <button
-                type="button"
-                className="clear-select"
-                onClick={handleClearRoster}
-              >
-                Clear all
-              </button>
-            )
           )}
         </div>
 
