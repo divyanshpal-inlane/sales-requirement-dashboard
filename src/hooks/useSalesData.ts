@@ -619,8 +619,22 @@ export function useSalesData() {
         }) => {
           const instrId =
             payload.new?.instructor_id ?? payload.old?.instructor_id;
-          if (!instrId) return;
-          refreshInstructors([instrId]);
+          if (instrId) {
+            refreshInstructors([instrId]);
+            return;
+          }
+          // DELETE events only carry the deleted row's primary key in
+          // payload.old by default (Postgres's REPLICA IDENTITY DEFAULT),
+          // not the rest of the row -- so instructor_id is never available
+          // here for a deletion, regardless of client-side code. Refreshing
+          // every currently-loaded instructor is the safe fallback: it's
+          // strictly more work than a targeted refresh, never less
+          // correct, and the roster is normally a handful of instructors,
+          // not the whole table. Fixed at the source (REPLICA IDENTITY
+          // FULL on "Schedule") would let deletes be targeted too, but
+          // that's a DB change requiring separate approval.
+          const loadedIds = [...storeRef.current.instructors.keys()];
+          if (loadedIds.length > 0) refreshInstructors(loadedIds);
         },
       )
       .subscribe();

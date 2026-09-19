@@ -5941,29 +5941,50 @@ export const InstructorSchedulePage = () => {
 
   // Reverse sync: pick up Schedule changes made elsewhere (e.g. a tentative
   // slot booked from the Sales Dashboard) without requiring a manual
-  // reload. Filtered server-side to this page's own instructor since,
-  // unlike the list page, there's exactly one id to care about here.
-  // Requires Realtime replication to be enabled for the "Schedule" table in
-  // Supabase (Database -> Replication, or `alter publication
-  // supabase_realtime add table "Schedule";` in the SQL editor) -- without
-  // it this subscription connects but never receives events.
+  // reload. INSERT/UPDATE are filtered server-side to this page's own
+  // instructor since, unlike the list page, there's exactly one id to care
+  // about here. DELETE gets its own unfiltered handler: a server-side
+  // filter can't be evaluated for a delete under Postgres's default REPLICA
+  // IDENTITY (only the deleted row's primary key is available, not
+  // instructor_id), so a filtered subscription would silently never see
+  // deletions at all. Invalidating unconditionally on any delete is cheap
+  // here -- one instructor's query, not a list. Requires Realtime
+  // replication to be enabled for the "Schedule" table in Supabase
+  // (Database -> Replication, or `alter publication supabase_realtime add
+  // table "Schedule";` in the SQL editor) -- without it this subscription
+  // connects but never receives events.
   useEffect(() => {
     if (!id) return;
+    const invalidate = () =>
+      void queryClient.invalidateQueries({
+        queryKey: ["instructor-full", id],
+      });
     const channel = supabase
       .channel(`instructor-schedule-sync-${id}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "Schedule",
           filter: `instructor_id=eq.${id}`,
         },
-        () => {
-          void queryClient.invalidateQueries({
-            queryKey: ["instructor-full", id],
-          });
+        invalidate,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "Schedule",
+          filter: `instructor_id=eq.${id}`,
         },
+        invalidate,
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "Schedule" },
+        invalidate,
       )
       .subscribe();
     return () => {
