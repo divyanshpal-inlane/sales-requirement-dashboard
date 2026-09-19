@@ -3604,6 +3604,11 @@ function WeeklyScheduleView({
                           <td
                             key={dayIndex}
                             className={tdClasses}
+                            title={
+                              !schedule && unavailable
+                                ? "Instructor unavailable at this time"
+                                : undefined
+                            }
                             style={{
                               width: `${columnWidthPercentage}%`,
                               height: "40px",
@@ -6747,9 +6752,21 @@ export const InstructorSchedulePage = () => {
 
                     const inDrag = isInDragRange(date, slot.hour24);
                     const isCellEmpty = slotSchedules.length === 0;
+                    // Cells with a scheduled class already explain
+                    // themselves via the class block's own hover detail --
+                    // this is only for an otherwise-blank cell that's
+                    // greyed out by unavailability, which had no
+                    // explanation at all for why it can't be booked.
+                    const unavailableTitle =
+                      isCellEmpty && (isTopUnavailable || isBottomUnavailable)
+                        ? isTopUnavailable && isBottomUnavailable
+                          ? "Instructor unavailable this whole hour"
+                          : `Instructor unavailable ${isTopUnavailable ? "the first half of this hour" : "the second half of this hour"}`
+                        : undefined;
                     return (
                       <div
                         key={`${dateStr}-${slot.hour24}`}
+                        title={unavailableTitle}
                         className={cn(
                           "group relative cursor-pointer select-none border-b border-r border-slate-50 transition-colors",
                           "hover:bg-slate-200",
