@@ -150,6 +150,9 @@ const ROSTER_STORAGE_KEY = "lane-sales-dashboard-roster";
 // Persists the search box text itself, so it's still there (not just the
 // resulting grid rows) after a reload.
 const SEARCH_STORAGE_KEY = "lane-sales-dashboard-search";
+// Persists whether the location map is collapsed, so explicitly closing it
+// sticks across a reload instead of reopening every time.
+const MAP_COLLAPSED_STORAGE_KEY = "lane-sales-dashboard-map-collapsed";
 
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -1257,7 +1260,24 @@ export default function SalesDashboard() {
       .slice(0, 8);
   }, [allInstructors, filter]);
 
-  const [locCollapsed, setLocCollapsed] = useState(false);
+  const [locCollapsed, setLocCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(MAP_COLLAPSED_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleLocCollapsed = useCallback(() => {
+    setLocCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(MAP_COLLAPSED_STORAGE_KEY, String(next));
+      } catch {
+        // Storage unavailable — persistence just won't work this session.
+      }
+      return next;
+    });
+  }, []);
 
   const compareInstructors = useMemo(() => {
     if (!data) return [];
@@ -2066,7 +2086,7 @@ export default function SalesDashboard() {
             onLocate={(lat, lng, label) => setLocSearch({ lat, lng, label })}
             onClear={clearLocation}
             collapsed={locCollapsed}
-            onToggleCollapsed={() => setLocCollapsed((c) => !c)}
+            onToggleCollapsed={toggleLocCollapsed}
           />
         </Suspense>
 
