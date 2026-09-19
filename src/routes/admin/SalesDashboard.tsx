@@ -1690,10 +1690,10 @@ export default function SalesDashboard() {
       }
 
       // Fresh booking — reset to a clean single-slot batch and blank
-      // customer form.
+      // customer form. Auto-fill address from map search if available.
       setOverrideContext(null);
       setPendingSlots([newSlot]);
-      setCustomerFormData(DEFAULT_CUSTOMER_FORM(currentUserName));
+      setCustomerFormData(DEFAULT_CUSTOMER_FORM(currentUserName, locSearch?.label ?? ""));
       setTentativeModalOpen(true);
     },
     [
@@ -1706,6 +1706,7 @@ export default function SalesDashboard() {
       currentUserName,
       customerFormData.customerPhone,
       data?.freeGrid,
+      locSearch,
     ],
   );
 

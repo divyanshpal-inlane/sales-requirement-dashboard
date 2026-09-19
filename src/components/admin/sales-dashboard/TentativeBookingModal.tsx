@@ -40,12 +40,13 @@ export interface CustomerFormValues {
 
 export const DEFAULT_CUSTOMER_FORM = (
   currentUserName = "",
+  address = "",
 ): CustomerFormValues => ({
   customerName: "",
   customerPhone: "",
   salesAgent: currentUserName,
   paymentStatus: "unpaid",
-  customerAddress: "",
+  customerAddress: address,
   course: "demo",
 });
 
