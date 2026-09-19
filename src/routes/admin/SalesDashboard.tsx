@@ -2239,22 +2239,6 @@ export default function SalesDashboard() {
               <div className="controls-row">
                 <select
                   className="sort-select"
-                  value={activeMonth}
-                  onChange={(e) => {
-                    setSelectedMonth(e.target.value);
-                    setDateIndex(0);
-                  }}
-                  aria-label="Select month"
-                >
-                  {months.map((m) => (
-                    <option key={m} value={m}>
-                      {monthLabel(m)}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="sort-select"
                   value={sort}
                   onChange={(e) => setSort(e.target.value as SortKey)}
                   aria-label="Sort instructors"
