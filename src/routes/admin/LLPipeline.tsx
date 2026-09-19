@@ -42,13 +42,13 @@ import {
   getLLAdvanceTargets,
   getLLFailureOptions,
   getLLRevertTargets,
+  isLLExpiryStatus,
   isLLFailureStatus,
   isLLSegregationRouteCode,
   LL_FAILURE_STAGES,
   LL_PHASES,
   LL_SEGREGATION_ROUTES,
   LL_SERVICES,
-  LL_STAGE_MAP,
   LL_STAGES,
   LLPhaseKey,
   llSegregationRouteChecklist,
@@ -96,7 +96,7 @@ const LL_BOARD_STAGE_FILTERS: StageFilterOption[] = (() => {
         key: stage.key,
         label: stage.label,
         phase: stage.phase,
-        isFailure: false,
+        isFailure: isLLFailureStatus(stage.key),
       });
     }
     for (const failure of stage.failures ?? []) {
@@ -630,7 +630,6 @@ function ApplicationDetail({
   onSaveFields: (fields: Partial<LLApplication>) => void;
   isBusy: boolean;
 }) {
-  const stage = LL_STAGE_MAP[application.status];
   const failure = LL_FAILURE_STAGES[application.status];
   const { data: events } = useLLPipelineEvents(application.id);
   const [note, setNote] = useState("");
@@ -734,7 +733,7 @@ function ApplicationDetail({
               className="mb-2 h-16 text-sm"
             />
             <div className="flex flex-wrap gap-2">
-              {failure ? (
+              {failure && !isLLExpiryStatus(application.status) ? (
                 <Button
                   size="sm"
                   disabled={isBusy}
@@ -789,6 +788,12 @@ function ApplicationDetail({
                     {llStageLabel(t)}
                   </Button>
                 ))
+              )}
+              {isLLExpiryStatus(application.status) && (
+                <p className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  This expiry stage has no forward action. Use Revert stage to
+                  restart the application from the appropriate point.
+                </p>
               )}
               {failureOptions.map((f) => (
                 <Button
