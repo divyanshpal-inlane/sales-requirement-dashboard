@@ -138,6 +138,9 @@ const EMPTY_LIGHT: LightInstructor[] = [];
 // on every fresh mount, so without this Sales would have to re-search
 // and re-add every instructor from scratch after any refresh.
 const ROSTER_STORAGE_KEY = "lane-sales-dashboard-roster";
+// Persists the search box text itself, so it's still there (not just the
+// resulting grid rows) after a reload.
+const SEARCH_STORAGE_KEY = "lane-sales-dashboard-search";
 
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -914,11 +917,31 @@ export default function SalesDashboard() {
         if (active)
           setKmlError(err instanceof Error ? err.message : String(err));
       });
-    // Restore the instructor roster from before a page reload, so Sales
-    // doesn't have to re-search and re-add every instructor from scratch.
-    // useSalesData's own in-memory state resets on every mount (a reload
-    // is a fresh page load), so this is the only thing that survives it.
+    return () => {
+      active = false;
+    };
+  }, [loadInstructorIndex]);
+
+  // Restore the instructor roster (and the search box text that found them)
+  // from before a page reload, so Sales doesn't have to re-search and
+  // re-add every instructor from scratch. useSalesData's own in-memory
+  // state resets on every mount (a reload is a fresh page load), so
+  // localStorage is the only thing that survives it.
+  //
+  // Gated on phase === "ready", not plain mount: useSalesData only
+  // populates configRef/datesRef (via loadSession(), a network fetch) in
+  // the same tick phase flips to "ready". loadInstructors() -> doLoad()
+  // silently no-ops if config isn't loaded yet, so calling it unconditionally
+  // on mount lost this race almost every time -- the restore looked like it
+  // should work but never actually loaded anything.
+  const rosterRestoredRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "ready" || rosterRestoredRef.current) return;
+    rosterRestoredRef.current = true;
     try {
+      const savedFilter = localStorage.getItem(SEARCH_STORAGE_KEY);
+      if (savedFilter) setFilter(savedFilter);
+
       const saved = localStorage.getItem(ROSTER_STORAGE_KEY);
       if (saved) {
         const ids: unknown = JSON.parse(saved);
@@ -933,10 +956,7 @@ export default function SalesDashboard() {
       // Corrupt/unavailable storage (e.g. private browsing) — non-fatal,
       // just means the roster won't restore this time.
     }
-    return () => {
-      active = false;
-    };
-  }, [loadInstructorIndex, loadInstructors]);
+  }, [phase, loadInstructors]);
 
   // Keep the persisted roster in sync with whatever's actually loaded —
   // covers both additions (search/location) and removals (the × button).
@@ -953,6 +973,24 @@ export default function SalesDashboard() {
       // Storage unavailable — persistence just won't work this session.
     }
   }, [data]);
+
+  // Keep the persisted search text in sync with the search box, so a
+  // reload restores what was typed, not just the resulting grid rows.
+  // Skipped until the roster restore above has run once, so it doesn't
+  // immediately overwrite the just-restored value with the still-empty
+  // initial filter state from this same render pass.
+  useEffect(() => {
+    if (!rosterRestoredRef.current) return;
+    try {
+      if (filter) {
+        localStorage.setItem(SEARCH_STORAGE_KEY, filter);
+      } else {
+        localStorage.removeItem(SEARCH_STORAGE_KEY);
+      }
+    } catch {
+      // Storage unavailable — persistence just won't work this session.
+    }
+  }, [filter]);
 
   useEffect(() => {
     if (!helpOpen) return;
