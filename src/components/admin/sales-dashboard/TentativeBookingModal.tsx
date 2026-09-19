@@ -5,6 +5,8 @@ import { minutesToTime, timeToMinutes } from "@/lib/sales-dashboard/validation";
 import { isValidPhone, normalizePhone } from "@/lib/sales-dashboard/validation";
 import { supabase } from "@/lib/supabaseClient";
 
+import { AddressAutocomplete } from "./AddressAutocomplete";
+
 export interface TentativeBookingData {
   instructorId: string;
   date: string;
@@ -507,7 +509,7 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             )}
           </div>
 
-          {/* Address */}
+          {/* Address with Google Places Autocomplete */}
           <div>
             <label
               htmlFor="customerAddress"
@@ -515,15 +517,10 @@ export const TentativeBookingModal: React.FC<TentativeBookingModalProps> = ({
             >
               Customer Address *
             </label>
-            <textarea
-              id="customerAddress"
+            <AddressAutocomplete
               value={formData.customerAddress}
-              onChange={(e) => set("customerAddress", e.target.value)}
-              placeholder="Enter full address"
-              rows={3}
-              className={`mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
-                errors.customerAddress ? "border-destructive" : "border-input"
-              }`}
+              onChange={(address) => set("customerAddress", address)}
+              placeholder="Search address..."
             />
             {errors.customerAddress && (
               <p className="mt-1 text-xs text-destructive">

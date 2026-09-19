@@ -1693,7 +1693,9 @@ export default function SalesDashboard() {
       // customer form. Auto-fill address from map search if available.
       setOverrideContext(null);
       setPendingSlots([newSlot]);
-      setCustomerFormData(DEFAULT_CUSTOMER_FORM(currentUserName, locSearch?.label ?? ""));
+      setCustomerFormData(
+        DEFAULT_CUSTOMER_FORM(currentUserName, locSearch?.label ?? ""),
+      );
       setTentativeModalOpen(true);
     },
     [
