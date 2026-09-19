@@ -39,9 +39,11 @@
   --gc-blue-contrast: #ffffff;
   /* Free: plain grey (not sourced from elsewhere -- Instructor Management's
      View Schedule has no "Free" state of its own to copy). Named
-     --gc-green-* for historical reasons; still just the "free slot" token. */
-  --gc-green-fill: #e5e7eb;
-  --gc-green-hover: #d1d5db;
+     --gc-green-* for historical reasons; still just the "free slot" token.
+     One step darker than gray-200/300 (was #e5e7eb/#d1d5db) -- too close to
+     the white background to read as a distinct fill at a glance. */
+  --gc-green-fill: #d1d5db;
+  --gc-green-hover: #9ca3af;
   --gc-green-text: #374151;
   --gc-red-text: #b91c1c;
   --gc-red-bg: #fee2e2;

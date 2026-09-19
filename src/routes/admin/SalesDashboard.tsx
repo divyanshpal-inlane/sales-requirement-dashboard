@@ -2071,17 +2071,19 @@ export default function SalesDashboard() {
           // field the "Sales Agent" form field is locked to (see
           // currentUserName above), trimmed/case-insensitive so a stray
           // space or capitalization difference doesn't wrongly block the
-          // actual creator. Rows with no recorded sales_agent at all
-          // (e.g. some Instructor-Management-created rows never set this
-          // field) have no known creator to check against, so deletion
-          // stays allowed for those rather than being newly blocked for
-          // data this restriction can't actually evaluate.
+          // actual creator. Fails CLOSED, not open: a row with no recorded
+          // sales_agent (e.g. Instructor-Management-created rows never set
+          // this field) has no verifiable creator, so it must NOT be
+          // deletable from here either — the earlier version of this check
+          // treated "unknown creator" as "anyone may delete it", which is
+          // exactly backwards and let any logged-in account delete a real
+          // customer's tentative hold it never created.
           const creatorName =
             typeof cover.rawTentativeDetails?.sales_agent === "string"
               ? cover.rawTentativeDetails.sales_agent.trim()
               : "";
           const canDelete =
-            !creatorName ||
+            creatorName !== "" &&
             creatorName.toLowerCase() === currentUserName.trim().toLowerCase();
           if (isUnpaid) {
             tentativeDetail.push(
@@ -2090,9 +2092,11 @@ export default function SalesDashboard() {
                 : "Unpaid.",
             );
           }
-          if (creatorName && !canDelete) {
+          if (!canDelete) {
             tentativeDetail.push(
-              `Created by ${creatorName} — only they can delete this.`,
+              creatorName
+                ? `Created by ${creatorName} — only they can delete this.`
+                : "No creator recorded for this slot — it can't be deleted from here.",
             );
           }
           return {

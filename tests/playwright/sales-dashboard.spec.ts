@@ -320,5 +320,144 @@ test.describe("Sales Dashboard — status:booked tentative rows (Instructor Mana
     await expect(
       popover.getByRole("button", { name: /Override Slot/i }),
     ).toHaveCount(0);
+    // No sales_agent recorded on this row (Instructor Management's format
+    // doesn't write one) -- Delete Slot must NOT appear. A real production
+    // incident: this defaulted to "allow delete when creator is unknown"
+    // at first, which let any logged-in account delete a real customer's
+    // tentative hold from another module. Must fail closed instead.
+    await expect(
+      popover.getByRole("button", { name: "Delete Slot" }),
+    ).toHaveCount(0);
+    await expect(popover).toContainText("No creator recorded for this slot");
+  });
+});
+
+test.describe("Sales Dashboard — tentative delete restricted to creator", () => {
+  const SEED_DATE = "2027-05-08";
+  const OWN_MARKER = "PW-SUITE-DELETE-OWNED";
+  const OTHER_MARKER = "PW-SUITE-DELETE-OTHER";
+
+  test.afterEach(async () => {
+    await sb
+      .from("Schedule")
+      .delete()
+      .eq("instructor_id", TEST_DP_ID)
+      .eq("date", SEED_DATE);
+  });
+
+  test("creator sees Delete Slot; a different sales agent's slot does not offer it", async ({
+    page,
+  }) => {
+    // Discover the logged-in account's name the same way the app does --
+    // open the booking modal once and read the locked Sales Agent field.
+    await searchAndAdd(page, "test_dp");
+    const row = page.locator(".row", { hasText: "test_dp" }).first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    for (let i = 0; i < 10; i++) {
+      const label = await page.locator(".cal-month").innerText();
+      if (label.includes("May") && label.includes("2027")) break;
+      await page.getByLabel("Next month").click();
+      await page.waitForTimeout(150);
+    }
+    await page
+      .locator(".tab")
+      .filter({ has: page.locator("strong", { hasText: /^8$/ }) })
+      .first()
+      .click();
+    await page.waitForTimeout(500);
+
+    const freeCell = row.locator("td.cell.cell-free").first();
+    await freeCell.dblclick();
+    await expect(page.getByText("Create Tentative Slot Booking")).toBeVisible();
+    await expect
+      .poll(
+        async () => (await page.locator("#salesAgent").inputValue()).length,
+        {
+          timeout: 10_000,
+        },
+      )
+      .toBeGreaterThan(0);
+    const currentUserName = await page.locator("#salesAgent").inputValue();
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    const { error } = await sb.from("Schedule").insert([
+      {
+        instructor_id: TEST_DP_ID,
+        date: SEED_DATE,
+        start_time: "10:00:00",
+        end_time: "11:00:00",
+        status: "hold",
+        isTentative: true,
+        tentative_details: {
+          name: OWN_MARKER,
+          phone: "9123450020",
+          sales_agent: currentUserName,
+          payment_status: "unpaid",
+          address: "owned addr",
+          course: "demo",
+          created_at: new Date().toISOString(),
+        },
+        learner_id: null,
+        course_id: null,
+        lesson_id: null,
+      },
+      {
+        instructor_id: TEST_DP_ID,
+        date: SEED_DATE,
+        start_time: "13:00:00",
+        end_time: "14:00:00",
+        status: "hold",
+        isTentative: true,
+        tentative_details: {
+          name: OTHER_MARKER,
+          phone: "9123450021",
+          sales_agent: "Someone Else Entirely",
+          payment_status: "unpaid",
+          address: "other addr",
+          course: "demo",
+          created_at: new Date().toISOString(),
+        },
+        learner_id: null,
+        course_id: null,
+        lesson_id: null,
+      },
+    ]);
+    expect(error).toBeNull();
+
+    await page.reload();
+    await page.waitForSelector(".sales-dashboard-root", { timeout: 15_000 });
+    await page.waitForTimeout(1000);
+    for (let i = 0; i < 10; i++) {
+      const label = await page.locator(".cal-month").innerText();
+      if (label.includes("May") && label.includes("2027")) break;
+      await page.getByLabel("Next month").click();
+      await page.waitForTimeout(150);
+    }
+    await page
+      .locator(".tab")
+      .filter({ has: page.locator("strong", { hasText: /^8$/ }) })
+      .first()
+      .click();
+    await page.waitForTimeout(500);
+    const row2 = page.locator(".row", { hasText: "test_dp" }).first();
+
+    const timeLabels = await page
+      .locator("thead th.col-time-h")
+      .allInnerTexts();
+    const idx10 = timeLabels.findIndex((t) => t.includes("10:00"));
+    const idx13 = timeLabels.findIndex((t) => t.includes("13:00"));
+
+    await row2.locator("td.cell").nth(idx10).hover();
+    await expect(
+      page.locator(".slot-pop").getByRole("button", { name: "Delete Slot" }),
+    ).toBeVisible();
+
+    await row2.locator("td.cell").nth(idx13).hover();
+    await expect(
+      page.locator(".slot-pop").getByRole("button", { name: "Delete Slot" }),
+    ).toHaveCount(0);
+    await expect(page.locator(".slot-pop")).toContainText(
+      "Someone Else Entirely",
+    );
   });
 });
