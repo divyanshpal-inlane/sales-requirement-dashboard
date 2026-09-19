@@ -133,6 +133,12 @@ function statusNote(
 
 const EMPTY_LIGHT: LightInstructor[] = [];
 
+// Persists which instructors are currently in the grid roster across a
+// page reload — useSalesData's own state is purely in-memory and resets
+// on every fresh mount, so without this Sales would have to re-search
+// and re-add every instructor from scratch after any refresh.
+const ROSTER_STORAGE_KEY = "lane-sales-dashboard-roster";
+
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
@@ -730,11 +736,29 @@ export default function SalesDashboard() {
   } | null>(null);
   const [slotNotice, setSlotNotice] = useState<string | null>(null);
   const slotNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const successNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const showSlotNotice = useCallback((message: string) => {
     if (slotNoticeTimerRef.current) clearTimeout(slotNoticeTimerRef.current);
     setSlotNotice(message);
     slotNoticeTimerRef.current = setTimeout(() => setSlotNotice(null), 4000);
+  }, []);
+
+  // Separate from showSlotNotice (which is styled as a warning) — this is
+  // the "your booking actually went through" confirmation, shown on the
+  // dashboard itself so it's visible after the modal (which shows its own
+  // brief in-modal message before closing) is gone.
+  const showSuccessNotice = useCallback((message: string) => {
+    if (successNoticeTimerRef.current)
+      clearTimeout(successNoticeTimerRef.current);
+    setSuccessNotice(message);
+    successNoticeTimerRef.current = setTimeout(
+      () => setSuccessNotice(null),
+      4000,
+    );
   }, []);
 
   // Hides the modal (formData/pendingSlots stay exactly as they are —
@@ -764,13 +788,20 @@ export default function SalesDashboard() {
   }, []);
 
   const handleTentativeSuccess = useCallback(() => {
+    showSuccessNotice(
+      overrideContext
+        ? "✅ Slot handed to the new learner successfully."
+        : pendingSlots.length > 1
+          ? `✅ ${pendingSlots.length} tentative classes booked successfully.`
+          : "✅ Tentative slot booked successfully.",
+    );
     setTentativeModalOpen(false);
     setPendingSlots([]);
     setCustomerFormData(DEFAULT_CUSTOMER_FORM());
     setOverrideContext(null);
     setAddingSlotMode(false);
     reload();
-  }, [reload]);
+  }, [reload, overrideContext, pendingSlots.length, showSuccessNotice]);
 
   useEffect(() => {
     if (!addingSlotMode) return;
@@ -875,10 +906,45 @@ export default function SalesDashboard() {
         if (active)
           setKmlError(err instanceof Error ? err.message : String(err));
       });
+    // Restore the instructor roster from before a page reload, so Sales
+    // doesn't have to re-search and re-add every instructor from scratch.
+    // useSalesData's own in-memory state resets on every mount (a reload
+    // is a fresh page load), so this is the only thing that survives it.
+    try {
+      const saved = localStorage.getItem(ROSTER_STORAGE_KEY);
+      if (saved) {
+        const ids: unknown = JSON.parse(saved);
+        if (Array.isArray(ids)) {
+          const validIds = ids.filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          );
+          if (validIds.length > 0) void loadInstructors(validIds);
+        }
+      }
+    } catch {
+      // Corrupt/unavailable storage (e.g. private browsing) — non-fatal,
+      // just means the roster won't restore this time.
+    }
     return () => {
       active = false;
     };
-  }, [loadInstructorIndex]);
+  }, [loadInstructorIndex, loadInstructors]);
+
+  // Keep the persisted roster in sync with whatever's actually loaded —
+  // covers both additions (search/location) and removals (the × button).
+  useEffect(() => {
+    if (!data) return;
+    try {
+      const ids = data.instructors.map((i) => i.id);
+      if (ids.length > 0) {
+        localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(ids));
+      } else {
+        localStorage.removeItem(ROSTER_STORAGE_KEY);
+      }
+    } catch {
+      // Storage unavailable — persistence just won't work this session.
+    }
+  }, [data]);
 
   useEffect(() => {
     if (!helpOpen) return;
@@ -2357,6 +2423,27 @@ export default function SalesDashboard() {
               if (slotNoticeTimerRef.current)
                 clearTimeout(slotNoticeTimerRef.current);
               setSlotNotice(null);
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Booking confirmation, shown on the dashboard itself so it's
+          visible after the modal (which shows its own brief message
+          before closing) is gone. */}
+      {successNotice && (
+        <div className="slot-toast slot-toast-success" role="status">
+          <span className="slot-toast-msg">{successNotice}</span>
+          <button
+            type="button"
+            className="slot-toast-close"
+            aria-label="Dismiss notice"
+            onClick={() => {
+              if (successNoticeTimerRef.current)
+                clearTimeout(successNoticeTimerRef.current);
+              setSuccessNotice(null);
             }}
           >
             ×

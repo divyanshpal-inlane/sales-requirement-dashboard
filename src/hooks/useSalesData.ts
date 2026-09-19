@@ -574,6 +574,47 @@ export function useSalesData() {
     };
   }, [loadSession, commit]);
 
+  // Realtime sync: when a Schedule row changes anywhere (e.g. a new
+  // tentative/booked class created from another module), silently re-fetch
+  // just that instructor's Schedule window if they're currently loaded into
+  // this dashboard's roster, so the grid stays current without a manual
+  // reload or re-search. Requires Realtime replication to be enabled for the
+  // "Schedule" table in Supabase (Database -> Replication in the dashboard,
+  // or `alter publication supabase_realtime add table "Schedule";` in the
+  // SQL editor) -- without it this subscription connects but never receives
+  // events.
+  useEffect(() => {
+    const channel = sb
+      .channel("sales-dashboard-schedule-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "Schedule" },
+        (payload: {
+          new?: { instructor_id?: string } | null;
+          old?: { instructor_id?: string } | null;
+        }) => {
+          const instrId =
+            payload.new?.instructor_id ?? payload.old?.instructor_id;
+          if (!instrId) return;
+          const s = storeRef.current;
+          // Not currently loaded into the grid -- nothing to refresh.
+          if (!s.instructors.has(instrId)) return;
+          // Deleting first makes doLoad treat this instructor as
+          // "not yet loaded" so it re-fetches fresh data instead of skipping
+          // it as already-present. This briefly shows the same per-row
+          // "Loading schedule..." skeleton used when an instructor is first
+          // added, rather than the full-page loading screen reload() causes.
+          s.instructors.delete(instrId);
+          commit();
+          void doLoad([instrId]);
+        },
+      )
+      .subscribe();
+    return () => {
+      void sb.removeChannel(channel);
+    };
+  }, [commit, doLoad]);
+
   return {
     phase,
     errorMsg,

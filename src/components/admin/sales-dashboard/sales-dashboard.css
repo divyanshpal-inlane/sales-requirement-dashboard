@@ -1507,3 +1507,18 @@
 .slot-toast-info .slot-toast-close:hover {
   background: var(--gc-yellow-hover);
 }
+
+/* Booking success confirmation banner. */
+.slot-toast-success {
+  background: var(--gc-green-fill);
+  color: var(--gc-green-text);
+  border-color: var(--gc-green-hover);
+}
+
+.slot-toast-success .slot-toast-close {
+  color: var(--gc-green-text);
+}
+
+.slot-toast-success .slot-toast-close:hover {
+  background: var(--gc-green-hover);
+}
