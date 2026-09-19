@@ -375,6 +375,12 @@ export const LL_STAGES: LLStage[] = [
     phase: "post_ll",
     next: ["dl_date_preference_received"],
   },
+  {
+    key: "ll_expired",
+    label: "LL Expired",
+    phase: "post_ll",
+    next: [],
+  },
 
   // ── Phase 6: DL test & delivery ──────────────────────────────────────
   {
@@ -478,6 +484,19 @@ export const LL_STAGE_MAP: Record<string, LLStage> = Object.fromEntries(
   LL_STAGES.map((s) => [s.key, s]),
 );
 
+/** Expiry states are terminal until Ops deliberately reverts the journey. */
+export const LL_EXPIRY_STATUSES = ["scrutiny_expired", "ll_expired"] as const;
+
+export function isLLExpiryStatus(status: string): boolean {
+  return (LL_EXPIRY_STATUSES as readonly string[]).includes(status);
+}
+
+/** Statuses shown in the Escalations queue even without a manual flag. */
+export const LL_ESCALATION_STATUSES = [
+  ...Object.keys(LL_FAILURE_STAGES),
+  "ll_expired",
+];
+
 export function llStageLabel(status: string): string {
   return (
     LL_STAGE_MAP[status]?.label ?? LL_FAILURE_STAGES[status]?.label ?? status
@@ -493,7 +512,7 @@ export function llStagePhase(status: string): LLPhaseKey {
 }
 
 export function isLLFailureStatus(status: string): boolean {
-  return status in LL_FAILURE_STAGES;
+  return status in LL_FAILURE_STAGES || status === "ll_expired";
 }
 
 const LL_STAGE_ORDER: Record<string, number> = Object.fromEntries([
@@ -618,6 +637,14 @@ export function getLLRevertTargets(
   currentStatus: string,
   batchCode?: string | null,
 ): string[] {
+  // Expiry has no forward edge. Ops must explicitly pick the stage where the
+  // renewed/reapplied journey should restart.
+  if (currentStatus === "ll_expired") {
+    return LL_STAGES.filter(
+      (stage) => stage.key !== "ll_expired" && stage.key !== "dl_delivered",
+    ).map((stage) => stage.key);
+  }
+
   const reverse = buildLLReverseEdges(batchCode ?? null);
   const seen = new Set<string>();
   const queue = [...(reverse[currentStatus] ?? [])];
@@ -1031,6 +1058,7 @@ export const DL_TEST_CHECKLIST: string[] = DL_TEST_CHECKLIST_SECTIONS.flatMap(
  * classes-track learners have left the LL flow by then.
  */
 export const DL_PHASE_CUSTOMER_STATUSES = [
+  "ll_expired",
   "ll_matured",
   "dl_date_selection",
   "dl_date_preference_received",
