@@ -20,6 +20,15 @@
   --gc-hover: #e4e4e7;
   --gc-detail: #fafafa;
   --gc-border: #e4e4e7;
+  /* Dedicated grid-line tokens (scoped to the timeline grid only, not
+     --gc-border generally, which is used for buttons/inputs everywhere and
+     shouldn't get darker just for this). One step past --gc-border for the
+     regular 30-minute lines, another step past that for hour boundaries
+     and instructor-row separators, so the grid keeps a clear hierarchy
+     without any single line becoming heavy. */
+  --gc-grid-line: #d4d4d8;
+  --gc-grid-line-strong: #a1a1aa;
+  --gc-band-bg: var(--gc-detail);
   --gc-text: #0a0a0b;
   --gc-text-2: #71717a;
   --gc-blue: #2563eb;
@@ -59,6 +68,14 @@
   --gc-hover: #3f3f46;
   --gc-detail: #221f1d;
   --gc-border: #27272a;
+  /* Same two-step hierarchy as light mode, lightened rather than darkened
+     since dark mode needs to go the other direction to stay visible
+     against --gc-bg -- deliberately NOT reusing --gc-hover's #3f3f46 here,
+     since that's also the free-slot fill; a grid line the same color as a
+     free cell would vanish at every free/free cell boundary. */
+  --gc-grid-line: #52525b;
+  --gc-grid-line-strong: #71717a;
+  --gc-band-bg: var(--gc-detail);
   --gc-text: #f2f2f2;
   --gc-text-2: #a1a1aa;
   --gc-blue: #60a5fa;
@@ -487,8 +504,8 @@
 
 .grid th,
 .grid td {
-  border-right: 1px solid var(--gc-border);
-  border-bottom: 1px solid var(--gc-border);
+  border-right: 1px solid var(--gc-grid-line);
+  border-bottom: 1px solid var(--gc-grid-line);
   padding: 6px 8px;
   text-align: center;
   font-size: 12px;
@@ -496,8 +513,23 @@
   color: var(--gc-text);
 }
 
+/* Hour-boundary vertical lines (every 2nd time column, i.e. the right edge
+   of :30 columns) get the stronger token so it's obvious at a glance where
+   each hour starts, without every 30-minute line competing for attention.
+   :not(...) excludes the sticky instructor column, which is also an
+   (odd) nth-child but isn't a time boundary. */
+.grid thead th:nth-child(odd):not(.col-instructor),
+.grid tr.row td:nth-child(odd):not(.instructor-cell) {
+  border-right: 1px solid var(--gc-grid-line-strong);
+}
+
+/* Instructor-row separator -- strengthens the existing top/bottom edges
+   that already sandwich the blank .row-gap spacer, rather than adding a
+   new border element, so consecutive instructors read as clearly distinct
+   rows without extra visual weight. */
 .grid tr.row td {
-  border-top: 1px solid var(--gc-border);
+  border-top: 1px solid var(--gc-grid-line-strong);
+  border-bottom: 1px solid var(--gc-grid-line-strong);
 }
 
 .grid thead th {
@@ -505,7 +537,7 @@
   top: 0;
   z-index: 2;
   background: var(--gc-surface);
-  border-bottom: 1px solid var(--gc-border);
+  border-bottom: 1px solid var(--gc-grid-line-strong);
   font-weight: 500;
   color: var(--gc-text-2);
   font-size: 11px;
@@ -843,8 +875,12 @@
   background-size: 8px 8px;
 }
 
+/* Subtle alternating tint per hour (2 columns) for cells with no other
+   state (busy/plain) -- makes it easier to scan which hour a column
+   belongs to without competing with the free/tentative/booked/pending
+   colors, which all take priority over this class (see SlotCellInner). */
 .cell-band {
-  background: transparent;
+  background: var(--gc-band-bg);
 }
 
 /* 🟡 Tentative — any payment status (unpaid/half/full paid all render the
