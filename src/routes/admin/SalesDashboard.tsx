@@ -49,6 +49,8 @@ import {
   minutesToTime,
   timeToMinutes,
 } from "@/lib/sales-dashboard/validation";
+import type { InstructorWorkingHours } from "@/lib/sales-dashboard/workingHours";
+import { inferInstructorWorkingHours } from "@/lib/sales-dashboard/workingHours";
 import { supabase } from "@/lib/supabaseClient";
 import { useCurrentAdmin } from "@/queries/adminPermissions";
 import { useCurrentUser } from "@/queries/userManagement";
@@ -194,10 +196,26 @@ function showDetailTitle(
   instructor: InstructorRow,
   windowTotal: number,
   days: number,
+  workingHours: InstructorWorkingHours,
 ): string {
   const areas =
     instructor.areas.length > 0 ? `Areas: ${instructor.areas.join(", ")}` : "";
-  return [areas, `${windowTotal} free slots across ${days} days`]
+  // Only worth stating when it's actually narrower than the shared
+  // booking-flow window -- otherwise every instructor with no bracket in
+  // their own unavailability data would repeat the same global hours.
+  const hours = workingHours.isDerived
+    ? `Hours: ${workingHours.start}–${workingHours.end}`
+    : "";
+  const daysOff =
+    workingHours.daysOff.length > 0
+      ? `Off: ${workingHours.daysOff.map((d) => d[0].toUpperCase() + d.slice(1)).join(", ")}`
+      : "";
+  return [
+    areas,
+    hours,
+    daysOff,
+    `${windowTotal} free slots across ${days} days`,
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -212,6 +230,8 @@ interface GridProps {
   dates: string[];
   selectedDate: string;
   gridMinutes: number;
+  slotStart: string;
+  slotEnd: string;
   expanded: Set<string>;
   selectedRows: Set<string>;
   rowColors: ReadonlyMap<string, string>;
@@ -445,6 +465,8 @@ interface InstructorRowGroupProps {
   dates: string[];
   selectedDate: string;
   gridMinutes: number;
+  slotStart: string;
+  slotEnd: string;
   freeGrid: Map<string, Map<string, number[]>>;
   onToggleExpand: (id: string) => void;
   onToggleSelectRow: (id: string) => void;
@@ -476,13 +498,26 @@ function InstructorRowGroupInner(props: InstructorRowGroupProps) {
     onOverrideClick,
     onDeleteTentative,
     gridMinutes,
+    slotStart,
+    slotEnd,
     freeGrid,
     onToggleExpand,
     onToggleSelectRow,
     onRemove,
     resolveInfo,
   } = props;
-  const detailTitle = showDetailTitle(instr, windowTotal, dates.length);
+  const workingHours = inferInstructorWorkingHours(
+    instr.unavailability,
+    slotStart,
+    slotEnd,
+    dates[0] ?? new Date().toISOString().slice(0, 10),
+  );
+  const detailTitle = showDetailTitle(
+    instr,
+    windowTotal,
+    dates.length,
+    workingHours,
+  );
 
   return (
     <Fragment>
@@ -665,6 +700,8 @@ function AvailabilityGridInner(props: GridProps) {
     dates,
     selectedDate,
     gridMinutes,
+    slotStart,
+    slotEnd,
     expanded,
     selectedRows,
     rowColors,
@@ -694,6 +731,8 @@ function AvailabilityGridInner(props: GridProps) {
         {instructors.map((instr) => (
           <InstructorRowGroup
             key={instr.id}
+            slotStart={slotStart}
+            slotEnd={slotEnd}
             instr={instr}
             freeSet={freeSets.get(instr.id)}
             windowTotal={windowTotals.get(instr.id) ?? 0}
@@ -2370,6 +2409,8 @@ export default function SalesDashboard() {
             dates={dates}
             selectedDate={selectedDate}
             gridMinutes={config.gridMinutes}
+            slotStart={config.slotStart}
+            slotEnd={config.slotEnd}
             expanded={expanded}
             selectedRows={selectedRows}
             rowColors={rowColors}
