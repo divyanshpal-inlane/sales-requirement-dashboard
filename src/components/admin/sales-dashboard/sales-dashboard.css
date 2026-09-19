@@ -87,12 +87,21 @@
   top: 0;
   z-index: 30;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(var(--gc-bg) 78%, rgba(255, 255, 255, 0));
+  padding: 8px 0 18px;
+}
+
+/* Holds the Back button, month nav, and all the filter/search/theme
+   controls -- unchanged from before other than no longer also holding the
+   title, so their relative order/positions stay exactly the same. */
+.topbar-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
-  background: linear-gradient(var(--gc-bg) 78%, rgba(255, 255, 255, 0));
-  padding: 8px 0 18px;
 }
 
 .brand {
@@ -101,13 +110,19 @@
   gap: 6px;
 }
 
-.brand h1 {
+/* On its own row (see .topbar's flex-direction: column) so it can be
+   genuinely centered across the full header width without overlapping the
+   Back button or the controls row below it -- the header is dense enough
+   that centering it in the same row as those left no free space in the
+   middle. */
+.topbar-title {
   margin: 0;
   font-family: "Glancyr", sans-serif;
   font-size: 21px;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: -0.3px;
   color: var(--gc-text);
+  text-align: center;
 }
 
 .cal-nav {

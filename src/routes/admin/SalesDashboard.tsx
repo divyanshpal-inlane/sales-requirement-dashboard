@@ -2200,154 +2200,158 @@ export default function SalesDashboard() {
     >
       <main className="shell">
         <header className="topbar">
-          <div className="brand">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/admin")}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            <h1>Instructor availability</h1>
-          </div>
-
-          <div className="cal-nav">
-            <button
-              type="button"
-              className="cal-btn chev"
-              onClick={goPrev}
-              disabled={monthIdx <= 0}
-              aria-label="Previous month"
-            >
-              ‹
-            </button>
-            <div className="cal-month">{monthLabel(activeMonth)}</div>
-            <button
-              type="button"
-              className="cal-btn chev"
-              onClick={goNext}
-              disabled={monthIdx >= months.length - 1}
-              aria-label="Next month"
-            >
-              ›
-            </button>
-          </div>
-
-          <div className="controls">
-            <div className="controls-row">
-              <select
-                className="sort-select"
-                value={activeMonth}
-                onChange={(e) => {
-                  setSelectedMonth(e.target.value);
-                  setDateIndex(0);
-                }}
-                aria-label="Select month"
+          <h1 className="topbar-title">Instructor availability</h1>
+          <div className="topbar-row">
+            <div className="brand">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/admin")}
               >
-                {months.map((m) => (
-                  <option key={m} value={m}>
-                    {monthLabel(m)}
-                  </option>
-                ))}
-              </select>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            </div>
 
-              <select
-                className="sort-select"
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                aria-label="Sort instructors"
+            <div className="cal-nav">
+              <button
+                type="button"
+                className="cal-btn chev"
+                onClick={goPrev}
+                disabled={monthIdx <= 0}
+                aria-label="Previous month"
               >
-                <option value="freeDesc">Filter (Most free slots)</option>
-                <option value="freeAsc">Filter (Least free slots)</option>
-                <option value="alpha">Filter (A → Z)</option>
-              </select>
+                ‹
+              </button>
+              <div className="cal-month">{monthLabel(activeMonth)}</div>
+              <button
+                type="button"
+                className="cal-btn chev"
+                onClick={goNext}
+                disabled={monthIdx >= months.length - 1}
+                aria-label="Next month"
+              >
+                ›
+              </button>
+            </div>
 
-              <div className="search" ref={searchRef}>
-                <input
-                  type="search"
-                  placeholder="Search or compare instructors…"
-                  value={filter}
+            <div className="controls">
+              <div className="controls-row">
+                <select
+                  className="sort-select"
+                  value={activeMonth}
                   onChange={(e) => {
-                    setFilter(e.target.value);
-                    setSearchOpen(true);
+                    setSelectedMonth(e.target.value);
+                    setDateIndex(0);
                   }}
-                  onFocus={() => {
-                    setSearchOpen(true);
-                    void loadInstructorIndex();
-                  }}
-                  onKeyDown={onSearchKeyDown}
-                  aria-label="Search instructors by name"
-                />
-                {searchOpen && searchResults.length > 0 && (
-                  <ul className="suggest">
-                    {searchResults.map((instr) => {
-                      const inRoster =
-                        data?.instructors.some((i) => i.id === instr.id) ??
-                        false;
-                      const isLoading =
-                        data?.loading.some((i) => i.id === instr.id) ?? false;
-                      return (
-                        <li
-                          key={instr.id}
-                          className={
-                            inRoster ? "suggest-row added" : "suggest-row"
-                          }
-                        >
-                          <button
-                            type="button"
-                            className="suggest-main"
-                            onClick={() => toggleRoster(instr.id)}
+                  aria-label="Select month"
+                >
+                  {months.map((m) => (
+                    <option key={m} value={m}>
+                      {monthLabel(m)}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="sort-select"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  aria-label="Sort instructors"
+                >
+                  <option value="freeDesc">Filter (Most free slots)</option>
+                  <option value="freeAsc">Filter (Least free slots)</option>
+                  <option value="alpha">Filter (A → Z)</option>
+                </select>
+
+                <div className="search" ref={searchRef}>
+                  <input
+                    type="search"
+                    placeholder="Search or compare instructors…"
+                    value={filter}
+                    onChange={(e) => {
+                      setFilter(e.target.value);
+                      setSearchOpen(true);
+                    }}
+                    onFocus={() => {
+                      setSearchOpen(true);
+                      void loadInstructorIndex();
+                    }}
+                    onKeyDown={onSearchKeyDown}
+                    aria-label="Search instructors by name"
+                  />
+                  {searchOpen && searchResults.length > 0 && (
+                    <ul className="suggest">
+                      {searchResults.map((instr) => {
+                        const inRoster =
+                          data?.instructors.some((i) => i.id === instr.id) ??
+                          false;
+                        const isLoading =
+                          data?.loading.some((i) => i.id === instr.id) ?? false;
+                        return (
+                          <li
+                            key={instr.id}
+                            className={
+                              inRoster ? "suggest-row added" : "suggest-row"
+                            }
                           >
-                            <span className="suggest-name-wrap">
-                              <span className="suggest-name">{instr.name}</span>
-                              {statusNote(instr) && (
-                                <span className="break-badge">
-                                  {statusNote(instr)}
+                            <button
+                              type="button"
+                              className="suggest-main"
+                              onClick={() => toggleRoster(instr.id)}
+                            >
+                              <span className="suggest-name-wrap">
+                                <span className="suggest-name">
+                                  {instr.name}
                                 </span>
-                              )}
-                            </span>
-                            <span className="suggest-btn">
-                              {inRoster
-                                ? "✓ Added"
-                                : isLoading
-                                  ? "Loading…"
-                                  : "＋ Add"}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                                {statusNote(instr) && (
+                                  <span className="break-badge">
+                                    {statusNote(instr)}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="suggest-btn">
+                                {inRoster
+                                  ? "✓ Added"
+                                  : isLoading
+                                    ? "Loading…"
+                                    : "＋ Add"}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="cal-btn icon-btn"
+                  onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                  aria-label="Toggle dark theme"
+                  title="Toggle dark theme"
+                >
+                  {theme === "dark" ? "☀" : "☾"}
+                </button>
+                <button
+                  type="button"
+                  className="reset-dash"
+                  onClick={resetDashboard}
+                  aria-label="Reset dashboard"
+                  title="Reset filters, search and selection"
+                >
+                  ↺ Reset
+                </button>
+                <button
+                  type="button"
+                  className="cal-btn icon-btn"
+                  onClick={() => setHelpOpen(true)}
+                  aria-label="Help"
+                  title="How to use this dashboard"
+                >
+                  ?
+                </button>
               </div>
-              <button
-                type="button"
-                className="cal-btn icon-btn"
-                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-                aria-label="Toggle dark theme"
-                title="Toggle dark theme"
-              >
-                {theme === "dark" ? "☀" : "☾"}
-              </button>
-              <button
-                type="button"
-                className="reset-dash"
-                onClick={resetDashboard}
-                aria-label="Reset dashboard"
-                title="Reset filters, search and selection"
-              >
-                ↺ Reset
-              </button>
-              <button
-                type="button"
-                className="cal-btn icon-btn"
-                onClick={() => setHelpOpen(true)}
-                aria-label="Help"
-                title="How to use this dashboard"
-              >
-                ?
-              </button>
             </div>
           </div>
         </header>
