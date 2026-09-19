@@ -103,3 +103,23 @@ been enabled yet — until it is, both of these subscriptions connect
 successfully but never actually receive an event, so reverse sync stays
 inert (falls back to requiring a manual reload, same as before this
 change).
+
+**Update:** replication has since been enabled and verified live. Also
+found and fixed a follow-up gap: Postgres's default `REPLICA IDENTITY`
+means a DELETE event's payload only ever carries the deleted row's primary
+key, not `instructor_id` — so deletions were silently not triggering any
+refresh at all on either page. `InstructorSchedulePage`'s subscription now
+uses a separate unfiltered handler for DELETE specifically (its filtered
+INSERT/UPDATE handlers are unaffected). The full fix (`REPLICA IDENTITY
+FULL` on `Schedule`) is proposed in `REALTIME_DELETE_REPLICA_IDENTITY.md`.
+
+## Instructor Management — hover tooltips for unavailable slots
+
+**Files changed:** `src/routes/admin/instructors.tsx`
+(`WeeklyScheduleView` and `InstructorSchedulePage`)
+
+Both calendar views already colored empty unavailable cells differently
+from free ones, but gave no explanation on hover. Added a `title` attribute
+to each. The underlying `unavailability` JSON has no free-text reason/note
+field, so the tooltip text is necessarily generic ("Instructor unavailable
+at this time") rather than naming a specific cause.
