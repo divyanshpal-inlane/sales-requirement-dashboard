@@ -1008,6 +1008,33 @@ export default function InstructorsManagement() {
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  // Reverse sync: pick up Schedule changes made elsewhere (e.g. a tentative
+  // slot booked from the Sales Dashboard) without requiring a manual reload.
+  // Broadly invalidates on any Schedule change rather than filtering by
+  // instructor server-side -- this list can show many instructors' schedules
+  // at once (each row's embedded `schedules`), so there's no single id to
+  // filter on. Mirrors the same invalidateQueries(["instructors"]) call this
+  // component already makes after its own tentative-schedule mutations
+  // succeed. Requires Realtime replication to be enabled for the "Schedule"
+  // table in Supabase (Database -> Replication, or `alter publication
+  // supabase_realtime add table "Schedule";` in the SQL editor) -- without
+  // it this subscription connects but never receives events.
+  useEffect(() => {
+    const channel = supabase
+      .channel("instructor-mgmt-schedule-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "Schedule" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["instructors"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Add or update an instructor
   const mutation = useMutation({
     mutationFn: async (data: InstructorData) => {
@@ -5911,6 +5938,38 @@ export const InstructorSchedulePage = () => {
       return data;
     },
   });
+
+  // Reverse sync: pick up Schedule changes made elsewhere (e.g. a tentative
+  // slot booked from the Sales Dashboard) without requiring a manual
+  // reload. Filtered server-side to this page's own instructor since,
+  // unlike the list page, there's exactly one id to care about here.
+  // Requires Realtime replication to be enabled for the "Schedule" table in
+  // Supabase (Database -> Replication, or `alter publication
+  // supabase_realtime add table "Schedule";` in the SQL editor) -- without
+  // it this subscription connects but never receives events.
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`instructor-schedule-sync-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "Schedule",
+          filter: `instructor_id=eq.${id}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: ["instructor-full", id],
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
 
   const deleteMutation = useMutation({
     mutationFn: async (scheduleId) => {
