@@ -1561,15 +1561,26 @@ export default function SalesDashboard() {
       // through to here regardless of whether anything is really
       // scheduled. Label it honestly as outside business hours rather
       // than generic "Busy", which reads as an actual conflict.
+      //
+      // The effective cutoff is slotEnd MINUS a full class length, not
+      // slotEnd itself: a candidate start only ever gets evaluated if a
+      // full slotDurationMinutes-long class fits before closing
+      // (candidateStartMinutes requires start + duration <= slotEnd).
+      // With slotEnd 22:00 and a 60-min class, 21:00 is the last minute
+      // ever checked — 21:30 is nominally "within" 06:00-22:00 by a raw
+      // bounds check, but can never be evaluated as free either, so it
+      // needs the same label, not a third, different-looking "Busy".
       const winStart = timeToMinutes(config?.slotStart ?? "00:00");
-      const winEnd = timeToMinutes(config?.slotEnd ?? "24:00");
+      const winEnd =
+        timeToMinutes(config?.slotEnd ?? "24:00") -
+        (config?.slotDurationMinutes ?? 0);
       if (minute < winStart || minute >= winEnd) {
         return {
           title: "Outside business hours",
           detail: [
             timeLabel,
             `Instructor: ${name}`,
-            `Availability is only tracked ${config?.slotStart}–${config?.slotEnd}.`,
+            `Availability runs ${config?.slotStart}–${config?.slotEnd}, and a class has to fit entirely before closing — so slots starting after ${minutesToTime(winEnd)} aren't tracked either.`,
           ],
           kind: "default",
           override: null,
