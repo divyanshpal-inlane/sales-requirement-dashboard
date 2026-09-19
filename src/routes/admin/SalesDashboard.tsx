@@ -1533,11 +1533,16 @@ export default function SalesDashboard() {
       }
 
       // Validate 1-hour block availability. A genuine overlap always
-      // blocks here; a buffer-only conflict is let through so the modal
-      // can open -- whether it's actually waivable depends on the
-      // customer's phone, which isn't known yet at double-click time (the
-      // form hasn't been filled in). That's re-checked for real in
-      // validateSlotFresh right before submit.
+      // blocks here. A buffer-only conflict is only let through when
+      // we're adding another class to an in-progress batch AND the
+      // customer's already-entered phone actually waives it (chaining
+      // back-to-back classes for the SAME learner) -- that's the one
+      // case where opening the modal anyway is useful. A fresh
+      // double-click has no customer yet to justify that, so it would
+      // always end up rejected at submit after a wasted form fill; show
+      // the same notice a genuine overlap gets instead of opening the
+      // modal. (validateSlotFresh still re-checks everything for real
+      // right before submit, since the grid can change in the meantime.)
       const gapMinutes = Math.max(
         0,
         Math.floor(config?.instructor_gap_minutes ?? 0),
@@ -1554,6 +1559,21 @@ export default function SalesDashboard() {
           "This 1-hour slot is not fully available. Please select a different time.",
         );
         return;
+      }
+      if (conflict.kind === "buffer") {
+        const waived =
+          addingSlotMode &&
+          bufferWaivedForCustomer(conflict, customerFormData.customerPhone);
+        if (!waived) {
+          showSlotNotice(
+            `This slot doesn't have a full free hour — it's within the instructor's ${gapMinutes}-minute travel-gap buffer around another booking. Please select a different time.`,
+          );
+          if (addingSlotMode) {
+            setAddingSlotMode(false);
+            setTentativeModalOpen(true);
+          }
+          return;
+        }
       }
 
       const startTime = minutesToTime(minute);
@@ -1613,6 +1633,7 @@ export default function SalesDashboard() {
       addingSlotMode,
       pendingSlots,
       currentUserName,
+      customerFormData.customerPhone,
     ],
   );
 
