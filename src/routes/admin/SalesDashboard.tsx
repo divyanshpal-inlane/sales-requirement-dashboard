@@ -935,6 +935,13 @@ export default function SalesDashboard() {
   // on mount lost this race almost every time -- the restore looked like it
   // should work but never actually loaded anything.
   const rosterRestoredRef = useRef(false);
+  // IDs from localStorage that a restore has asked loadInstructors() to
+  // fetch, but that haven't yet shown up in data.instructors or
+  // data.errors. Read by the roster-save-back effect below to avoid
+  // wiping localStorage while the restore is still in flight -- see the
+  // long comment on that effect for why a ref (not state) is required
+  // here. null means "no restore is pending" (steady state).
+  const pendingRestoreIdsRef = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (phase !== "ready" || rosterRestoredRef.current) return;
     rosterRestoredRef.current = true;
@@ -949,7 +956,10 @@ export default function SalesDashboard() {
           const validIds = ids.filter(
             (id): id is string => typeof id === "string" && id.length > 0,
           );
-          if (validIds.length > 0) void loadInstructors(validIds);
+          if (validIds.length > 0) {
+            pendingRestoreIdsRef.current = new Set(validIds);
+            void loadInstructors(validIds);
+          }
         }
       }
     } catch {
@@ -960,8 +970,34 @@ export default function SalesDashboard() {
 
   // Keep the persisted roster in sync with whatever's actually loaded —
   // covers both additions (search/location) and removals (the × button).
+  //
+  // Guarded on pendingRestoreIdsRef, NOT just "is data.instructors empty":
+  // the moment phase first flips to "ready", data becomes non-null with
+  // instructors still empty (nothing has finished fetching yet) in the
+  // very same React commit the restore effect above reads localStorage
+  // and calls loadInstructors() for the saved roster. Because sibling
+  // effects in one commit all close over that commit's OWN state
+  // snapshot, even checking data.loading here doesn't help -- doLoad's
+  // own internal commit() (marking those ids as loading) hasn't been
+  // applied to a new render yet either, so data.loading also still reads
+  // empty in this exact tick. A ref sidesteps that: pendingRestoreIdsRef
+  // is mutated synchronously the moment the restore fires, so it's
+  // already correct by the time this effect runs in the same flush.
+  // Without this, this effect saw an empty instructors array, assumed
+  // there was nothing to save, and immediately wiped the roster the
+  // restore effect had just started fetching -- deleting it before it
+  // ever got a chance to be re-saved once loaded.
   useEffect(() => {
     if (!data) return;
+    const pending = pendingRestoreIdsRef.current;
+    if (pending) {
+      const stillPending = [...pending].some(
+        (id) =>
+          !data.instructors.some((i) => i.id === id) && !(id in data.errors),
+      );
+      if (stillPending) return;
+      pendingRestoreIdsRef.current = null;
+    }
     try {
       const ids = data.instructors.map((i) => i.id);
       if (ids.length > 0) {
