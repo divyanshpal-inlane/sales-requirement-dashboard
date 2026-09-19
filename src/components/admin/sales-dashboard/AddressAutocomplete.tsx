@@ -1,7 +1,7 @@
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { memo, useEffect, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { loadMapsApi } from "@/lib/sales-dashboard/maps";
 
 interface AddressAutocompleteProps {
   value: string;
@@ -22,16 +22,26 @@ export const AddressAutocomplete = memo(
       null,
     );
     const [internalValue, setInternalValue] = useState(value);
-    const placesLib = useMapsLibrary("places");
+    const [maps, setMaps] = useState<typeof google.maps | null>(null);
 
     useEffect(() => {
       setInternalValue(value);
     }, [value]);
 
     useEffect(() => {
-      if (!inputRef.current || !placesLib) return;
+      let active = true;
+      void loadMapsApi().then((m) => {
+        if (active) setMaps(m);
+      });
+      return () => {
+        active = false;
+      };
+    }, []);
 
-      autocompleteRef.current = new placesLib.Autocomplete(inputRef.current, {
+    useEffect(() => {
+      if (!inputRef.current || !maps) return;
+
+      autocompleteRef.current = new maps.places.Autocomplete(inputRef.current, {
         componentRestrictions: { country: "IN" },
         fields: ["formatted_address", "geometry"],
       });
@@ -55,7 +65,7 @@ export const AddressAutocomplete = memo(
       return () => {
         if (listener) google.maps.event.removeListener(listener);
       };
-    }, [placesLib, onChange]);
+    }, [maps, onChange]);
 
     const handleManualTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
