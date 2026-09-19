@@ -1816,30 +1816,38 @@ export default function SalesDashboard() {
   // unlike override, this works regardless of payment status, since it's
   // just removing a mistaken hold rather than handing the slot to someone
   // else.
+  // Opens the in-app confirm dialog below rather than the browser's native
+  // window.confirm() -- unstyled, doesn't match the app, and (unlike this
+  // dialog) can't be dismissed by clicking outside or be given a real
+  // destructive-action button.
+  const [pendingDelete, setPendingDelete] = useState<NonNullable<
+    SlotInfo["deleteAction"]
+  > | null>(null);
+
   const handleDeleteTentative = useCallback(
     (action: NonNullable<SlotInfo["deleteAction"]>) => {
-      if (
-        !window.confirm(
-          `Delete the tentative slot for ${action.customerName}? This can't be undone.`,
-        )
-      ) {
-        return;
-      }
-      void supabase
-        .from("Schedule")
-        .delete()
-        .eq("id", action.blockId)
-        .then(({ error }) => {
-          if (error) {
-            showSlotNotice(`Couldn't delete slot: ${error.message}`);
-            return;
-          }
-          showSuccessNotice("Tentative slot deleted.");
-          refreshInstructors([action.instrId]);
-        });
+      setPendingDelete(action);
     },
-    [refreshInstructors, showSlotNotice, showSuccessNotice],
+    [],
   );
+
+  const confirmDeleteTentative = useCallback(() => {
+    const action = pendingDelete;
+    if (!action) return;
+    setPendingDelete(null);
+    void supabase
+      .from("Schedule")
+      .delete()
+      .eq("id", action.blockId)
+      .then(({ error }) => {
+        if (error) {
+          showSlotNotice(`Couldn't delete slot: ${error.message}`);
+          return;
+        }
+        showSuccessNotice("Tentative slot deleted.");
+        refreshInstructors([action.instrId]);
+      });
+  }, [pendingDelete, refreshInstructors, showSlotNotice, showSuccessNotice]);
 
   const resolveInfo = useMemo(() => {
     const gap = config?.instructor_gap_minutes ?? 0;
@@ -2892,6 +2900,56 @@ export default function SalesDashboard() {
           </div>
         )}
       </main>
+
+      {/* In-app confirm dialog for deleting a tentative slot — replaces
+          window.confirm() so it matches the rest of the dashboard and can
+          be dismissed by clicking outside, not just OK/Cancel. */}
+      {pendingDelete && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- standard click-outside-to-dismiss backdrop; the modal itself has role="alertdialog" and a visible close button
+        <div className="modal-backdrop" onClick={() => setPendingDelete(null)}>
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions -- stops the backdrop's dismiss click from bubbling; the modal itself has role="alertdialog" and a visible close button */}
+          <div
+            className="modal modal-sm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Delete tentative slot"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Delete tentative slot?</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setPendingDelete(null)}
+                aria-label="Cancel"
+              >
+                ×
+              </button>
+            </div>
+            <p className="confirm-message">
+              Delete the tentative slot for{" "}
+              <strong>{pendingDelete.customerName}</strong>? This can&apos;t be
+              undone.
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="expand"
+                onClick={() => setPendingDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="reset-dash"
+                onClick={confirmDeleteTentative}
+              >
+                Delete Slot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tentative Booking Modal */}
       <TentativeBookingModal

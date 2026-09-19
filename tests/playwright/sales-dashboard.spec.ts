@@ -459,5 +459,60 @@ test.describe("Sales Dashboard — tentative delete restricted to creator", () =
     await expect(page.locator(".slot-pop")).toContainText(
       "Someone Else Entirely",
     );
+
+    // Deleting the owned slot uses an in-app confirm dialog, not the
+    // browser's native window.confirm() -- a "dialog" event firing here
+    // would mean the old native prompt is still in play.
+    let nativeDialogFired = false;
+    page.on("dialog", () => {
+      nativeDialogFired = true;
+    });
+
+    await row2.locator("td.cell").nth(idx10).hover();
+    await page
+      .locator(".slot-pop")
+      .getByRole("button", { name: "Delete Slot" })
+      .click();
+    const confirmDialog = page.getByRole("alertdialog", {
+      name: "Delete tentative slot",
+    });
+    await expect(confirmDialog).toBeVisible();
+    await expect(confirmDialog).toContainText(OWN_MARKER);
+    expect(nativeDialogFired).toBe(false);
+
+    // Cancel dismisses without deleting.
+    await confirmDialog
+      .locator(".confirm-actions")
+      .getByRole("button", { name: "Cancel" })
+      .click();
+    await expect(confirmDialog).not.toBeVisible();
+    const { data: stillThere } = await sb
+      .from("Schedule")
+      .select("id")
+      .eq("instructor_id", TEST_DP_ID)
+      .eq("date", SEED_DATE)
+      .eq("start_time", "10:00:00");
+    expect(stillThere?.length).toBe(1);
+
+    // Confirming actually deletes it.
+    await row2.locator("td.cell").nth(idx10).hover();
+    await page
+      .locator(".slot-pop")
+      .getByRole("button", { name: "Delete Slot" })
+      .click();
+    await confirmDialog
+      .locator(".confirm-actions")
+      .getByRole("button", { name: "Delete Slot" })
+      .click();
+    await expect(page.getByText("Tentative slot deleted.")).toBeVisible({
+      timeout: 10_000,
+    });
+    const { data: afterDelete } = await sb
+      .from("Schedule")
+      .select("id")
+      .eq("instructor_id", TEST_DP_ID)
+      .eq("date", SEED_DATE)
+      .eq("start_time", "10:00:00");
+    expect(afterDelete?.length).toBe(0);
   });
 });

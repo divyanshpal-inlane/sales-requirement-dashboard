@@ -1280,6 +1280,25 @@
   color: var(--gc-text);
 }
 
+/* Small confirm-style dialog (e.g. delete-tentative-slot) -- same .modal
+   shell, just narrower than the booking/help modals' default width. */
+.modal-sm {
+  width: min(420px, 92vw);
+}
+
+.confirm-message {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--gc-text);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .help-section {
   margin-top: 16px;
 }
