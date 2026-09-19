@@ -1464,6 +1464,13 @@
   position: fixed;
   top: 20px;
   left: 50%;
+  /* Matches the keyframe's "to" state -- without this, the moment the
+     0.18s entrance animation ends (animation-fill-mode isn't "forwards"),
+     the transform reverts to this rule's own value. Left unset here, that
+     was "none": left: 50% alone positions the box's LEFT EDGE at the
+     viewport's midpoint, not its center, so the toast visibly snapped
+     from centered to shifted-right the instant the animation finished. */
+  transform: translate(-50%, 0);
   z-index: 200;
   display: flex;
   align-items: center;
