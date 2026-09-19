@@ -29,6 +29,9 @@
   --gc-grid-line: #d4d4d8;
   --gc-grid-line-strong: #a1a1aa;
   --gc-band-bg: var(--gc-detail);
+  /* Shared height for every topbar control -- same in both themes, so only
+     declared once here rather than repeated in the dark block below. */
+  --gc-control-h: 32px;
   --gc-text: #0a0a0b;
   --gc-text-2: #71717a;
   --gc-blue: #2563eb;
@@ -157,14 +160,26 @@
   gap: 6px;
 }
 
+/* --gc-control-h: the one shared height for every control in the topbar
+   row (Back, month chevrons, month/filter dropdowns, search, dark-mode
+   toggle, Reset, Help) so they align on one line instead of each sizing
+   itself off its own font-size/padding. Matches src/components/ui/
+   button.tsx's size="sm" (h-8 = 32px), which is what the Back button
+   already renders at -- so the Back button needs no size override here,
+   everything else is brought to match it. */
 .cal-btn {
+  height: var(--gc-control-h, 32px);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: "Glancyr", sans-serif;
   font-size: 13px;
   color: var(--gc-text);
   background: var(--gc-bg);
   border: 1px solid var(--gc-border);
   border-radius: 10px;
-  padding: 7px 12px;
+  padding: 0 12px;
   transition:
     background 0.15s ease,
     box-shadow 0.15s ease;
@@ -181,27 +196,17 @@
 }
 
 .cal-btn.chev {
-  width: 34px;
-  height: 34px;
+  width: var(--gc-control-h, 32px);
   padding: 0;
-  border-radius: 10px;
   font-size: 19px;
   line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .icon-btn {
-  width: 34px;
-  height: 34px;
+  width: var(--gc-control-h, 32px);
   padding: 0;
-  border-radius: 10px;
   font-size: 16px;
   line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .cal-month {
@@ -221,7 +226,7 @@
 
 .controls-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
 }
 
@@ -231,7 +236,9 @@
 }
 
 .sort-select {
-  padding: 7px 12px;
+  height: var(--gc-control-h, 32px);
+  box-sizing: border-box;
+  padding: 0 12px;
   border: 1px solid var(--gc-border);
   border-radius: 10px;
   font-size: 13px;
@@ -252,7 +259,9 @@
 
 .search input {
   width: 100%;
-  padding: 8px 14px;
+  height: var(--gc-control-h, 32px);
+  box-sizing: border-box;
+  padding: 0 14px;
   border: 1px solid var(--gc-border);
   border-radius: 10px;
   font-size: 13.5px;
@@ -673,7 +682,9 @@
 }
 
 .reset-dash {
-  padding: 7px 14px;
+  height: var(--gc-control-h, 32px);
+  box-sizing: border-box;
+  padding: 0 14px;
   border: 1px solid var(--gc-border);
   background: var(--gc-red-bg);
   color: var(--gc-red-text);
